@@ -5,6 +5,7 @@ export type UserState = {
     avatar?: string
     userName?: string
     email?: string
+    key?: string
     authority?: string[]
 }
 
@@ -12,6 +13,7 @@ const initialState: UserState = {
     avatar: '',
     userName: '',
     email: '',
+    key: '',
     authority: [],
 }
 
@@ -23,6 +25,7 @@ const userSlice = createSlice({
             state.avatar = action.payload?.avatar
             state.email = action.payload?.email
             state.userName = action.payload?.userName
+            state.key = action.payload?.key
             state.authority = action.payload?.authority
         },
     },
