@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-import { getStorage } from "firebase/storage";
+import { initializeApp } from 'firebase/app'
+import { getAnalytics } from 'firebase/analytics'
+import { getStorage } from 'firebase/storage'
 import { getAuth } from 'firebase/auth'
 import { initializeFirestore } from 'firebase/firestore'
 
@@ -11,20 +11,20 @@ import { initializeFirestore } from 'firebase/firestore'
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyCO-cOxWRR_JQ5RgKbBhObIGV4RhB_W5rM",
-  authDomain: "talleressolvers.firebaseapp.com",
-  projectId: "talleressolvers",
-  storageBucket: "talleressolvers.appspot.com",
-  messagingSenderId: "647071486584",
-  appId: "1:647071486584:web:c0eb02fcb2b1553f25538d",
-  measurementId: "G-XT3NPL3EKW"
-};
+    apiKey: 'AIzaSyB7JeVA4YZBzTblEOnZ-drNT-vwv085fgM',
+    authDomain: 'talleres-solvers-app.firebaseapp.com',
+    projectId: 'talleres-solvers-app',
+    storageBucket: 'talleres-solvers-app.appspot.com',
+    messagingSenderId: '144076824848',
+    appId: '1:144076824848:web:cdaf60b28136561b338595',
+    measurementId: 'G-DXQ986SLJR',
+}
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig)
 const auth = getAuth(app)
 const db = initializeFirestore(app, {
     experimentalForceLongPolling: true,
 })
-export const storage = getStorage(app);
-export {auth, db }
+export const storage = getStorage(app)
+export { auth, db }

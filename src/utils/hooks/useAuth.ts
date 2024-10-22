@@ -11,8 +11,20 @@ import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import useQuery from './useQuery'
 import type { SignInCredential, SignUpCredential } from '@/@types/auth'
-import { createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword } from 'firebase/auth'
-import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore'
+import {
+    createUserWithEmailAndPassword,
+    getAuth,
+    signInWithEmailAndPassword,
+} from 'firebase/auth'
+import {
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    query,
+    setDoc,
+    where,
+} from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 
 type Status = 'success' | 'failed'
@@ -25,20 +37,18 @@ function useAuth() {
     const { token, signedIn } = useAppSelector((state) => state.auth.session)
     const queryRedirect = useQuery()
 
-
     const signIn = async (
-        values: SignInCredential
+        values: SignInCredential,
     ): Promise<
         | {
-            status: Status
-            message: string
-        }
+              status: Status
+              message: string
+          }
         | undefined
     > => {
-
         const query1 = query(
-            collection(db, 'u_users'),
-            where('email', '==', values.userName)
+            collection(db, 'Usuarios'),
+            where('email', '==', values.userName),
         )
         const querySnapshot = await getDocs(query1)
         let infoFinal: any = []
@@ -61,7 +71,7 @@ function useAuth() {
                 const userCredential = await signInWithEmailAndPassword(
                     auth,
                     values.userName,
-                    values.password
+                    values.password,
                 )
 
                 // .then(resp=>{
@@ -70,31 +80,32 @@ function useAuth() {
                     dispatch(signInSuccess(token))
                     if (userCredential?.user) {
                         console.log(userCredential?.user?.uid)
-                        getDoc(doc(db, 'u_users', userCredential?.user?.uid)).then(
-                            (resp) => {
-                                const info = resp.data()
-                                localStorage.setItem("userName", info?.name)
-                                dispatch(
-                                    setUser({
-                                        avatar: '',
-                                        userName: info?.name,
-                                        email: info?.email,
-                                        key: resp.id,
-                                        authority: ['admin', 'user'] // ['user']
-                                    })
-                                )
-                                const redirectUrl = queryRedirect.get(REDIRECT_URL_KEY)
-                                navigate(
-                                    redirectUrl
-                                        ? redirectUrl
-                                        : appConfig.authenticatedEntryPath
-                                )
-                                return {
-                                    status: 'success',
-                                    message: '',
-                                }
+                        getDoc(
+                            doc(db, 'u_users', userCredential?.user?.uid),
+                        ).then((resp) => {
+                            const info = resp.data()
+                            localStorage.setItem('userName', info?.name)
+                            dispatch(
+                                setUser({
+                                    avatar: '',
+                                    userName: info?.name,
+                                    email: info?.email,
+                                    key: resp.id,
+                                    authority: ['admin', 'user'], // ['user']
+                                }),
+                            )
+                            const redirectUrl =
+                                queryRedirect.get(REDIRECT_URL_KEY)
+                            navigate(
+                                redirectUrl
+                                    ? redirectUrl
+                                    : appConfig.authenticatedEntryPath,
+                            )
+                            return {
+                                status: 'success',
+                                message: '',
                             }
-                        )
+                        })
                     }
                 } else {
                     console.log(userCredential)
@@ -108,7 +119,8 @@ function useAuth() {
                 // }
                 return {
                     status: 'failed',
-                    message: errors?.response?.data?.message || errors.toString(),
+                    message:
+                        errors?.response?.data?.message || errors.toString(),
                 }
             }
         }
@@ -119,47 +131,51 @@ function useAuth() {
             console.log(values)
             const auth = getAuth()
             createUserWithEmailAndPassword(auth, values.email, values.password)
-            .then((userCredential) => {
+                .then((userCredential) => {
                     const user = userCredential.user
-                    console.log("aqui")
+                    console.log('aqui')
                     console.log(user?.uid)
                     if (user?.uid) {
                         console.log(user?.uid)
                         const token = user?.uid
                         console.log(token)
 
-                        setDoc(doc(db, 'u_users', user?.uid), values).then(
+                        setDoc(doc(db, 'Usuarios', token), values).then(
                             (resp) => {
                                 console.log(resp)
                                 dispatch(signInSuccess(token))
                                 if (user?.uid) {
-                                    localStorage.setItem("userName", values.name)
+                                    localStorage.setItem(
+                                        'userName',
+                                        values.name,
+                                    )
                                     dispatch(
                                         setUser({
                                             avatar: '',
                                             userName: values?.name,
                                             email: values?.email,
                                             key: token,
-                                            authority: ['admin', 'user'] // ['user']
-                                        })
+                                            authority: ['admin', 'user'], // ['user']
+                                        }),
                                     )
                                 }
-                                const redirectUrl = queryRedirect.get(REDIRECT_URL_KEY)
+                                const redirectUrl =
+                                    queryRedirect.get(REDIRECT_URL_KEY)
                                 navigate(
                                     redirectUrl
                                         ? redirectUrl
-                                        : appConfig.authenticatedEntryPath
+                                        : appConfig.authenticatedEntryPath,
                                 )
-                                
+
                                 return {
                                     status: 'success',
                                     message: 'Usuario creado exitosamente',
                                 }
                             },
-                            (err) => { }
+                            (err) => {},
                         )
                     } else {
-                        console.log("Error en Guardado en BD")
+                        console.log('Error en Guardado en BD')
                         return {
                             status: 'failed',
                             message: 'Error',
@@ -176,11 +192,10 @@ function useAuth() {
                     // }
                 })
         })
-
-    };
-    
+    }
 
     const handleSignOut = () => {
+        // Limpiamos los datos del usuario en el estado de la aplicación
         dispatch(signOutSuccess())
         dispatch(
             setUser({
@@ -188,13 +203,14 @@ function useAuth() {
                 userName: '',
                 email: '',
                 authority: [],
-            })
+            }),
         )
+        // Redirigimos al usuario a la página de entrada no autenticada
         navigate(appConfig.unAuthenticatedEntryPath)
     }
 
-    const signOut = async () => {
-        await apiSignOut()
+    const signOut = () => {
+        // Ejecutamos directamente el cierre de sesión sin llamar a la API
         handleSignOut()
     }
 

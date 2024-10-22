@@ -1,3 +1,4 @@
+import { FaRegUser, FaTools } from 'react-icons/fa'
 import {
     HiOutlineChartSquareBar,
     HiOutlineUserGroup,
@@ -24,6 +25,8 @@ import {
     HiOutlineVariable,
     HiOutlineCode,
 } from 'react-icons/hi'
+import { IoCarSportOutline } from 'react-icons/io5'
+import { VscTools } from 'react-icons/vsc'
 
 export type NavigationIcons = Record<string, JSX.Element>
 
@@ -55,6 +58,9 @@ const navigationIcon: NavigationIcons = {
     sharedComponentDoc: <HiOutlineShare />,
     utilsDoc: <HiOutlineVariable />,
     changeLog: <HiOutlineCode />,
+    user: <FaRegUser />,
+    cars: <IoCarSportOutline />,
+    tools: <VscTools />,
 }
 
 export default navigationIcon

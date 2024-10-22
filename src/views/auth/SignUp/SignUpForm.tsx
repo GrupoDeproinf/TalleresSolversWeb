@@ -10,7 +10,6 @@ import * as Yup from 'yup'
 import useAuth from '@/utils/hooks/useAuth'
 import type { CommonProps } from '@/@types/common'
 import { Notification, toast } from '@/components/ui'
-import { USER } from '@/constants/roles.constant'
 
 interface SignUpFormProps extends CommonProps {
     disableSubmit?: boolean
@@ -18,45 +17,48 @@ interface SignUpFormProps extends CommonProps {
 }
 
 type SignUpFormSchema = {
-    userName: string
+    nombre: string
     password: string
     email: string
+    cedula: string
+    phone: string
 }
 
 const validationSchema = Yup.object().shape({
-    userName: Yup.string().required('Please enter your user name'),
+    nombre: Yup.string().required('Por favor ingrese su nombre'),
     email: Yup.string()
-        .email('Invalid email')
-        .required('Please enter your email'),
-    password: Yup.string().required('Please enter your password'),
+        .email('email invalido')
+        .required('Por favor ingrese su email'),
+    password: Yup.string().required('Por favor ingrese una contraseña'),
     confirmPassword: Yup.string().oneOf(
         [Yup.ref('password')],
-        'Your passwords do not match'
+        'Las contraseñas no coinciden',
     ),
+    cedula: Yup.string().required('Por favor ingrese su cédula'),
+    phone: Yup.string()
+        .matches(/^\d{10,14}$/, 'Invalid phone number')
+        .required('Por favor ingrese su número teléfonico'),
 })
 
 const SignUpForm = (props: SignUpFormProps) => {
     const { disableSubmit = false, className, signInUrl = '/sign-in' } = props
-
     const { signUp } = useAuth()
-
     const [message, setMessage] = useTimeOutMessage()
 
     const onSignUp = async (
         values: SignUpFormSchema,
-        setSubmitting: (isSubmitting: boolean) => void
+        setSubmitting: (isSubmitting: boolean) => void,
     ) => {
         setSubmitting(true)
 
-        console.log(values)
-
         const newUser = {
-            userName: values.userName,
+            nombre: values.nombre,
             email: values.email,
             password: values.password,
+            cedula: values.cedula,
+            phone: values.phone,
+            typeUser: 'Cliente', // Agregar el campo typeUser aquí
         }
-
-        console.log(newUser)
 
         signUp(newUser)
             .then((resp) => {
@@ -64,13 +66,11 @@ const SignUpForm = (props: SignUpFormProps) => {
             })
             .catch((error) => {
                 console.log(error)
-                // if (result?.status === 'failed') {
                 switch (error) {
                     case 'FirebaseError: Firebase: Password should be at least 6 characters (auth/weak-password).':
                         showToast(
                             'La contraseña debe tener al menos 6 caracteres.',
                         )
-
                         break
                     case 'Firebase: Error (auth/email-already-in-use).':
                         showToast(
@@ -86,7 +86,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                         showToast(error)
                         break
                 }
-                // }
             })
 
         setSubmitting(false)
@@ -97,9 +96,7 @@ const SignUpForm = (props: SignUpFormProps) => {
             <Notification title={'Atención'} type="warning" duration={2500}>
                 {message}
             </Notification>,
-            {
-                placement: 'top-center',
-            },
+            { placement: 'top-center' },
         )
     }
 
@@ -112,10 +109,12 @@ const SignUpForm = (props: SignUpFormProps) => {
             )}
             <Formik
                 initialValues={{
-                    userName: '',
+                    nombre: '',
                     password: '',
                     confirmPassword: '',
                     email: '',
+                    cedula: '',
+                    phone: '',
                 }}
                 validationSchema={validationSchema}
                 onSubmit={(values, { setSubmitting }) => {
@@ -129,59 +128,89 @@ const SignUpForm = (props: SignUpFormProps) => {
                 {({ touched, errors, isSubmitting }) => (
                     <Form>
                         <FormContainer>
-                            <FormItem
-                                label="User Name"
-                                invalid={errors.userName && touched.userName}
-                                errorMessage={errors.userName}
-                            >
-                                <Field
-                                    type="text"
-                                    autoComplete="off"
-                                    name="userName"
-                                    placeholder="User Name"
-                                    component={Input}
-                                />
-                            </FormItem>
-                            <FormItem
-                                label="Email"
-                                invalid={errors.email && touched.email}
-                                errorMessage={errors.email}
-                            >
-                                <Field
-                                    type="email"
-                                    autoComplete="off"
-                                    name="email"
-                                    placeholder="Email"
-                                    component={Input}
-                                />
-                            </FormItem>
-                            <FormItem
-                                label="Password"
-                                invalid={errors.password && touched.password}
-                                errorMessage={errors.password}
-                            >
-                                <Field
-                                    autoComplete="off"
-                                    name="password"
-                                    placeholder="Password"
-                                    component={PasswordInput}
-                                />
-                            </FormItem>
-                            <FormItem
-                                label="Confirm Password"
-                                invalid={
-                                    errors.confirmPassword &&
-                                    touched.confirmPassword
-                                }
-                                errorMessage={errors.confirmPassword}
-                            >
-                                <Field
-                                    autoComplete="off"
-                                    name="confirmPassword"
-                                    placeholder="Confirm Password"
-                                    component={PasswordInput}
-                                />
-                            </FormItem>
+                            <div className="grid grid-cols-2 gap-3">
+                                <FormItem
+                                    label="Nombre y Apellido"
+                                    invalid={errors.nombre && touched.nombre}
+                                    errorMessage={errors.nombre}
+                                >
+                                    <Field
+                                        type="text"
+                                        autoComplete="off"
+                                        name="nombre"
+                                        placeholder="Ingrese su nombre"
+                                        component={Input}
+                                    />
+                                </FormItem>
+                                <FormItem
+                                    label="Cédula"
+                                    invalid={errors.cedula && touched.cedula}
+                                    errorMessage={errors.cedula}
+                                >
+                                    <Field
+                                        type="text"
+                                        autoComplete="off"
+                                        name="cedula"
+                                        placeholder="Ingrese su cédula"
+                                        component={Input}
+                                    />
+                                </FormItem>
+                                <FormItem
+                                    label="Email"
+                                    invalid={errors.email && touched.email}
+                                    errorMessage={errors.email}
+                                >
+                                    <Field
+                                        type="email"
+                                        autoComplete="off"
+                                        name="email"
+                                        placeholder="Ingrese su email"
+                                        component={Input}
+                                    />
+                                </FormItem>
+                                <FormItem
+                                    label="Número Teléfonico"
+                                    invalid={errors.phone && touched.phone}
+                                    errorMessage={errors.phone}
+                                >
+                                    <Field
+                                        type="text"
+                                        autoComplete="off"
+                                        name="phone"
+                                        placeholder="Ingrese su número de teléfono"
+                                        component={Input}
+                                    />
+                                </FormItem>
+                                <FormItem
+                                    label="Contraseña"
+                                    invalid={
+                                        errors.password && touched.password
+                                    }
+                                    errorMessage={errors.password}
+                                >
+                                    <Field
+                                        autoComplete="off"
+                                        name="password"
+                                        placeholder="Ingrese su contraseña"
+                                        component={PasswordInput}
+                                    />
+                                </FormItem>
+                                <FormItem
+                                    label="Confirmar Contraseña"
+                                    invalid={
+                                        errors.confirmPassword &&
+                                        touched.confirmPassword
+                                    }
+                                    errorMessage={errors.confirmPassword}
+                                >
+                                    <Field
+                                        autoComplete="off"
+                                        name="confirmPassword"
+                                        placeholder="Ingresa otra vez la contraseña"
+                                        component={PasswordInput}
+                                    />
+                                </FormItem>
+                            </div>
                             <Button
                                 block
                                 loading={isSubmitting}
@@ -189,12 +218,14 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 type="submit"
                             >
                                 {isSubmitting
-                                    ? 'Creating Account...'
-                                    : 'Sign Up'}
+                                    ? 'Creando cuenta...'
+                                    : 'Registrarse'}
                             </Button>
                             <div className="mt-4 text-center">
-                                <span>Already have an account? </span>
-                                <ActionLink to={signInUrl}>Sign in</ActionLink>
+                                <span>¿Ya tienes una cuenta? </span>
+                                <ActionLink to={signInUrl}>
+                                    Iniciar Sesión
+                                </ActionLink>
                             </div>
                         </FormContainer>
                     </Form>

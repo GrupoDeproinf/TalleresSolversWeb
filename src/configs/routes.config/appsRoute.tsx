@@ -17,6 +17,24 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER],
     },
     {
+        key: 'appsUsers.users',
+        path: `${APP_PREFIX_PATH}/users`,
+        component: lazy(() => import('@/views/pages/Users')),
+        authority: [ADMIN, USER],
+    },
+    {
+        key: 'appsGarages.garages',
+        path: `${APP_PREFIX_PATH}/garages`,
+        component: lazy(() => import('@/views/pages/Garages')),
+        authority: [ADMIN, USER],
+    },
+    {
+        key: 'appsServices.services',
+        path: `${APP_PREFIX_PATH}/services`,
+        component: lazy(() => import('@/views/pages/Services')),
+        authority: [ADMIN, USER],
+    },
+    {
         key: 'appsProject.scrumBoard',
         path: `${APP_PREFIX_PATH}/project/scrum-board`,
         component: lazy(() => import('@/views/project/ScrumBoard')),
@@ -183,7 +201,7 @@ const appsRoute: Routes = [
                 () =>
                     import(
                         '@/views/knowledge-base/ManageArticles/components/PanelHeader'
-                    )
+                    ),
             ),
             headerContainer: true,
         },
