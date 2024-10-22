@@ -140,6 +140,7 @@ function useAuth() {
                         const token = user?.uid
                         console.log(token)
 
+                        values.uid = user?.uid
                         setDoc(doc(db, 'Usuarios', token), values).then(
                             (resp) => {
                                 console.log(resp)

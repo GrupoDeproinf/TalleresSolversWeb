@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { FormItem, FormContainer } from '@/components/ui/Form'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -20,8 +21,9 @@ type SignUpFormSchema = {
     nombre: string
     password: string
     email: string
-    cedula: string
+    cedulaOrif: string
     phone: string
+    typeUser: string
 }
 
 const validationSchema = Yup.object().shape({
@@ -34,9 +36,11 @@ const validationSchema = Yup.object().shape({
         [Yup.ref('password')],
         'Las contraseñas no coinciden',
     ),
-    cedula: Yup.string().required('Por favor ingrese su cédula'),
+    cedulaOrif: Yup.string().required(
+        'Por favor ingrese su cédula o RIF según corresponda',
+    ),
     phone: Yup.string()
-        .matches(/^\d{10,14}$/, 'Invalid phone number')
+        .matches(/^\d{10,14}$/, 'Número de teléfono inválido')
         .required('Por favor ingrese su número teléfonico'),
 })
 
@@ -45,19 +49,25 @@ const SignUpForm = (props: SignUpFormProps) => {
     const { signUp } = useAuth()
     const [message, setMessage] = useTimeOutMessage()
 
+    const [userType, setUserType] = useState<'Cliente' | 'Taller'>('Cliente') // Estado para gestionar el tipo de usuario
+
     const onSignUp = async (
         values: SignUpFormSchema,
         setSubmitting: (isSubmitting: boolean) => void,
     ) => {
         setSubmitting(true)
 
+        // Asignar el valor de cedula o rif basado en el tipo de usuario seleccionado
         const newUser = {
             nombre: values.nombre,
             email: values.email,
             password: values.password,
-            cedula: values.cedula,
             phone: values.phone,
-            typeUser: 'Cliente', // Agregar el campo typeUser aquí
+            typeUser: userType, // Guardar el tipo de usuario seleccionado
+            // Separar el valor en 'cedula' o 'rif' según el tipo de usuario
+            ...(userType === 'Cliente'
+                ? { cedula: values.cedulaOrif }
+                : { rif: values.cedulaOrif }),
         }
 
         signUp(newUser)
@@ -65,27 +75,31 @@ const SignUpForm = (props: SignUpFormProps) => {
                 console.log(resp)
             })
             .catch((error) => {
-                console.log(error)
-                switch (error) {
-                    case 'FirebaseError: Firebase: Password should be at least 6 characters (auth/weak-password).':
-                        showToast(
-                            'La contraseña debe tener al menos 6 caracteres.',
-                        )
-                        break
-                    case 'Firebase: Error (auth/email-already-in-use).':
-                        showToast(
-                            'La dirección de correo electrónico ya está en uso por otra cuenta',
-                        )
-                        break
-                    case 'Firebase: Error (auth/invalid-email).':
-                        showToast(
-                            'La dirección de correo electrónico no es valida',
-                        )
-                        break
-                    default:
-                        showToast(error)
-                        break
+                console.error(error)
+
+                // Define un tipo para los códigos de error que manejas
+                type AuthErrorCodes =
+                    | 'auth/weak-password'
+                    | 'auth/email-already-in-use'
+                    | 'auth/invalid-email'
+
+                // Define el objeto de mensajes de error con un índice seguro
+                const errorMessages: Record<AuthErrorCodes, string> = {
+                    'auth/weak-password':
+                        'La contraseña debe tener al menos 6 caracteres.',
+                    'auth/email-already-in-use':
+                        'La dirección de correo electrónico ya está en uso por otra cuenta',
+                    'auth/invalid-email':
+                        'La dirección de correo electrónico no es válida',
                 }
+
+                // Asegúrate de que error.code sea un AuthErrorCodes antes de acceder al objeto
+                const message =
+                    error.code in errorMessages
+                        ? errorMessages[error.code as AuthErrorCodes]
+                        : 'Ocurrió un error inesperado.'
+
+                showToast(message)
             })
 
         setSubmitting(false)
@@ -113,10 +127,13 @@ const SignUpForm = (props: SignUpFormProps) => {
                     password: '',
                     confirmPassword: '',
                     email: '',
-                    cedula: '',
+                    cedulaOrif: '',
                     phone: '',
+                    typeUser: 'Cliente',
                 }}
                 validationSchema={validationSchema}
+                validateOnChange={false}
+                validateOnBlur={false}
                 onSubmit={(values, { setSubmitting }) => {
                     if (!disableSubmit) {
                         onSignUp(values, setSubmitting)
@@ -125,9 +142,42 @@ const SignUpForm = (props: SignUpFormProps) => {
                     }
                 }}
             >
-                {({ touched, errors, isSubmitting }) => (
+                {({ touched, errors, isSubmitting, values, setFieldValue }) => (
                     <Form>
                         <FormContainer>
+                            {/* Botones para seleccionar el tipo de usuario */}
+                            <div className="mb-4">
+                                <label>Tipo de usuario:</label>
+                                <div className="flex space-x-4 mt-2">
+                                    <Button
+                                        variant={
+                                            values.typeUser === 'Cliente'
+                                                ? 'solid'
+                                                : 'default'
+                                        } // Cambiado 'outline' a 'default'
+                                        onClick={() =>
+                                            setFieldValue('typeUser', 'Cliente')
+                                        }
+                                        type="button"
+                                    >
+                                        Cliente
+                                    </Button>
+                                    <Button
+                                        variant={
+                                            values.typeUser === 'Taller'
+                                                ? 'solid'
+                                                : 'default'
+                                        } // Cambiado 'outline' a 'default'
+                                        onClick={() =>
+                                            setFieldValue('typeUser', 'Taller')
+                                        }
+                                        type="button"
+                                    >
+                                        Taller
+                                    </Button>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-3">
                                 <FormItem
                                     label="Nombre y Apellido"
@@ -142,19 +192,31 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={Input}
                                     />
                                 </FormItem>
+
                                 <FormItem
-                                    label="Cédula"
-                                    invalid={errors.cedula && touched.cedula}
-                                    errorMessage={errors.cedula}
+                                    label={
+                                        values.typeUser === 'Cliente'
+                                            ? 'Cédula'
+                                            : 'Rif'
+                                    }
+                                    invalid={
+                                        errors.cedulaOrif && touched.cedulaOrif
+                                    }
+                                    errorMessage={errors.cedulaOrif}
                                 >
                                     <Field
                                         type="text"
                                         autoComplete="off"
-                                        name="cedula"
-                                        placeholder="Ingrese su cédula"
+                                        name="cedulaOrif"
+                                        placeholder={
+                                            values.typeUser === 'Cliente'
+                                                ? 'Ingrese su cédula'
+                                                : 'Ingrese su Rif'
+                                        }
                                         component={Input}
                                     />
                                 </FormItem>
+
                                 <FormItem
                                     label="Email"
                                     invalid={errors.email && touched.email}
@@ -168,6 +230,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={Input}
                                     />
                                 </FormItem>
+
                                 <FormItem
                                     label="Número Teléfonico"
                                     invalid={errors.phone && touched.phone}
@@ -181,6 +244,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={Input}
                                     />
                                 </FormItem>
+
                                 <FormItem
                                     label="Contraseña"
                                     invalid={
@@ -195,6 +259,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={PasswordInput}
                                     />
                                 </FormItem>
+
                                 <FormItem
                                     label="Confirmar Contraseña"
                                     invalid={
@@ -211,6 +276,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     />
                                 </FormItem>
                             </div>
+
                             <Button
                                 block
                                 loading={isSubmitting}
@@ -221,6 +287,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     ? 'Creando cuenta...'
                                     : 'Registrarse'}
                             </Button>
+
                             <div className="mt-4 text-center">
                                 <span>¿Ya tienes una cuenta? </span>
                                 <ActionLink to={signInUrl}>

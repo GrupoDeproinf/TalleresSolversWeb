@@ -7,7 +7,7 @@ import {
     useReactTable,
 } from '@tanstack/react-table'
 import type { ColumnDef, ColumnSort } from '@tanstack/react-table'
-import { FaEdit, FaTrash } from 'react-icons/fa'
+import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import {
     collection,
     getDocs,
@@ -27,6 +27,7 @@ type Service = {
     nombre_servicio: string
     descripcion: string
     precio: string
+    taller: string
     puntuacion: string
     uid_servicio: string
 }
@@ -39,14 +40,14 @@ const Services = () => {
 
     const getData = async () => {
         try {
-            // Ajusta aquí si quieres eliminar el filtro temporalmente
+            // Obtén la colección 'Servicios'
             const q = query(collection(db, 'Servicios'))
             const querySnapshot = await getDocs(q)
             const servicios: Service[] = []
 
             querySnapshot.forEach((doc) => {
                 const serviceData = doc.data() as Service
-                // Asignar el uid_servicio del documento al objeto de servicio
+                // Asignar el id del documento al objeto de servicio
                 servicios.push({ ...serviceData, uid_servicio: doc.id })
             })
 
@@ -78,10 +79,51 @@ const Services = () => {
         {
             header: 'Precio',
             accessorKey: 'precio',
+            cell: ({ row }) => {
+                const precio = parseFloat(row.original.precio) // Asegúrate de que sea un número
+                return `$${precio.toFixed(2)}`
+            },
+        },
+        {
+            header: 'Taller Asociado',
+            accessorKey: 'taller',
         },
         {
             header: 'Puntuación',
             accessorKey: 'puntuacion',
+            cell: ({ row }) => {
+                const puntuacion = parseFloat(row.original.puntuacion) // Asegúrate de que sea un número
+                const fullStars = Math.floor(puntuacion)
+                const hasHalfStar = puntuacion % 1 >= 0.5
+                const stars = []
+
+                // Agrega las estrellas llenas
+                for (let i = 0; i < fullStars; i++) {
+                    stars.push(
+                        <FaStar
+                            key={`full-${i}`}
+                            className="text-yellow-500"
+                        />,
+                    )
+                }
+                // Agrega la estrella media si corresponde
+                if (hasHalfStar) {
+                    stars.push(
+                        <FaStarHalfAlt
+                            key="half"
+                            className="text-yellow-500"
+                        />,
+                    )
+                }
+                // Agrega las estrellas vacías (si es necesario, para un total de 5)
+                for (let i = fullStars + (hasHalfStar ? 1 : 0); i < 5; i++) {
+                    stars.push(
+                        <FaStar key={`empty-${i}`} className="text-gray-300" />,
+                    )
+                }
+
+                return <div className="flex">{stars}</div> // Renderiza las estrellas
+            },
         },
         {
             header: 'Acciones',
@@ -125,6 +167,7 @@ const Services = () => {
             console.log('Eliminando el servicio:', selectedService)
 
             try {
+                // Ahora estamos usando el id generado automáticamente por Firebase
                 const serviceDoc = doc(
                     db,
                     'Servicios',
@@ -132,7 +175,6 @@ const Services = () => {
                 )
                 await deleteDoc(serviceDoc)
 
-                // Usar toast para mostrar el mensaje de éxito
                 const toastNotification = (
                     <Notification title="Éxito">
                         Servicio {selectedService.nombre_servicio} eliminado con
@@ -145,7 +187,6 @@ const Services = () => {
             } catch (error) {
                 console.error('Error eliminando el servicio:', error)
 
-                // Usar toast para mostrar el mensaje de error
                 const errorNotification = (
                     <Notification title="Error">
                         Hubo un error eliminando el servicio.

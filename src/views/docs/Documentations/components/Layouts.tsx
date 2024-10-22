@@ -15,8 +15,8 @@ const Layouts = () => {
     return (
         <>
             <p>
-                Solvers provide 6 types of app layouts & 3 types of auth layouts,
-                all layouts component can be found under directory{' '}
+                Solvers provide 6 types of app layouts & 3 types of auth
+                layouts, all layouts component can be found under directory{' '}
                 <code>src/components/layout/*</code>
                 and all the components used within layouts can be found under{' '}
                 <code>src/components/template/*</code>

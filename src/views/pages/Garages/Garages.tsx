@@ -23,6 +23,7 @@ type Person = {
     phone: string
     uid: string
     typeUser: string
+    id: string
 }
 
 const Garages = () => {
@@ -38,9 +39,8 @@ const Garages = () => {
 
         querySnapshot.forEach((doc) => {
             const userData = doc.data() as Person
-            // Asegúrate de filtrar por typeUser "Cliente"
             if (userData.typeUser === 'Taller') {
-                usuarios.push(userData)
+                usuarios.push({ ...userData, id: doc.id }) // Guardar el ID del documento
             }
         })
 

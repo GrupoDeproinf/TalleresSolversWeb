@@ -23,6 +23,7 @@ type Person = {
     phone: string
     uid: string
     typeUser: string
+    id: string
 }
 
 const Users = () => {
@@ -40,7 +41,10 @@ const Users = () => {
             const userData = doc.data() as Person
             // Asegúrate de filtrar por typeUser "Cliente"
             if (userData.typeUser === 'Cliente') {
-                usuarios.push(userData)
+                usuarios.push({
+                    ...userData,
+                    id: doc.id, // Guarda el id generado por Firebase
+                })
             }
         })
 
@@ -115,7 +119,8 @@ const Users = () => {
             console.log('Eliminando a:', selectedPerson)
 
             try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
+                // Usa el id del documento en lugar de uid
+                const userDoc = doc(db, 'Usuarios', selectedPerson.id)
                 await deleteDoc(userDoc)
 
                 // Usar toast para mostrar el mensaje de éxito
