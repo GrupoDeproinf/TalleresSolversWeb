@@ -10,6 +10,7 @@ import { Field, Form, Formik } from 'formik'
 import * as Yup from 'yup'
 import type { CommonProps } from '@/@types/common'
 import type { AxiosError } from 'axios'
+import { values } from 'lodash'
 
 interface ForgotPasswordFormProps extends CommonProps {
     disableSubmit?: boolean
@@ -35,39 +36,39 @@ const ForgotPasswordForm = (props: ForgotPasswordFormProps) => {
         values: ForgotPasswordFormSchema,
         setSubmitting: (isSubmitting: boolean) => void
     ) => {
-        setSubmitting(true)
+        setSubmitting(true);
+        console.log("Enviando correo a:", values.email); // Muestra el correo que se envía
         try {
-            const resp = await apiForgotPassword(values)
-            if (resp.data) {
-                setSubmitting(false)
-                setEmailSent(true)
-            }
+            await apiForgotPassword(values); // Verifica que aquí esté enviando el objeto correcto
+            setEmailSent(true);
         } catch (errors) {
             setMessage(
                 (errors as AxiosError<{ message: string }>)?.response?.data
                     ?.message || (errors as Error).toString()
-            )
-            setSubmitting(false)
+            );
+        } finally {
+            setSubmitting(false);
         }
-    }
+    };
+    
 
     return (
         <div className={className}>
             <div className="mb-6">
                 {emailSent ? (
                     <>
-                        <h3 className="mb-1">Check your email</h3>
+                        <h3 className="mb-1">Revisa tu correo electrónico</h3>
                         <p>
-                            We have sent a password recovery instruction to your
-                            email
+                        Hemos enviado una instrucción de recuperación de contraseña a su
+                        correo electrónico
                         </p>
                     </>
                 ) : (
                     <>
-                        <h3 className="mb-1">Forgot Password</h3>
+                        <h3 className="mb-1">Recuperar contraseña</h3>
                         <p>
-                            Please enter your email address to receive a
-                            verification code
+                        Por favor, ingresa tu dirección de correo electrónico para recibir un código de verificación.
+
                         </p>
                     </>
                 )}
@@ -79,7 +80,7 @@ const ForgotPasswordForm = (props: ForgotPasswordFormProps) => {
             )}
             <Formik
                 initialValues={{
-                    email: 'admin@mail.com',
+                    email: '',
                 }}
                 validationSchema={validationSchema}
                 onSubmit={(values, { setSubmitting }) => {
@@ -113,11 +114,11 @@ const ForgotPasswordForm = (props: ForgotPasswordFormProps) => {
                                 variant="solid"
                                 type="submit"
                             >
-                                {emailSent ? 'Resend Email' : 'Send Email'}
+                                {emailSent ? 'Reenviar correo electrónico' : 'Enviar correo electrónico'}
                             </Button>
                             <div className="mt-4 text-center">
-                                <span>Back to </span>
-                                <ActionLink to={signInUrl}>Sign in</ActionLink>
+                                <span>Volver a </span>
+                                <ActionLink to={signInUrl}>Iniciar Sesión</ActionLink>
                             </div>
                         </FormContainer>
                     </Form>
