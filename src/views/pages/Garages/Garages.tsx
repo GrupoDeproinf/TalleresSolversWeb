@@ -26,6 +26,7 @@ import {
     doc,
     deleteDoc,
     updateDoc,
+    addDoc,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -73,6 +74,17 @@ const Garages = () => {
         getData()
     }, [])
 
+    const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
+    const [newUser, setNewUser] = useState<Person | null>({
+        nombre: '',
+        email: '',
+        rif: '',
+        phone: '',
+        uid: '', // Asignar valor vacío si no quieres que sea undefined
+        typeUser: 'Taller',
+        id: '', // También puedes asignar un valor vacío si no quieres undefined
+    })
+
     const openDialog = (person: Person) => {
         setSelectedPerson(person)
         setIsOpen(true)
@@ -81,6 +93,49 @@ const Garages = () => {
     const openDrawer = (person: Person) => {
         setSelectedPerson(person)
         setDrawerIsOpen(true) // Abre el Drawer
+    }
+
+    const handleCreateUser = async () => {
+        if (newUser && newUser.nombre && newUser.email) {
+            try {
+                const userRef = collection(db, 'Usuarios')
+                const docRef = await addDoc(userRef, {
+                    nombre: newUser.nombre,
+                    email: newUser.email,
+                    rif: newUser.rif,
+                    phone: newUser.phone,
+                    typeUser: newUser.typeUser,
+                    // Inicialmente puedes dejar el campo uid vacío aquí
+                    uid: '', // Este se actualizará después
+                })
+
+                // Ahora actualiza el documento para incluir el uid generado
+                await updateDoc(docRef, {
+                    uid: docRef.id, // Establece el uid al ID del documento generado
+                })
+
+                toast.push(
+                    <Notification title="Éxito">
+                        Taller creado con éxito.
+                    </Notification>,
+                )
+                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
+                getData() // Refrescar la lista de usuarios
+            } catch (error) {
+                console.error('Error creando usuario:', error)
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al crear el Taller.
+                    </Notification>,
+                )
+            }
+        } else {
+            toast.push(
+                <Notification title="Error">
+                    Por favor, complete todos los campos requeridos.
+                </Notification>,
+            )
+        }
     }
 
     const handleFilterChange = (columnId: string, value: string) => {
@@ -254,7 +309,17 @@ const Garages = () => {
 
     return (
         <>
-            <h1 className="mb-6">Lista de Talleres</h1>
+            <div className="grid grid-cols-2">
+                <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
+                <div className="flex justify-end">
+                    <Button
+                        className="bg-blue w-40"
+                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                    >
+                        Crear Taller
+                    </Button>
+                </div>
+            </div>
             <Table>
                 <THead>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -491,6 +556,94 @@ const Garages = () => {
                     <Button variant="solid" onClick={handleSaveChanges}>
                         Guardar Cambios
                     </Button>
+                </div>
+            </Drawer>
+            <Drawer
+                isOpen={drawerCreateIsOpen}
+                onClose={() => setDrawerCreateIsOpen(false)}
+                className="rounded-md shadow"
+            >
+                <h2 className="mb-4 text-xl font-bold">Crear Taller</h2>
+                <div className="flex flex-col space-y-6">
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Nombre Taller:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.nombre || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...prev, // Esto preserva los valores existentes
+                                    nombre: e.target.value, // Solo actualiza el campo necesario
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Email:
+                        </span>
+                        <input
+                            type="email"
+                            value={newUser?.email || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    email: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            RIF:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.rif || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    rif: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Teléfono:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.phone || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    phone: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <div className="text-right mt-6">
+                        <Button
+                            className="ltr:mr-2 rtl:ml-2"
+                            variant="default"
+                            onClick={() => setDrawerCreateIsOpen(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="solid"
+                            onClick={handleCreateUser} // Llamar a la función para crear usuario
+                        >
+                            Guardar
+                        </Button>
+                    </div>
                 </div>
             </Drawer>
         </>
