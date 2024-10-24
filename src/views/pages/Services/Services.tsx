@@ -21,6 +21,7 @@ import {
     doc,
     deleteDoc,
     updateDoc,
+    addDoc,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -37,6 +38,7 @@ type Service = {
     taller: string
     puntuacion: string
     uid_servicio: string
+    id: string
 }
 
 const Services = () => {
@@ -71,6 +73,17 @@ const Services = () => {
         getData()
     }, [])
 
+    const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
+    const [newUser, setNewUser] = useState<Service | null>({
+        nombre_servicio: '',
+        descripcion: '',
+        precio: '',
+        taller: '',
+        uid_servicio: '',
+        puntuacion: '',
+        id: '',
+    })
+
     const openDialog = (service: Service) => {
         setSelectedService(service)
         setIsOpen(true)
@@ -78,6 +91,61 @@ const Services = () => {
     const openDrawer = (service: Service) => {
         setSelectedService(service)
         setDrawerIsOpen(true) // Abre el Drawer
+    }
+
+    const handleCreateService = async () => {
+        if (newUser && newUser.nombre_servicio && newUser.descripcion) {
+            try {
+                const userRef = collection(db, 'Servicios')
+                const docRef = await addDoc(userRef, {
+                    nombre_servicio: newUser.nombre_servicio,
+                    descripcion: newUser.descripcion,
+                    precio: newUser.precio,
+                    taller: newUser.taller,
+                    puntuacion: newUser.puntuacion,
+                    uid_servicio: '', // Inicialmente vacío
+                })
+
+                // Ahora actualiza el documento para incluir el uid_servicio generado
+                await updateDoc(docRef, {
+                    uid_servicio: docRef.id, // Establece el uid_servicio al ID del documento generado
+                })
+
+                // Notificación de éxito
+                toast.push(
+                    <Notification title="Éxito">
+                        Servicio creado con éxito.
+                    </Notification>,
+                )
+
+                // Limpiar los campos después de crear el servicio
+                setNewUser({
+                    nombre_servicio: '',
+                    descripcion: '',
+                    precio: '',
+                    taller: '',
+                    puntuacion: '',
+                    uid_servicio: '',
+                    id: '',
+                })
+
+                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el servicio
+                getData() // Refrescar la lista de servicios
+            } catch (error) {
+                console.error('Error creando Servicio:', error)
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al crear el Servicio.
+                    </Notification>,
+                )
+            }
+        } else {
+            toast.push(
+                <Notification title="Error">
+                    Por favor, complete todos los campos requeridos.
+                </Notification>,
+            )
+        }
     }
 
     const handleFilterChange = (columnId: string, value: string) => {
@@ -276,7 +344,17 @@ const Services = () => {
 
     return (
         <>
-            <h1 className="mb-6">Lista de Servicios</h1>
+            <div className="grid grid-cols-2">
+                <h1 className="mb-6 flex justify-start">Lista de Servicios</h1>
+                <div className="flex justify-end">
+                    <Button
+                        className="bg-blue w-40"
+                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                    >
+                        Crear Servicio
+                    </Button>
+                </div>
+            </div>
             <Table>
                 <THead>
                     {table.getHeaderGroups().map((headerGroup) => (
@@ -390,10 +468,10 @@ const Services = () => {
             <Drawer
                 isOpen={drawerIsOpen}
                 onClose={() => setDrawerIsOpen(false)}
-                className="rounded-md shadow" // Añadir estilo al Drawer
+                className="rounded-md" // Añadir estilo al Drawer
             >
-                <h2 className="mb-4 text-xl font-bold">Editar Servicio</h2>
-                <div className="flex flex-col space-y-6">
+                <h2 className="text-xl font-bold">Editar Servicio</h2>
+                <div className="flex flex-col space-y-4">
                     {' '}
                     {/* Aumentar el espacio entre campos */}
                     {/* Campo para Taller */}
@@ -413,6 +491,7 @@ const Services = () => {
                                         precio: '',
                                         uid_servicio: '',
                                         puntuacion: '',
+                                        id: '',
                                     }),
                                     taller: e.target.value,
                                 }))
@@ -437,6 +516,7 @@ const Services = () => {
                                         precio: '',
                                         uid_servicio: '',
                                         puntuacion: '',
+                                        id: '',
                                     }),
                                     nombre_servicio: e.target.value,
                                 }))
@@ -461,6 +541,7 @@ const Services = () => {
                                         precio: '',
                                         uid_servicio: '',
                                         puntuacion: '',
+                                        id: '',
                                     }),
                                     descripcion: e.target.value,
                                 }))
@@ -485,6 +566,7 @@ const Services = () => {
                                         precio: '',
                                         uid_servicio: '',
                                         puntuacion: '',
+                                        id: '',
                                     }),
                                     taller: e.target.value,
                                 }))
@@ -508,6 +590,7 @@ const Services = () => {
                                         precio: '',
                                         uid_servicio: '',
                                         puntuacion: '',
+                                        id: '',
                                     }),
                                     precio: e.target.value,
                                 }))
@@ -531,6 +614,7 @@ const Services = () => {
                                         precio: '',
                                         uid_servicio: '',
                                         puntuacion: '',
+                                        id: '',
                                     }),
                                     puntuacion: e.target.value,
                                 }))
@@ -550,6 +634,110 @@ const Services = () => {
                     <Button variant="solid" onClick={handleSaveChanges}>
                         Guardar Cambios
                     </Button>
+                </div>
+            </Drawer>
+            <Drawer
+                isOpen={drawerCreateIsOpen}
+                onClose={() => setDrawerCreateIsOpen(false)}
+                className="rounded-md shadow"
+            >
+                <h2 className="mb-4 text-xl font-bold">Crear Servicio</h2>
+                <div className="flex flex-col space-y-6">
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Taller Asociado:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.taller || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...prev, // Esto preserva los valores existentes
+                                    taller: e.target.value, // Solo actualiza el campo necesario
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Nombre Servicio:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.nombre_servicio || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    nombre_servicio: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Descripcion:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.descripcion || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    descripcion: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Precio:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.precio || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    precio: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Puntuacion:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.puntuacion || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    puntuacion: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <div className="text-right mt-6">
+                        <Button
+                            className="ltr:mr-2 rtl:ml-2"
+                            variant="default"
+                            onClick={() => setDrawerCreateIsOpen(false)}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="solid"
+                            onClick={handleCreateService} // Llamar a la función para crear usuario
+                        >
+                            Guardar
+                        </Button>
+                    </div>
                 </div>
             </Drawer>
         </>
