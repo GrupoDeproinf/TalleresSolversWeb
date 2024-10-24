@@ -3,10 +3,15 @@ import Table from '@/components/ui/Table'
 import {
     flexRender,
     getCoreRowModel,
+    getFilteredRowModel,
     getSortedRowModel,
     useReactTable,
 } from '@tanstack/react-table'
-import type { ColumnDef, ColumnSort } from '@tanstack/react-table'
+import type {
+    ColumnDef,
+    ColumnFiltersState,
+    ColumnSort,
+} from '@tanstack/react-table'
 import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import {
     collection,
@@ -15,6 +20,7 @@ import {
     where,
     doc,
     deleteDoc,
+    updateDoc,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -22,6 +28,7 @@ import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
+import { Drawer } from '@/components/ui'
 
 type Service = {
     nombre_servicio: string
@@ -35,8 +42,10 @@ type Service = {
 const Services = () => {
     const [dataServices, setDataServices] = useState<Service[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [selectedService, setSelectedService] = useState<Service | null>(null)
+    const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
     const getData = async () => {
         try {
@@ -66,8 +75,61 @@ const Services = () => {
         setSelectedService(service)
         setIsOpen(true)
     }
+    const openDrawer = (service: Service) => {
+        setSelectedService(service)
+        setDrawerIsOpen(true) // Abre el Drawer
+    }
+
+    const handleFilterChange = (columnId: string, value: string) => {
+        setFiltering((prev) => {
+            // Actualizar el filtro correspondiente a la columna
+            const newFilters = prev.filter((filter) => filter.id !== columnId)
+            if (value !== '') {
+                newFilters.push({ id: columnId, value })
+            }
+            return newFilters
+        })
+    }
+    const handleSaveChanges = async () => {
+        if (selectedService) {
+            try {
+                const userDoc = doc(
+                    db,
+                    'Servicios',
+                    selectedService?.uid_servicio,
+                )
+                await updateDoc(userDoc, {
+                    nombre_servicio: selectedService?.nombre_servicio,
+                    descripcion: selectedService?.descripcion,
+                    precio: selectedService?.precio,
+                    taller: selectedService?.taller,
+                    puntuacion: selectedService?.puntuacion,
+                })
+                // Mensaje de éxito
+                toast.push(
+                    <Notification title="Éxito">
+                        Servicio actualizado con éxito.
+                    </Notification>,
+                )
+                setDrawerIsOpen(false)
+                getData() // Refrescar datos después de guardar
+            } catch (error) {
+                console.error('Error actualizando el servicio:', error)
+                // Mensaje de error
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al actualizar el servicio.
+                    </Notification>,
+                )
+            }
+        }
+    }
 
     const columns: ColumnDef<Service>[] = [
+        {
+            header: 'Taller Asociado',
+            accessorKey: 'taller',
+        },
         {
             header: 'Nombre del Servicio',
             accessorKey: 'nombre_servicio',
@@ -83,10 +145,6 @@ const Services = () => {
                 const precio = parseFloat(row.original.precio) // Asegúrate de que sea un número
                 return `$${precio.toFixed(2)}`
             },
-        },
-        {
-            header: 'Taller Asociado',
-            accessorKey: 'taller',
         },
         {
             header: 'Puntuación',
@@ -126,19 +184,19 @@ const Services = () => {
             },
         },
         {
-            header: 'Acciones',
+            header: ' ',
             cell: ({ row }) => {
-                const service = row.original
+                const person = row.original
                 return (
                     <div className="flex gap-2">
                         <button
-                            onClick={() => handleEdit(service)}
+                            onClick={() => openDrawer(person)} // Cambiar aquí
                             className="hover:text-blue-700"
                         >
                             <FaEdit />
                         </button>
                         <button
-                            onClick={() => openDialog(service)}
+                            onClick={() => openDialog(person)}
                             className="hover:text-red-700"
                         >
                             <FaTrash />
@@ -205,10 +263,13 @@ const Services = () => {
         columns,
         state: {
             sorting,
+            columnFilters: filtering, // Usar el array de filtros
         },
         onSortingChange: setSorting,
+        onColumnFiltersChange: setFiltering,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
     })
 
     console.log('Datos de servicios antes de renderizar:', dataServices) // Verifica el estado de los datos
@@ -245,6 +306,33 @@ const Services = () => {
                                                 <Sorter
                                                     sort={header.column.getIsSorted()}
                                                 />
+                                                {/* Agregar un buscador para cada columna */}
+                                                {header.column.getCanFilter() ? (
+                                                    <input
+                                                        type="text"
+                                                        value={
+                                                            filtering
+                                                                .find(
+                                                                    (filter) =>
+                                                                        filter.id ===
+                                                                        header.id,
+                                                                )
+                                                                ?.value?.toString() ||
+                                                            ''
+                                                        }
+                                                        onChange={(e) =>
+                                                            handleFilterChange(
+                                                                header.id,
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder={`Buscar`}
+                                                        className="mt-2 p-1 border rounded"
+                                                        onClick={(e) =>
+                                                            e.stopPropagation()
+                                                        } // Evita la propagación del evento de clic
+                                                    />
+                                                ) : null}
                                             </div>
                                         )}
                                     </Th>
@@ -299,6 +387,171 @@ const Services = () => {
                     </Button>
                 </div>
             </Dialog>
+            <Drawer
+                isOpen={drawerIsOpen}
+                onClose={() => setDrawerIsOpen(false)}
+                className="rounded-md shadow" // Añadir estilo al Drawer
+            >
+                <h2 className="mb-4 text-xl font-bold">Editar Servicio</h2>
+                <div className="flex flex-col space-y-6">
+                    {' '}
+                    {/* Aumentar el espacio entre campos */}
+                    {/* Campo para Taller */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Taller Asociado:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedService?.taller || ''}
+                            onChange={(e) =>
+                                setSelectedService((prev) => ({
+                                    ...(prev ?? {
+                                        nombre_servicio: '',
+                                        descripcion: '',
+                                        taller: '',
+                                        precio: '',
+                                        uid_servicio: '',
+                                        puntuacion: '',
+                                    }),
+                                    taller: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    {/* Campo para nombre_servicio */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Nombre Servicio:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedService?.nombre_servicio || ''}
+                            onChange={(e) =>
+                                setSelectedService((prev) => ({
+                                    ...(prev ?? {
+                                        nombre_servicio: '',
+                                        descripcion: '',
+                                        taller: '',
+                                        precio: '',
+                                        uid_servicio: '',
+                                        puntuacion: '',
+                                    }),
+                                    nombre_servicio: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    {/* Campo para descripcion */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Descripcion:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedService?.descripcion || ''}
+                            onChange={(e) =>
+                                setSelectedService((prev) => ({
+                                    ...(prev ?? {
+                                        nombre_servicio: '',
+                                        descripcion: '',
+                                        taller: '',
+                                        precio: '',
+                                        uid_servicio: '',
+                                        puntuacion: '',
+                                    }),
+                                    descripcion: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    {/* Campo para Taller */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Taller:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedService?.taller || ''}
+                            onChange={(e) =>
+                                setSelectedService((prev) => ({
+                                    ...(prev ?? {
+                                        nombre_servicio: '',
+                                        descripcion: '',
+                                        taller: '',
+                                        precio: '',
+                                        uid_servicio: '',
+                                        puntuacion: '',
+                                    }),
+                                    taller: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Precio:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedService?.precio || ''}
+                            onChange={(e) =>
+                                setSelectedService((prev) => ({
+                                    ...(prev ?? {
+                                        nombre_servicio: '',
+                                        descripcion: '',
+                                        taller: '',
+                                        precio: '',
+                                        uid_servicio: '',
+                                        puntuacion: '',
+                                    }),
+                                    precio: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Puntuación:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedService?.puntuacion || ''}
+                            onChange={(e) =>
+                                setSelectedService((prev) => ({
+                                    ...(prev ?? {
+                                        nombre_servicio: '',
+                                        descripcion: '',
+                                        taller: '',
+                                        precio: '',
+                                        uid_servicio: '',
+                                        puntuacion: '',
+                                    }),
+                                    puntuacion: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                </div>
+
+                <div className="text-right mt-6">
+                    <Button
+                        className="mr-2" // Espaciado entre botones
+                        variant="default"
+                    >
+                        Cerrar
+                    </Button>
+                    <Button variant="solid" onClick={handleSaveChanges}>
+                        Guardar Cambios
+                    </Button>
+                </div>
+            </Drawer>
         </>
     )
 }

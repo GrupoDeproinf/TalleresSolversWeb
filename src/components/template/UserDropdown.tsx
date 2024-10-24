@@ -35,7 +35,7 @@ const dropdownItemList: DropdownList[] = [
 
 const _UserDropdown = ({ className }: CommonProps) => {
     const { avatar, userName, authority, email } = useAppSelector(
-        (state) => state.auth.user
+        (state) => state.auth.user,
     )
 
     const { signOut } = useAuth()
@@ -70,7 +70,7 @@ const _UserDropdown = ({ className }: CommonProps) => {
                         </div>
                     </div>
                 </Dropdown.Item>
-                <Dropdown.Item variant="divider" />
+                {/* <Dropdown.Item variant="divider" />
                 {dropdownItemList.map((item) => (
                     <Dropdown.Item
                         key={item.label}
@@ -89,7 +89,7 @@ const _UserDropdown = ({ className }: CommonProps) => {
                             </span>
                         </Link>
                     </Dropdown.Item>
-                ))}
+                ))} */}
                 <Dropdown.Item variant="divider" />
                 <Dropdown.Item
                     eventKey="Sign Out"
@@ -99,7 +99,7 @@ const _UserDropdown = ({ className }: CommonProps) => {
                     <span className="text-xl opacity-50">
                         <HiOutlineLogout />
                     </span>
-                    <span>Sign Out</span>
+                    <span>Cerrar Sesión</span>
                 </Dropdown.Item>
             </Dropdown>
         </div>

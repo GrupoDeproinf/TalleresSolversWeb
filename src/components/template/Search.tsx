@@ -71,7 +71,7 @@ const ListItem = (props: {
                 className={classNames(
                     'flex items-center justify-between rounded-lg p-3.5 cursor-pointer user-select',
                     'bg-gray-50 dark:bg-gray-700/60 hover:bg-gray-100 dark:hover:bg-gray-700/90',
-                    !isLast && 'mb-3'
+                    !isLast && 'mb-3',
                 )}
             >
                 <div className="flex items-center">
@@ -79,7 +79,7 @@ const ListItem = (props: {
                         className={classNames(
                             'mr-4 rounded-md ring-1 ring-slate-900/5 shadow-sm text-xl group-hover:shadow h-6 w-6 flex items-center justify-center bg-white dark:bg-gray-700',
                             textTheme,
-                            'dark:text-gray-100'
+                            'dark:text-gray-100',
                         )}
                     >
                         {icon && navigationIcon[icon]}
@@ -89,7 +89,7 @@ const ListItem = (props: {
                             autoEscape
                             highlightClassName={classNames(
                                 textTheme,
-                                'underline bg-transparent font-semibold dark:text-white'
+                                'underline bg-transparent font-semibold dark:text-white',
                             )}
                             searchWords={[keyWord]}
                             textToHighlight={label}
@@ -167,7 +167,7 @@ const _Search = ({ className }: { className?: string }) => {
 
     return (
         <>
-            <div
+            {/* <div
                 className={classNames(className, 'text-2xl')}
                 onClick={handleSearchOpen}
             >
@@ -222,7 +222,7 @@ const _Search = ({ className }: { className?: string }) => {
                         )}
                     </div>
                 </div>
-            </Dialog>
+            </Dialog> */}
         </>
     )
 }

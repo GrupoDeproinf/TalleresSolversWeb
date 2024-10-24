@@ -180,111 +180,112 @@ const _Notification = ({ className }: { className?: string }) => {
                 setUnreadNotification(false)
             }
         },
-        [notificationList]
+        [notificationList],
     )
 
     return (
-        <Dropdown
-            renderTitle={
-                <NotificationToggle
-                    dot={unreadNotification}
-                    className={className}
-                />
-            }
-            menuClass="p-0 min-w-[280px] md:min-w-[340px]"
-            placement={larger.md ? 'bottom-end' : 'bottom-center'}
-            onOpen={onNotificationOpen}
-        >
-            <Dropdown.Item variant="header">
-                <div className="border-b border-gray-200 dark:border-gray-600 px-4 py-2 flex items-center justify-between">
-                    <h6>Notifications</h6>
-                    <Tooltip title="Mark all as read">
-                        <Button
-                            variant="plain"
-                            shape="circle"
-                            size="sm"
-                            icon={<HiOutlineMailOpen className="text-xl" />}
-                            onClick={onMarkAllAsRead}
-                        />
-                    </Tooltip>
-                </div>
-            </Dropdown.Item>
-            <div className={classNames('overflow-y-auto', notificationHeight)}>
-                <ScrollBar direction={direction}>
-                    {notificationList.length > 0 &&
-                        notificationList.map((item, index) => (
-                            <div
-                                key={item.id}
-                                className={`relative flex px-4 py-4 cursor-pointer hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-black dark:hover:bg-opacity-20  ${
-                                    !isLastChild(notificationList, index)
-                                        ? 'border-b border-gray-200 dark:border-gray-600'
-                                        : ''
-                                }`}
-                                onClick={() => onMarkAsRead(item.id)}
-                            >
-                                <div>{notificationTypeAvatar(item)}</div>
-                                <div className="ltr:ml-3 rtl:mr-3">
-                                    <div>
-                                        {item.target && (
-                                            <span className="font-semibold heading-text">
-                                                {item.target}{' '}
-                                            </span>
-                                        )}
-                                        <span>{item.description}</span>
-                                    </div>
-                                    <span className="text-xs">{item.date}</span>
-                                </div>
-                                <Badge
-                                    className="absolute top-4 ltr:right-4 rtl:left-4 mt-1.5"
-                                    innerClass={`${
-                                        item.readed ? 'bg-gray-300' : bgTheme
-                                    } `}
-                                />
-                            </div>
-                        ))}
-                    {loading && (
-                        <div
-                            className={classNames(
-                                'flex items-center justify-center',
-                                notificationHeight
-                            )}
-                        >
-                            <Spinner size={40} />
-                        </div>
-                    )}
-                    {noResult && (
-                        <div
-                            className={classNames(
-                                'flex items-center justify-center',
-                                notificationHeight
-                            )}
-                        >
-                            <div className="text-center">
-                                <img
-                                    className="mx-auto mb-2 max-w-[150px]"
-                                    src="/img/others/no-notification.png"
-                                    alt="no-notification"
-                                />
-                                <h6 className="font-semibold">
-                                    No notifications!
-                                </h6>
-                                <p className="mt-1">Please Try again later</p>
-                            </div>
-                        </div>
-                    )}
-                </ScrollBar>
-            </div>
-            <Dropdown.Item variant="header">
-                <div className="flex justify-center border-t border-gray-200 dark:border-gray-600 px-4 py-2">
-                    <Link
-                        to="/app/account/activity-log"
-                        className="font-semibold cursor-pointer p-2 px-3 text-gray-600 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
-                    >
-                        View All Activity
-                    </Link>
-                </div>
-            </Dropdown.Item>
-        </Dropdown>
+        <></>
+        // <Dropdown
+        //     renderTitle={
+        //         <NotificationToggle
+        //             dot={unreadNotification}
+        //             className={className}
+        //         />
+        //     }
+        //     menuClass="p-0 min-w-[280px] md:min-w-[340px]"
+        //     placement={larger.md ? 'bottom-end' : 'bottom-center'}
+        //     onOpen={onNotificationOpen}
+        // >
+        //     <Dropdown.Item variant="header">
+        //         <div className="border-b border-gray-200 dark:border-gray-600 px-4 py-2 flex items-center justify-between">
+        //             <h6>Notifications</h6>
+        //             <Tooltip title="Mark all as read">
+        //                 <Button
+        //                     variant="plain"
+        //                     shape="circle"
+        //                     size="sm"
+        //                     icon={<HiOutlineMailOpen className="text-xl" />}
+        //                     onClick={onMarkAllAsRead}
+        //                 />
+        //             </Tooltip>
+        //         </div>
+        //     </Dropdown.Item>
+        //     <div className={classNames('overflow-y-auto', notificationHeight)}>
+        //         <ScrollBar direction={direction}>
+        //             {notificationList.length > 0 &&
+        //                 notificationList.map((item, index) => (
+        //                     <div
+        //                         key={item.id}
+        //                         className={`relative flex px-4 py-4 cursor-pointer hover:bg-gray-50 active:bg-gray-100 dark:hover:bg-black dark:hover:bg-opacity-20  ${
+        //                             !isLastChild(notificationList, index)
+        //                                 ? 'border-b border-gray-200 dark:border-gray-600'
+        //                                 : ''
+        //                         }`}
+        //                         onClick={() => onMarkAsRead(item.id)}
+        //                     >
+        //                         <div>{notificationTypeAvatar(item)}</div>
+        //                         <div className="ltr:ml-3 rtl:mr-3">
+        //                             <div>
+        //                                 {item.target && (
+        //                                     <span className="font-semibold heading-text">
+        //                                         {item.target}{' '}
+        //                                     </span>
+        //                                 )}
+        //                                 <span>{item.description}</span>
+        //                             </div>
+        //                             <span className="text-xs">{item.date}</span>
+        //                         </div>
+        //                         <Badge
+        //                             className="absolute top-4 ltr:right-4 rtl:left-4 mt-1.5"
+        //                             innerClass={`${
+        //                                 item.readed ? 'bg-gray-300' : bgTheme
+        //                             } `}
+        //                         />
+        //                     </div>
+        //                 ))}
+        //             {loading && (
+        //                 <div
+        //                     className={classNames(
+        //                         'flex items-center justify-center',
+        //                         notificationHeight
+        //                     )}
+        //                 >
+        //                     <Spinner size={40} />
+        //                 </div>
+        //             )}
+        //             {noResult && (
+        //                 <div
+        //                     className={classNames(
+        //                         'flex items-center justify-center',
+        //                         notificationHeight
+        //                     )}
+        //                 >
+        //                     <div className="text-center">
+        //                         <img
+        //                             className="mx-auto mb-2 max-w-[150px]"
+        //                             src="/img/others/no-notification.png"
+        //                             alt="no-notification"
+        //                         />
+        //                         <h6 className="font-semibold">
+        //                             No notifications!
+        //                         </h6>
+        //                         <p className="mt-1">Please Try again later</p>
+        //                     </div>
+        //                 </div>
+        //             )}
+        //         </ScrollBar>
+        //     </div>
+        //     <Dropdown.Item variant="header">
+        //         <div className="flex justify-center border-t border-gray-200 dark:border-gray-600 px-4 py-2">
+        //             <Link
+        //                 to="/app/account/activity-log"
+        //                 className="font-semibold cursor-pointer p-2 px-3 text-gray-600 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+        //             >
+        //                 View All Activity
+        //             </Link>
+        //         </div>
+        //     </Dropdown.Item>
+        // </Dropdown>
     )
 }
 

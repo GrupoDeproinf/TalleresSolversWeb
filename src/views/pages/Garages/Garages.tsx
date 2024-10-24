@@ -3,34 +3,56 @@ import Table from '@/components/ui/Table'
 import {
     flexRender,
     getCoreRowModel,
+    getFilteredRowModel,
     getSortedRowModel,
     useReactTable,
 } from '@tanstack/react-table'
-import type { ColumnDef, ColumnSort } from '@tanstack/react-table'
-import { FaEdit, FaTrash } from 'react-icons/fa'
-import { collection, getDocs, query, doc, deleteDoc } from 'firebase/firestore'
+import type {
+    ColumnDef,
+    ColumnFiltersState,
+    ColumnSort,
+} from '@tanstack/react-table'
+import {
+    FaCheckCircle,
+    FaEdit,
+    FaExclamationCircle,
+    FaTimesCircle,
+    FaTrash,
+} from 'react-icons/fa'
+import {
+    collection,
+    getDocs,
+    query,
+    doc,
+    deleteDoc,
+    updateDoc,
+} from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
+import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
 
 type Person = {
-    nombre: string
-    email: string
-    rif: string
-    phone: string
+    nombre?: string
+    email?: string
+    rif?: string
+    phone?: string
     uid: string
-    typeUser: string
-    id: string
+    typeUser?: string
+    id?: string
+    status?: string
 }
 
 const Garages = () => {
     const [dataUsers, setDataUsers] = useState<Person[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+    const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
@@ -56,6 +78,50 @@ const Garages = () => {
         setIsOpen(true)
     }
 
+    const openDrawer = (person: Person) => {
+        setSelectedPerson(person)
+        setDrawerIsOpen(true) // Abre el Drawer
+    }
+
+    const handleFilterChange = (columnId: string, value: string) => {
+        setFiltering((prev) => {
+            const newFilters = prev.filter((filter) => filter.id !== columnId)
+            if (value !== '') {
+                newFilters.push({ id: columnId, value })
+            }
+            return newFilters
+        })
+    }
+    const handleSaveChanges = async () => {
+        if (selectedPerson) {
+            try {
+                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
+                await updateDoc(userDoc, {
+                    nombre: selectedPerson.nombre,
+                    email: selectedPerson.email,
+                    rif: selectedPerson.rif,
+                    phone: selectedPerson.phone,
+                })
+                // Mensaje de éxito
+                toast.push(
+                    <Notification title="Éxito">
+                        Taller actualizado con éxito.
+                    </Notification>,
+                )
+                setDrawerIsOpen(false)
+                getData() // Refrescar datos después de guardar
+            } catch (error) {
+                console.error('Error actualizando el usuario:', error)
+                // Mensaje de error
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al actualizar el Taller.
+                    </Notification>,
+                )
+            }
+        }
+    }
+
     const columns: ColumnDef<Person>[] = [
         {
             header: 'Nombre',
@@ -74,13 +140,48 @@ const Garages = () => {
             accessorKey: 'phone',
         },
         {
-            header: 'Acciones',
+            header: 'Estado',
+            accessorKey: 'status',
+            cell: ({ row }) => {
+                const status = row.getValue('status') as string // Aserción de tipo
+                let icon
+                let color
+
+                switch (status) {
+                    case 'Aprobado':
+                        icon = <FaCheckCircle className="text-green-500 mr-1" />
+                        color = 'text-green-500' // Color para el texto
+                        break
+                    case 'Rechazado':
+                        icon = <FaTimesCircle className="text-red-500 mr-1" />
+                        color = 'text-red-500' // Color para el texto
+                        break
+                    case 'Pendiente':
+                        icon = (
+                            <FaExclamationCircle className="text-yellow-500 mr-1" />
+                        )
+                        color = 'text-yellow-500' // Color para el texto
+                        break
+                    default:
+                        icon = null
+                }
+
+                return (
+                    <div className={`flex items-center ${color}`}>
+                        {icon}
+                        <span>{status}</span>
+                    </div>
+                )
+            },
+        },
+        {
+            header: ' ',
             cell: ({ row }) => {
                 const person = row.original
                 return (
                     <div className="flex gap-2">
                         <button
-                            onClick={() => handleEdit(person)}
+                            onClick={() => openDrawer(person)} // Cambiar aquí
                             className="hover:text-blue-700"
                         >
                             <FaEdit />
@@ -99,11 +200,6 @@ const Garages = () => {
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    const handleEdit = (person: Person) => {
-        console.log('Editando a:', person)
-        // Lógica de edición
-    }
-
     const onDialogClose = (e: MouseEvent) => {
         console.log('onDialogClose', e)
         setIsOpen(false)
@@ -118,7 +214,6 @@ const Garages = () => {
                 const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
                 await deleteDoc(userDoc)
 
-                // Usar toast para mostrar el mensaje de éxito
                 const toastNotification = (
                     <Notification title="Éxito">
                         Usuario {selectedPerson.nombre} eliminado con éxito.
@@ -130,7 +225,6 @@ const Garages = () => {
             } catch (error) {
                 console.error('Error eliminando el usuario:', error)
 
-                // Usar toast para mostrar el mensaje de error
                 const errorNotification = (
                     <Notification title="Error">
                         Hubo un error eliminando el usuario.
@@ -149,10 +243,13 @@ const Garages = () => {
         columns,
         state: {
             sorting,
+            columnFilters: filtering,
         },
         onSortingChange: setSorting,
+        onColumnFiltersChange: setFiltering,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
     })
 
     return (
@@ -187,6 +284,32 @@ const Garages = () => {
                                                 <Sorter
                                                     sort={header.column.getIsSorted()}
                                                 />
+                                                {header.column.getCanFilter() ? (
+                                                    <input
+                                                        type="text"
+                                                        value={
+                                                            filtering
+                                                                .find(
+                                                                    (filter) =>
+                                                                        filter.id ===
+                                                                        header.id,
+                                                                )
+                                                                ?.value?.toString() ||
+                                                            ''
+                                                        }
+                                                        onChange={(e) =>
+                                                            handleFilterChange(
+                                                                header.id,
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder={`Buscar`}
+                                                        className="mt-2 p-1 border rounded"
+                                                        onClick={(e) =>
+                                                            e.stopPropagation()
+                                                        }
+                                                    />
+                                                ) : null}
                                             </div>
                                         )}
                                     </Th>
@@ -241,6 +364,135 @@ const Garages = () => {
                     </Button>
                 </div>
             </Dialog>
+
+            {/* Drawer para edición */}
+            <Drawer
+                isOpen={drawerIsOpen}
+                onClose={() => setDrawerIsOpen(false)}
+                className="rounded-md shadow" // Añadir estilo al Drawer
+            >
+                <h2 className="mb-4 text-xl font-bold">Editar Taller</h2>
+                <div className="flex flex-col space-y-6">
+                    {' '}
+                    {/* Aumentar el espacio entre campos */}
+                    {/* Campo para Nombre */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Nombre Taller:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedPerson?.nombre || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev) => ({
+                                    ...(prev ?? {
+                                        rif: '',
+                                        nombre: '',
+                                        email: '',
+                                        phone: '',
+                                        uid: '',
+                                        typeUser: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    nombre: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    {/* Campo para Email */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Email:
+                        </span>
+                        <input
+                            type="email"
+                            value={selectedPerson?.email || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev) => ({
+                                    ...(prev ?? {
+                                        rif: '',
+                                        nombre: '',
+                                        email: '',
+                                        phone: '',
+                                        uid: '',
+                                        typeUser: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    email: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    {/* Campo para RIF */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            RIF:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedPerson?.rif || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev) => ({
+                                    ...(prev ?? {
+                                        rif: '',
+                                        nombre: '',
+                                        email: '',
+                                        phone: '',
+                                        uid: '',
+                                        typeUser: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    rif: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    {/* Campo para Teléfono */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Teléfono:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedPerson?.phone || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev) => ({
+                                    ...(prev ?? {
+                                        rif: '',
+                                        nombre: '',
+                                        email: '',
+                                        phone: '',
+                                        uid: '',
+                                        typeUser: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    phone: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                </div>
+
+                <div className="text-right mt-6">
+                    <Button
+                        className="mr-2" // Espaciado entre botones
+                        variant="default"
+                    >
+                        Cerrar
+                    </Button>
+                    <Button variant="solid" onClick={handleSaveChanges}>
+                        Guardar Cambios
+                    </Button>
+                </div>
+            </Drawer>
         </>
     )
 }
