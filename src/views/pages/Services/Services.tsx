@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import {
     flexRender,
@@ -274,96 +275,84 @@ const Services = () => {
 
     console.log('Datos de servicios antes de renderizar:', dataServices) // Verifica el estado de los datos
 
+    const [currentPage, setCurrentPage] = useState(1);
+        const rowsPerPage = 6; // Puedes cambiar esto si deseas un número diferente
+    
+        // Suponiendo que tienes un array de datos
+        const data = table.getRowModel().rows; // O la fuente de datos que estés utilizando
+        const totalRows = data.length;
+    
+        const onPaginationChange = (page: number) => {
+            console.log('onPaginationChange', page);
+            setCurrentPage(page); // Actualiza la página actual
+        };
+    
+        // Calcular el índice de inicio y fin para la paginación
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+
     return (
         <>
             <h1 className="mb-6">Lista de Servicios</h1>
+            <div>
             <Table>
                 <THead>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <Tr key={headerGroup.id}>
                             {headerGroup.headers.map((header) => {
                                 return (
-                                    <Th
-                                        key={header.id}
-                                        colSpan={header.colSpan}
-                                    >
+                                    <Th key={header.id} colSpan={header.colSpan}>
                                         {header.isPlaceholder ? null : (
                                             <div
                                                 {...{
-                                                    className:
-                                                        header.column.getCanSort()
-                                                            ? 'cursor-pointer select-none'
-                                                            : '',
-                                                    onClick:
-                                                        header.column.getToggleSortingHandler(),
+                                                    className: header.column.getCanSort() ? 'cursor-pointer select-none' : '',
+                                                    onClick: header.column.getToggleSortingHandler(),
                                                 }}
                                             >
-                                                {flexRender(
-                                                    header.column.columnDef
-                                                        .header,
-                                                    header.getContext(),
-                                                )}
-                                                <Sorter
-                                                    sort={header.column.getIsSorted()}
-                                                />
+                                                {flexRender(header.column.columnDef.header, header.getContext())}
+                                                <Sorter sort={header.column.getIsSorted()} />
                                                 {/* Agregar un buscador para cada columna */}
                                                 {header.column.getCanFilter() ? (
                                                     <input
                                                         type="text"
-                                                        value={
-                                                            filtering
-                                                                .find(
-                                                                    (filter) =>
-                                                                        filter.id ===
-                                                                        header.id,
-                                                                )
-                                                                ?.value?.toString() ||
-                                                            ''
-                                                        }
-                                                        onChange={(e) =>
-                                                            handleFilterChange(
-                                                                header.id,
-                                                                e.target.value,
-                                                            )
-                                                        }
+                                                        value={filtering.find(filter => filter.id === header.id)?.value?.toString() || ''}
+                                                        onChange={(e) => handleFilterChange(header.id, e.target.value)}
                                                         placeholder={`Buscar`}
                                                         className="mt-2 p-1 border rounded"
-                                                        onClick={(e) =>
-                                                            e.stopPropagation()
-                                                        } // Evita la propagación del evento de clic
+                                                        onClick={(e) => e.stopPropagation()} // Evita la propagación del evento de clic
                                                     />
                                                 ) : null}
                                             </div>
                                         )}
                                     </Th>
-                                )
+                                );
                             })}
                         </Tr>
                     ))}
                 </THead>
                 <TBody>
-                    {table
-                        .getRowModel()
-                        .rows.slice(0, 10)
-                        .map((row) => {
-                            return (
-                                <Tr key={row.id}>
-                                    {row.getVisibleCells().map((cell) => {
-                                        return (
-                                            <Td key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </Td>
-                                        )
-                                    })}
-                                </Tr>
-                            )
-                        })}
+                    {table.getRowModel().rows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((row) => {
+                        return (
+                            <Tr key={row.id}>
+                                {row.getVisibleCells().map((cell) => {
+                                    return (
+                                        <Td key={cell.id}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </Td>
+                                    );
+                                })}
+                            </Tr>
+                        );
+                    })}
                 </TBody>
             </Table>
-
+            <Pagination
+                onChange={onPaginationChange}
+                currentPage={currentPage}
+                totalRows={totalRows}
+                rowsPerPage={rowsPerPage}
+            />
+        </div>
             <Dialog
                 isOpen={dialogIsOpen}
                 onClose={onDialogClose}
