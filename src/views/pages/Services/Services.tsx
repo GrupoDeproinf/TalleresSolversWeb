@@ -361,7 +361,6 @@ const Services = () => {
 
     return (
         <>
-            <h1 className="mb-6">Lista de Servicios</h1>
             <div>
             <div className="grid grid-cols-2">
                 <h1 className="mb-6 flex justify-start">Lista de Servicios</h1>
