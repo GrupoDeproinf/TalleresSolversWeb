@@ -500,7 +500,7 @@ const Garages = () => {
             <Dialog
                 isOpen={drawerIsOpen}
                 onClose={() => setDrawerIsOpen(false)}
-                className="rounded-md shadow" // Añadir estilo al Drawer
+                className="rounded-md shadow"
             >
                 <h2 className="text-xl font-bold">Editar Taller</h2>
 
@@ -520,112 +520,47 @@ const Garages = () => {
                         <span className="font-semibold text-gray-700">
                             Nombre Taller:
                         </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.nombre || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        rif: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    nombre: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
+                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
+                            {selectedPerson?.nombre || 'No especificado'}
+                        </p>
                     </label>
+
                     {/* Campo para Email */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Email:
                         </span>
-                        <input
-                            type="email"
-                            value={selectedPerson?.email || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        rif: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
+                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
+                            {selectedPerson?.email || 'No especificado'}
+                        </p>
                     </label>
+
                     {/* Campo para RIF */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             RIF:
                         </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.rif || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        rif: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    rif: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
+                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
+                            {selectedPerson?.rif || 'No especificado'}
+                        </p>
                     </label>
+
                     {/* Campo para Teléfono */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Teléfono:
                         </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.phone || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        rif: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    phone: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
+                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
+                            {selectedPerson?.phone || 'No especificado'}
+                        </p>
                     </label>
                 </div>
 
                 <div className="text-right mt-6">
                     <Button
-                        className="mr-2" // Espaciado entre botones
+                        className="mr-2"
                         variant="default"
-                        onClick={() => setDrawerIsOpen(false)} // Cerrar el diálogo
+                        onClick={() => setDrawerIsOpen(false)}
                     >
                         Cerrar
                     </Button>
@@ -634,6 +569,7 @@ const Garages = () => {
                     </Button>
                 </div>
             </Dialog>
+
             <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={() => setDrawerCreateIsOpen(false)}
