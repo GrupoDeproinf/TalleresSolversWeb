@@ -42,7 +42,7 @@ const Dialog = (props: DialogProps) => {
     const renderCloseButton = (
         <CloseButton
             absolute
-            className="ltr:right-6 rtl:left-6"
+            className="ltr:right-6 rtl:left-6 hover:bg-slate-300 rounded"
             onClick={onCloseClick}
         />
     )

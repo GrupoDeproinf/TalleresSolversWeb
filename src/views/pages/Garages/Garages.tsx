@@ -36,7 +36,9 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
+import Shape from '@/views/ui-components/common/Button/Shape'
 import { Avatar } from '@/components/ui'
+import { HiOutlineUser } from 'react-icons/hi'
 
 type Person = {
     nombre?: string
@@ -188,6 +190,11 @@ const Garages = () => {
         }
         return color
     }
+    const getInitials = (nombre: string | undefined): string => {
+        if (!nombre) return ''
+        const words = nombre.split(' ')
+        return words.map((word: string) => word[0].toUpperCase()).join('')
+    }
 
     const columns: ColumnDef<Person>[] = [
         {
@@ -349,13 +356,6 @@ const Garages = () => {
     const startIndex = (currentPage - 1) * rowsPerPage;        
     const endIndex = startIndex + rowsPerPage;
 
-    //Obtener iniciales de los nombres
-    const getInitials = (nombre: string | undefined): string => {
-        if (!nombre) return ''
-        const words = nombre.split(' ')
-        return words.map((word: string) => word[0].toUpperCase()).join('')
-    }
-
     return (
         <>
             <div className="grid grid-cols-2">
@@ -469,15 +469,21 @@ const Garages = () => {
             </Dialog>
 
             {/* Drawer para edición */}
-            <Drawer
+            <Dialog
                 isOpen={drawerIsOpen}
                 onClose={() => setDrawerIsOpen(false)}
                 className="rounded-md shadow" // Añadir estilo al Drawer
             >
-                <h2 className="mb-4 text-xl font-bold">Editar Taller</h2>
-                <div className="flex flex-col space-y-6">
-                    {' '}
-                    {/* Aumentar el espacio entre campos */}
+                <h2 className="text-xl font-bold">Editar Taller</h2>
+
+                {/* Componente Avatar con iniciales */}
+                <Avatar className="mr-2 bg-blue-500 w-12 h-12 flex items-center justify-center rounded-full">
+                    <span className="text-white font-bold">
+                        {getInitials(selectedPerson?.nombre)}
+                    </span>
+                </Avatar>
+
+                <div className="flex flex-col space-y-4">
                     {/* Campo para Nombre */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
@@ -588,6 +594,7 @@ const Garages = () => {
                     <Button
                         className="mr-2" // Espaciado entre botones
                         variant="default"
+                        onClick={() => setDrawerIsOpen(false)} // Cerrar el diálogo
                     >
                         Cerrar
                     </Button>
@@ -595,7 +602,7 @@ const Garages = () => {
                         Guardar Cambios
                     </Button>
                 </div>
-            </Drawer>
+            </Dialog>
             <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={() => setDrawerCreateIsOpen(false)}
