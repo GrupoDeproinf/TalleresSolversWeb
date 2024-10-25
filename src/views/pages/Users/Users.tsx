@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import {
     flexRender,
@@ -28,7 +29,7 @@ import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
-import { Drawer } from '@/components/ui'
+import { Avatar, Drawer } from '@/components/ui'
 
 type Person = {
     nombre?: string
@@ -173,6 +174,16 @@ const Users = () => {
             }
         }
     }
+    
+    // Función para generar un color aleatorio
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF'
+        let color = '#'
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)]
+        }
+        return color
+    }
 
     const columns: ColumnDef<Person>[] = [
         {
@@ -192,10 +203,25 @@ const Users = () => {
             accessorKey: 'email',
             filterFn: 'includesString',
         },
+
         {
             header: 'Numero Telefonico',
             accessorKey: 'phone',
             filterFn: 'includesString',
+            cell: ({ row }) => {
+                const nombre = row.original.nombre; // Accede al nombre del cliente
+                return (
+                    <div className="flex items-center">
+                        <Avatar className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
+                        style={{ backgroundColor: getRandomColor() }} >
+                            <span className="text-white font-bold">
+                                {getInitials(nombre)}
+                            </span>
+                        </Avatar>
+                        {row.original.phone} {/* Muestra el número telefónico */}
+                    </div>
+                );
+            },
         },
         {
             header: ' ',
@@ -278,6 +304,29 @@ const Users = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
+        const [currentPage, setCurrentPage] = useState(1);
+        const rowsPerPage = 6; // Puedes cambiar esto si deseas un número diferente
+    
+        // Suponiendo que tienes un array de datos
+        const data = table.getRowModel().rows; // O la fuente de datos que estés utilizando
+        const totalRows = data.length;
+    
+        const onPaginationChange = (page: number) => {
+            console.log('onPaginationChange', page);
+            setCurrentPage(page); // Actualiza la página actual
+        };
+    
+        // Calcular el índice de inicio y fin para la paginación
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        const endIndex = startIndex + rowsPerPage;
+
+        //Obtener iniciales de los nombres
+        const getInitials = (nombre: string | undefined): string => {
+            if (!nombre) return ''
+            const words = nombre.split(' ')
+            return words.map((word: string) => word[0].toUpperCase()).join('')
+        }
+
     return (
         <>
             <div className="grid grid-cols-2">
@@ -291,16 +340,14 @@ const Users = () => {
                     </Button>
                 </div>
             </div>
+            <div>
             <Table>
                 <THead>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <Tr key={headerGroup.id}>
                             {headerGroup.headers.map((header) => {
                                 return (
-                                    <Th
-                                        key={header.id}
-                                        colSpan={header.colSpan}
-                                    >
+                                    <Th key={header.id} colSpan={header.colSpan}>
                                         {header.isPlaceholder ? null : (
                                             <div
                                                 {...{
@@ -313,8 +360,7 @@ const Users = () => {
                                                 }}
                                             >
                                                 {flexRender(
-                                                    header.column.columnDef
-                                                        .header,
+                                                    header.column.columnDef.header,
                                                     header.getContext(),
                                                 )}
                                                 <Sorter
@@ -325,14 +371,10 @@ const Users = () => {
                                                     <input
                                                         type="text"
                                                         value={
-                                                            filtering
-                                                                .find(
-                                                                    (filter) =>
-                                                                        filter.id ===
-                                                                        header.id,
-                                                                )
-                                                                ?.value?.toString() ||
-                                                            ''
+                                                            filtering.find(
+                                                                (filter) =>
+                                                                    filter.id === header.id,
+                                                            )?.value?.toString() || ''
                                                         }
                                                         onChange={(e) =>
                                                             handleFilterChange(
@@ -344,39 +386,44 @@ const Users = () => {
                                                         className="mt-2 p-1 border rounded"
                                                         onClick={(e) =>
                                                             e.stopPropagation()
-                                                        } // Evita la propagación del evento de clic
+                                                        }
                                                     />
                                                 ) : null}
                                             </div>
                                         )}
                                     </Th>
-                                )
+                                );
                             })}
                         </Tr>
                     ))}
                 </THead>
                 <TBody>
-                    {table
-                        .getRowModel()
-                        .rows.slice(0, 10)
-                        .map((row) => {
-                            return (
-                                <Tr key={row.id}>
-                                    {row.getVisibleCells().map((cell) => {
-                                        return (
-                                            <Td key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </Td>
-                                        )
-                                    })}
-                                </Tr>
-                            )
-                        })}
+                    {data.slice(startIndex, endIndex).map((row) => {
+                        return (
+                            <Tr key={row.id}>
+                                {row.getVisibleCells().map((cell) => {
+                                    return (
+                                        <Td key={cell.id}>
+                                            
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext(),
+                                            )}
+                                        </Td>
+                                    );
+                                })}
+                            </Tr>
+                        );
+                    })}
                 </TBody>
             </Table>
+            <Pagination
+                onChange={onPaginationChange}
+                currentPage={currentPage}
+                totalRows={totalRows}
+                rowsPerPage={rowsPerPage}
+            />
+        </div>
 
             <Dialog
                 isOpen={dialogIsOpen}

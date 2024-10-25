@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import {
     flexRender,
@@ -181,6 +182,15 @@ const Garages = () => {
         }
     }
 
+    // Función para generar un color aleatorio
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF'
+        let color = '#'
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)]
+        }
+        return color
+    }
     const getInitials = (nombre: string | undefined): string => {
         if (!nombre) return ''
         const words = nombre.split(' ')
@@ -212,6 +222,20 @@ const Garages = () => {
         {
             header: 'Numero Telefonico',
             accessorKey: 'phone',
+            cell: ({ row }) => {
+                const nombre = row.original.nombre; // Accede al nombre del cliente
+                return (
+                    <div className="flex items-center">
+                        <Avatar className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
+                        style={{ backgroundColor: getRandomColor() }} >
+                            <span className="text-white font-bold">
+                                {getInitials(nombre)}
+                            </span>
+                        </Avatar>
+                        {row.original.phone} {/* Muestra el número telefónico */}
+                    </div>
+                );
+            },
         },
         {
             header: 'Estado',
@@ -326,6 +350,22 @@ const Garages = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const rowsPerPage = 6; // Puedes cambiar esto si deseas un número diferente
+    
+    // Suponiendo que tienes un array de datos
+    const data = table.getRowModel().rows; // O la fuente de datos que estés utilizando
+    const totalRows = data.length;
+    
+    const onPaginationChange = (page: number) => {
+        console.log('onPaginationChange', page);
+        setCurrentPage(page); // Actualiza la página actual
+    };
+    
+    // Calcular el índice de inicio y fin para la paginación
+    const startIndex = (currentPage - 1) * rowsPerPage;        
+    const endIndex = startIndex + rowsPerPage;
+
     return (
         <>
             <div className="grid grid-cols-2">
@@ -339,16 +379,14 @@ const Garages = () => {
                     </Button>
                 </div>
             </div>
+            <div>
             <Table>
                 <THead>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <Tr key={headerGroup.id}>
                             {headerGroup.headers.map((header) => {
                                 return (
-                                    <Th
-                                        key={header.id}
-                                        colSpan={header.colSpan}
-                                    >
+                                    <Th key={header.id} colSpan={header.colSpan}>
                                         {header.isPlaceholder ? null : (
                                             <div
                                                 {...{
@@ -356,30 +394,22 @@ const Garages = () => {
                                                         header.column.getCanSort()
                                                             ? 'cursor-pointer select-none'
                                                             : '',
-                                                    onClick:
-                                                        header.column.getToggleSortingHandler(),
+                                                    onClick: header.column.getToggleSortingHandler(),
                                                 }}
                                             >
                                                 {flexRender(
-                                                    header.column.columnDef
-                                                        .header,
+                                                    header.column.columnDef.header,
                                                     header.getContext(),
                                                 )}
-                                                <Sorter
-                                                    sort={header.column.getIsSorted()}
-                                                />
+                                                <Sorter sort={header.column.getIsSorted()} />
+                                                {/* Agregar un buscador para cada columna */}
                                                 {header.column.getCanFilter() ? (
                                                     <input
                                                         type="text"
                                                         value={
-                                                            filtering
-                                                                .find(
-                                                                    (filter) =>
-                                                                        filter.id ===
-                                                                        header.id,
-                                                                )
-                                                                ?.value?.toString() ||
-                                                            ''
+                                                            filtering.find(
+                                                                (filter) => filter.id === header.id,
+                                                            )?.value?.toString() || ''
                                                         }
                                                         onChange={(e) =>
                                                             handleFilterChange(
@@ -389,42 +419,41 @@ const Garages = () => {
                                                         }
                                                         placeholder={`Buscar`}
                                                         className="mt-2 p-1 border rounded"
-                                                        onClick={(e) =>
-                                                            e.stopPropagation()
-                                                        }
+                                                        onClick={(e) => e.stopPropagation()}
                                                     />
                                                 ) : null}
                                             </div>
                                         )}
                                     </Th>
-                                )
+                                );
                             })}
                         </Tr>
                     ))}
                 </THead>
                 <TBody>
-                    {table
-                        .getRowModel()
-                        .rows.slice(0, 10)
-                        .map((row) => {
-                            return (
-                                <Tr key={row.id}>
-                                    {row.getVisibleCells().map((cell) => {
-                                        return (
-                                            <Td key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </Td>
-                                        )
-                                    })}
-                                </Tr>
-                            )
-                        })}
+                    {table.getRowModel().rows.slice(startIndex, endIndex).map((row) => {
+                        return (
+                            <Tr key={row.id}>
+                                {row.getVisibleCells().map((cell) => {
+                                    return (
+                                        <Td key={cell.id}>
+                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        </Td>
+                                    );
+                                })}
+                            </Tr>
+                        );
+                    })}
                 </TBody>
             </Table>
-
+            {/* Agregar la paginación */}
+            <Pagination
+                onChange={onPaginationChange}
+                currentPage={currentPage}
+                totalRows={totalRows}
+                rowsPerPage={rowsPerPage}
+            />
+        </div>
             <Dialog
                 isOpen={dialogIsOpen}
                 onClose={onDialogClose}
