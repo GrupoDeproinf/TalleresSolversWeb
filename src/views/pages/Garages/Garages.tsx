@@ -16,6 +16,7 @@ import {
     FaCheckCircle,
     FaEdit,
     FaExclamationCircle,
+    FaRegEye,
     FaTimesCircle,
     FaTrash,
 } from 'react-icons/fa'
@@ -186,6 +187,15 @@ const Garages = () => {
         return words.map((word: string) => word[0].toUpperCase()).join('')
     }
 
+    function getRandomColor() {
+        const letters = '0123456789ABCDEF'
+        let color = '#'
+        for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)]
+        }
+        return color
+    }
+
     const columns: ColumnDef<Person>[] = [
         {
             header: 'Nombre',
@@ -248,7 +258,7 @@ const Garages = () => {
                             onClick={() => openDrawer(person)} // Cambiar aquí
                             className="hover:text-blue-700"
                         >
-                            <FaEdit />
+                            <FaRegEye />
                         </button>
                         <button
                             onClick={() => openDialog(person)}
@@ -448,7 +458,10 @@ const Garages = () => {
                 <h2 className="text-xl font-bold">Editar Taller</h2>
 
                 {/* Componente Avatar con iniciales */}
-                <Avatar className="mr-2 bg-blue-500 w-12 h-12 flex items-center justify-center rounded-full">
+                <Avatar
+                    className="mr-2 w-12 h-12 flex items-center justify-center rounded-full"
+                    style={{ backgroundColor: getRandomColor() }}
+                >
                     <span className="text-white font-bold">
                         {getInitials(selectedPerson?.nombre)}
                     </span>
