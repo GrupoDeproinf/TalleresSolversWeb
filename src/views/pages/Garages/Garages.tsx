@@ -218,8 +218,8 @@ const Garages = () => {
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
-                            style={{ backgroundColor: getRandomColor() }}
+                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
+                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}
@@ -366,7 +366,7 @@ const Garages = () => {
                 <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
                 <div className="flex justify-end">
                     <Button
-                        className="bg-blue w-40"
+                        className="w-40 hover:bg-[#FFCC29]"
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
                         Crear Taller
@@ -714,7 +714,7 @@ const Garages = () => {
                             Cancelar
                         </Button>
                         <Button
-                            variant="solid"
+                            className="bg-[#FFCC29] hover:bg-[#FFCC29] hover:bg-opacity-90"
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar

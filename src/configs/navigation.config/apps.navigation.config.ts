@@ -41,7 +41,7 @@ const appsNavigationConfig: NavigationTree[] = [
             {
                 key: 'apps.users',
                 path: `${APP_PREFIX_PATH}/users`,
-                title: 'Clientes',
+                title: 'Usuarios',
                 translateKey: 'Clientes',
                 icon: 'user',
                 type: NAV_ITEM_TYPE_COLLAPSE,

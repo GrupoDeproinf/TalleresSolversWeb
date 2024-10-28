@@ -13,7 +13,8 @@ import type {
     ColumnSort,
     ColumnFiltersState,
 } from '@tanstack/react-table'
-import { FaEdit, FaTrash } from 'react-icons/fa'
+import { FaEdit, FaTrash, FaEye, FaEyeSlash, FaUserCircle, FaUserShield } from 'react-icons/fa'
+import { z } from "zod";
 import {
     collection,
     getDocs,
@@ -30,12 +31,15 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar, Drawer } from '@/components/ui'
+import Password from '@/views/account/Settings/components/Password';
 
 type Person = {
     nombre?: string
     email?: string
     cedula?: string
     phone?: string
+    password?: string
+    confirmPassword?: string
     uid: string
     typeUser?: string
     id: string
@@ -56,14 +60,15 @@ const Users = () => {
 
         querySnapshot.forEach((doc) => {
             const userData = doc.data() as Person
-            // Asegúrate de filtrar por typeUser "Cliente"
-            if (userData.typeUser === 'Cliente') {
+            // Filtrar por typeUser "Cliente" o "Certificador"
+            if (userData.typeUser === 'Cliente' || userData.typeUser === 'Certificador') {
                 usuarios.push({
                     ...userData,
                     id: doc.id, // Guarda el id generado por Firebase
                 })
             }
         })
+        
 
         setDataUsers(usuarios)
     }
@@ -78,8 +83,9 @@ const Users = () => {
         email: '',
         cedula: '',
         phone: '',
+        typeUser: '',
+        password: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
-        typeUser: 'Cliente',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
@@ -92,49 +98,91 @@ const Users = () => {
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
+    // Define el esquema de validación
+    const createUserSchema = z.object({
+    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+    email: z.string().email("Ingrese un correo válido"),
+    cedula: z.string()
+        .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
+    phone: z.string().min(10, "El teléfono debe tener al menos 10 caracteres"),
+    typeUser: z.string().nonempty("El tipo de usuario es requerido"),
+    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+    confirmPassword: z.string().min(6, "Confirmar contraseñas"),
+    }).refine((data: any) => data.password === data.confirmPassword, {
+        path: ["confirmPassword"],
+        message: "Las contraseñas no coinciden",
+    });
+
     const handleCreateUser = async () => {
-        if (newUser && newUser.nombre && newUser.email) {
-            try {
-                const userRef = collection(db, 'Usuarios')
-                const docRef = await addDoc(userRef, {
-                    nombre: newUser.nombre,
-                    email: newUser.email,
-                    cedula: newUser.cedula,
-                    phone: newUser.phone,
-                    typeUser: newUser.typeUser,
-                    // Inicialmente puedes dejar el campo uid vacío aquí
-                    uid: '', // Este se actualizará después
-                })
-
-                // Ahora actualiza el documento para incluir el uid generado
-                await updateDoc(docRef, {
-                    uid: docRef.id, // Establece el uid al ID del documento generado
-                })
-
-                toast.push(
-                    <Notification title="Éxito">
-                        Cliente creado con éxito.
-                    </Notification>,
-                )
-                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
-                getData() // Refrescar la lista de usuarios
-            } catch (error) {
-                console.error('Error creando usuario:', error)
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al crear el cliente.
-                    </Notification>,
-                )
-            }
-        } else {
+        if (!newUser) {
             toast.push(
                 <Notification title="Error">
-                    Por favor, complete todos los campos requeridos.
-                </Notification>,
-            )
+                    Los datos del usuario son nulos. Por favor, verifica.
+                </Notification>
+            );
+            return;
         }
-    }
-
+    
+        try {
+            // Aquí puedes usar tu esquema de Zod para validar
+            createUserSchema.parse(newUser); // Lanza un error si hay problemas de validación
+    
+            // Si la validación es exitosa, continúa con la creación del usuario
+            const userRef = collection(db, 'Usuarios');
+            const docRef = await addDoc(userRef, {
+                nombre: newUser.nombre,
+                email: newUser.email,
+                cedula: newUser.cedula,
+                phone: newUser.phone,
+                Password: newUser.password,
+                typeUser: newUser.typeUser,
+                uid: '', // Inicialmente vacío, se actualizará después
+            });
+    
+            // Verificación inicial de contraseñas
+            if (newUser.password !== newUser.confirmPassword) {
+                toast.push(
+                    <Notification title="Error">
+                        Las contraseñas no coinciden. Por favor, verifica los campos.
+                    </Notification>
+                );
+                return;
+            }
+    
+            // Ahora actualiza el documento para incluir el uid generado
+            await updateDoc(docRef, {
+                uid: docRef.id, // Establece el uid al ID del documento generado
+            });
+    
+            toast.push(
+                <Notification title="Éxito">
+                    Usuario creado con éxito.
+                </Notification>
+            );
+    
+            setDrawerCreateIsOpen(false); // Cerrar el Drawer después de crear el usuario
+            getData(); // Refrescar la lista de usuarios
+        } catch (error) {
+            // Mostrar solo un mensaje de error
+            if (error instanceof z.ZodError) {
+                // Muestra todos los errores de Zod
+                const errorMessages = error.errors.map(err => err.message).join(", "); // Junta los mensajes de error
+                toast.push(
+                    <Notification title="Error">
+                        {errorMessages} {/* Muestra todos los mensajes de error en español */}
+                    </Notification>
+                );
+            } else {
+                console.error('Error creando usuario:', error);
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al crear el usuario.
+                    </Notification>
+                );
+            }
+        }
+    };
+        
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
             // Actualizar el filtro correspondiente a la columna
@@ -173,17 +221,21 @@ const Users = () => {
                 )
             }
         }
+
     }
-    
-    // Función para generar un color aleatorio
-    function getRandomColor() {
-        const letters = '0123456789ABCDEF'
-        let color = '#'
-        for (let i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 16)]
+
+    // Obtener iniciales de los nombres
+const getInitials = (nombre: string | undefined): string => {
+    if (!nombre) return ''
+    const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
+    return words.map((word) => {
+        if (typeof word === 'string' && word.length > 0) {
+            return word[0].toUpperCase()
         }
-        return color
-    }
+        return '' // Retorna una cadena vacía si la palabra no es válida
+    }).join('')
+}
+
 
     const columns: ColumnDef<Person>[] = [
         {
@@ -212,8 +264,10 @@ const Users = () => {
                 const nombre = row.original.nombre; // Accede al nombre del cliente
                 return (
                     <div className="flex items-center">
-                        <Avatar className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
-                        style={{ backgroundColor: getRandomColor() }} >
+                        <Avatar
+                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
+                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
+                            >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}
                             </span>
@@ -223,6 +277,38 @@ const Users = () => {
                 );
             },
         },
+        {
+            header: 'Tipo de Usuario',
+            accessorKey: 'typeUser',
+            cell: ({ row }) => {
+                const typeUser = row.getValue('typeUser') as string; // Aserción de tipo
+                let icon;
+                let color;
+        
+                switch (typeUser) {
+                    case 'Cliente':
+                        icon = <FaUserCircle className="text-green-500 mr-1" />;
+                        color = 'text-green-500'; // Color para el texto
+                        break;
+                    case 'Certificador':
+                        icon = <FaUserShield className="text-yellow-500 mr-1" />;
+                        color = 'text-yellow-500'; // Color para el texto
+                        break;
+                    default:
+                        icon = null;
+                        color = 'text-gray-500'; // Color predeterminado
+                }
+        
+                return (
+                    <div className={`flex items-center ${color}`}>
+                        {icon}
+                        <span>{typeUser}</span>
+                    </div>
+                );
+            },
+        },
+        
+        
         {
             header: ' ',
             cell: ({ row }) => {
@@ -320,23 +406,20 @@ const Users = () => {
         const startIndex = (currentPage - 1) * rowsPerPage;
         const endIndex = startIndex + rowsPerPage;
 
-        //Obtener iniciales de los nombres
-        const getInitials = (nombre: string | undefined): string => {
-            if (!nombre) return ''
-            const words = nombre.split(' ')
-            return words.map((word: string) => word[0].toUpperCase()).join('')
-        }
+        
+
+        const [showPassword, setShowPassword] = useState(false);
 
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Lista de Clientes</h1>
+                <h1 className="mb-6 flex justify-start">Lista de Usuarios</h1>
                 <div className="flex justify-end">
                     <Button
-                        className="bg-blue w-40"
+                        className="w-40 hover:bg-blue-300"
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
-                        Crear Cliente
+                        Crear Usuario
                     </Button>
                 </div>
             </div>
@@ -524,6 +607,7 @@ const Users = () => {
                                         nombre: '',
                                         email: '',
                                         phone: '',
+                                        password: '',
                                         uid: '',
                                         typeUser: '',
                                         id: '',
@@ -580,7 +664,7 @@ const Users = () => {
                 onClose={() => setDrawerCreateIsOpen(false)}
                 className="rounded-md shadow"
             >
-                <h2 className="mb-4 text-xl font-bold">Crear Cliente</h2>
+                <h2 className="mb-4 text-xl font-bold">Crear Usuario</h2>
                 <div className="flex flex-col space-y-6">
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
@@ -646,6 +730,67 @@ const Users = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Tipo de Usuario:
+                        </span>
+                        <select
+                            value={newUser?.typeUser || 'Cliente'} // Valor por defecto 'Cliente'
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    typeUser: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        >
+                            <option value="Cliente">Cliente</option>
+                            <option value="Certificador">Certificador</option>
+                        </select>
+                    </label>
+                    <label className="flex flex-col relative">
+                <span className="font-semibold text-gray-700">Contraseña:</span>
+                <input
+                    type={showPassword ? "text" : "password"}
+                    value={newUser?.password || ''}
+                    onChange={(e) =>
+                        setNewUser((prev: any) => ({
+                            ...prev,
+                            password: e.target.value,
+                        }))
+                    }
+                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                />
+                <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-10 text-gray-600"
+                >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+            </label>
+
+            <label className="flex flex-col relative mt-4">
+                <span className="font-semibold text-gray-700">Confirmar Contraseña:</span>
+                <input
+                    type={showPassword ? "text" : "password"}
+                    value={newUser?.confirmPassword || ''}
+                    onChange={(e) =>
+                        setNewUser((prev: any) => ({
+                            ...prev,
+                            confirmPassword: e.target.value,
+                        }))
+                    }
+                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                />
+                <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-10 text-gray-600"
+                >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+            </label>
                     <div className="text-right mt-6">
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
@@ -655,7 +800,7 @@ const Users = () => {
                             Cancelar
                         </Button>
                         <Button
-                            variant="solid"
+                            className="bg-[#FFCC29] hover:bg-[#FFCC29] hover:bg-opacity-90"
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar

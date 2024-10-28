@@ -366,7 +366,7 @@ const Services = () => {
                 <h1 className="mb-6 flex justify-start">Lista de Servicios</h1>
                 <div className="flex justify-end">
                     <Button
-                        className="bg-blue w-40"
+                        className="w-40 bg-[#FFCC29] hover:bg-[#FFCC29]"
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
                         Crear Servicio
@@ -721,7 +721,7 @@ const Services = () => {
                             Cancelar
                         </Button>
                         <Button
-                            variant="solid"
+                            className="bg-[#FFCC29] hover:bg-[#FFCC29] hover:bg-opacity-90"
                             onClick={handleCreateService} // Llamar a la función para crear usuario
                         >
                             Guardar
