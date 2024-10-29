@@ -232,32 +232,31 @@ const getInitials = (nombre: string | undefined): string => {
 
     const columns: ColumnDef<Category>[] = [
         {
-            header: 'Logo',
-            accessorKey: 'logoUrl',
-            cell: ({ getValue }) => {
-                const logoUrl = getValue() as string | undefined; // Asegúrate de que sea un string o undefined
-                return logoUrl ? (
-                    <img
-                        src={logoUrl}
-                        alt="Logo"
-                        className="h-10 w-10 object-cover rounded"
-                    />
-                ) : (
-                    <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
-                        <FaFolder  className="h-6 w-6 text-gray-400" aria-hidden="true" /> {/* Muestra el ícono */}
+            header: 'Nombre',
+            accessorKey: 'nombre',
+            cell: ({ getValue, row }) => {
+                const logoUrl = row.original.logoUrl as string | undefined; // Obtener el logo de la fila
+                return (
+                    <div className="flex items-center">
+                        {logoUrl ? (
+                            <img
+                                src={logoUrl}
+                                alt="Logo"
+                                className="h-10 w-10 object-cover rounded-full mr-3" // Espaciado a la derecha del logo
+                            />
+                        ) : (
+                            <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center mr-2">
+                                <FaFolder className="h-6 w-6 text-gray-400" aria-hidden="true" /> {/* Icono por defecto */}
+                            </div>
+                        )}
+                        {getValue() as string} {/* Mostrar el nombre de la categoría */}
                     </div>
                 );
             },
             filterFn: 'includesString',
             footer: (props) => props.column.id,
         },
-        {
-            header: 'Nombre',
-            accessorKey: 'nombre',
-            cell: ({ getValue }) => getValue(),
-            filterFn: 'includesString',
-            footer: (props) => props.column.id,
-        },
+
         {
             header: 'Descripción',
             accessorKey: 'descripcion',
