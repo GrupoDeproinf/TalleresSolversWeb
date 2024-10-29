@@ -242,7 +242,7 @@ const getInitials = (nombre: string | undefined): string => {
                             <img
                                 src={logoUrl}
                                 alt="Logo"
-                                className="h-10 w-10 object-cover rounded-full mr-3" // Espaciado a la derecha del logo
+                                className="h-10 w-10 object-cover rounded-full mr-4" // Espaciado a la derecha del logo
                             />
                         ) : (
                             <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center mr-2">
