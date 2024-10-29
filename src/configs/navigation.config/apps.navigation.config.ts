@@ -68,6 +68,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN, USER],
                 subMenu: [],
             },
+            {
+                key: 'apps.category',
+                path: `${APP_PREFIX_PATH}/category`,
+                title: 'Categorías',
+                translateKey: 'Categorias',
+                icon: 'tools',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
         ],
     },
 ]

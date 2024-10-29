@@ -260,13 +260,13 @@ const Services = () => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => openDrawer(person)} // Cambiar aquí
-                            className="hover:text-blue-700"
+                            className="text-blue-900"
                         >
                             <FaEdit />
                         </button>
                         <button
                             onClick={() => openDialog(person)}
-                            className="hover:text-red-700"
+                            className="text-red-700"
                         >
                             <FaTrash />
                         </button>
@@ -288,6 +288,12 @@ const Services = () => {
         setIsOpen(false)
         setSelectedService(null) // Limpiar selección
     }
+
+    const handleDrawerClose = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e);
+        setDrawerIsOpen(false);
+        setSelectedService(null); // Limpiar la selección
+    };
 
     const handleDelete = async () => {
         if (selectedService) {
@@ -368,7 +374,8 @@ const Services = () => {
                     </h1>
                     <div className="flex justify-end">
                         <Button
-                            className="bg-blue w-40"
+                            style={{ backgroundColor: '#000B7E' }}
+                            className='text-white hover:opacity-80'
                             onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                         >
                             Crear Servicio
@@ -493,14 +500,17 @@ const Services = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleDelete}>
+                    <Button 
+                    style={{ backgroundColor: '#B91C1C' }}
+                    className='text-white hover:opacity-80'
+                    onClick={handleDelete}>
                         Eliminar
                     </Button>
                 </div>
             </Dialog>
             <Drawer
                 isOpen={drawerIsOpen}
-                onClose={() => setDrawerIsOpen(false)}
+                onClose={handleDrawerClose}
                 className="rounded-md" // Añadir estilo al Drawer
             >
                 <h2 className="text-xl font-bold">Editar Servicio</h2>
@@ -661,10 +671,14 @@ const Services = () => {
                     <Button
                         className="mr-2" // Espaciado entre botones
                         variant="default"
+                        onClick={handleDrawerClose}
                     >
-                        Cerrar
+                        Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleSaveChanges}>
+                    <Button 
+                    style={{ backgroundColor: '#000B7E' }}
+                    className='text-white hover:opacity-80'
+                    onClick={handleSaveChanges}>
                         Guardar Cambios
                     </Button>
                 </div>
@@ -765,7 +779,8 @@ const Services = () => {
                             Cancelar
                         </Button>
                         <Button
-                            className="bg-[#FFCC29] hover:bg-[#FFCC29] hover:bg-opacity-90"
+                            style={{ backgroundColor: '#000B7E' }}
+                            className='text-white hover:opacity-80'
                             onClick={handleCreateService} // Llamar a la función para crear usuario
                         >
                             Guardar

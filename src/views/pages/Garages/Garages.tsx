@@ -274,13 +274,13 @@ const Garages = () => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => openDrawer(person)} // Cambiar aquí
-                            className="hover:text-blue-700"
+                            className="text-blue-900"
                         >
                             <FaRegEye />
                         </button>
                         <button
                             onClick={() => openDialog(person)}
-                            className="hover:text-red-700"
+                            className="text-red-700"
                         >
                             <FaTrash />
                         </button>
@@ -366,7 +366,8 @@ const Garages = () => {
                 <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
                 <div className="flex justify-end">
                     <Button
-                        className="w-40 hover:bg-[#FFCC29]"
+                        style={{ backgroundColor: '#000B7E' }}
+                        className='text-white hover:opacity-80'
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
                         Crear Taller
@@ -490,7 +491,10 @@ const Garages = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleDelete}>
+                    <Button 
+                    style={{ backgroundColor: '#B91C1C' }}
+                    className='text-white hover:opacity-80'
+                    onClick={handleDelete}>
                         Eliminar
                     </Button>
                 </div>
@@ -562,9 +566,13 @@ const Garages = () => {
                         variant="default"
                         onClick={() => setDrawerIsOpen(false)}
                     >
-                        Cerrar
+                        Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleSaveChanges}>
+                    <Button 
+                    style={{ backgroundColor: '#000B7E' }}
+                    className='text-white hover:opacity-80' 
+                    onClick={handleSaveChanges}
+                    >
                         Guardar Cambios
                     </Button>
                 </div>
@@ -650,7 +658,8 @@ const Garages = () => {
                             Cancelar
                         </Button>
                         <Button
-                            className="bg-[#FFCC29] hover:bg-[#FFCC29] hover:bg-opacity-90"
+                            style={{ backgroundColor: '#000B7E' }}
+                            className='text-white hover:opacity-80'
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar

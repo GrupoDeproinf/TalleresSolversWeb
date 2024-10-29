@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
+import { getAuth } from 'firebase/auth';
 import Table from '@/components/ui/Table'
 import {
     flexRender,
@@ -13,11 +14,12 @@ import type {
     ColumnSort,
     ColumnFiltersState,
 } from '@tanstack/react-table'
-import { FaEdit, FaTrash, FaEye, FaEyeSlash, FaUserCircle, FaUserShield } from 'react-icons/fa'
+import { FaEdit, FaTrash, FaCamera, FaFolder, FaEye, FaEyeSlash, FaUserCircle, FaUserShield } from 'react-icons/fa'
 import { z } from "zod";
 import {
     collection,
     getDocs,
+    getDoc,
     query,
     doc,
     deleteDoc,
@@ -32,36 +34,39 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar, Drawer } from '@/components/ui'
 import Password from '@/views/account/Settings/components/Password';
+import Description from '@/views/ui-components/navigation/Steps/Description'
+import { Timestamp } from 'firebase/firestore'; // Importa Timestamp
+import { px } from 'framer-motion';
 
-type Person = {
-    nombre?: string
-    email?: string
-    cedula?: string
-    phone?: string
-    password?: string
-    confirmPassword?: string
-    uid: string
-    typeUser?: string
-    id: string
-}
+type Category = {
+    nombre?: string;
+    descripcion?: string;
+    fechaCreacion?: Timestamp; // Fecha de creación de la categoría
+    logoUrl?: string; // URL de la imagen que funcione como logo de la categoría
+    nombreUser?: string; // Nombre del creador
+    
+    uid: string; // ID del usuario que creó la categoría
+    id: string; // ID único de la categoría
+};
+
 
 const Users = () => {
-    const [dataUsers, setDataUsers] = useState<Person[]>([])
+    const [dataUsers, setDataUsers] = useState<Category[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+    const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
     const getData = async () => {
-        const q = query(collection(db, 'Usuarios'))
+        const q = query(collection(db, 'Categorias'))
         const querySnapshot = await getDocs(q)
-        const usuarios: Person[] = []
+        const usuarios: Category[] = []
 
         querySnapshot.forEach((doc) => {
-            const userData = doc.data() as Person
+            const userData = doc.data() as Category
             // Filtrar por typeUser "Cliente" o "Certificador"
-            if (userData.typeUser === 'Cliente' || userData.typeUser === 'Certificador') {
+            if (userData) {
                 usuarios.push({
                     ...userData,
                     id: doc.id, // Guarda el id generado por Firebase
@@ -78,119 +83,93 @@ const Users = () => {
     }, [])
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newUser, setNewUser] = useState<Person | null>({
+    const [newCategory, setnewCategory] = useState<Category | null>({
         nombre: '',
-        email: '',
-        cedula: '',
-        phone: '',
-        typeUser: '',
-        password: '',
+        descripcion: '',
+        fechaCreacion: Timestamp.fromDate(new Date()),
+        logoUrl: '',
+        nombreUser: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
-    const openDialog = (person: Person) => {
-        setSelectedPerson(person)
+    const openDialog = (Category: Category) => {
+        setSelectedCategory(Category)
         setIsOpen(true)
     }
-    const openDrawer = (person: Person) => {
-        setSelectedPerson(person)
+    const openDrawer = (Category: Category) => {
+        setSelectedCategory(Category)
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
     // Define el esquema de validación
     const createUserSchema = z.object({
     nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-    email: z.string().email("Ingrese un correo válido"),
-    cedula: z.string()
-        .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
-    phone: z.string()
-        .regex(/^\d{9,10}$/, "El teléfono debe tener entre 9 y 10 caracteres y contener solo números"),
-    //typeUser
-    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-    confirmPassword: z.string().min(6, "Confirmar contraseñas"),
-    }).refine((data: any) => data.password === data.confirmPassword, {
-        path: ["confirmPassword"],
-        message: "Las contraseñas no coinciden",
-    });
+    // descripcion: 
+    })
 
     const handleCreateUser = async () => {
-        if (!newUser) {
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+    
+        if (!newCategory || !currentUser) {
             toast.push(
                 <Notification title="Error">
-                    Los datos del usuario son nulos. Por favor, verifica.
+                    { !currentUser ? "Usuario no autenticado." : "Los datos de la categoría son nulos. Por favor, verifica." }
                 </Notification>
             );
             return;
         }
     
         try {
-            // Validación de Zod
-            createUserSchema.parse(newUser);
-
-            
+            // Obtener el documento del usuario en la colección "Usuarios"
+            const userDocRef = doc(db, 'Usuarios', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
     
-            // Creación del usuario en la base de datos
-            const userRef = collection(db, 'Usuarios');
-            const docRef = await addDoc(userRef, {
-                nombre: newUser.nombre,
-                email: newUser.email,
-                cedula: newUser.cedula,
-                phone: newUser.phone,
-                Password: newUser.password,
-                typeUser: newUser.typeUser, // Ahora siempre tiene valor
-                uid: '', // Inicialmente vacío, se actualizará después
-            });
-
-            // Si el campo typeUser es indefinido, asigna 'Cliente' por defecto
-            if (!newUser?.typeUser) {
-                setNewUser((prev: any) => ({
-                    ...prev,
-                    typeUser: 'Cliente',
-                }));
-            }
+            // Si el documento no existe, asignar "Administrador" como nombre
+            const userName = userDoc.exists() && userDoc.data()?.nombre ? userDoc.data().nombre : "Administrador";
     
-            // Verificación de contraseñas
-            if (newUser.password !== newUser.confirmPassword) {
-                toast.push(
-                    <Notification title="Error">
-                        Las contraseñas no coinciden. Por favor, verifica los campos.
-                    </Notification>
-                );
-                return;
-            }
+            // Crear los datos de la categoría con el nombre del usuario
+            const categoryData = {
+                ...newCategory,
+                nombreUser: userName,
+                uid: currentUser.uid,
+                fechaCreacion: Timestamp.fromDate(new Date()), // Fecha actual
+            };
     
-            // Actualización del uid
-            await updateDoc(docRef, {
-                uid: docRef.id,
-            });
+            // Guardar la categoría en Firestore
+            const userRef = collection(db, 'Categorias');
+            await addDoc(userRef, categoryData);
     
             toast.push(
                 <Notification title="Éxito">
-                    Usuario creado con éxito.
+                    Categoría creada con éxito.
                 </Notification>
             );
     
-            setDrawerCreateIsOpen(false); // Cerrar el Drawer
-            getData(); // Refrescar la lista de usuarios
+            setDrawerCreateIsOpen(false); // Cerrar el Drawer después de crear la Categoría
+            getData(); // Refrescar la lista de categorías
         } catch (error) {
             if (error instanceof z.ZodError) {
-                const errorMessages = error.errors.map((err) => err.message).join(', ');
+                const errorMessages = error.errors.map(err => err.message).join(", ");
                 toast.push(
                     <Notification title="Error">
                         {errorMessages}
                     </Notification>
                 );
             } else {
-                console.error('Error creando usuario:', error);
+                console.error('Error creando Categoría:', error);
                 toast.push(
                     <Notification title="Error">
-                        Hubo un error al crear el usuario.
+                        Hubo un error al crear la Categoría.
                     </Notification>
                 );
             }
         }
-    };    
+    };
+    
+    
+    
         
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -203,35 +182,41 @@ const Users = () => {
         })
     }
     const handleSaveChanges = async () => {
-        if (selectedPerson) {
+        if (selectedCategory && selectedCategory.id) {
             try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
+                const userDoc = doc(db, 'Categorias', selectedCategory.id);
                 await updateDoc(userDoc, {
-                    nombre: selectedPerson.nombre,
-                    email: selectedPerson.email,
-                    cedula: selectedPerson.cedula,
-                    phone: selectedPerson.phone,
-                })
+                    nombre: selectedCategory.nombre || '',
+                    descripcion: selectedCategory.descripcion || '',
+                    logoUrl: selectedCategory.logoUrl || '',
+                });
                 // Mensaje de éxito
                 toast.push(
                     <Notification title="Éxito">
-                        Usuario actualizado con éxito.
+                        Categoría actualizada con éxito.
                     </Notification>,
-                )
-                setDrawerIsOpen(false)
-                getData() // Refrescar datos después de guardar
+                );
+                // Cerrar el drawer
+                setDrawerIsOpen(false);
+
+                // Recargar la página
+                window.location.reload();
+                getData(); // Refrescar datos después de guardar
             } catch (error) {
-                console.error('Error actualizando el usuario:', error)
+                console.error('Error actualizando la categoría:', error);
                 // Mensaje de error
                 toast.push(
                     <Notification title="Error">
-                        Hubo un error al actualizar el usuario.
+                        Hubo un error al actualizar la Categoría.
                     </Notification>,
-                )
+                );
             }
+        } else {
+            console.error("selectedCategory o uid no están definidos.");
+            console.error();
         }
-
-    }
+    };
+    
     
     // Obtener iniciales de los nombres
 const getInitials = (nombre: string | undefined): string => {
@@ -245,7 +230,27 @@ const getInitials = (nombre: string | undefined): string => {
     }).join('')
 }
 
-    const columns: ColumnDef<Person>[] = [
+    const columns: ColumnDef<Category>[] = [
+        {
+            header: 'Logo',
+            accessorKey: 'logoUrl',
+            cell: ({ getValue }) => {
+                const logoUrl = getValue() as string | undefined; // Asegúrate de que sea un string o undefined
+                return logoUrl ? (
+                    <img
+                        src={logoUrl}
+                        alt="Logo"
+                        className="h-10 w-10 object-cover rounded"
+                    />
+                ) : (
+                    <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center">
+                        <FaFolder  className="h-6 w-6 text-gray-400" aria-hidden="true" /> {/* Muestra el ícono */}
+                    </div>
+                );
+            },
+            filterFn: 'includesString',
+            footer: (props) => props.column.id,
+        },
         {
             header: 'Nombre',
             accessorKey: 'nombre',
@@ -254,70 +259,34 @@ const getInitials = (nombre: string | undefined): string => {
             footer: (props) => props.column.id,
         },
         {
-            header: 'Cedula',
-            accessorKey: 'cedula',
+            header: 'Descripción',
+            accessorKey: 'descripcion',
+            cell: ({ getValue }) => getValue(),
             filterFn: 'includesString',
-        },
+            footer: (props) => props.column.id,
+        },  
         {
-            header: 'Email',
-            accessorKey: 'email',
-            filterFn: 'includesString',
-        },
-
-        {
-            header: 'Numero Telefonico',
-            accessorKey: 'phone',
-            filterFn: 'includesString',
-            cell: ({ row }) => {
-                const nombre = row.original.nombre // Accede al nombre del cliente
+            header: 'Fecha de Creación',
+            accessorKey: 'fechaCreacion',
+            cell: ({ getValue }) => {
+                const fechaCreacion = getValue() as Timestamp | undefined; // Cambia a Timestamp
                 return (
-                    <div className="flex items-center">
-                        <Avatar
-                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
-                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
-                            >
-                            <span className="text-white font-bold">
-                                {getInitials(nombre)}
-                            </span>
-                        </Avatar>
-                        {row.original.phone}{' '}
-                        {/* Muestra el número telefónico */}
-                    </div>
-                )
-            },
-        },
-        {
-            header: 'Tipo de Usuario',
-            accessorKey: 'typeUser',
-            cell: ({ row }) => {
-                const typeUser = row.getValue('typeUser') as string; // Aserción de tipo
-                let icon;
-                let color;
-        
-                switch (typeUser) {
-                    case 'Cliente':
-                        icon = <FaUserCircle className="text-green-500 mr-1" />;
-                        color = 'text-green-500'; // Color para el texto
-                        break;
-                    case 'Certificador':
-                        icon = <FaUserShield className="text-yellow-500 mr-1" />;
-                        color = 'text-yellow-500'; // Color para el texto
-                        break;
-                    default:
-                        icon = null;
-                        color = 'text-gray-500'; // Color predeterminado
-                }
-        
-                return (
-                    <div className={`flex items-center ${color}`}>
-                        {icon}
-                        <span>{typeUser}</span>
+                    <div className="text-sm text-gray-700">
+                        {fechaCreacion ? new Date(fechaCreacion.seconds * 1000).toLocaleDateString() : 'No disponible'}
                     </div>
                 );
             },
+            filterFn: 'includesString',
+            footer: (props) => props.column.id,
         },
         
-        
+        {
+            header: 'Creador',
+            accessorKey: 'nombreUser',
+            cell: ({ getValue }) => getValue(),
+            filterFn: 'includesString',
+            footer: (props) => props.column.id,
+        },    
         {
             header: ' ',
             cell: ({ row }) => {
@@ -339,7 +308,7 @@ const getInitials = (nombre: string | undefined): string => {
                     </div>
                 )
             },
-        },
+        },         
     ]
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
@@ -347,29 +316,28 @@ const getInitials = (nombre: string | undefined): string => {
     const onDialogClose = (e: MouseEvent) => {
         console.log('onDialogClose', e)
         setIsOpen(false)
-        setSelectedPerson(null) // Limpiar selección
+        setSelectedCategory(null) // Limpiar selección
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e);
         setDrawerIsOpen(false);
-        setSelectedPerson(null); // Limpiar la selección
+        setSelectedCategory(null); // Limpiar la selección
     };
-    
 
     const handleDelete = async () => {
-        if (selectedPerson) {
-            console.log('Eliminando a:', selectedPerson)
+        if (selectedCategory) {
+            console.log('Eliminando a:', selectedCategory)
 
             try {
                 // Usa el id del documento en lugar de uid
-                const userDoc = doc(db, 'Usuarios', selectedPerson.id)
+                const userDoc = doc(db, 'Categorias', selectedCategory.id)
                 await deleteDoc(userDoc)
 
                 // Usar toast para mostrar el mensaje de éxito
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Usuario {selectedPerson.nombre} eliminado con éxito.
+                        Categoría {selectedCategory.nombre} eliminado con éxito.
                     </Notification>
                 )
                 toast.push(toastNotification)
@@ -381,13 +349,13 @@ const getInitials = (nombre: string | undefined): string => {
                 // Usar toast para mostrar el mensaje de error
                 const errorNotification = (
                     <Notification title="Error">
-                        Hubo un error eliminando el usuario.
+                        Hubo un error eliminando la categoría.
                     </Notification>
                 )
                 toast.push(errorNotification)
             } finally {
                 setIsOpen(false) // Cerrar diálogo después de la operación
-                setSelectedPerson(null) // Limpiar selección
+                setSelectedCategory(null) // Limpiar selección
             }
         }
     }
@@ -427,14 +395,14 @@ const getInitials = (nombre: string | undefined): string => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Lista de Usuarios</h1>
+                <h1 className="mb-6 flex justify-start">Lista de Categorías</h1>
                 <div className="flex justify-end">
                     <Button
-                        className="w-40 text-white hover:opacity-80"
                         style={{ backgroundColor: '#000B7E' }}
+                        className='text-white hover:opacity-80'
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
-                        Crear Usuario
+                        Crear Categoría
                     </Button>
                 </div>
             </div>
@@ -541,7 +509,7 @@ const getInitials = (nombre: string | undefined): string => {
                 <h5 className="mb-4">Confirmar Eliminación</h5>
                 <p>
                     ¿Estás seguro de que deseas eliminar a{' '}
-                    {selectedPerson?.nombre}?
+                    {selectedCategory?.nombre}?
                 </p>
                 <div className="text-right mt-6">
                     <Button
@@ -551,11 +519,10 @@ const getInitials = (nombre: string | undefined): string => {
                     >
                         Cancelar
                     </Button>
-                    <Button
-                        style={{ backgroundColor: '#B91C1C' }}
-                        className='text-white hover:opacity-80'
-                        onClick={handleDelete}
-                    >
+                    <Button 
+                    style={{ backgroundColor: '#B91C1C' }}
+                    className='text-white hover:opacity-80'
+                    onClick={handleDelete}>
                         Eliminar
                     </Button>
                 </div>
@@ -565,115 +532,109 @@ const getInitials = (nombre: string | undefined): string => {
                 onClose={handleDrawerClose}
                 className="rounded-md shadow" // Añadir estilo al Drawer
             >
-                <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
+                <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
                 <div className="flex flex-col space-y-6">
-                    {' '}
                     {/* Aumentar el espacio entre campos */}
+                    
                     {/* Campo para Nombre */}
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre:
-                        </span>
+                        <span className="font-semibold text-gray-700">Nombre:</span>
                         <input
                             type="text"
-                            value={selectedPerson?.nombre || ''}
+                            value={selectedCategory?.nombre || ''}
                             onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
+                                setSelectedCategory((prev: any) => ({
+                                    ...prev,
                                     nombre: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
-                    {/* Campo para Email */}
+
+                    {/* Campo para Descripción */}
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <input
-                            type="email"
-                            value={selectedPerson?.email || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        <span className="font-semibold text-gray-700">Descripción:</span>
+                        <textarea
+                            value={selectedCategory?.descripcion || ''}
+                            onChange={(e) => {
+                                setSelectedCategory((prev: any) => ({
+                                    ...prev,
+                                    descripcion: e.target.value,
+                                }));
+                                e.target.style.height = "auto"; // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                            }}
+                            rows={1} // Altura inicial
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                            style={{
+                                maxHeight: '150px', // Límite máximo de altura
+                                overflowY: 'auto',   // Scroll vertical cuando se excede el límite
+                            }}
                         />
                     </label>
-                    {/* Campo para cedula */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cédula:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.cedula || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        password: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    rif: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    {/* Campo para Teléfono */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.phone || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    phone: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
+
+                    {/* Campo para Logo */}
+<label
+    htmlFor="logo-upload"
+    className="block text-sm font-medium leading-6 text-gray-900 text-center"
+>
+    Logo (máx 100x100 px):
+</label>
+<div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+    <div className="text-center">
+        {!selectedCategory?.logoUrl ? (
+            <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+        ) : (
+            <div>
+                <img
+                    src={selectedCategory.logoUrl}
+                    alt="Preview Logo"
+                    className="mx-auto h-32 w-32 object-cover"
+                />
+                {/* Botón para quitar la imagen */}
+                <button
+                    onClick={() => {
+                        setSelectedCategory((prev: any) => ({
+                            ...prev,
+                            logoUrl: '', // Restablece la URL del logo a una cadena vacía
+                        }));
+                    }}
+                    className="mt-2 text-red-500 hover:text-red-700"
+                >
+                    Quitar Logo
+                </button>
+            </div>
+        )}
+        <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+            <label
+                htmlFor="logo-upload"
+                className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+            >
+                <span>{selectedCategory?.logoUrl ? "Cambiar Logo" : "Seleccionar Logo"}</span>
+                <input
+                    id="logo-upload"
+                    name="logo-upload"
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                setSelectedCategory((prev: any) => ({
+                                    ...prev,
+                                    logoUrl: reader.result, // Almacena la URL del logo
+                                }));
+                            };
+                            reader.readAsDataURL(file); // Leer el archivo como una URL de datos
+                        }
+                    }}
+                />
+            </label>        </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="text-right mt-6">
@@ -685,20 +646,20 @@ const getInitials = (nombre: string | undefined): string => {
                         Cancelar
                     </Button>
                     <Button 
-                    onClick={handleSaveChanges}
-                    style={{ backgroundColor: '#000B7E' }}
-                    className='text-white hover:opacity-80'
-                    >
+                        style={{ backgroundColor: '#000B7E' }}
+                        className='text-white hover:opacity-80'
+                        onClick={handleSaveChanges}>
                         Guardar Cambios
                     </Button>
                 </div>
             </Drawer>
+
             <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={() => setDrawerCreateIsOpen(false)}
                 className="rounded-md shadow"
             >
-                <h2 className="mb-4 text-xl font-bold">Crear Usuario</h2>
+                <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
                 <div className="flex flex-col space-y-6">
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
@@ -706,9 +667,9 @@ const getInitials = (nombre: string | undefined): string => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.nombre || ''}
+                            value={newCategory?.nombre || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setnewCategory((prev: any) => ({
                                     ...prev, // Esto preserva los valores existentes
                                     nombre: e.target.value, // Solo actualiza el campo necesario
                                 }))
@@ -718,113 +679,75 @@ const getInitials = (nombre: string | undefined): string => {
                     </label>
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Email:
+                            Descripción:
                         </span>
-                        <input
-                            type="email"
-                            value={newUser?.email || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                        <textarea
+                            value={newCategory?.descripcion || ''}
+                            onChange={(e) => {
+                                setnewCategory((prev: any) => ({
                                     ...(prev ?? {}),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                    descripcion: e.target.value,
+                                }));
+                                e.target.style.height = "auto"; // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                            }}
+                            rows={1} // Altura inicial
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                            style={{
+                                maxHeight: '150px', // Límite máximo de altura
+                                overflowY: 'auto',   // Scroll vertical cuando se excede el límite
+                            }}
                         />
                     </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cédula:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.cedula || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    cedula: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
+                    <label
+                        htmlFor="logo-upload"
+                        className="block text-sm font-medium leading-6 text-gray-900 text-center"
+                    >
+                        Logo (máx 100x100 px):
                     </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.phone || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    phone: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Tipo de Usuario:
-                        </span>
-                        <select
-                            value={newUser?.typeUser || 'Cliente'} // Valor por defecto 'Cliente'
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    typeUser: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        >
-                            <option value="Cliente">Cliente</option>
-                            <option value="Certificador">Certificador</option>
-                        </select>
-                    </label>
-                    <label className="flex flex-col relative">
-                <span className="font-semibold text-gray-700">Contraseña:</span>
-                <input
-                    type={showPassword ? "text" : "password"}
-                    value={newUser?.password || ''}
-                    onChange={(e) =>
-                        setNewUser((prev: any) => ({
-                            ...prev,
-                            password: e.target.value,
-                        }))
-                    }
-                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                />
-                <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-10 text-gray-600"
-                >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
-            </label>
+                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                        <div className="text-center">
+                            {!newCategory?.logoUrl ? (
+                                <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+                            ) : (
+                                <img
+                                    src={newCategory.logoUrl}
+                                    alt="Preview Logo"
+                                    className="mx-auto h-32 w-32 object-cover"
+                                />
+                            )}
+                            <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                <label
+                                    htmlFor="logo-upload"
+                                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                >
+                                <span>{newCategory?.logoUrl ? "Cambiar Logo" : "Seleccionar Logo"}</span>
+                                <input
+                                    id="logo-upload"
+                                    name="logo-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                                setnewCategory((prev: any) => ({
+                                                    ...prev,
+                                                    logoUrl: reader.result, // Almacena la URL del logo
+                                                }));
+                                            };
+                                            reader.readAsDataURL(file); // Leer el archivo como una URL de datos
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </div>
 
-            <label className="flex flex-col relative mt-4">
-                <span className="font-semibold text-gray-700">Confirmar Contraseña:</span>
-                <input
-                    type={showPassword ? "text" : "password"}
-                    value={newUser?.confirmPassword || ''}
-                    onChange={(e) =>
-                        setNewUser((prev: any) => ({
-                            ...prev,
-                            confirmPassword: e.target.value,
-                        }))
-                    }
-                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                />
-                <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-10 text-gray-600"
-                >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
-            </label>
+
                     <div className="text-right mt-6">
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
