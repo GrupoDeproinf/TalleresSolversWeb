@@ -69,6 +69,7 @@ const ProfileGarage = () => {
     const [dialogOpen, setDialogOpen] = useState(false)
     const [editModalOpen, setEditModalOpen] = useState(false)
     const [formData, setFormData] = useState({
+        logoUrl: '',
         nombre: '',
         email: '',
         phone: '',
@@ -78,7 +79,6 @@ const ProfileGarage = () => {
         LinkFacebook: '',
         LinkTiktok: '',
         LinkInstagram: '',
-        logoUrl: '',
     })
 
     const path = location.pathname.substring(
@@ -92,32 +92,33 @@ const ProfileGarage = () => {
             const resp = await getDoc(docRef)
             const dataFinal = resp.data() || null
 
-            const servicesRef = collection(db, 'Servicios')
-            const servicesQuery = query(
-                servicesRef,
-                where('taller', '==', dataFinal?.nombre),
+            // Extraer los IDs de los servicios desde el documento 'Usuarios'
+            const serviceIds = dataFinal?.servicios || []
+
+            // Obtener detalles completos de cada servicio usando sus IDs
+            const services = await Promise.all(
+                serviceIds.map(async (serviceId: string) => {
+                    const serviceDocRef = doc(db, 'Servicios', serviceId)
+                    const serviceDoc = await getDoc(serviceDocRef)
+                    const serviceData = serviceDoc.data()
+
+                    return {
+                        uid_servicio: serviceId,
+                        nombre_servicio: serviceData?.nombre_servicio || '',
+                        descripcion: serviceData?.descripcion || '',
+                        precio: serviceData?.precio || '0',
+                        taller: serviceData?.taller || '',
+                        puntuacion: serviceData?.puntuacion || '0',
+                    }
+                }),
             )
-            const servicesSnap = await getDocs(servicesQuery)
-            const services = servicesSnap.docs.map((doc) => {
-                const data = doc.data()
-                return {
-                    nombre_servicio: data.nombre_servicio || '',
-                    descripcion: data.descripcion || '',
-                    precio: data.precio || '0',
-                    taller: data.taller || '',
-                    puntuacion: data.puntuacion || '0',
-                    uid_servicio: data.uid_servicio || '',
-                }
-            })
 
             setData(dataFinal)
-            setServices(services)
-            setPlanes(planes)
-
-            console.log('aqui la data ', dataFinal, services) // Estado para los servicios
+            setServices(services) // Estado actualizado con la información completa de cada servicio
 
             setFormData({
                 nombre: dataFinal?.nombre || '',
+                logoUrl: dataFinal?.logoUrl || '',
                 email: dataFinal?.email || '',
                 phone: dataFinal?.phone || '',
                 rif: dataFinal?.rif || '',
@@ -126,7 +127,6 @@ const ProfileGarage = () => {
                 LinkFacebook: dataFinal?.LinkFacebook || '',
                 LinkInstagram: dataFinal?.LinkInstagram || '',
                 LinkTiktok: dataFinal?.LinkTiktok || '',
-                logoUrl: dataFinal?.logoUrl || '',
             })
         } catch (error) {
             console.error('Error al obtener los datos del cliente:', error)
@@ -362,7 +362,7 @@ const ProfileGarage = () => {
                                 size={90}
                                 shape="circle"
                                 src={
-                                    data?.img ||
+                                    data?.logoUrl ||
                                     '/img/logo/logo-light-streamline.png'
                                 }
                                 className="p-2 bg-white shadow-lg"

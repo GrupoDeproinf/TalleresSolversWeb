@@ -29,6 +29,7 @@ import { BiSolidCategoryAlt } from "react-icons/bi";
 import { GiMechanicGarage } from "react-icons/gi";
 import { IoCarSportOutline } from 'react-icons/io5'
 import { VscTools } from 'react-icons/vsc'
+import { MdOutlineCategory } from 'react-icons/md';
 
 export type NavigationIcons = Record<string, JSX.Element>
 
@@ -63,7 +64,7 @@ const navigationIcon: NavigationIcons = {
     user: <FaRegUser />,
     cars: <IoCarSportOutline />,
     tools: <VscTools />,
-    category: <BiSolidCategoryAlt />,
+    category: <MdOutlineCategory />    ,
     serviceGarage: <GiMechanicGarage />,
     plans: <HiOutlineViewGridAdd />,
 }
