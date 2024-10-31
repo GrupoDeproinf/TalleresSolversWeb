@@ -87,6 +87,16 @@ const appsRoute: Routes = [
         },
     },
     {
+        key: 'appsProfileGarage.profilegarage',
+        path: `/profilegarage/:id`,
+        component: lazy(() => import('@/views/pages/ProfileGarage/ProfileGarage')),
+        authority: [ADMIN, USER],
+        meta: {
+            header: '',
+            headerContainer: true,
+        },
+    },
+    {
         key: 'appsCrm.mail',
         path: `${APP_PREFIX_PATH}/crm/mail`,
         component: lazy(() => import('@/views/crm/Mail')),

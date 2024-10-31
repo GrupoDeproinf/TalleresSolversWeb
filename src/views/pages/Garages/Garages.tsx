@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
+import { useNavigate } from 'react-router-dom';
 import {
     flexRender,
     getCoreRowModel,
@@ -74,6 +75,9 @@ const Garages = () => {
 
         setDataUsers(usuarios)
     }
+
+    const navigate = useNavigate();
+    
 
     useEffect(() => {
         getData()
@@ -218,8 +222,8 @@ const Garages = () => {
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
-                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
+                            className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
+                            style={{ backgroundColor: getRandomColor() }}
                         >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}
@@ -273,14 +277,14 @@ const Garages = () => {
                 return (
                     <div className="flex gap-2">
                         <button
-                            onClick={() => openDrawer(person)} // Cambiar aquí
-                            className="text-blue-900"
+                            onClick={() => navigate(`/profilegarage/${person.uid}`)}
+                            className="hover:text-blue-700"
                         >
                             <FaRegEye />
                         </button>
                         <button
                             onClick={() => openDialog(person)}
-                            className="text-red-700"
+                            className="hover:text-red-700"
                         >
                             <FaTrash />
                         </button>
@@ -366,8 +370,7 @@ const Garages = () => {
                 <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
                 <div className="flex justify-end">
                     <Button
-                        style={{ backgroundColor: '#000B7E' }}
-                        className='text-white hover:opacity-80'
+                        className="bg-blue w-40"
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
                         Crear Taller
@@ -491,10 +494,7 @@ const Garages = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button 
-                    style={{ backgroundColor: '#B91C1C' }}
-                    className='text-white hover:opacity-80'
-                    onClick={handleDelete}>
+                    <Button variant="solid" onClick={handleDelete}>
                         Eliminar
                     </Button>
                 </div>
@@ -566,13 +566,9 @@ const Garages = () => {
                         variant="default"
                         onClick={() => setDrawerIsOpen(false)}
                     >
-                        Cancelar
+                        Cerrar
                     </Button>
-                    <Button 
-                    style={{ backgroundColor: '#000B7E' }}
-                    className='text-white hover:opacity-80' 
-                    onClick={handleSaveChanges}
-                    >
+                    <Button variant="solid" onClick={handleSaveChanges}>
                         Guardar Cambios
                     </Button>
                 </div>
@@ -658,8 +654,7 @@ const Garages = () => {
                             Cancelar
                         </Button>
                         <Button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className='text-white hover:opacity-80'
+                            variant="solid"
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar
