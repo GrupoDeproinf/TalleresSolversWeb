@@ -41,6 +41,12 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER],
     },
     {
+        key: 'appsServicegarage.servicegarage',
+        path: `${APP_PREFIX_PATH}/servicegarage`,
+        component: lazy(() => import('@/views/pages/Servicegarage')),
+        authority: [ADMIN, USER],
+    },
+    {
         key: 'appsPlans.plans',
         path: `${APP_PREFIX_PATH}/plans`,
         component: lazy(() => import('@/views/pages/Plans')),
