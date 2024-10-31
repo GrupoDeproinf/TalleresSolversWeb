@@ -78,6 +78,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN, USER],
                 subMenu: [],
             },
+            {
+                key: 'apps.plans',
+                path: `${APP_PREFIX_PATH}/plans`,
+                title: 'Planes',
+                translateKey: 'Planes',
+                icon: 'plans',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
         ],
     },
 ]

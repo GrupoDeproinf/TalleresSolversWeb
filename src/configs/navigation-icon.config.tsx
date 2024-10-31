@@ -61,6 +61,7 @@ const navigationIcon: NavigationIcons = {
     user: <FaRegUser />,
     cars: <IoCarSportOutline />,
     tools: <VscTools />,
+    plans: <HiOutlineViewGridAdd />,
 }
 
 export default navigationIcon
