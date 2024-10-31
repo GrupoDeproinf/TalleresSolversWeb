@@ -65,6 +65,7 @@ const navigationIcon: NavigationIcons = {
     tools: <VscTools />,
     category: <BiSolidCategoryAlt />,
     serviceGarage: <GiMechanicGarage />,
+    plans: <HiOutlineViewGridAdd />,
 }
 
 export default navigationIcon
