@@ -218,8 +218,8 @@ const Garages = () => {
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
-                            style={{ backgroundColor: getRandomColor() }}
+                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
+                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}
@@ -274,13 +274,13 @@ const Garages = () => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => openDrawer(person)} // Cambiar aquí
-                            className="hover:text-blue-700"
+                            className="text-blue-900"
                         >
                             <FaRegEye />
                         </button>
                         <button
                             onClick={() => openDialog(person)}
-                            className="hover:text-red-700"
+                            className="text-red-700"
                         >
                             <FaTrash />
                         </button>
@@ -366,7 +366,8 @@ const Garages = () => {
                 <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
                 <div className="flex justify-end">
                     <Button
-                        className="bg-blue w-40"
+                        style={{ backgroundColor: '#000B7E' }}
+                        className='text-white hover:opacity-80'
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
                         Crear Taller
@@ -490,7 +491,10 @@ const Garages = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleDelete}>
+                    <Button 
+                    style={{ backgroundColor: '#B91C1C' }}
+                    className='text-white hover:opacity-80'
+                    onClick={handleDelete}>
                         Eliminar
                     </Button>
                 </div>
@@ -562,9 +566,13 @@ const Garages = () => {
                         variant="default"
                         onClick={() => setDrawerIsOpen(false)}
                     >
-                        Cerrar
+                        Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleSaveChanges}>
+                    <Button 
+                    style={{ backgroundColor: '#000B7E' }}
+                    className='text-white hover:opacity-80' 
+                    onClick={handleSaveChanges}
+                    >
                         Guardar Cambios
                     </Button>
                 </div>
@@ -650,7 +658,8 @@ const Garages = () => {
                             Cancelar
                         </Button>
                         <Button
-                            variant="solid"
+                            style={{ backgroundColor: '#000B7E' }}
+                            className='text-white hover:opacity-80'
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar
