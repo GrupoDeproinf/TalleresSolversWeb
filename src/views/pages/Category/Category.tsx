@@ -574,12 +574,6 @@ const getInitials = (nombre: string | undefined): string => {
                     </label>
 
                     {/* Campo para Logo */}
-<label
-    htmlFor="logo-upload"
-    className="block text-sm font-medium leading-6 text-gray-900 text-center"
->
-    Logo (máx 100x100 px):
-</label>
 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
     <div className="text-center">
         {!selectedCategory?.logoUrl ? (
@@ -697,12 +691,6 @@ const getInitials = (nombre: string | undefined): string => {
                                 overflowY: 'auto',   // Scroll vertical cuando se excede el límite
                             }}
                         />
-                    </label>
-                    <label
-                        htmlFor="logo-upload"
-                        className="block text-sm font-medium leading-6 text-gray-900 text-center"
-                    >
-                        Logo (máx 100x100 px):
                     </label>
                     <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                         <div className="text-center">

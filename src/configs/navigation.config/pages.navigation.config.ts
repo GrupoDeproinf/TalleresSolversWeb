@@ -97,6 +97,16 @@ const pagesNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
+                key: 'apps.plans',
+                path: '/plans',
+                title: 'Plans',
+                translateKey: 'nav.pages.plans',
+                icon: 'plans',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
+            {
                 key: 'apps.selects',
                 path: '/selects',
                 title: 'Selects',

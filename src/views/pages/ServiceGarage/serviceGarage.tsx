@@ -20,6 +20,8 @@ import {
     FaRegEye,
     FaTimesCircle,
     FaTrash,
+    FaStar,
+    FaStarHalfAlt,
 } from 'react-icons/fa'
 import {
     collection,
@@ -48,18 +50,40 @@ type Person = {
     phone?: string
     uid: string
     typeUser?: string
-    ServiciosPorTaller?: string
+    servicios?: string[]
     id?: string
     status?: string
 }
 
+type Service = {
+    nombre_servicio: string
+    descripcion: string
+    precio: string
+    taller: string
+    puntuacion: string
+    uid_servicio: string
+    id: string
+}
+
 const Garages = () => {
     const [dataUsers, setDataUsers] = useState<Person[]>([])
+    const [dataServices, setDataServices] = useState<Service[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+    const [selectedService, setSelectedService] = useState<Service | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
+
+    const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+
+    const toggleServiceSelection = (serviceId: string) => {
+        setSelectedServiceIds((prev) =>
+            prev.includes(serviceId)
+                ? prev.filter((id) => id !== serviceId)
+                : [...prev, serviceId]
+        );
+    };
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
@@ -76,31 +100,38 @@ const Garages = () => {
         setDataUsers(usuarios)
     }
 
+    // Nueva función para obtener los datos de la colección de servicios
+    const getDataServices = async () => {
+        const q = query(collection(db, 'Servicios'))
+        const querySnapshot = await getDocs(q)
+        const servicios: Service[] = []
+
+        querySnapshot.forEach((doc) => {
+            const serviceData = doc.data() as Service
+            servicios.push({ ...serviceData, id: doc.id }) // Guardar el ID del documento
+        })
+
+        setDataServices(servicios)
+    }
+
+    useEffect(() => {
+        getData()         // Obtén los datos de usuarios
+        getDataServices()  // Obtén los datos de servicios
+    }, [])
+
     useEffect(() => {
         getData()
     }, [])
 
-    const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newUser, setNewUser] = useState<Person | null>({
-        nombre: '',
-        email: '',
-        rif: '',
-        phone: '',
-        uid: '', // Asignar valor vacío si no quieres que sea undefined
-        typeUser: 'Taller',
-        ServiciosPorTaller: '',
-        id: '', // También puedes asignar un valor vacío si no quieres undefined
-    })
-
-    const openDialog = (person: Person) => {
-        setSelectedPerson(person)
-        setIsOpen(true)
-    }
-
     const openDrawer = (person: Person) => {
-        setSelectedPerson(person)
-        setDrawerIsOpen(true) // Abre el Drawer
-    }
+        setSelectedPerson(person); // Establece el taller seleccionado
+    
+        // Aquí asumiendo que `person.servicios` contiene los IDs de los servicios asignados
+        setSelectedServiceIds(person.servicios || []); // Establece los servicios seleccionados
+    
+        setDrawerIsOpen(true); // Abre el drawer
+    };
+    
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -111,49 +142,11 @@ const Garages = () => {
             return newFilters
         })
     }
-    const handleSaveChanges = async () => {
-        if (selectedPerson) {
-            try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
-                await updateDoc(userDoc, {
-                    nombre: selectedPerson.nombre,
-                    email: selectedPerson.email,
-                    rif: selectedPerson.rif,
-                    phone: selectedPerson.phone,
-                })
-                // Mensaje de éxito
-                toast.push(
-                    <Notification title="Éxito">
-                        Taller actualizado con éxito.
-                    </Notification>,
-                )
-                setDrawerIsOpen(false)
-                getData() // Refrescar datos después de guardar
-            } catch (error) {
-                console.error('Error actualizando el usuario:', error)
-                // Mensaje de error
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al actualizar el Taller.
-                    </Notification>,
-                )
-            }
-        }
-    }
 
     const getInitials = (nombre: string | undefined): string => {
         if (!nombre) return ''
         const words = nombre.split(' ')
         return words.map((word: string) => word[0].toUpperCase()).join('')
-    }
-
-    function getRandomColor() {
-        const letters = '0123456789ABCDEF'
-        let color = '#'
-        for (let i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 16)]
-        }
-        return color
     }
 
     const columns: ColumnDef<Person>[] = [
@@ -245,6 +238,66 @@ const Garages = () => {
         
     ]
 
+    const columnsTable2 : ColumnDef<Service>[] = [
+        {
+            header: 'Taller Asociado',
+            accessorKey: 'taller',
+        },
+        {
+            header: 'Nombre del Servicio',
+            accessorKey: 'nombre_servicio',
+        },
+        {
+            header: 'Descripción',
+            accessorKey: 'descripcion',
+        },
+        {
+            header: 'Precio',
+            accessorKey: 'precio',
+            cell: ({ row }) => {
+                const precio = parseFloat(row.original.precio) // Asegúrate de que sea un número
+                return `$${precio.toFixed(2)}`
+            },
+        },
+        {
+            header: 'Puntuación',
+            accessorKey: 'puntuacion',
+            cell: ({ row }) => {
+                const puntuacion = parseFloat(row.original.puntuacion) // Asegúrate de que sea un número
+                const fullStars = Math.floor(puntuacion)
+                const hasHalfStar = puntuacion % 1 >= 0.5
+                const stars = []
+
+                // Agrega las estrellas llenas
+                for (let i = 0; i < fullStars; i++) {
+                    stars.push(
+                        <FaStar
+                            key={`full-${i}`}
+                            className="text-yellow-500"
+                        />,
+                    )
+                }
+                // Agrega la estrella media si corresponde
+                if (hasHalfStar) {
+                    stars.push(
+                        <FaStarHalfAlt
+                            key="half"
+                            className="text-yellow-500"
+                        />,
+                    )
+                }
+                // Agrega las estrellas vacías (si es necesario, para un total de 5)
+                for (let i = fullStars + (hasHalfStar ? 1 : 0); i < 5; i++) {
+                    stars.push(
+                        <FaStar key={`empty-${i}`} className="text-gray-300" />,
+                    )
+                }
+
+                return <div className="flex">{stars}</div> // Renderiza las estrellas
+            },
+        },
+    ]
+
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
     const onDialogClose = (e: MouseEvent) => {
@@ -252,6 +305,57 @@ const Garages = () => {
         setIsOpen(false)
         setSelectedPerson(null) // Limpiar selección
     }
+
+    const handleAssignServices = async () => {
+        if (selectedPerson && selectedServiceIds.length > 0) {
+            const personRef = doc(db, 'Usuarios', selectedPerson.uid);
+    
+            try {
+                await updateDoc(personRef, {
+                    servicios: selectedServiceIds, // Actualiza el campo "servicios" en el taller seleccionado
+                });
+    
+                setDrawerIsOpen(false); // Cierra el drawer después de la asignación
+                
+                const toastNotification = (
+                    <Notification title="Éxito">
+                        Servicios asignados correctamente al taller {selectedPerson.nombre}.
+                    </Notification>
+                );
+                toast.push(toastNotification); // Muestra la notificación
+    
+            } catch (error) {
+                console.error('Error al asignar servicios:', error);
+    
+                const errorNotification = (
+                    <Notification title="Error">
+                        Hubo un error asignando los servicios.
+                    </Notification>
+                );
+                toast.push(errorNotification); // Muestra la notificación de error
+            }
+        } else {
+            const warningNotification = (
+                <Notification title="Advertencia">
+                    Seleccione al menos un servicio.
+                </Notification>
+            );
+            toast.push(warningNotification); // Muestra la notificación de advertencia
+        }
+    };
+
+    const handleServiceSelection = (serviceId: string) => {
+        setSelectedServiceIds((prevSelectedIds) => {
+            if (prevSelectedIds.includes(serviceId)) {
+                // Si el servicio ya está seleccionado, lo deselecciona
+                return prevSelectedIds.filter(id => id !== serviceId);
+            } else {
+                // Si no está seleccionado, lo agrega
+                return [...prevSelectedIds, serviceId];
+            }
+        });
+    };
+    
 
     const handleDelete = async () => {
         if (selectedPerson) {
@@ -299,6 +403,22 @@ const Garages = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
+    const tableServices = useReactTable({
+        data: dataServices,
+        columns: columnsTable2,
+        state: {
+            sorting,
+            columnFilters: filtering,
+        },
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setFiltering,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+    });
+    
+
+    // Paginación tabla Talleres
     const [currentPage, setCurrentPage] = useState(1)
     const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
 
@@ -314,6 +434,20 @@ const Garages = () => {
     // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
+
+    // Paginacióno tabla Servicios
+
+    const [currentPageServices, setCurrentPageServices] = useState(1);
+    const rowsPerPageServices = 4; // Número de filas por página para la tabla de servicios
+
+    const startIndexServices = (currentPageServices - 1) * rowsPerPageServices;
+    const endIndexServices = startIndexServices + rowsPerPageServices;
+    const totalRowsServices = tableServices.getRowModel().rows.length;
+
+    const onPaginationChangeServices = (page: number) => {
+        setCurrentPageServices(page);
+    };
+    
 
     return (
         <>
@@ -449,71 +583,124 @@ const Garages = () => {
             {/* Drawer para listado de servicios */}
             <Dialog
             width={800}
-                isOpen={drawerIsOpen}
-                onClose={() => setDrawerIsOpen(false)}
-                className="rounded-md shadow"
-            >
-                <h2 className="text-xl font-bold p-2">Asignar Servicio al Taller: {selectedPerson?.nombre || 'No especificado'}</h2>
+            isOpen={drawerIsOpen}
+            onClose={() => setDrawerIsOpen(false)}
+            className="rounded-md shadow"
+        >
+            <h2 className="text-xl font-bold p-2">
+                Asignar Servicio al Taller: {selectedPerson?.nombre || 'No especificado'}
+            </h2>
+            <div className="mt-6 overflow-x-auto">
+                <Table>
+                    <THead>
+                        {tableServices.getHeaderGroups().map((headerGroup) => (
+                            <Tr key={headerGroup.id}>
+                                <Th>
+                                    {/* Columna para el checkbox */}
+                                    <input
+                                        type="checkbox"
+                                        onChange={(e) => {
+                                            const allServiceIds = tableServices
+                                                .getRowModel()
+                                                .rows.map((row) => row.original.id);
+                                            setSelectedServiceIds(
+                                                e.target.checked ? allServiceIds : []
+                                            );
+                                        }}
+                                        checked={
+                                            selectedServiceIds.length ===
+                                            tableServices.getRowModel().rows.length
+                                        }
+                                    />
+                                </Th>
+                                {headerGroup.headers.map((header) => (
+                                    <Th key={header.id} colSpan={header.colSpan}>
+                                        {header.isPlaceholder ? null : (
+                                            <div
+                                                {...{
+                                                    className: header.column.getCanSort()
+                                                        ? 'cursor-pointer select-none'
+                                                        : '',
+                                                    onClick: header.column.getToggleSortingHandler(),
+                                                }}
+                                            >
+                                                {flexRender(
+                                                    header.column.columnDef.header,
+                                                    header.getContext()
+                                                )}
+                                                <Sorter sort={header.column.getIsSorted()} />
+                                                {header.column.getCanFilter() ? (
+                                                    <input
+                                                        type="text"
+                                                        value={
+                                                            filtering.find(
+                                                                (filter) => filter.id === header.id
+                                                            )?.value?.toString() || ''
+                                                        }
+                                                        onChange={(e) =>
+                                                            handleFilterChange(
+                                                                header.id,
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        placeholder={`Buscar`}
+                                                        className="mt-2 p-1 border rounded"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    />
+                                                ) : null}
+                                            </div>
+                                        )}
+                                    </Th>
+                                ))}
+                            </Tr>
+                        ))}
+                    </THead>
+                    <TBody>
+    {tableServices.getRowModel().rows.map((row) => (
+        <Tr key={row.id}>
+            <Td>
+                <input
+                    type="checkbox"
+                    checked={selectedServiceIds.includes(row.original.id)} // Verifica si el servicio está seleccionado
+                    onChange={() => handleServiceSelection(row.original.id)} // Llama a la función para seleccionar/desmarcar el servicio
+                />
+            </Td>
+            {row.getVisibleCells().map((cell) => (
+                <Td key={cell.id}>
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </Td>
+            ))}
+        </Tr>
+    ))}
+</TBody>
+                </Table>
+                <Pagination
+                    onChange={onPaginationChangeServices}
+                    currentPage={currentPageServices}
+                    totalRows={totalRowsServices}
+                    rowsPerPage={rowsPerPageServices}
+                />
+            </div>
 
-                <div className="flex flex-col space-y-4">
-                    {/* Campo para Nombre */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre Taller:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.nombre || 'No especificado'}
-                        </p>
-                    </label>
-
-                    {/* Campo para Email */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.email || 'No especificado'}
-                        </p>
-                    </label>
-
-                    {/* Campo para RIF */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            RIF:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.rif || 'No especificado'}
-                        </p>
-                    </label>
-
-                    {/* Campo para Teléfono */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.phone || 'No especificado'}
-                        </p>
-                    </label>
-                </div>
-
-                <div className="text-right mt-6">
-                    <Button
-                        className="mr-2"
-                        variant="default"
-                        onClick={() => setDrawerIsOpen(false)}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button 
+            {/* Botones de acción */}
+            <div className="text-right mt-6">
+                <Button
+                    className="mr-2"
+                    variant="default"
+                    onClick={() => setDrawerIsOpen(false)}
+                >
+                    Cancelar
+                </Button>
+                <Button
                     style={{ backgroundColor: '#000B7E' }}
-                    className='text-white hover:opacity-80' 
-                    onClick={handleSaveChanges}
-                    >
-                        Guardar Cambios
-                    </Button>
-                </div>
-            </Dialog>
+                    className="text-white hover:opacity-80"
+                    onClick={handleAssignServices}
+                >
+                    Asignar Servicios
+                </Button>
+            </div>
+        </Dialog>
+
         </>
     )
 }

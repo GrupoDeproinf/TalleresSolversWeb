@@ -25,6 +25,8 @@ import {
     HiOutlineVariable,
     HiOutlineCode,
 } from 'react-icons/hi'
+import { BiSolidCategoryAlt } from "react-icons/bi";
+import { GiMechanicGarage } from "react-icons/gi";
 import { IoCarSportOutline } from 'react-icons/io5'
 import { VscTools } from 'react-icons/vsc'
 
@@ -61,6 +63,9 @@ const navigationIcon: NavigationIcons = {
     user: <FaRegUser />,
     cars: <IoCarSportOutline />,
     tools: <VscTools />,
+    category: <BiSolidCategoryAlt />,
+    serviceGarage: <GiMechanicGarage />,
+    plans: <HiOutlineViewGridAdd />,
 }
 
 export default navigationIcon
