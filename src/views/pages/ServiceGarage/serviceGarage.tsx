@@ -324,6 +324,11 @@ const Garages = () => {
                 );
                 toast.push(toastNotification); // Muestra la notificación
     
+                // Establece un temporizador para recargar la página después de 3 segundos (3000 ms)
+                setTimeout(() => {
+                    window.location.reload();
+                }, 3000);
+    
             } catch (error) {
                 console.error('Error al asignar servicios:', error);
     
@@ -342,7 +347,7 @@ const Garages = () => {
             );
             toast.push(warningNotification); // Muestra la notificación de advertencia
         }
-    };
+    };    
 
     const handleServiceSelection = (serviceId: string) => {
         setSelectedServiceIds((prevSelectedIds) => {
@@ -582,7 +587,7 @@ const Garages = () => {
 
             {/* Drawer para listado de servicios */}
             <Dialog
-            width={800}
+            width={1000}
             isOpen={drawerIsOpen}
             onClose={() => setDrawerIsOpen(false)}
             className="rounded-md shadow"
@@ -611,7 +616,29 @@ const Garages = () => {
                                             selectedServiceIds.length ===
                                             tableServices.getRowModel().rows.length
                                         }
+                                        className={`h-5 w-5 rounded border-2 focus:outline-none appearance-none
+                                            ${selectedServiceIds.length === tableServices.getRowModel().rows.length 
+                                                ? 'bg-blue-500 border-blue-500' 
+                                                : 'bg-white border-gray-300'}`}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            position: "relative",
+                                        }}
                                     />
+                                    <style>{`
+                                        input[type="checkbox"]:checked::before {
+                                            content: "✓";
+                                            color: white;
+                                            font-weight: bold;
+                                            position: absolute;
+                                            top: 50%;
+                                            left: 50%;
+                                            transform: translate(-50%, -50%);
+                                            font-size: 14px;
+                                        }
+                                    `}</style>
                                 </Th>
                                 {headerGroup.headers.map((header) => (
                                     <Th key={header.id} colSpan={header.colSpan}>
@@ -656,23 +683,45 @@ const Garages = () => {
                         ))}
                     </THead>
                     <TBody>
-    {tableServices.getRowModel().rows.map((row) => (
-        <Tr key={row.id}>
-            <Td>
-                <input
-                    type="checkbox"
-                    checked={selectedServiceIds.includes(row.original.id)} // Verifica si el servicio está seleccionado
-                    onChange={() => handleServiceSelection(row.original.id)} // Llama a la función para seleccionar/desmarcar el servicio
-                />
-            </Td>
-            {row.getVisibleCells().map((cell) => (
-                <Td key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </Td>
-            ))}
-        </Tr>
-    ))}
-</TBody>
+                        {tableServices.getRowModel().rows.slice(startIndexServices, endIndexServices).map((row) => (
+                            <Tr key={row.id}>
+                                <Td>
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedServiceIds.includes(row.original.id)}
+                                        onChange={() => handleServiceSelection(row.original.id)}
+                                        className={`h-5 w-5 rounded border-2 focus:outline-none appearance-none
+                                            ${selectedServiceIds.includes(row.original.id) 
+                                                ? 'bg-blue-500 border-blue-500'
+                                                : 'bg-white border-gray-300'}`}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            position: "relative",
+                                        }}
+                                    />
+                                    <style>{`
+                                        input[type="checkbox"]:checked::before {
+                                            content: "✓";
+                                            color: white;
+                                            font-weight: bold;
+                                            position: absolute;
+                                            top: 50%;
+                                            left: 50%;
+                                            transform: translate(-50%, -50%);
+                                            font-size: 14px;
+                                        }
+                                    `}</style>
+                                </Td>
+                                {row.getVisibleCells().map((cell) => (
+                                    <Td key={cell.id}>
+                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                    </Td>
+                                ))}
+                            </Tr>
+                        ))}
+                    </TBody>
                 </Table>
                 <Pagination
                     onChange={onPaginationChangeServices}
