@@ -77,6 +77,16 @@ const pagesNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
+                key: 'apps.profilegarage',
+                path: '/profilegarage',
+                title: 'ProfileGarage',
+                translateKey: 'nav.pages.profilegarage',
+                icon: 'user',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
+            {
                 key: 'apps.category',
                 path: '/category',
                 title: 'Categorías',

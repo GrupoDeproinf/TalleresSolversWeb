@@ -83,7 +83,7 @@ const Users = () => {
         email: '',
         cedula: '',
         phone: '',
-        typeUser: '',
+        typeUser: 'Cliente',
         password: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
@@ -102,8 +102,8 @@ const Users = () => {
     const createUserSchema = z.object({
     nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
     email: z.string().email("Ingrese un correo válido"),
-    cedula: z.string()
-        .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
+    //cedula: z.string()
+    //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
     phone: z.string()
         .regex(/^\d{9,10}$/, "El teléfono debe tener entre 9 y 10 caracteres y contener solo números"),
     //typeUser
@@ -172,7 +172,9 @@ const Users = () => {
             );
     
             setDrawerCreateIsOpen(false); // Cerrar el Drawer
-            getData(); // Refrescar la lista de usuarios
+            // getData(); // Refrescar la lista de usuarios
+            // Recargar la pantalla
+            window.location.reload();
         } catch (error) {
             if (error instanceof z.ZodError) {
                 const errorMessages = error.errors.map((err) => err.message).join(', ');
@@ -211,6 +213,7 @@ const Users = () => {
                     email: selectedPerson.email,
                     cedula: selectedPerson.cedula,
                     phone: selectedPerson.phone,
+                    typeUser: selectedPerson.typeUser,
                 })
                 // Mensaje de éxito
                 toast.push(
@@ -561,139 +564,132 @@ const getInitials = (nombre: string | undefined): string => {
                 </div>
             </Dialog>
             <Drawer
-                isOpen={drawerIsOpen}
-                onClose={handleDrawerClose}
-                className="rounded-md shadow" // Añadir estilo al Drawer
-            >
-                <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
-                <div className="flex flex-col space-y-6">
-                    {' '}
-                    {/* Aumentar el espacio entre campos */}
-                    {/* Campo para Nombre */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.nombre || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    nombre: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    {/* Campo para Email */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <input
-                            type="email"
-                            value={selectedPerson?.email || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    {/* Campo para cedula */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cédula:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.cedula || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        password: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    rif: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    {/* Campo para Teléfono */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.phone || ''}
-                            onChange={(e) =>
-                                setSelectedPerson((prev) => ({
-                                    ...(prev ?? {
-                                        cedula: '',
-                                        nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        uid: '',
-                                        typeUser: '',
-                                        id: '',
-                                        status: '',
-                                    }),
-                                    phone: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                </div>
+    isOpen={drawerIsOpen}
+    onClose={handleDrawerClose}
+    className="rounded-md shadow"
+>
+    <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
+    <div className="flex flex-col space-y-6">
+        {/* Campo para Nombre */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Nombre:</span>
+            <input
+                type="text"
+                value={selectedPerson?.nombre || ''}
+                onChange={(e) =>
+                    setSelectedPerson((prev: any) => ({
+                        ...prev,
+                        nombre: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
 
-                <div className="text-right mt-6">
-                    <Button
-                        className="mr-2" // Espaciado entre botones
-                        variant="default"
-                        onClick={handleDrawerClose}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button 
-                    onClick={handleSaveChanges}
-                    style={{ backgroundColor: '#000B7E' }}
-                    className='text-white hover:opacity-80'
-                    >
-                        Guardar Cambios
-                    </Button>
-                </div>
-            </Drawer>
-            <Drawer
+        {/* Campo para Email */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Email:</span>
+            <input
+                type="email"
+                value={selectedPerson?.email || ''}
+                onChange={(e) =>
+                    setSelectedPerson((prev: any) => ({
+                        ...prev,
+                        email: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        {/* Campo para Cédula */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Cédula:</span>
+            <div className="flex items-center mt-1">
+                <select
+                    value={selectedPerson?.cedula?.split('-')[0] || 'V'}
+                    onChange={(e) =>
+                        setSelectedPerson((prev: any) => ({
+                            ...prev,
+                            cedula: `${e.target.value}-${(prev?.cedula?.split('-')[1] || '')}`,
+                        }))
+                    }
+                    className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                >
+                    <option value="V">V-</option>
+                    <option value="E">E-</option>
+                    <option value="C">C-</option>
+                    <option value="G">G-</option>
+                    <option value="J">J-</option>
+                    <option value="P">P-</option>
+                </select>
+                <input
+                    type="text"
+                    value={selectedPerson?.cedula?.split('-')[1] || ''}
+                    onChange={(e) =>
+                        setSelectedPerson((prev: any) => ({
+                            ...prev,
+                            cedula: `${(prev?.cedula?.split('-')[0] || 'V')}-${e.target.value}`,
+                        }))
+                    }
+                    className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                />
+            </div>
+        </label>
+
+        {/* Campo para Teléfono */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Teléfono:</span>
+            <input
+                type="text"
+                value={selectedPerson?.phone || ''}
+                onChange={(e) =>
+                    setSelectedPerson((prev: any) => ({
+                        ...prev,
+                        phone: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        {/* Campo para Tipo de Usuario */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Tipo de Usuario:</span>
+            <select
+                value={selectedPerson?.typeUser || 'Cliente'}
+                onChange={(e) =>
+                    setSelectedPerson((prev: any) => ({
+                        ...prev,
+                        typeUser: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            >
+                <option value="Cliente">Cliente</option>
+                <option value="Certificador">Certificador</option>
+            </select>
+        </label>
+    </div>
+
+    <div className="text-right mt-6">
+        <Button
+            className="mr-2"
+            variant="default"
+            onClick={handleDrawerClose}
+        >
+            Cancelar
+        </Button>
+        <Button
+            onClick={handleSaveChanges}
+            style={{ backgroundColor: '#000B7E' }}
+            className="text-white hover:opacity-80"
+        >
+            Guardar Cambios
+        </Button>
+    </div>
+</Drawer>
+<Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={() => setDrawerCreateIsOpen(false)}
                 className="rounded-md shadow"
@@ -733,26 +729,45 @@ const getInitials = (nombre: string | undefined): string => {
                         />
                     </label>
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cédula:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.cedula || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    cedula: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
+    <span className="font-semibold text-gray-700">Cédula:</span>
+    <div className="flex items-center mt-1">
+        <select
+            value={newUser?.cedula?.split('-')[0] || 'V'}
+            onChange={(e) =>
+                setNewUser((prev: any) => ({
+                    ...(prev ?? {}),
+                    cedula: `${e.target.value}-${(prev?.cedula?.split('-')[1] || '')}`,
+                }))
+            }
+            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+        >
+            <option value="V">V-</option>
+            <option value="E">E-</option>
+            <option value="C">C-</option>
+            <option value="G">G-</option>
+            <option value="J">J-</option>
+            <option value="P">P-</option>
+        </select>
+        <input
+            type="text"
+            value={newUser?.cedula?.split('-')[1] || ''}
+            onChange={(e) =>
+                setNewUser((prev: any) => ({
+                    ...(prev ?? {}),
+                    cedula: `${(prev?.cedula?.split('-')[0] || 'V')}-${e.target.value}`,
+                }))
+            }
+            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+        />
+    </div>
+</label>
+
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Teléfono:
                         </span>
                         <input
+                            placeholder='Ejem (4142611966)'
                             type="text"
                             value={newUser?.phone || ''}
                             onChange={(e) =>

@@ -41,9 +41,15 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER],
     },
     {
+<<<<<<< HEAD
         key: 'appsPlans.plans',
         path: `${APP_PREFIX_PATH}/plans`,
         component: lazy(() => import('@/views/pages/Plans')),
+=======
+        key: 'appsserviceGarage.serviceGarages',
+        path: `${APP_PREFIX_PATH}/serviceGarage`,
+        component: lazy(() => import('@/views/pages/serviceGarage')),
+>>>>>>> 545c926eef9cf2716dab1ebc2f64d4de8b0cfb9f
         authority: [ADMIN, USER],
     },
     {
@@ -89,6 +95,16 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER],
         meta: {
             header: 'Customer Details',
+            headerContainer: true,
+        },
+    },
+    {
+        key: 'appsProfileGarage.profilegarage',
+        path: `/profilegarage/:id`,
+        component: lazy(() => import('@/views/pages/ProfileGarage/ProfileGarage')),
+        authority: [ADMIN, USER],
+        meta: {
+            header: '',
             headerContainer: true,
         },
     },

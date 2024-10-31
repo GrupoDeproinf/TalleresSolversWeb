@@ -27,33 +27,29 @@ const Pagination: React.FC<PaginationProps> = ({
             <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className={`flex items-center justify-center w-6 h-6 text-gray-700 bg-gray-200 hover:bg-blue-600 hover:text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`flex items-center justify-center w-6 h-6 text-gray-700 bg-gray-200  hover:text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
                 <FaArrowLeft />
             </button>
             <div className="flex items-center mx-4">
-    {Array.from({ length: totalPages }, (_, index) => (
-        <button
-            key={index}
-            onClick={() => handlePageChange(index + 1)}
-            className={`px-3 py-1 text-sm font-medium rounded-md ${
-                currentPage === index + 1
-                    ? 'text-white w-6 h-6 flex items-center justify-center'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 w-6 h-6 flex items-center justify-center'
-            } mx-2`}
-            style={{
-                backgroundColor: currentPage === index + 1 ? '#FFCC29' : undefined, // Aplicar el color solo si es la página actual
-            }}
-        >
-            {index + 1}
-        </button>
-    ))}
-</div>
-
+                {Array.from({ length: totalPages }, (_, index) => (
+                    <button
+                        key={index}
+                        onClick={() => handlePageChange(index + 1)}
+                        className={`px-3 py-1 text-sm font-medium rounded-md ${
+                            currentPage === index + 1
+                                ? 'bg-blue-600 text-white w-6 h-6 flex items-center justify-center'
+                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 w-6 h-6 flex items-center justify-center'
+                        } mx-2`}
+                    >
+                        {index + 1}
+                    </button>
+                ))}
+            </div>
             <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className={`flex items-center justify-center w-6 h-6 text-gray-700 bg-gray-200 hover:bg-blue-600 hover:text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed`}
+                className={`flex items-center justify-center w-6 h-6 text-gray-700 bg-gray-200  hover:text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed`}
             >
                 <FaArrowRight />
             </button>

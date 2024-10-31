@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
-import { useNavigate } from 'react-router-dom';
 import {
     flexRender,
     getCoreRowModel,
@@ -49,6 +48,7 @@ type Person = {
     phone?: string
     uid: string
     typeUser?: string
+    ServiciosPorTaller?: string
     id?: string
     status?: string
 }
@@ -76,9 +76,6 @@ const Garages = () => {
         setDataUsers(usuarios)
     }
 
-    const navigate = useNavigate();
-    
-
     useEffect(() => {
         getData()
     }, [])
@@ -91,6 +88,7 @@ const Garages = () => {
         phone: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         typeUser: 'Taller',
+        ServiciosPorTaller: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
@@ -102,49 +100,6 @@ const Garages = () => {
     const openDrawer = (person: Person) => {
         setSelectedPerson(person)
         setDrawerIsOpen(true) // Abre el Drawer
-    }
-
-    const handleCreateUser = async () => {
-        if (newUser && newUser.nombre && newUser.email) {
-            try {
-                const userRef = collection(db, 'Usuarios')
-                const docRef = await addDoc(userRef, {
-                    nombre: newUser.nombre,
-                    email: newUser.email,
-                    rif: newUser.rif,
-                    phone: newUser.phone,
-                    typeUser: newUser.typeUser,
-                    // Inicialmente puedes dejar el campo uid vacío aquí
-                    uid: '', // Este se actualizará después
-                })
-
-                // Ahora actualiza el documento para incluir el uid generado
-                await updateDoc(docRef, {
-                    uid: docRef.id, // Establece el uid al ID del documento generado
-                })
-
-                toast.push(
-                    <Notification title="Éxito">
-                        Taller creado con éxito.
-                    </Notification>,
-                )
-                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
-                getData() // Refrescar la lista de usuarios
-            } catch (error) {
-                console.error('Error creando usuario:', error)
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al crear el Taller.
-                    </Notification>,
-                )
-            }
-        } else {
-            toast.push(
-                <Notification title="Error">
-                    Por favor, complete todos los campos requeridos.
-                </Notification>,
-            )
-        }
     }
 
     const handleFilterChange = (columnId: string, value: string) => {
@@ -222,8 +177,8 @@ const Garages = () => {
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
-                            style={{ backgroundColor: getRandomColor() }}
+                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
+                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}
@@ -273,25 +228,21 @@ const Garages = () => {
         {
             header: ' ',
             cell: ({ row }) => {
-                const person = row.original
+                const person = row.original;
                 return (
                     <div className="flex gap-2">
-                        <button
-                            onClick={() => navigate(`/profilegarage/${person.uid}`)}
-                            className="hover:text-blue-700"
+                        <Button
+                            style={{ backgroundColor: '#000B7E' }}
+                            className="text-white hover:opacity-80"
+                            onClick={() => openDrawer(person)} // Usando la función openDrawer
                         >
-                            <FaRegEye />
-                        </button>
-                        <button
-                            onClick={() => openDialog(person)}
-                            className="hover:text-red-700"
-                        >
-                            <FaTrash />
-                        </button>
+                            Asignar Servicio
+                        </Button>
                     </div>
-                )
+                );
             },
-        },
+        }
+        
     ]
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
@@ -367,15 +318,7 @@ const Garages = () => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
-                <div className="flex justify-end">
-                    <Button
-                        className="bg-blue w-40"
-                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
-                    >
-                        Crear Taller
-                    </Button>
-                </div>
+                <h1 className="mb-6 flex justify-start">Asignar Servicios a Talleres</h1>
             </div>
             <div>
                 <Table>
@@ -494,29 +437,23 @@ const Garages = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleDelete}>
+                    <Button 
+                    style={{ backgroundColor: '#B91C1C' }}
+                    className='text-white hover:opacity-80'
+                    onClick={handleDelete}>
                         Eliminar
                     </Button>
                 </div>
             </Dialog>
 
-            {/* Drawer para edición */}
+            {/* Drawer para listado de servicios */}
             <Dialog
+            width={800}
                 isOpen={drawerIsOpen}
                 onClose={() => setDrawerIsOpen(false)}
                 className="rounded-md shadow"
             >
-                <h2 className="text-xl font-bold">Editar Taller</h2>
-
-                {/* Componente Avatar con iniciales */}
-                <Avatar
-                    className="mr-2 w-12 h-12 flex items-center justify-center rounded-full"
-                    style={{ backgroundColor: getRandomColor() }}
-                >
-                    <span className="text-white font-bold">
-                        {getInitials(selectedPerson?.nombre)}
-                    </span>
-                </Avatar>
+                <h2 className="text-xl font-bold p-2">Asignar Servicio al Taller: {selectedPerson?.nombre || 'No especificado'}</h2>
 
                 <div className="flex flex-col space-y-4">
                     {/* Campo para Nombre */}
@@ -566,102 +503,17 @@ const Garages = () => {
                         variant="default"
                         onClick={() => setDrawerIsOpen(false)}
                     >
-                        Cerrar
+                        Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleSaveChanges}>
+                    <Button 
+                    style={{ backgroundColor: '#000B7E' }}
+                    className='text-white hover:opacity-80' 
+                    onClick={handleSaveChanges}
+                    >
                         Guardar Cambios
                     </Button>
                 </div>
             </Dialog>
-
-            <Drawer
-                isOpen={drawerCreateIsOpen}
-                onClose={() => setDrawerCreateIsOpen(false)}
-                className="rounded-md shadow"
-            >
-                <h2 className="mb-4 text-xl font-bold">Crear Taller</h2>
-                <div className="flex flex-col space-y-6">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre Taller:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.nombre || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...prev, // Esto preserva los valores existentes
-                                    nombre: e.target.value, // Solo actualiza el campo necesario
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <input
-                            type="email"
-                            value={newUser?.email || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            RIF:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.rif || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    rif: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.phone || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    phone: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <div className="text-right mt-6">
-                        <Button
-                            className="ltr:mr-2 rtl:ml-2"
-                            variant="default"
-                            onClick={() => setDrawerCreateIsOpen(false)}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            variant="solid"
-                            onClick={handleCreateUser} // Llamar a la función para crear usuario
-                        >
-                            Guardar
-                        </Button>
-                    </div>
-                </div>
-            </Drawer>
         </>
     )
 }
