@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
-import { getAuth } from 'firebase/auth';
+import { getAuth } from 'firebase/auth'
 import Table from '@/components/ui/Table'
 import {
     flexRender,
@@ -14,8 +14,17 @@ import type {
     ColumnSort,
     ColumnFiltersState,
 } from '@tanstack/react-table'
-import { FaEdit, FaTrash, FaCamera, FaFolder, FaEye, FaEyeSlash, FaUserCircle, FaUserShield } from 'react-icons/fa'
-import { z } from "zod";
+import {
+    FaEdit,
+    FaTrash,
+    FaCamera,
+    FaFolder,
+    FaEye,
+    FaEyeSlash,
+    FaUserCircle,
+    FaUserShield,
+} from 'react-icons/fa'
+import { z } from 'zod'
 import {
     collection,
     getDocs,
@@ -33,29 +42,30 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar, Drawer } from '@/components/ui'
-import Password from '@/views/account/Settings/components/Password';
+import Password from '@/views/account/Settings/components/Password'
 import Description from '@/views/ui-components/navigation/Steps/Description'
-import { Timestamp } from 'firebase/firestore'; // Importa Timestamp
-import { px } from 'framer-motion';
+import { Timestamp } from 'firebase/firestore' // Importa Timestamp
+import { px } from 'framer-motion'
 
 type Category = {
-    nombre?: string;
-    descripcion?: string;
-    fechaCreacion?: Timestamp; // Fecha de creación de la categoría
-    logoUrl?: string; // URL de la imagen que funcione como logo de la categoría
-    nombreUser?: string; // Nombre del creador
-    
-    uid: string; // ID del usuario que creó la categoría
-    id: string; // ID único de la categoría
-};
+    nombre?: string
+    descripcion?: string
+    fechaCreacion?: Timestamp // Fecha de creación de la categoría
+    logoUrl?: string // URL de la imagen que funcione como logo de la categoría
+    nombreUser?: string // Nombre del creador
 
+    uid: string // ID del usuario que creó la categoría
+    id: string // ID único de la categoría
+}
 
 const Users = () => {
     const [dataUsers, setDataUsers] = useState<Category[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+    const [selectedCategory, setSelectedCategory] = useState<Category | null>(
+        null,
+    )
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
     const getData = async () => {
@@ -73,7 +83,6 @@ const Users = () => {
                 })
             }
         })
-        
 
         setDataUsers(usuarios)
     }
@@ -104,73 +113,75 @@ const Users = () => {
 
     // Define el esquema de validación
     const createUserSchema = z.object({
-    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-    // descripcion: 
+        nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
+        // descripcion:
     })
 
     const handleCreateUser = async () => {
-        const auth = getAuth();
-        const currentUser = auth.currentUser;
-    
+        const auth = getAuth()
+        const currentUser = auth.currentUser
+
         if (!newCategory || !currentUser) {
             toast.push(
                 <Notification title="Error">
-                    { !currentUser ? "Usuario no autenticado." : "Los datos de la categoría son nulos. Por favor, verifica." }
-                </Notification>
-            );
-            return;
+                    {!currentUser
+                        ? 'Usuario no autenticado.'
+                        : 'Los datos de la categoría son nulos. Por favor, verifica.'}
+                </Notification>,
+            )
+            return
         }
-    
+
         try {
             // Obtener el documento del usuario en la colección "Usuarios"
-            const userDocRef = doc(db, 'Usuarios', currentUser.uid);
-            const userDoc = await getDoc(userDocRef);
-    
+            const userDocRef = doc(db, 'Usuarios', currentUser.uid)
+            const userDoc = await getDoc(userDocRef)
+
             // Si el documento no existe, asignar "Administrador" como nombre
-            const userName = userDoc.exists() && userDoc.data()?.nombre ? userDoc.data().nombre : "Administrador";
-    
+            const userName =
+                userDoc.exists() && userDoc.data()?.nombre
+                    ? userDoc.data().nombre
+                    : 'Administrador'
+
             // Crear los datos de la categoría con el nombre del usuario
             const categoryData = {
                 ...newCategory,
                 nombreUser: userName,
                 uid: currentUser.uid,
                 fechaCreacion: Timestamp.fromDate(new Date()), // Fecha actual
-            };
-    
+            }
+
             // Guardar la categoría en Firestore
-            const userRef = collection(db, 'Categorias');
-            await addDoc(userRef, categoryData);
-    
+            const userRef = collection(db, 'Categorias')
+            await addDoc(userRef, categoryData)
+
             toast.push(
                 <Notification title="Éxito">
                     Categoría creada con éxito.
-                </Notification>
-            );
-    
-            setDrawerCreateIsOpen(false); // Cerrar el Drawer después de crear la Categoría
-            getData(); // Refrescar la lista de categorías
+                </Notification>,
+            )
+
+            setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear la Categoría
+            getData() // Refrescar la lista de categorías
         } catch (error) {
             if (error instanceof z.ZodError) {
-                const errorMessages = error.errors.map(err => err.message).join(", ");
+                const errorMessages = error.errors
+                    .map((err) => err.message)
+                    .join(', ')
                 toast.push(
-                    <Notification title="Error">
-                        {errorMessages}
-                    </Notification>
-                );
+                    <Notification title="Error">{errorMessages}</Notification>,
+                )
             } else {
-                console.error('Error creando Categoría:', error);
+                console.error('Error creando Categoría:', error)
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear la Categoría.
-                    </Notification>
-                );
+                    </Notification>,
+                )
             }
         }
-    };
-    
-    
-    
-        
+    }
+
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
             // Actualizar el filtro correspondiente a la columna
@@ -184,58 +195,59 @@ const Users = () => {
     const handleSaveChanges = async () => {
         if (selectedCategory && selectedCategory.id) {
             try {
-                const userDoc = doc(db, 'Categorias', selectedCategory.id);
+                const userDoc = doc(db, 'Categorias', selectedCategory.id)
                 await updateDoc(userDoc, {
                     nombre: selectedCategory.nombre || '',
                     descripcion: selectedCategory.descripcion || '',
                     logoUrl: selectedCategory.logoUrl || '',
-                });
+                })
                 // Mensaje de éxito
                 toast.push(
                     <Notification title="Éxito">
                         Categoría actualizada con éxito.
                     </Notification>,
-                );
+                )
                 // Cerrar el drawer
-                setDrawerIsOpen(false);
+                setDrawerIsOpen(false)
 
                 // Recargar la página
-                window.location.reload();
-                getData(); // Refrescar datos después de guardar
+                window.location.reload()
+                getData() // Refrescar datos después de guardar
             } catch (error) {
-                console.error('Error actualizando la categoría:', error);
+                console.error('Error actualizando la categoría:', error)
                 // Mensaje de error
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al actualizar la Categoría.
                     </Notification>,
-                );
+                )
             }
         } else {
-            console.error("selectedCategory o uid no están definidos.");
-            console.error();
+            console.error('selectedCategory o uid no están definidos.')
+            console.error()
         }
-    };
-    
-    
+    }
+
     // Obtener iniciales de los nombres
-const getInitials = (nombre: string | undefined): string => {
-    if (!nombre) return ''
-    const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
-    return words.map((word) => {
-        if (typeof word === 'string' && word.length > 0) {
-            return word[0].toUpperCase()
-        }
-        return '' // Retorna una cadena vacía si la palabra no es válida
-    }).join('')
-}
+    const getInitials = (nombre: string | undefined): string => {
+        if (!nombre) return ''
+        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
+        return words
+            .map((word) => {
+                if (typeof word === 'string' && word.length > 0) {
+                    return word[0].toUpperCase()
+                }
+                return '' // Retorna una cadena vacía si la palabra no es válida
+            })
+            .join('')
+    }
 
     const columns: ColumnDef<Category>[] = [
         {
             header: 'Nombre',
             accessorKey: 'nombre',
             cell: ({ getValue, row }) => {
-                const logoUrl = row.original.logoUrl as string | undefined; // Obtener el logo de la fila
+                const logoUrl = row.original.logoUrl as string | undefined // Obtener el logo de la fila
                 return (
                     <div className="flex items-center">
                         {logoUrl ? (
@@ -246,12 +258,17 @@ const getInitials = (nombre: string | undefined): string => {
                             />
                         ) : (
                             <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center mr-2">
-                                <FaFolder className="h-6 w-6 text-gray-400" aria-hidden="true" /> {/* Icono por defecto */}
+                                <FaFolder
+                                    className="h-6 w-6 text-gray-400"
+                                    aria-hidden="true"
+                                />{' '}
+                                {/* Icono por defecto */}
                             </div>
                         )}
-                        {getValue() as string} {/* Mostrar el nombre de la categoría */}
+                        {getValue() as string}{' '}
+                        {/* Mostrar el nombre de la categoría */}
                     </div>
-                );
+                )
             },
             filterFn: 'includesString',
             footer: (props) => props.column.id,
@@ -263,29 +280,33 @@ const getInitials = (nombre: string | undefined): string => {
             cell: ({ getValue }) => getValue(),
             filterFn: 'includesString',
             footer: (props) => props.column.id,
-        },  
+        },
         {
             header: 'Fecha de Creación',
             accessorKey: 'fechaCreacion',
             cell: ({ getValue }) => {
-                const fechaCreacion = getValue() as Timestamp | undefined; // Cambia a Timestamp
+                const fechaCreacion = getValue() as Timestamp | undefined // Cambia a Timestamp
                 return (
                     <div className="text-sm text-gray-700">
-                        {fechaCreacion ? new Date(fechaCreacion.seconds * 1000).toLocaleDateString() : 'No disponible'}
+                        {fechaCreacion
+                            ? new Date(
+                                  fechaCreacion.seconds * 1000,
+                              ).toLocaleDateString()
+                            : 'No disponible'}
                     </div>
-                );
+                )
             },
             filterFn: 'includesString',
             footer: (props) => props.column.id,
         },
-        
+
         {
             header: 'Creador',
             accessorKey: 'nombreUser',
             cell: ({ getValue }) => getValue(),
             filterFn: 'includesString',
             footer: (props) => props.column.id,
-        },    
+        },
         {
             header: ' ',
             cell: ({ row }) => {
@@ -307,7 +328,7 @@ const getInitials = (nombre: string | undefined): string => {
                     </div>
                 )
             },
-        },         
+        },
     ]
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
@@ -319,10 +340,10 @@ const getInitials = (nombre: string | undefined): string => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerIsOpen(false);
-        setSelectedCategory(null); // Limpiar la selección
-    };
+        console.log('Drawer cerrado', e)
+        setDrawerIsOpen(false)
+        setSelectedCategory(null) // Limpiar la selección
+    }
 
     const handleDelete = async () => {
         if (selectedCategory) {
@@ -375,9 +396,8 @@ const getInitials = (nombre: string | undefined): string => {
 
     const [currentPage, setCurrentPage] = useState(1)
     const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
-        
 
-        const [showPassword, setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState(false)
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
     const totalRows = data.length
@@ -398,7 +418,7 @@ const getInitials = (nombre: string | undefined): string => {
                 <div className="flex justify-end">
                     <Button
                         style={{ backgroundColor: '#000B7E' }}
-                        className='text-white hover:opacity-80'
+                        className="text-white hover:opacity-80"
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
                         Crear Categoría
@@ -518,10 +538,11 @@ const getInitials = (nombre: string | undefined): string => {
                     >
                         Cancelar
                     </Button>
-                    <Button 
-                    style={{ backgroundColor: '#B91C1C' }}
-                    className='text-white hover:opacity-80'
-                    onClick={handleDelete}>
+                    <Button
+                        style={{ backgroundColor: '#B91C1C' }}
+                        className="text-white hover:opacity-80"
+                        onClick={handleDelete}
+                    >
                         Eliminar
                     </Button>
                 </div>
@@ -534,10 +555,12 @@ const getInitials = (nombre: string | undefined): string => {
                 <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
                 <div className="flex flex-col space-y-6">
                     {/* Aumentar el espacio entre campos */}
-                    
+
                     {/* Campo para Nombre */}
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">Nombre:</span>
+                        <span className="font-semibold text-gray-700">
+                            Nombre:
+                        </span>
                         <input
                             type="text"
                             value={selectedCategory?.nombre || ''}
@@ -553,79 +576,94 @@ const getInitials = (nombre: string | undefined): string => {
 
                     {/* Campo para Descripción */}
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">Descripción:</span>
+                        <span className="font-semibold text-gray-700">
+                            Descripción:
+                        </span>
                         <textarea
                             value={selectedCategory?.descripcion || ''}
                             onChange={(e) => {
                                 setSelectedCategory((prev: any) => ({
                                     ...prev,
                                     descripcion: e.target.value,
-                                }));
-                                e.target.style.height = "auto"; // Resetea la altura
-                                e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                                }))
+                                e.target.style.height = 'auto' // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
                             }}
                             rows={1} // Altura inicial
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
                             style={{
                                 maxHeight: '150px', // Límite máximo de altura
-                                overflowY: 'auto',   // Scroll vertical cuando se excede el límite
+                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
                             }}
                         />
                     </label>
 
                     {/* Campo para Logo */}
-<div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-    <div className="text-center">
-        {!selectedCategory?.logoUrl ? (
-            <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-        ) : (
-            <div>
-                <img
-                    src={selectedCategory.logoUrl}
-                    alt="Preview Logo"
-                    className="mx-auto h-32 w-32 object-cover"
-                />
-                {/* Botón para quitar la imagen */}
-                <button
-                    onClick={() => {
-                        setSelectedCategory((prev: any) => ({
-                            ...prev,
-                            logoUrl: '', // Restablece la URL del logo a una cadena vacía
-                        }));
-                    }}
-                    className="mt-2 text-red-500 hover:text-red-700"
-                >
-                    Quitar Logo
-                </button>
-            </div>
-        )}
-        <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-            <label
-                htmlFor="logo-upload"
-                className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-            >
-                <span>{selectedCategory?.logoUrl ? "Cambiar Logo" : "Seleccionar Logo"}</span>
-                <input
-                    id="logo-upload"
-                    name="logo-upload"
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                setSelectedCategory((prev: any) => ({
-                                    ...prev,
-                                    logoUrl: reader.result, // Almacena la URL del logo
-                                }));
-                            };
-                            reader.readAsDataURL(file); // Leer el archivo como una URL de datos
-                        }
-                    }}
-                />
-            </label>        </div>
+                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                        <div className="text-center">
+                            {!selectedCategory?.logoUrl ? (
+                                <FaCamera
+                                    className="mx-auto h-12 w-12 text-gray-300"
+                                    aria-hidden="true"
+                                />
+                            ) : (
+                                <div>
+                                    <img
+                                        src={selectedCategory.logoUrl}
+                                        alt="Preview Logo"
+                                        className="mx-auto h-32 w-32 object-cover"
+                                    />
+                                    {/* Botón para quitar la imagen */}
+                                    <button
+                                        onClick={() => {
+                                            setSelectedCategory(
+                                                (prev: any) => ({
+                                                    ...prev,
+                                                    logoUrl: '', // Restablece la URL del logo a una cadena vacía
+                                                }),
+                                            )
+                                        }}
+                                        className="mt-2 text-red-500 hover:text-red-700"
+                                    >
+                                        Quitar Logo
+                                    </button>
+                                </div>
+                            )}
+                            <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                <label
+                                    htmlFor="logo-upload"
+                                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                >
+                                    <span>
+                                        {selectedCategory?.logoUrl
+                                            ? 'Cambiar Logo'
+                                            : 'Seleccionar Logo'}
+                                    </span>
+                                    <input
+                                        id="logo-upload"
+                                        name="logo-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) {
+                                                const reader = new FileReader()
+                                                reader.onloadend = () => {
+                                                    setSelectedCategory(
+                                                        (prev: any) => ({
+                                                            ...prev,
+                                                            logoUrl:
+                                                                reader.result, // Almacena la URL del logo
+                                                        }),
+                                                    )
+                                                }
+                                                reader.readAsDataURL(file) // Leer el archivo como una URL de datos
+                                            }
+                                        }}
+                                    />
+                                </label>{' '}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -638,10 +676,11 @@ const getInitials = (nombre: string | undefined): string => {
                     >
                         Cancelar
                     </Button>
-                    <Button 
+                    <Button
                         style={{ backgroundColor: '#000B7E' }}
-                        className='text-white hover:opacity-80'
-                        onClick={handleSaveChanges}>
+                        className="text-white hover:opacity-80"
+                        onClick={handleSaveChanges}
+                    >
                         Guardar Cambios
                     </Button>
                 </div>
@@ -680,22 +719,25 @@ const getInitials = (nombre: string | undefined): string => {
                                 setnewCategory((prev: any) => ({
                                     ...(prev ?? {}),
                                     descripcion: e.target.value,
-                                }));
-                                e.target.style.height = "auto"; // Resetea la altura
-                                e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                                }))
+                                e.target.style.height = 'auto' // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
                             }}
                             rows={1} // Altura inicial
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
                             style={{
                                 maxHeight: '150px', // Límite máximo de altura
-                                overflowY: 'auto',   // Scroll vertical cuando se excede el límite
+                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
                             }}
                         />
                     </label>
                     <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                         <div className="text-center">
                             {!newCategory?.logoUrl ? (
-                                <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+                                <FaCamera
+                                    className="mx-auto h-12 w-12 text-gray-300"
+                                    aria-hidden="true"
+                                />
                             ) : (
                                 <img
                                     src={newCategory.logoUrl}
@@ -708,32 +750,38 @@ const getInitials = (nombre: string | undefined): string => {
                                     htmlFor="logo-upload"
                                     className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
                                 >
-                                <span>{newCategory?.logoUrl ? "Cambiar Logo" : "Seleccionar Logo"}</span>
-                                <input
-                                    id="logo-upload"
-                                    name="logo-upload"
-                                    type="file"
-                                    accept="image/*"
-                                    className="sr-only"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                            const reader = new FileReader();
-                                            reader.onloadend = () => {
-                                                setnewCategory((prev: any) => ({
-                                                    ...prev,
-                                                    logoUrl: reader.result, // Almacena la URL del logo
-                                                }));
-                                            };
-                                            reader.readAsDataURL(file); // Leer el archivo como una URL de datos
-                                        }
-                                    }}
-                                />
-                            </label>
+                                    <span>
+                                        {newCategory?.logoUrl
+                                            ? 'Cambiar Logo'
+                                            : 'Seleccionar Logo'}
+                                    </span>
+                                    <input
+                                        id="logo-upload"
+                                        name="logo-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) {
+                                                const reader = new FileReader()
+                                                reader.onloadend = () => {
+                                                    setnewCategory(
+                                                        (prev: any) => ({
+                                                            ...prev,
+                                                            logoUrl:
+                                                                reader.result, // Almacena la URL del logo
+                                                        }),
+                                                    )
+                                                }
+                                                reader.readAsDataURL(file) // Leer el archivo como una URL de datos
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            </div>
                         </div>
                     </div>
-                </div>
-
 
                     <div className="text-right mt-6">
                         <Button
@@ -745,7 +793,7 @@ const getInitials = (nombre: string | undefined): string => {
                         </Button>
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
-                            className='text-white hover:opacity-80'
+                            className="text-white hover:opacity-80"
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar
