@@ -63,7 +63,7 @@ const ProfileGarage = () => {
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
-    const [formData, setFormData] = useState({ nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
+    const [formData, setFormData] = useState({ logoUrl: '', nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
 
     const path = location.pathname.substring(location.pathname.lastIndexOf('/') + 1);
 
@@ -98,6 +98,7 @@ const ProfileGarage = () => {
 
             setFormData({
                 nombre: dataFinal?.nombre || '',
+                logoUrl: dataFinal?.logoUrl || '',
                 email: dataFinal?.email || '',
                 phone: dataFinal?.phone || '',
                 rif: dataFinal?.rif || '',
@@ -328,7 +329,7 @@ const ProfileGarage = () => {
                             <Avatar
                                 size={90}
                                 shape="circle"
-                                src={data?.img || '/img/logo/logo-light-streamline.png'}
+                                src={data?.logoUrl || '/img/logo/logo-light-streamline.png'}
                                 className='p-2 bg-white shadow-lg'
                             />
                             <h4 className="font-bold">{data?.nombre || 'Nombre no disponible'}</h4>
