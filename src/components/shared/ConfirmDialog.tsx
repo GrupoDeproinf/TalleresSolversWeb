@@ -81,8 +81,8 @@ const ConfirmDialog = (props: ConfirmDialogProps) => {
         children,
         onCancel,
         onConfirm,
-        cancelText = 'Cancel',
-        confirmText = 'Confirm',
+        cancelText = 'Cancelar',
+        confirmText = 'Confirmar',
         confirmButtonColor,
         ...rest
     } = props
@@ -98,9 +98,6 @@ const ConfirmDialog = (props: ConfirmDialogProps) => {
     return (
         <Dialog contentClassName="pb-0 px-0" {...rest}>
             <div className="px-6 pb-6 pt-2 flex">
-                <div>
-                    <StatusIcon status={type} />
-                </div>
                 <div className="ml-4 rtl:mr-4">
                     <h5 className="mb-2">{title}</h5>
                     {children}
