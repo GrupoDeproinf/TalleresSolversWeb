@@ -5,7 +5,7 @@ import Card from '@/components/ui/Card';
 import Avatar from '@/components/ui/Avatar';
 import Button from '@/components/ui/Button';
 import ConfirmDialog from '@/components/shared/ConfirmDialog';
-import { FaFacebookF, FaTwitter, FaLinkedinIn, FaPinterestP } from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa';
 import { HiPencilAlt, HiOutlineTrash } from 'react-icons/hi';
 import { db } from '@/configs/firebaseAssets.config';
 import Tag from '@/components/ui/Tag'
@@ -63,7 +63,7 @@ const ProfileGarage = () => {
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
-    const [formData, setFormData] = useState({ nombre: '', email: '', phone: '', rif: '', status: '', location: '' });
+    const [formData, setFormData] = useState({ nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
 
     const path = location.pathname.substring(location.pathname.lastIndexOf('/') + 1);
 
@@ -103,6 +103,9 @@ const ProfileGarage = () => {
                 rif: dataFinal?.rif || '',
                 status: dataFinal?.status || '',
                 location: dataFinal?.location || '',
+                LinkFacebook: dataFinal?.LinkFacebook || '',
+                LinkInstagram: dataFinal?.LinkInstagram || '',
+                LinkTiktok: dataFinal?.LinkTiktok || '',
             });
         } catch (error) {
             console.error("Error al obtener los datos del cliente:", error);
@@ -187,16 +190,7 @@ const ProfileGarage = () => {
         [key: string]: boolean;
     };
 
-    const paymentStatus: PaymentStatus = {
-        pagoMovil: true,
-        transferencia: false,
-        puntoVenta: true,
-        zinli: false,
-        efectivo: true,
-        zelle: false,
-        tarjetaCreditoN: true,
-        tarjetaCreditoI: false,
-    };
+    
 
 
     const onDialogOpen = () => setDialogOpen(true);
@@ -275,14 +269,14 @@ const ProfileGarage = () => {
         {
             header: 'Cantidad de servicios',
             accessorKey: 'cantidad_sevicios',
-            
+
         },
 
     ]
 
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
-    
+
     const table = useReactTable({
         data: services, // Cambiar aquí para usar el estado de servicios
         columns,
@@ -331,7 +325,12 @@ const ProfileGarage = () => {
                 <Card>
                     <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
                         <div className="flex xl:flex-col items-center gap-4">
-                            <Avatar size={90} shape="circle" src={data?.img || '/img/logo/logo-light-streamline.png'} className='p-2 bg-white shadow-lg' />
+                            <Avatar
+                                size={90}
+                                shape="circle"
+                                src={data?.img || '/img/logo/logo-light-streamline.png'}
+                                className='p-2 bg-white shadow-lg'
+                            />
                             <h4 className="font-bold">{data?.nombre || 'Nombre no disponible'}</h4>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-y-7 gap-x-4 mt-8">
@@ -339,22 +338,57 @@ const ProfileGarage = () => {
                             <CustomerInfoField title="Numero de telefono" value={data?.phone || 'Telefono no disponible'} />
                             <CustomerInfoField title="Rif" value={data?.rif || 'Rif no disponible'} />
                             <CustomerInfoField title="Estatus" value={data?.status || 'Estatus no disponible'} />
-                            <CustomerInfoField title="Estatus" value={data?.location || 'Ubicacion no disponible'} />
+                            <CustomerInfoField title="Ubicacion" value={data?.location || 'Ubicacion no disponible'} />
+
+                            {/* Redes Sociales */}
                             <div className="mb-7">
-                                <span>Social</span>
+                                <span>Redes Sociales</span>
                                 <div className="flex mt-4 gap-2">
-                                    <Button shape="circle" size="sm" icon={<FaFacebookF className="text-[#1773ea]" />} />
-                                    <Button shape="circle" size="sm" icon={<FaTwitter className="text-[#1da1f3]" />} />
-                                    <Button shape="circle" size="sm" icon={<FaLinkedinIn className="text-[#0077b5]" />} />
-                                    <Button shape="circle" size="sm" icon={<FaPinterestP className="text-[#df0018]" />} />
+                                    {data?.LinkFacebook || data?.LinkInstagram || data?.LinkTiktok ? (
+                                        <>
+                                            {data.LinkFacebook && (
+                                                <a
+                                                    href={data.LinkFacebook}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={data.LinkFacebook} // Tooltip al pasar el mouse
+                                                >
+                                                    <Button shape="circle" size="sm" icon={<FaFacebookF className="text-[#1773ea]" />} />
+                                                </a>
+                                            )}
+                                            {data.LinkInstagram && (
+                                                <a
+                                                    href={data.LinkInstagram}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={data.LinkInstagram} // Tooltip al pasar el mouse
+                                                >
+                                                    <Button shape="circle" size="sm" icon={<FaInstagram className="text-[#E1306C]" />} />
+                                                </a>
+                                            )}
+                                            {data.LinkTiktok && (
+                                                <a
+                                                    href={data.LinkTiktok}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={data.LinkTiktok} // Tooltip al pasar el mouse
+                                                >
+                                                    <Button shape="circle" size="sm" icon={<FaTiktok className="text-black" />} />
+                                                </a>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <p className="text-gray-500">No hay redes sociales disponibles</p>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                        <div className="mt-4 flex justify-end">
-                            <Button className='' variant='solid' onClick={onEdit} icon={<HiPencilAlt />}>
-                                Editar
-                            </Button>
 
+                            {/* Botón Editar */}
+                            <div className="mt-4 flex justify-end">
+                                <Button className='' variant='solid' onClick={onEdit} icon={<HiPencilAlt />}>
+                                    Editar
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </Card>
@@ -434,82 +468,82 @@ const ProfileGarage = () => {
                                 </Card>
 
                                 <div>
-                            <div >
-                                <h6 className="mb-6 flex justify-start mt-4">
-                                    Historial de planes
-                                </h6>
-                                <Table >
-                                    <THead>
-                                        {table2.getHeaderGroups().map((headerGroup) => (
-                                            <Tr key={headerGroup.id}>
-                                                {headerGroup.headers.map((header) => {
-                                                    return (
-                                                        <Th
-                                                            key={header.id}
-                                                            colSpan={header.colSpan}
-                                                        >
-                                                            {header.isPlaceholder ? null : (
-                                                                <div
-                                                                    {...{
-                                                                        className:
-                                                                            header.column.getCanSort()
-                                                                                ? 'cursor-pointer select-none'
-                                                                                : '',
-                                                                        onClick:
-                                                                            header.column.getToggleSortingHandler(),
-                                                                    }}
-                                                                >
-                                                                    {flexRender(
-                                                                        header.column.columnDef
-                                                                            .header,
-                                                                        header.getContext(),
-                                                                    )}
-                                                                    <Sorter
-                                                                        sort={header.column.getIsSorted()}
-                                                                    />
-                                                                    
-                                                                </div>
-                                                            )}
-                                                        </Th>
-                                                    )
-                                                })}
-                                            </Tr>
-                                        ))}
-                                    </THead>
-                                    <TBody>
-                                        {table2
-                                            .getRowModel()
-                                            .rows.slice(
-                                                (currentPage - 1) * rowsPerPage,
-                                                currentPage * rowsPerPage,
-                                            )
-                                            .map((row) => {
-                                                return (
-                                                    <Tr key={row.id}>
-                                                        {row.getVisibleCells().map((cell) => {
+                                    <div >
+                                        <h6 className="mb-6 flex justify-start mt-4">
+                                            Historial de planes
+                                        </h6>
+                                        <Table >
+                                            <THead>
+                                                {table2.getHeaderGroups().map((headerGroup) => (
+                                                    <Tr key={headerGroup.id}>
+                                                        {headerGroup.headers.map((header) => {
                                                             return (
-                                                                <Td key={cell.id}>
-                                                                    {flexRender(
-                                                                        cell.column.columnDef
-                                                                            .cell,
-                                                                        cell.getContext(),
+                                                                <Th
+                                                                    key={header.id}
+                                                                    colSpan={header.colSpan}
+                                                                >
+                                                                    {header.isPlaceholder ? null : (
+                                                                        <div
+                                                                            {...{
+                                                                                className:
+                                                                                    header.column.getCanSort()
+                                                                                        ? 'cursor-pointer select-none'
+                                                                                        : '',
+                                                                                onClick:
+                                                                                    header.column.getToggleSortingHandler(),
+                                                                            }}
+                                                                        >
+                                                                            {flexRender(
+                                                                                header.column.columnDef
+                                                                                    .header,
+                                                                                header.getContext(),
+                                                                            )}
+                                                                            <Sorter
+                                                                                sort={header.column.getIsSorted()}
+                                                                            />
+
+                                                                        </div>
                                                                     )}
-                                                                </Td>
+                                                                </Th>
                                                             )
                                                         })}
                                                     </Tr>
-                                                )
-                                            })}
-                                    </TBody>
-                                </Table>
-                                <Pagination
-                                    onChange={onPaginationChange}
-                                    currentPage={currentPage}
-                                    totalRows={totalRows}
-                                    rowsPerPage={rowsPerPage}
-                                />
-                            </div>
-                        </div>
+                                                ))}
+                                            </THead>
+                                            <TBody>
+                                                {table2
+                                                    .getRowModel()
+                                                    .rows.slice(
+                                                        (currentPage - 1) * rowsPerPage,
+                                                        currentPage * rowsPerPage,
+                                                    )
+                                                    .map((row) => {
+                                                        return (
+                                                            <Tr key={row.id}>
+                                                                {row.getVisibleCells().map((cell) => {
+                                                                    return (
+                                                                        <Td key={cell.id}>
+                                                                            {flexRender(
+                                                                                cell.column.columnDef
+                                                                                    .cell,
+                                                                                cell.getContext(),
+                                                                            )}
+                                                                        </Td>
+                                                                    )
+                                                                })}
+                                                            </Tr>
+                                                        )
+                                                    })}
+                                            </TBody>
+                                        </Table>
+                                        <Pagination
+                                            onChange={onPaginationChange}
+                                            currentPage={currentPage}
+                                            totalRows={totalRows}
+                                            rowsPerPage={rowsPerPage}
+                                        />
+                                    </div>
+                                </div>
                                 <div className="border-t border-gray-300 my-4" />
 
 
@@ -517,7 +551,6 @@ const ProfileGarage = () => {
                                     {paymentMethods.map((method) => (
                                         <div key={method.name} className="flex items-center gap-2">
                                             <Checkbox
-                                                checked={paymentStatus[method.dbKey]}
                                                 readOnly
                                             />
                                             <span>{method.icon}</span>
