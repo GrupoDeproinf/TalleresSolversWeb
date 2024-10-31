@@ -14,12 +14,13 @@ import type {
     ColumnFiltersState,
 } from '@tanstack/react-table'
 import {
-    FaEdit,
-    FaTrash,
     FaEye,
     FaEyeSlash,
     FaUserCircle,
     FaUserShield,
+    FaRegEye,
+    FaCheckCircle,
+    FaTimesCircle,
 } from 'react-icons/fa'
 import { z } from 'zod'
 import {
@@ -42,13 +43,12 @@ import Password from '@/views/account/Settings/components/Password'
 
 type Person = {
     nombre?: string
-    email?: string
-    cedula?: string
-    phone?: string
-    password?: string
-    confirmPassword?: string
+    descripcion?: string
+    cantidad_servicios?: string
+    monto: string
+    status?: string
+    vigencia?: string
     uid: string
-    typeUser?: string
     id: string
 }
 
@@ -61,22 +61,13 @@ const Users = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
     const getData = async () => {
-        const q = query(collection(db, 'Usuarios'))
+        const q = query(collection(db, 'Planes'))
         const querySnapshot = await getDocs(q)
         const usuarios: Person[] = []
 
         querySnapshot.forEach((doc) => {
             const userData = doc.data() as Person
-            // Filtrar por typeUser "Cliente" o "Certificador"
-            if (
-                userData.typeUser === 'Cliente' ||
-                userData.typeUser === 'Certificador'
-            ) {
-                usuarios.push({
-                    ...userData,
-                    id: doc.id, // Guarda el id generado por Firebase
-                })
-            }
+            usuarios.push({ ...userData, uid: doc.id })
         })
 
         setDataUsers(usuarios)
@@ -89,11 +80,11 @@ const Users = () => {
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
     const [newUser, setNewUser] = useState<Person | null>({
         nombre: '',
-        email: '',
-        cedula: '',
-        phone: '',
-        typeUser: '',
-        password: '',
+        descripcion: '',
+        cantidad_servicios: '',
+        monto: '',
+        status: '',
+        vigencia: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
@@ -152,35 +143,16 @@ const Users = () => {
             createUserSchema.parse(newUser)
 
             // Creación del usuario en la base de datos
-            const userRef = collection(db, 'Usuarios')
+            const userRef = collection(db, 'Planes')
             const docRef = await addDoc(userRef, {
                 nombre: newUser.nombre,
-                email: newUser.email,
-                cedula: newUser.cedula,
-                phone: newUser.phone,
-                Password: newUser.password,
-                typeUser: newUser.typeUser, // Ahora siempre tiene valor
+                descripcion: newUser.descripcion,
+                cantidad_servicios: newUser.cantidad_servicios,
+                monto: newUser.monto,
+                status: newUser.status,
+                vigencia: newUser.vigencia, // Ahora siempre tiene valor
                 uid: '', // Inicialmente vacío, se actualizará después
             })
-
-            // Si el campo typeUser es indefinido, asigna 'Cliente' por defecto
-            if (!newUser?.typeUser) {
-                setNewUser((prev: any) => ({
-                    ...prev,
-                    typeUser: 'Cliente',
-                }))
-            }
-
-            // Verificación de contraseñas
-            if (newUser.password !== newUser.confirmPassword) {
-                toast.push(
-                    <Notification title="Error">
-                        Las contraseñas no coinciden. Por favor, verifica los
-                        campos.
-                    </Notification>,
-                )
-                return
-            }
 
             // Actualización del uid
             await updateDoc(docRef, {
@@ -227,12 +199,14 @@ const Users = () => {
     const handleSaveChanges = async () => {
         if (selectedPerson) {
             try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
+                const userDoc = doc(db, 'Planes', selectedPerson.uid)
                 await updateDoc(userDoc, {
                     nombre: selectedPerson.nombre,
-                    email: selectedPerson.email,
-                    cedula: selectedPerson.cedula,
-                    phone: selectedPerson.phone,
+                    descripcion: selectedPerson.descripcion,
+                    cantidad_servicios: selectedPerson.cantidad_servicios,
+                    monto: selectedPerson.monto,
+                    status: selectedPerson.status,
+                    vigencia: selectedPerson.vigencia,
                 })
                 // Mensaje de éxito
                 toast.push(
@@ -277,86 +251,68 @@ const Users = () => {
             footer: (props) => props.column.id,
         },
         {
-            header: 'Cedula',
-            accessorKey: 'cedula',
+            header: 'Descripcion',
+            accessorKey: 'descripcion',
             filterFn: 'includesString',
         },
         {
-            header: 'Email',
-            accessorKey: 'email',
+            header: 'Cantidad de Servicios',
+            accessorKey: 'cantidad_servicios',
             filterFn: 'includesString',
         },
 
         {
-            header: 'Numero Telefonico',
-            accessorKey: 'phone',
+            header: 'Monto',
+            accessorKey: 'monto',
             filterFn: 'includesString',
             cell: ({ row }) => {
-                const nombre = row.original.nombre // Accede al nombre del cliente
-                return (
-                    <div className="flex items-center">
-                        <Avatar
-                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
-                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
-                        >
-                            <span className="text-white font-bold">
-                                {getInitials(nombre)}
-                            </span>
-                        </Avatar>
-                        {row.original.phone}{' '}
-                        {/* Muestra el número telefónico */}
-                    </div>
-                )
+                const monto = parseFloat(row.original.monto) // Asegúrate de que sea un número
+                return `$${monto.toFixed(2)}`
             },
         },
         {
-            header: 'Tipo de Usuario',
-            accessorKey: 'typeUser',
+            header: 'Vigencia',
+            accessorKey: 'vigencia',
+            filterFn: 'includesString',
+        },
+        {
+            header: 'Estado',
+            accessorKey: 'status',
             cell: ({ row }) => {
-                const typeUser = row.getValue('typeUser') as string // Aserción de tipo
+                const status = row.getValue('status') as string // Aserción de tipo
                 let icon
                 let color
 
-                switch (typeUser) {
-                    case 'Cliente':
-                        icon = <FaUserCircle className="text-green-500 mr-1" />
+                switch (status) {
+                    case 'Activo':
+                        icon = <FaCheckCircle className="text-green-500 mr-1" />
                         color = 'text-green-500' // Color para el texto
                         break
-                    case 'Certificador':
-                        icon = <FaUserShield className="text-yellow-500 mr-1" />
-                        color = 'text-yellow-500' // Color para el texto
+                    case 'Inactivo':
+                        icon = <FaTimesCircle className="text-red-500 mr-1" />
+                        color = 'text-red-500' // Color para el texto
                         break
-                    default:
-                        icon = null
-                        color = 'text-gray-500' // Color predeterminado
                 }
 
                 return (
                     <div className={`flex items-center ${color}`}>
                         {icon}
-                        <span>{typeUser}</span>
+                        <span>{status}</span>
                     </div>
                 )
             },
         },
-
         {
             header: ' ',
             cell: ({ row }) => {
                 const person = row.original
                 return (
-                    <div className="flex gap-2">
+                    <div className="gap-2">
                         <button
                             onClick={() => openDrawer(person)} // Cambiar aquí
                             className="text-blue-900"
                         >
-                            <FaEdit />
-                        </button>
-                        <button
-                            onClick={() => openDialog(person)}
-                            className="text-red-700"
-                        >
-                            <FaTrash />
+                            <FaRegEye />
                         </button>
                     </div>
                 )
@@ -572,12 +528,12 @@ const Users = () => {
                             onChange={(e) =>
                                 setSelectedPerson((prev) => ({
                                     ...(prev ?? {
-                                        cedula: '',
+                                        descripcion: '',
                                         nombre: '',
-                                        email: '',
-                                        phone: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
                                         uid: '',
-                                        typeUser: '',
+                                        vigencia: '',
                                         id: '',
                                         status: '',
                                     }),
@@ -590,24 +546,24 @@ const Users = () => {
                     {/* Campo para Email */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Email:
+                            Descripcion:
                         </span>
                         <input
-                            type="email"
-                            value={selectedPerson?.email || ''}
+                            type="text"
+                            value={selectedPerson?.descripcion || ''}
                             onChange={(e) =>
                                 setSelectedPerson((prev) => ({
                                     ...(prev ?? {
-                                        cedula: '',
+                                        descripcion: '',
                                         nombre: '',
-                                        email: '',
-                                        phone: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
                                         uid: '',
-                                        typeUser: '',
+                                        vigencia: '',
                                         id: '',
                                         status: '',
                                     }),
-                                    email: e.target.value,
+                                    descripcion: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -616,25 +572,24 @@ const Users = () => {
                     {/* Campo para cedula */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Cédula:
+                            Cantidad de Servicios:
                         </span>
                         <input
                             type="text"
-                            value={selectedPerson?.cedula || ''}
+                            value={selectedPerson?.cantidad_servicios || ''}
                             onChange={(e) =>
                                 setSelectedPerson((prev) => ({
                                     ...(prev ?? {
-                                        cedula: '',
+                                        descripcion: '',
                                         nombre: '',
-                                        email: '',
-                                        phone: '',
-                                        password: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
                                         uid: '',
-                                        typeUser: '',
+                                        vigencia: '',
                                         id: '',
                                         status: '',
                                     }),
-                                    rif: e.target.value,
+                                    cantidad_servicios: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -643,24 +598,74 @@ const Users = () => {
                     {/* Campo para Teléfono */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Teléfono:
+                            Monto:
                         </span>
                         <input
                             type="text"
-                            value={selectedPerson?.phone || ''}
+                            value={selectedPerson?.monto || ''}
                             onChange={(e) =>
                                 setSelectedPerson((prev) => ({
                                     ...(prev ?? {
-                                        cedula: '',
+                                        descripcion: '',
                                         nombre: '',
-                                        email: '',
-                                        phone: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
                                         uid: '',
-                                        typeUser: '',
+                                        vigencia: '',
                                         id: '',
                                         status: '',
                                     }),
-                                    phone: e.target.value,
+                                    monto: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Vigencia:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedPerson?.vigencia || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev) => ({
+                                    ...(prev ?? {
+                                        descripcion: '',
+                                        nombre: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
+                                        uid: '',
+                                        vigencia: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    vigencia: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Estado:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedPerson?.status || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev) => ({
+                                    ...(prev ?? {
+                                        descripcion: '',
+                                        nombre: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
+                                        uid: '',
+                                        vigencia: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    status: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -690,7 +695,7 @@ const Users = () => {
                 onClose={() => setDrawerCreateIsOpen(false)}
                 className="rounded-md shadow"
             >
-                <h2 className="mb-4 text-xl font-bold">Crear Usuario</h2>
+                <h2 className="mb-4 text-xl font-bold">Crear Plan</h2>
                 <div className="flex flex-col space-y-6">
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
@@ -710,31 +715,15 @@ const Users = () => {
                     </label>
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <input
-                            type="email"
-                            value={newUser?.email || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cédula:
+                            Descripcion:
                         </span>
                         <input
                             type="text"
-                            value={newUser?.cedula || ''}
+                            value={newUser?.descripcion || ''}
                             onChange={(e) =>
                                 setNewUser((prev: any) => ({
                                     ...(prev ?? {}),
-                                    cedula: e.target.value,
+                                    descripcion: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -742,15 +731,15 @@ const Users = () => {
                     </label>
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Teléfono:
+                            Cantidad de Servicios:
                         </span>
                         <input
                             type="text"
-                            value={newUser?.phone || ''}
+                            value={newUser?.cantidad_servicios || ''}
                             onChange={(e) =>
                                 setNewUser((prev: any) => ({
                                     ...(prev ?? {}),
-                                    phone: e.target.value,
+                                    cantidad_servicios: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -758,68 +747,51 @@ const Users = () => {
                     </label>
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Tipo de Usuario:
+                            Monto:
                         </span>
-                        <select
-                            value={newUser?.typeUser || 'Cliente'} // Valor por defecto 'Cliente'
+                        <input
+                            type="text"
+                            value={newUser?.monto || ''}
                             onChange={(e) =>
                                 setNewUser((prev: any) => ({
                                     ...(prev ?? {}),
-                                    typeUser: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        >
-                            <option value="Cliente">Cliente</option>
-                            <option value="Certificador">Certificador</option>
-                        </select>
-                    </label>
-                    <label className="flex flex-col relative">
-                        <span className="font-semibold text-gray-700">
-                            Contraseña:
-                        </span>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={newUser?.password || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...prev,
-                                    password: e.target.value,
+                                    monto: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            className="absolute right-3 top-10 text-gray-600"
-                        >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                        </button>
                     </label>
-
-                    <label className="flex flex-col relative mt-4">
+                    <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
-                            Confirmar Contraseña:
+                            Vigencia:
                         </span>
                         <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={newUser?.confirmPassword || ''}
+                            type="text"
+                            value={newUser?.vigencia || ''}
                             onChange={(e) =>
                                 setNewUser((prev: any) => ({
-                                    ...prev,
-                                    confirmPassword: e.target.value,
+                                    ...(prev ?? {}),
+                                    vigencia: e.target.value,
                                 }))
                             }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            className="absolute right-3 top-10 text-gray-600"
-                        >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                        </button>
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Estado:
+                        </span>
+                        <input
+                            type="text"
+                            value={newUser?.status || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    status: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
                     </label>
                     <div className="text-right mt-6">
                         <Button
