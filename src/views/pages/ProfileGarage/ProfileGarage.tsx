@@ -63,7 +63,7 @@ const ProfileGarage = () => {
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
-    const [formData, setFormData] = useState({ nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
+    const [formData, setFormData] = useState({ logoUrl: '', nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
 
     const path = location.pathname.substring(location.pathname.lastIndexOf('/') + 1);
 
@@ -74,30 +74,34 @@ const ProfileGarage = () => {
             const docRef = doc(db, 'Usuarios', path);
             const resp = await getDoc(docRef);
             const dataFinal = resp.data() || null;
-
-            const servicesRef = collection(db, 'Servicios');
-            const servicesQuery = query(servicesRef, where('taller', '==', dataFinal?.nombre));
-            const servicesSnap = await getDocs(servicesQuery);
-            const services = servicesSnap.docs.map(doc => {
-                const data = doc.data();
-                return {
-                    nombre_servicio: data.nombre_servicio || '',
-                    descripcion: data.descripcion || '',
-                    precio: data.precio || '0',
-                    taller: data.taller || '',
-                    puntuacion: data.puntuacion || '0',
-                    uid_servicio: data.uid_servicio || '',
-                };
-            });
-
+    
+            // Extraer los IDs de los servicios desde el documento 'Usuarios'
+            const serviceIds = dataFinal?.servicios || [];
+    
+            // Obtener detalles completos de cada servicio usando sus IDs
+            const services = await Promise.all(
+                serviceIds.map(async (serviceId: string) => {
+                    const serviceDocRef = doc(db, 'Servicios', serviceId);
+                    const serviceDoc = await getDoc(serviceDocRef);
+                    const serviceData = serviceDoc.data();
+    
+                    return {
+                        uid_servicio: serviceId,
+                        nombre_servicio: serviceData?.nombre_servicio || '',
+                        descripcion: serviceData?.descripcion || '',
+                        precio: serviceData?.precio || '0',
+                        taller: serviceData?.taller || '',
+                        puntuacion: serviceData?.puntuacion || '0'
+                    };
+                })
+            );
+    
             setData(dataFinal);
-            setServices(services);
-            setPlanes(planes)
-
-            console.log("aqui la data ", dataFinal, services)// Estado para los servicios
-
+            setServices(services); // Estado actualizado con la información completa de cada servicio
+    
             setFormData({
                 nombre: dataFinal?.nombre || '',
+                logoUrl: dataFinal?.logoUrl || '',
                 email: dataFinal?.email || '',
                 phone: dataFinal?.phone || '',
                 rif: dataFinal?.rif || '',
@@ -113,6 +117,7 @@ const ProfileGarage = () => {
             setLoading(false);
         }
     };
+    
 
     useEffect(() => {
         getData();
@@ -328,7 +333,7 @@ const ProfileGarage = () => {
                             <Avatar
                                 size={90}
                                 shape="circle"
-                                src={data?.img || '/img/logo/logo-light-streamline.png'}
+                                src={data?.logoUrl || '/img/logo/logo-light-streamline.png'}
                                 className='p-2 bg-white shadow-lg'
                             />
                             <h4 className="font-bold">{data?.nombre || 'Nombre no disponible'}</h4>
