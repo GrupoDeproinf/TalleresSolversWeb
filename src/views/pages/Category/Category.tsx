@@ -163,6 +163,7 @@ const Users = () => {
 
             setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear la Categoría
             getData() // Refrescar la lista de categorías
+            window.location.reload();
         } catch (error) {
             if (error instanceof z.ZodError) {
                 const errorMessages = error.errors

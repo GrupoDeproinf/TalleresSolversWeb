@@ -936,18 +936,40 @@ const ProfileGarage = () => {
                                 onChange={handleEditChange}
                             />
                         </label>
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                RIF
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder="Rif"
-                                name="rif"
-                                value={formData.rif}
-                                onChange={handleEditChange}
-                            />
-                        </label>
+                        <label className="flex flex-col">
+    <span className="font-semibold text-gray-700">RIF:</span>
+    <div className="flex items-center mt-1">
+        <select
+            value={formData.rif?.split('-')[0] || 'J'}
+            onChange={(e) =>
+                setFormData((prev: any) => ({
+                    ...prev,
+                    rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
+                }))
+            }
+            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+        >
+            <option value="J">J-</option>
+            <option value="V">V-</option>
+            <option value="E">E-</option>
+            <option value="C">C-</option>
+            <option value="G">G-</option>
+            <option value="P">P-</option>
+        </select>
+        <input
+            type="text"
+            value={formData.rif?.split('-')[1] || ''}
+            onChange={(e) =>
+                setFormData((prev: any) => ({
+                    ...prev,
+                    rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
+                }))
+            }
+            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+        />
+    </div>
+</label>
+
                         <label className="block">
                             <span className="text-gray-700 font-semibold">
                                 Ubicación

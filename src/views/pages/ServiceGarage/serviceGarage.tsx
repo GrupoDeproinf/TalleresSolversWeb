@@ -240,10 +240,6 @@ const Garages = () => {
 
     const columnsTable2 : ColumnDef<Service>[] = [
         {
-            header: 'Taller Asociado',
-            accessorKey: 'taller',
-        },
-        {
             header: 'Nombre del Servicio',
             accessorKey: 'nombre_servicio',
         },
