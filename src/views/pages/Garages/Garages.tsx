@@ -725,6 +725,28 @@ const Garages = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Dirección:
+                        </span>
+                        <textarea
+                            value={newUser?.direccion || ''}
+                            onChange={(e) => {
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    direccion: e.target.value,
+                                }))
+                                e.target.style.height = 'auto' // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
+                            }}
+                            rows={1} // Altura inicial
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                            style={{
+                                maxHeight: '150px', // Límite máximo de altura
+                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                            }}
+                        />
+                    </label>
                     <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                         <div className="text-center">
                             {!newUser?.logoUrl ? (
