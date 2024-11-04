@@ -22,7 +22,7 @@ import { HiFire } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
 import Table from '@/components/ui/Table'
-import { Dialog, Pagination } from '@/components/ui';
+import { Dialog, Pagination } from '@/components/ui'
 import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import Tabs from '@/components/ui/Tabs'
 import {
@@ -59,40 +59,52 @@ type Planes = {
     status: string
     vigencia: string
     cantidad_servicios: string
-    
 }
 
 const ProfileGarage = () => {
-    const [data, setData] = useState<DocumentData | null>(null);
-    const [isSuscrito, setIsSuscrito] = useState(false);
-    const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null);
+    const [data, setData] = useState<DocumentData | null>(null)
+    const [isSuscrito, setIsSuscrito] = useState(false)
+    const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null)
     const [services, setServices] = useState<Service[]>([])
     const [planes, setPlanes] = useState<Planes[]>([])
-    const [loading, setLoading] = useState(true);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [dialogOpensub, setDialogOpensub] = useState(false);
-    const [editModalOpen, setEditModalOpen] = useState(false);
-    const [formData, setFormData] = useState({ logoUrl: '', nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
+    const [loading, setLoading] = useState(true)
+    const [dialogOpen, setDialogOpen] = useState(false)
+    const [dialogOpensub, setDialogOpensub] = useState(false)
+    const [editModalOpen, setEditModalOpen] = useState(false)
+    const [formData, setFormData] = useState({
+        logoUrl: '',
+        nombre: '',
+        email: '',
+        phone: '',
+        rif: '',
+        status: '',
+        location: '',
+        LinkFacebook: '',
+        LinkTiktok: '',
+        LinkInstagram: '',
+    })
 
-    const path = location.pathname.substring(location.pathname.lastIndexOf('/') + 1);
+    const path = location.pathname.substring(
+        location.pathname.lastIndexOf('/') + 1,
+    )
 
     const getData = async () => {
         setLoading(true)
         try {
             // Obtener datos del usuario
-            const docRef = doc(db, 'Usuarios', path);
-            const resp = await getDoc(docRef);
-            const dataFinal = resp.data() || null;
+            const docRef = doc(db, 'Usuarios', path)
+            const resp = await getDoc(docRef)
+            const dataFinal = resp.data() || null
 
             // Obtener IDs de los servicios
-            const serviceIds = dataFinal?.servicios || [];
+            const serviceIds = dataFinal?.servicios || []
 
             // Obtener detalles de cada servicio
             const services = await Promise.all(
                 serviceIds.map(async (serviceId: any) => {
-                    const serviceDocRef = doc(db, 'Servicios', serviceId);
-                    const serviceDoc = await getDoc(serviceDocRef);
-                    const serviceData = serviceDoc.data();
+                    const serviceDocRef = doc(db, 'Servicios', serviceId)
+                    const serviceDoc = await getDoc(serviceDocRef)
+                    const serviceData = serviceDoc.data()
 
                     return {
                         uid_servicio: serviceId,
@@ -100,13 +112,13 @@ const ProfileGarage = () => {
                         descripcion: serviceData?.descripcion || '',
                         precio: serviceData?.precio || '0',
                         taller: serviceData?.taller || '',
-                        puntuacion: serviceData?.puntuacion || '0'
-                    };
-                })
-            );
+                        puntuacion: serviceData?.puntuacion || '0',
+                    }
+                }),
+            )
 
             // Obtener todos los planes desde la colección 'Planes'
-            const planesSnapshot = await getDocs(collection(db, 'Planes'));
+            const planesSnapshot = await getDocs(collection(db, 'Planes'))
             const planes: Planes[] = planesSnapshot.docs.map((doc) => ({
                 uid: doc.id,
                 nombre: doc.data().nombre || '', // Asegúrate que existan estas propiedades
@@ -114,12 +126,12 @@ const ProfileGarage = () => {
                 monto: doc.data().monto || 0,
                 status: doc.data().status || '',
                 vigencia: doc.data().vigencia || '', // Asegúrate de que esta propiedad esté incluida
-                cantidad_servicios: doc.data().cantidad_servicios || 0 // Asegúrate de que esta propiedad esté incluida
-            }));
+                cantidad_servicios: doc.data().cantidad_servicios || 0, // Asegúrate de que esta propiedad esté incluida
+            }))
 
-            setData(dataFinal);
-            setServices(services); // Estado actualizado con la información completa de cada servicio
-            setPlanes(planes); // Estado con los datos de todos los planes
+            setData(dataFinal)
+            setServices(services) // Estado actualizado con la información completa de cada servicio
+            setPlanes(planes) // Estado con los datos de todos los planes
 
             setFormData({
                 nombre: dataFinal?.nombre || '',
@@ -138,8 +150,7 @@ const ProfileGarage = () => {
         } finally {
             setLoading(false)
         }
-    };
-
+    }
 
     useEffect(() => {
         getData()
@@ -151,10 +162,10 @@ const ProfileGarage = () => {
     }
 
     const handleSubscribe = (plan: any) => {
-        setSelectedPlan(plan); // Guardar el plan seleccionado
-        setIsSuscrito(true); // Cambiar el estado a suscrito
-        onDialogClosesub(); // Cerrar el modal
-    };
+        setSelectedPlan(plan) // Guardar el plan seleccionado
+        setIsSuscrito(true) // Cambiar el estado a suscrito
+        onDialogClosesub() // Cerrar el modal
+    }
 
     const CustomerInfoField = ({ title, value }: CustomerInfoFieldProps) => {
         return (
@@ -225,13 +236,11 @@ const ProfileGarage = () => {
         },
     ]
 
-
-
-    const onDialogOpensub = () => setDialogOpensub(true);
-    const onDialogOpen = () => setDialogOpen(true);
-    const onDialogClosesub = () => setDialogOpensub(false);
-    const onDialogClose = () => setDialogOpen(false);
-    const onEdit = () => setEditModalOpen(true);
+    const onDialogOpensub = () => setDialogOpensub(true)
+    const onDialogOpen = () => setDialogOpen(true)
+    const onDialogClosesub = () => setDialogOpensub(false)
+    const onDialogClose = () => setDialogOpen(false)
+    const onEdit = () => setEditModalOpen(true)
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
 
@@ -304,24 +313,37 @@ const ProfileGarage = () => {
         {
             header: 'Descripcion',
             accessorKey: 'descripcion',
-
         },
         {
             header: 'Cantidad de servicios',
             accessorKey: 'cantidad_servicios',
-
         },
     ]
     const planesSub = [
-        { id: 1, nombre: 'Plan Básico', descripcion: 'Descripción del Plan Básico', precio: '$10' },
-        { id: 2, nombre: 'Plan Avanzado', descripcion: 'Descripción del Plan Avanzado', precio: '$20' },
-        { id: 3, nombre: 'Plan Premium', descripcion: 'Descripción del Plan Premium', precio: '$30' }
-    ];
+        {
+            id: 1,
+            nombre: 'Plan Básico',
+            descripcion: 'Descripción del Plan Básico',
+            precio: '$10',
+        },
+        {
+            id: 2,
+            nombre: 'Plan Avanzado',
+            descripcion: 'Descripción del Plan Avanzado',
+            precio: '$20',
+        },
+        {
+            id: 3,
+            nombre: 'Plan Premium',
+            descripcion: 'Descripción del Plan Premium',
+            precio: '$30',
+        },
+    ]
 
     const suscribirse = (planId: any) => {
-        setIsSuscrito(true);
-        setDialogOpen(false);
-    };
+        setIsSuscrito(true)
+        setDialogOpen(false)
+    }
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
@@ -506,30 +528,55 @@ const ProfileGarage = () => {
                                 <Card bordered className="mb-4">
                                     {!isSuscrito ? (
                                         <button
-                                            onClick={() => setDialogOpensub(true)}
+                                            onClick={() =>
+                                                setDialogOpensub(true)
+                                            }
                                             className="btn btn-primary"
                                         >
                                             Ver Planes
                                         </button>
                                     ) : (
                                         <>
-                                        <div className="flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white">
-                                            <div className="flex-grow">
-                                                <p className="text-sm text-gray-500">Suscripción Activa</p>
-                                                <h3 className="text-lg font-semibold text-gray-800">{selectedPlan?.nombre}</h3>
-                                                <p className="text-sm text-gray-600">Vigencia: {selectedPlan?.vigencia} dias</p>
-                                                <p className="text-sm text-gray-600">Monto mensual: <span className="font-bold text-gray-800">${selectedPlan?.monto}</span></p>
-                                                <p className="text-xs text-gray-400">Próximo pago: <span className="font-medium text-gray-600">12/10/2021</span></p> {/* Puedes cambiar la fecha dinámica según el plan */}
+                                            <div className="flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white">
+                                                <div className="flex-grow">
+                                                    <p className="text-sm text-gray-500">
+                                                        Suscripción Activa
+                                                    </p>
+                                                    <h3 className="text-lg font-semibold text-gray-800">
+                                                        {selectedPlan?.nombre}
+                                                    </h3>
+                                                    <p className="text-sm text-gray-600">
+                                                        Vigencia:{' '}
+                                                        {selectedPlan?.vigencia}{' '}
+                                                        dias
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        Monto mensual:{' '}
+                                                        <span className="font-bold text-gray-800">
+                                                            $
+                                                            {
+                                                                selectedPlan?.monto
+                                                            }
+                                                        </span>
+                                                    </p>
+                                                    <p className="text-xs text-gray-400">
+                                                        Próximo pago:{' '}
+                                                        <span className="font-medium text-gray-600">
+                                                            12/10/2021
+                                                        </span>
+                                                    </p>{' '}
+                                                    {/* Puedes cambiar la fecha dinámica según el plan */}
+                                                </div>
+                                                <button
+                                                    onClick={() =>
+                                                        setIsSuscrito(false)
+                                                    }
+                                                    className="ml-4 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600"
+                                                >
+                                                    Cancelar Suscripción
+                                                </button>
                                             </div>
-                                            <button
-                                                onClick={() => setIsSuscrito(false)}
-                                                className="ml-4 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600"
-                                            >
-                                                Cancelar Suscripción
-                                            </button>
-                                        </div>
-                                    </>
-                                    
+                                        </>
                                     )}
                                 </Card>
 
@@ -799,53 +846,90 @@ const ProfileGarage = () => {
                             {table2.getHeaderGroups().map((headerGroup) => (
                                 <Tr key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => (
-                                        <Th key={header.id} colSpan={header.colSpan}>
+                                        <Th
+                                            key={header.id}
+                                            colSpan={header.colSpan}
+                                        >
                                             {header.isPlaceholder ? null : (
                                                 <div
                                                     className={
-                                                        header.column.getCanSort() ? 'cursor-pointer select-none' : ''
+                                                        header.column.getCanSort()
+                                                            ? 'cursor-pointer select-none'
+                                                            : ''
                                                     }
                                                     onClick={header.column.getToggleSortingHandler()}
                                                 >
-                                                    {flexRender(header.column.columnDef.header, header.getContext())}
-                                                    <Sorter sort={header.column.getIsSorted()} />
+                                                    {flexRender(
+                                                        header.column.columnDef
+                                                            .header,
+                                                        header.getContext(),
+                                                    )}
+                                                    <Sorter
+                                                        sort={header.column.getIsSorted()}
+                                                    />
                                                     {header.column.getCanFilter() ? (
                                                         <input
                                                             type="text"
                                                             value={
-                                                                filtering.find((filter) => filter.id === header.id)?.value?.toString() || ''
+                                                                filtering
+                                                                    .find(
+                                                                        (
+                                                                            filter,
+                                                                        ) =>
+                                                                            filter.id ===
+                                                                            header.id,
+                                                                    )
+                                                                    ?.value?.toString() ||
+                                                                ''
                                                             }
                                                             onChange={(e) =>
-                                                                handleFilterChange(header.id, e.target.value)
+                                                                handleFilterChange(
+                                                                    header.id,
+                                                                    e.target
+                                                                        .value,
+                                                                )
                                                             }
                                                             placeholder="Buscar"
                                                             className="mt-2 p-1 border rounded"
-                                                            onClick={(e) => e.stopPropagation()} // Evita la propagación del evento de clic
+                                                            onClick={(e) =>
+                                                                e.stopPropagation()
+                                                            } // Evita la propagación del evento de clic
                                                         />
                                                     ) : null}
                                                 </div>
                                             )}
                                         </Th>
                                     ))}
-                                    <Th>Acción</Th> {/* Encabezado para el botón */}
+                                    <Th>Acción</Th>{' '}
+                                    {/* Encabezado para el botón */}
                                 </Tr>
                             ))}
                         </THead>
                         <TBody>
                             {table2
                                 .getRowModel()
-                                .rows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                                .rows.slice(
+                                    (currentPage - 1) * rowsPerPage,
+                                    currentPage * rowsPerPage,
+                                )
                                 .map((row) => (
                                     <Tr key={row.id}>
                                         {row.getVisibleCells().map((cell) => (
                                             <Td key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext(),
+                                                )}
                                             </Td>
                                         ))}
                                         <Td>
                                             <button
                                                 className="bg-blue-500 text-white px-4 py-2 rounded"
-                                                onClick={() => handleSubscribe(row.original)} // Llama a la función de suscripción
+                                                onClick={() =>
+                                                    handleSubscribe(
+                                                        row.original,
+                                                    )
+                                                } // Llama a la función de suscripción
                                             >
                                                 Suscribirse
                                             </button>
@@ -985,38 +1069,44 @@ const ProfileGarage = () => {
                             />
                         </label>
                         <label className="flex flex-col">
-    <span className="font-semibold text-gray-700">RIF:</span>
-    <div className="flex items-center mt-1">
-        <select
-            value={formData.rif?.split('-')[0] || 'J'}
-            onChange={(e) =>
-                setFormData((prev: any) => ({
-                    ...prev,
-                    rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
-                }))
-            }
-            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-        >
-            <option value="J">J-</option>
-            <option value="V">V-</option>
-            <option value="E">E-</option>
-            <option value="C">C-</option>
-            <option value="G">G-</option>
-            <option value="P">P-</option>
-        </select>
-        <input
-            type="text"
-            value={formData.rif?.split('-')[1] || ''}
-            onChange={(e) =>
-                setFormData((prev: any) => ({
-                    ...prev,
-                    rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
-                }))
-            }
-            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-        />
-    </div>
-</label>
+                            <span className="font-semibold text-gray-700">
+                                RIF:
+                            </span>
+                            <div className="flex items-center mt-1">
+                                <select
+                                    value={formData.rif?.split('-')[0] || 'J'}
+                                    onChange={(e) =>
+                                        setFormData((prev: any) => ({
+                                            ...prev,
+                                            rif: `${e.target.value}-${
+                                                prev?.rif?.split('-')[1] || ''
+                                            }`,
+                                        }))
+                                    }
+                                    className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                >
+                                    <option value="J">J-</option>
+                                    <option value="V">V-</option>
+                                    <option value="E">E-</option>
+                                    <option value="C">C-</option>
+                                    <option value="G">G-</option>
+                                    <option value="P">P-</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    value={formData.rif?.split('-')[1] || ''}
+                                    onChange={(e) =>
+                                        setFormData((prev: any) => ({
+                                            ...prev,
+                                            rif: `${
+                                                prev?.rif?.split('-')[0] || 'J'
+                                            }-${e.target.value}`,
+                                        }))
+                                    }
+                                    className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                                />
+                            </div>
+                        </label>
 
                         <label className="block">
                             <span className="text-gray-700 font-semibold">
@@ -1042,9 +1132,7 @@ const ProfileGarage = () => {
                             >
                                 <option value="Aprobado">Aprobado</option>
                                 <option value="Pendiente">Pendiente</option>
-                                <option value="No Operativo">
-                                    No Operativo
-                                </option>
+                                <option value="Rechazado">Rechazado</option>
                             </select>
                         </label>
                         <label className="block">
