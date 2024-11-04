@@ -13,7 +13,7 @@ import { HiFire } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
 import Table from '@/components/ui/Table'
-import { Pagination } from '@/components/ui';
+import { Dialog, Pagination } from '@/components/ui';
 import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import Tabs from '@/components/ui/Tabs'
 import {
@@ -47,21 +47,25 @@ type Service = {
     uid_servicio: string
 }
 type Planes = {
+    uid: string
     nombre: string
     descripcion: string
     monto: string
     status: string
     vigencia: string
     cantidad_servicios: string
-    uid: string
+    
 }
 
 const ProfileGarage = () => {
     const [data, setData] = useState<DocumentData | null>(null);
+    const [isSuscrito, setIsSuscrito] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null);
     const [services, setServices] = useState<Service[]>([])
     const [planes, setPlanes] = useState<Planes[]>([])
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [dialogOpensub, setDialogOpensub] = useState(false);
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [formData, setFormData] = useState({ logoUrl: '', nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
 
@@ -71,20 +75,21 @@ const ProfileGarage = () => {
     const getData = async () => {
         setLoading(true);
         try {
+            // Obtener datos del usuario
             const docRef = doc(db, 'Usuarios', path);
             const resp = await getDoc(docRef);
             const dataFinal = resp.data() || null;
-    
-            // Extraer los IDs de los servicios desde el documento 'Usuarios'
+
+            // Obtener IDs de los servicios
             const serviceIds = dataFinal?.servicios || [];
-    
-            // Obtener detalles completos de cada servicio usando sus IDs
+
+            // Obtener detalles de cada servicio
             const services = await Promise.all(
-                serviceIds.map(async (serviceId: string) => {
+                serviceIds.map(async (serviceId: any) => {
                     const serviceDocRef = doc(db, 'Servicios', serviceId);
                     const serviceDoc = await getDoc(serviceDocRef);
                     const serviceData = serviceDoc.data();
-    
+
                     return {
                         uid_servicio: serviceId,
                         nombre_servicio: serviceData?.nombre_servicio || '',
@@ -95,10 +100,23 @@ const ProfileGarage = () => {
                     };
                 })
             );
-    
+
+            // Obtener todos los planes desde la colección 'Planes'
+            const planesSnapshot = await getDocs(collection(db, 'Planes'));
+            const planes: Planes[] = planesSnapshot.docs.map((doc) => ({
+                uid: doc.id,
+                nombre: doc.data().nombre || '', // Asegúrate que existan estas propiedades
+                descripcion: doc.data().descripcion || '',
+                monto: doc.data().monto || 0,
+                status: doc.data().status || '',
+                vigencia: doc.data().vigencia || '', // Asegúrate de que esta propiedad esté incluida
+                cantidad_servicios: doc.data().cantidad_servicios || 0 // Asegúrate de que esta propiedad esté incluida
+            }));
+
             setData(dataFinal);
             setServices(services); // Estado actualizado con la información completa de cada servicio
-    
+            setPlanes(planes); // Estado con los datos de todos los planes
+
             setFormData({
                 nombre: dataFinal?.nombre || '',
                 logoUrl: dataFinal?.logoUrl || '',
@@ -117,7 +135,7 @@ const ProfileGarage = () => {
             setLoading(false);
         }
     };
-    
+
 
     useEffect(() => {
         getData();
@@ -127,15 +145,12 @@ const ProfileGarage = () => {
         title?: string
         value?: string
     }
-    const [subscribed, setSubscribed] = useState(true)
 
-    const unsubscribe = useCallback(() => {
-        setSubscribed(false)
-    }, [])
-
-    const subscribe = useCallback(() => {
-        setSubscribed(true)
-    }, [])
+    const handleSubscribe = (plan: any) => {
+        setSelectedPlan(plan); // Guardar el plan seleccionado
+        setIsSuscrito(true); // Cambiar el estado a suscrito
+        onDialogClosesub(); // Cerrar el modal
+    };
 
 
     const CustomerInfoField = ({ title, value }: CustomerInfoFieldProps) => {
@@ -191,14 +206,11 @@ const ProfileGarage = () => {
 
     ];
 
-    type PaymentStatus = {
-        [key: string]: boolean;
-    };
-
-    
 
 
+    const onDialogOpensub = () => setDialogOpensub(true);
     const onDialogOpen = () => setDialogOpen(true);
+    const onDialogClosesub = () => setDialogOpensub(false);
     const onDialogClose = () => setDialogOpen(false);
     const onEdit = () => setEditModalOpen(true);
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
@@ -272,13 +284,27 @@ const ProfileGarage = () => {
             },
         },
         {
+            header: 'Descripcion',
+            accessorKey: 'descripcion',
+
+        },
+        {
             header: 'Cantidad de servicios',
-            accessorKey: 'cantidad_sevicios',
+            accessorKey: 'cantidad_servicios',
 
         },
 
     ]
+    const planesSub = [
+        { id: 1, nombre: 'Plan Básico', descripcion: 'Descripción del Plan Básico', precio: '$10' },
+        { id: 2, nombre: 'Plan Avanzado', descripcion: 'Descripción del Plan Avanzado', precio: '$20' },
+        { id: 3, nombre: 'Plan Premium', descripcion: 'Descripción del Plan Premium', precio: '$30' }
+    ];
 
+    const suscribirse = (planId: any) => {
+        setIsSuscrito(true);
+        setDialogOpen(false);
+    };
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
@@ -408,68 +434,33 @@ const ProfileGarage = () => {
                             <div className="mb-8 mt-4">
                                 <h6 className="mb-4">Subscripción</h6>
                                 <Card bordered className="mb-4">
-                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                                        <div className="flex items-center gap-3">
-                                            <div>
-                                                <Avatar
-                                                    className="bg-emerald-500"
-                                                    shape="circle"
-                                                    icon={<HiFire />}
-                                                ></Avatar>
+                                    {!isSuscrito ? (
+                                        <button
+                                            onClick={() => setDialogOpensub(true)}
+                                            className="btn btn-primary"
+                                        >
+                                            Ver Planes
+                                        </button>
+                                    ) : (
+                                        <>
+                                        <div className="flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white">
+                                            <div className="flex-grow">
+                                                <p className="text-sm text-gray-500">Suscripción Activa</p>
+                                                <h3 className="text-lg font-semibold text-gray-800">{selectedPlan?.nombre}</h3>
+                                                <p className="text-sm text-gray-600">Vigencia: {selectedPlan?.vigencia} dias</p>
+                                                <p className="text-sm text-gray-600">Monto mensual: <span className="font-bold text-gray-800">${selectedPlan?.monto}</span></p>
+                                                <p className="text-xs text-gray-400">Próximo pago: <span className="font-medium text-gray-600">12/10/2021</span></p> {/* Puedes cambiar la fecha dinámica según el plan */}
                                             </div>
-                                            <div>
-                                                <div className="flex items-center">
-                                                    <h6>Plan 3</h6>
-                                                    <Tag className="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 rounded-md border-0 mx-2">
-                                                        <span className="capitalize">
-                                                            activo
-                                                        </span>
-                                                    </Tag>
-                                                </div>
-                                                <div>
-                                                    <span>Pago mensual </span>
-                                                    <span> | </span>
-                                                    <span>
-                                                        Siguiente pago el{' '}
-                                                        {dayjs
-                                                            .unix(19 / 21 / 12)
-                                                            .format('MM/DD/YYYY')}
-                                                    </span>
-                                                    <span>
-                                                        <span className="mx-1">por</span>
-                                                        <NumericFormat
-                                                            className="font-semibold text-gray-900 dark:text-gray-100"
-                                                            displayType="text"
-                                                            value={(
-                                                                Math.round(100 * 100) /
-                                                                100
-                                                            ).toFixed(2)}
-                                                            prefix={'$'}
-                                                            thousandSeparator={true}
-                                                        />
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex">
-                                            {subscribed && (
-                                                <Button
-                                                    size="sm"
-                                                    variant="plain"
-                                                    onClick={unsubscribe}
-                                                >
-                                                    Cancel plan
-                                                </Button>
-                                            )}
-                                            <Button
-                                                size="sm"
-                                                className="ml-2 rtl:mr-2"
-                                                onClick={subscribe}
+                                            <button
+                                                onClick={() => setIsSuscrito(false)}
+                                                className="ml-4 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600"
                                             >
-                                                suscribirse
-                                            </Button>
+                                                Cancelar Suscripción
+                                            </button>
                                         </div>
-                                    </div>
+                                    </>
+                                    
+                                    )}
                                 </Card>
 
                                 <div>
@@ -680,6 +671,77 @@ const ProfileGarage = () => {
                 </Tabs>
 
             </div>
+
+            <ConfirmDialog
+                width={1000}
+                isOpen={dialogOpensub}
+                onClose={onDialogClosesub}
+                onCancel={onDialogClosesub}
+                title="Planes de Suscripción"
+            >
+                <div className="table-responsive">
+                    <Table>
+                        <THead>
+                            {table2.getHeaderGroups().map((headerGroup) => (
+                                <Tr key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                        <Th key={header.id} colSpan={header.colSpan}>
+                                            {header.isPlaceholder ? null : (
+                                                <div
+                                                    className={
+                                                        header.column.getCanSort() ? 'cursor-pointer select-none' : ''
+                                                    }
+                                                    onClick={header.column.getToggleSortingHandler()}
+                                                >
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                    <Sorter sort={header.column.getIsSorted()} />
+                                                    {header.column.getCanFilter() ? (
+                                                        <input
+                                                            type="text"
+                                                            value={
+                                                                filtering.find((filter) => filter.id === header.id)?.value?.toString() || ''
+                                                            }
+                                                            onChange={(e) =>
+                                                                handleFilterChange(header.id, e.target.value)
+                                                            }
+                                                            placeholder="Buscar"
+                                                            className="mt-2 p-1 border rounded"
+                                                            onClick={(e) => e.stopPropagation()} // Evita la propagación del evento de clic
+                                                        />
+                                                    ) : null}
+                                                </div>
+                                            )}
+                                        </Th>
+                                    ))}
+                                    <Th>Acción</Th> {/* Encabezado para el botón */}
+                                </Tr>
+                            ))}
+                        </THead>
+                        <TBody>
+                            {table2
+                                .getRowModel()
+                                .rows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                                .map((row) => (
+                                    <Tr key={row.id}>
+                                        {row.getVisibleCells().map((cell) => (
+                                            <Td key={cell.id}>
+                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                            </Td>
+                                        ))}
+                                        <Td>
+                                            <button
+                                                className="bg-blue-500 text-white px-4 py-2 rounded"
+                                                onClick={() => handleSubscribe(row.original)} // Llama a la función de suscripción
+                                            >
+                                                Suscribirse
+                                            </button>
+                                        </Td>
+                                    </Tr>
+                                ))}
+                        </TBody>
+                    </Table>
+                </div>
+            </ConfirmDialog>
 
             {/* Modal eliminar */}
             <ConfirmDialog
