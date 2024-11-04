@@ -24,6 +24,7 @@ type SignUpFormSchema = {
     cedulaOrif: string
     phone: string
     typeUser: string
+    status: string // Agregamos el campo status
 }
 
 const validationSchema = Yup.object().shape({
@@ -49,23 +50,20 @@ const SignUpForm = (props: SignUpFormProps) => {
     const { signUp } = useAuth()
     const [message, setMessage] = useTimeOutMessage()
 
-    const [userType, setUserType] = useState<'Cliente' | 'Taller'>('Cliente') // Estado para gestionar el tipo de usuario
-
     const onSignUp = async (
         values: SignUpFormSchema,
         setSubmitting: (isSubmitting: boolean) => void,
     ) => {
         setSubmitting(true)
 
-        // Asignar el valor de cedula o rif basado en el tipo de usuario seleccionado
         const newUser = {
             nombre: values.nombre,
             email: values.email,
             password: values.password,
             phone: values.phone,
-            typeUser: userType, // Guardar el tipo de usuario seleccionado
-            // Separar el valor en 'cedula' o 'rif' según el tipo de usuario
-            ...(userType === 'Cliente'
+            typeUser: values.typeUser,
+            status: 'Pendiente', // Establecemos el status como 'Pendiente'
+            ...(values.typeUser === 'Cliente'
                 ? { cedula: values.cedulaOrif }
                 : { rif: values.cedulaOrif }),
         }
@@ -77,13 +75,11 @@ const SignUpForm = (props: SignUpFormProps) => {
             .catch((error) => {
                 console.error(error)
 
-                // Define un tipo para los códigos de error que manejas
                 type AuthErrorCodes =
                     | 'auth/weak-password'
                     | 'auth/email-already-in-use'
                     | 'auth/invalid-email'
 
-                // Define el objeto de mensajes de error con un índice seguro
                 const errorMessages: Record<AuthErrorCodes, string> = {
                     'auth/weak-password':
                         'La contraseña debe tener al menos 6 caracteres.',
@@ -93,7 +89,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                         'La dirección de correo electrónico no es válida',
                 }
 
-                // Asegúrate de que error.code sea un AuthErrorCodes antes de acceder al objeto
                 const message =
                     error.code in errorMessages
                         ? errorMessages[error.code as AuthErrorCodes]
@@ -130,6 +125,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                     cedulaOrif: '',
                     phone: '',
                     typeUser: 'Cliente',
+                    status: 'Pendiente', // Inicializamos status como 'Pendiente'
                 }}
                 validationSchema={validationSchema}
                 validateOnChange={false}
@@ -145,7 +141,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                 {({ touched, errors, isSubmitting, values, setFieldValue }) => (
                     <Form>
                         <FormContainer>
-                            {/* Botones para seleccionar el tipo de usuario */}
                             <div className="mb-4">
                                 <label>Tipo de usuario:</label>
                                 <div className="flex space-x-4 mt-2">
@@ -154,7 +149,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                             values.typeUser === 'Cliente'
                                                 ? 'solid'
                                                 : 'default'
-                                        } // Cambiado 'outline' a 'default'
+                                        }
                                         onClick={() =>
                                             setFieldValue('typeUser', 'Cliente')
                                         }
@@ -167,7 +162,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                             values.typeUser === 'Taller'
                                                 ? 'solid'
                                                 : 'default'
-                                        } // Cambiado 'outline' a 'default'
+                                        }
                                         onClick={() =>
                                             setFieldValue('typeUser', 'Taller')
                                         }
@@ -180,7 +175,11 @@ const SignUpForm = (props: SignUpFormProps) => {
 
                             <div className="grid grid-cols-2 gap-3">
                                 <FormItem
-                                    label="Nombre y Apellido"
+                                    label={
+                                        values.typeUser === 'Taller'
+                                            ? 'Nombre del Taller'
+                                            : 'Nombre y Apellido'
+                                    }
                                     invalid={errors.nombre && touched.nombre}
                                     errorMessage={errors.nombre}
                                 >
@@ -188,10 +187,15 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         type="text"
                                         autoComplete="off"
                                         name="nombre"
-                                        placeholder="Ingrese su nombre"
+                                        placeholder={
+                                            values.typeUser === 'Taller'
+                                                ? 'Ingrese el nombre del taller'
+                                                : 'Ingrese su nombre'
+                                        }
                                         component={Input}
                                     />
                                 </FormItem>
+
                                 <FormItem
                                     label={
                                         values.typeUser === 'Cliente'
@@ -206,9 +210,14 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     <div className="flex items-center">
                                         <select
                                             value={
-                                                values.cedulaOrif?.split(
-                                                    '-',
-                                                )[0] || 'V'
+                                                values.cedulaOrif
+                                                    ? values.cedulaOrif.split(
+                                                          '-',
+                                                      )[0]
+                                                    : values.typeUser ===
+                                                        'Cliente'
+                                                      ? 'V'
+                                                      : 'J'
                                             }
                                             onChange={(e) => {
                                                 const suffix =
@@ -247,7 +256,11 @@ const SignUpForm = (props: SignUpFormProps) => {
                                                 const prefix =
                                                     values.cedulaOrif?.split(
                                                         '-',
-                                                    )[0] || 'V'
+                                                    )[0] ||
+                                                    (values.typeUser ===
+                                                    'Cliente'
+                                                        ? 'V'
+                                                        : 'J')
                                                 setFieldValue(
                                                     'cedulaOrif',
                                                     `${prefix}-${e.target.value}`,
@@ -282,7 +295,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         type="text"
                                         autoComplete="off"
                                         name="phone"
-                                        placeholder="Ingrese su número de teléfono"
+                                        placeholder="Ingrese su teléfono"
                                         component={Input}
                                     />
                                 </FormItem>
@@ -295,13 +308,11 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     errorMessage={errors.password}
                                 >
                                     <Field
-                                        autoComplete="off"
                                         name="password"
-                                        placeholder="Ingrese su contraseña"
                                         component={PasswordInput}
+                                        placeholder="Ingrese su contraseña"
                                     />
                                 </FormItem>
-
                                 <FormItem
                                     label="Confirmar Contraseña"
                                     invalid={
@@ -311,32 +322,25 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     errorMessage={errors.confirmPassword}
                                 >
                                     <Field
-                                        autoComplete="off"
                                         name="confirmPassword"
-                                        placeholder="Ingresa otra vez la contraseña"
                                         component={PasswordInput}
+                                        placeholder="Confirme su contraseña"
                                     />
                                 </FormItem>
                             </div>
-
                             <Button
-                                block
-                                loading={isSubmitting}
-                                variant="solid"
                                 type="submit"
+                                disabled={isSubmitting || disableSubmit}
+                                className="w-full mt-4"
                             >
-                                {isSubmitting
-                                    ? 'Creando cuenta...'
-                                    : 'Registrarse'}
+                                Registrarse
                             </Button>
-
-                            <div className="mt-4 text-center">
-                                <span>¿Ya tienes una cuenta? </span>
-                                <ActionLink to={signInUrl}>
-                                    Iniciar Sesión
-                                </ActionLink>
-                            </div>
                         </FormContainer>
+                        <div className="mt-4 text-center">
+                            <ActionLink href={signInUrl}>
+                                ¿Ya tienes una cuenta? Inicia sesión
+                            </ActionLink>
+                        </div>
                     </Form>
                 )}
             </Formik>

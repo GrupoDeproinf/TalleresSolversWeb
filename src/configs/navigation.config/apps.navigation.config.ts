@@ -98,6 +98,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN, USER],
                 subMenu: [],
             },
+            {
+                key: 'apps.subscriptions',
+                path: `${APP_PREFIX_PATH}/subscriptions`,
+                title: 'Subscripciones',
+                translateKey: 'Subscriptions',
+                icon: 'subscriptions',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
         ],
     },
 ]

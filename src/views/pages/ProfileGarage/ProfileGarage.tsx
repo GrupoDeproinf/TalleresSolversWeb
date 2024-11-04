@@ -23,7 +23,7 @@ import { HiFire } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
 import Table from '@/components/ui/Table'
-import { Dialog, Pagination } from '@/components/ui';
+import { Dialog, Pagination } from '@/components/ui'
 import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import Tabs from '@/components/ui/Tabs'
 import {
@@ -60,40 +60,52 @@ type Planes = {
     status: string
     vigencia: string
     cantidad_servicios: string
-
 }
 
 const ProfileGarage = () => {
-    const [data, setData] = useState<DocumentData | null>(null);
-    const [isSuscrito, setIsSuscrito] = useState(false);
-    const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null);
+    const [data, setData] = useState<DocumentData | null>(null)
+    const [isSuscrito, setIsSuscrito] = useState(false)
+    const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null)
     const [services, setServices] = useState<Service[]>([])
     const [planes, setPlanes] = useState<Planes[]>([])
-    const [loading, setLoading] = useState(true);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [dialogOpensub, setDialogOpensub] = useState(false);
-    const [editModalOpen, setEditModalOpen] = useState(false);
-    const [formData, setFormData] = useState({ logoUrl: '', nombre: '', email: '', phone: '', rif: '', status: '', location: '', LinkFacebook: '', LinkTiktok: '', LinkInstagram: '' });
+    const [loading, setLoading] = useState(true)
+    const [dialogOpen, setDialogOpen] = useState(false)
+    const [dialogOpensub, setDialogOpensub] = useState(false)
+    const [editModalOpen, setEditModalOpen] = useState(false)
+    const [formData, setFormData] = useState({
+        logoUrl: '',
+        nombre: '',
+        email: '',
+        phone: '',
+        rif: '',
+        status: '',
+        location: '',
+        LinkFacebook: '',
+        LinkTiktok: '',
+        LinkInstagram: '',
+    })
 
-    const path = location.pathname.substring(location.pathname.lastIndexOf('/') + 1);
+    const path = location.pathname.substring(
+        location.pathname.lastIndexOf('/') + 1,
+    )
 
     const getData = async () => {
         setLoading(true)
         try {
             // Obtener datos del usuario
-            const docRef = doc(db, 'Usuarios', path);
-            const resp = await getDoc(docRef);
-            const dataFinal = resp.data() || null;
+            const docRef = doc(db, 'Usuarios', path)
+            const resp = await getDoc(docRef)
+            const dataFinal = resp.data() || null
 
             // Obtener IDs de los servicios
-            const serviceIds = dataFinal?.servicios || [];
+            const serviceIds = dataFinal?.servicios || []
 
             // Obtener detalles de cada servicio
             const services = await Promise.all(
                 serviceIds.map(async (serviceId: any) => {
-                    const serviceDocRef = doc(db, 'Servicios', serviceId);
-                    const serviceDoc = await getDoc(serviceDocRef);
-                    const serviceData = serviceDoc.data();
+                    const serviceDocRef = doc(db, 'Servicios', serviceId)
+                    const serviceDoc = await getDoc(serviceDocRef)
+                    const serviceData = serviceDoc.data()
 
                     return {
                         uid_servicio: serviceId,
@@ -101,13 +113,13 @@ const ProfileGarage = () => {
                         descripcion: serviceData?.descripcion || '',
                         precio: serviceData?.precio || '0',
                         taller: serviceData?.taller || '',
-                        puntuacion: serviceData?.puntuacion || '0'
-                    };
-                })
-            );
+                        puntuacion: serviceData?.puntuacion || '0',
+                    }
+                }),
+            )
 
             // Obtener todos los planes desde la colección 'Planes'
-            const planesSnapshot = await getDocs(collection(db, 'Planes'));
+            const planesSnapshot = await getDocs(collection(db, 'Planes'))
             const planes: Planes[] = planesSnapshot.docs.map((doc) => ({
                 uid: doc.id,
                 nombre: doc.data().nombre || '', // Asegúrate que existan estas propiedades
@@ -115,12 +127,12 @@ const ProfileGarage = () => {
                 monto: doc.data().monto || 0,
                 status: doc.data().status || '',
                 vigencia: doc.data().vigencia || '', // Asegúrate de que esta propiedad esté incluida
-                cantidad_servicios: doc.data().cantidad_servicios || 0 // Asegúrate de que esta propiedad esté incluida
-            }));
+                cantidad_servicios: doc.data().cantidad_servicios || 0, // Asegúrate de que esta propiedad esté incluida
+            }))
 
-            setData(dataFinal);
-            setServices(services); // Estado actualizado con la información completa de cada servicio
-            setPlanes(planes); // Estado con los datos de todos los planes
+            setData(dataFinal)
+            setServices(services) // Estado actualizado con la información completa de cada servicio
+            setPlanes(planes) // Estado con los datos de todos los planes
 
             setFormData({
                 nombre: dataFinal?.nombre || '',
@@ -139,8 +151,7 @@ const ProfileGarage = () => {
         } finally {
             setLoading(false)
         }
-    };
-
+    }
 
     useEffect(() => {
         getData()
@@ -247,13 +258,11 @@ const ProfileGarage = () => {
         },
     ]
 
-
-
-    const onDialogOpensub = () => setDialogOpensub(true);
-    const onDialogOpen = () => setDialogOpen(true);
-    const onDialogClosesub = () => setDialogOpensub(false);
-    const onDialogClose = () => setDialogOpen(false);
-    const onEdit = () => setEditModalOpen(true);
+    const onDialogOpensub = () => setDialogOpensub(true)
+    const onDialogOpen = () => setDialogOpen(true)
+    const onDialogClosesub = () => setDialogOpensub(false)
+    const onDialogClose = () => setDialogOpen(false)
+    const onEdit = () => setEditModalOpen(true)
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
 
@@ -326,24 +335,37 @@ const ProfileGarage = () => {
         {
             header: 'Descripcion',
             accessorKey: 'descripcion',
-
         },
         {
             header: 'Cantidad de servicios',
             accessorKey: 'cantidad_servicios',
-
         },
     ]
     const planesSub = [
-        { id: 1, nombre: 'Plan Básico', descripcion: 'Descripción del Plan Básico', precio: '$10' },
-        { id: 2, nombre: 'Plan Avanzado', descripcion: 'Descripción del Plan Avanzado', precio: '$20' },
-        { id: 3, nombre: 'Plan Premium', descripcion: 'Descripción del Plan Premium', precio: '$30' }
-    ];
+        {
+            id: 1,
+            nombre: 'Plan Básico',
+            descripcion: 'Descripción del Plan Básico',
+            precio: '$10',
+        },
+        {
+            id: 2,
+            nombre: 'Plan Avanzado',
+            descripcion: 'Descripción del Plan Avanzado',
+            precio: '$20',
+        },
+        {
+            id: 3,
+            nombre: 'Plan Premium',
+            descripcion: 'Descripción del Plan Premium',
+            precio: '$30',
+        },
+    ]
 
     const suscribirse = (planId: any) => {
-        setIsSuscrito(true);
-        setDialogOpen(false);
-    };
+        setIsSuscrito(true)
+        setDialogOpen(false)
+    }
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
@@ -841,53 +863,90 @@ const ProfileGarage = () => {
                             {table2.getHeaderGroups().map((headerGroup) => (
                                 <Tr key={headerGroup.id}>
                                     {headerGroup.headers.map((header) => (
-                                        <Th key={header.id} colSpan={header.colSpan}>
+                                        <Th
+                                            key={header.id}
+                                            colSpan={header.colSpan}
+                                        >
                                             {header.isPlaceholder ? null : (
                                                 <div
                                                     className={
-                                                        header.column.getCanSort() ? 'cursor-pointer select-none' : ''
+                                                        header.column.getCanSort()
+                                                            ? 'cursor-pointer select-none'
+                                                            : ''
                                                     }
                                                     onClick={header.column.getToggleSortingHandler()}
                                                 >
-                                                    {flexRender(header.column.columnDef.header, header.getContext())}
-                                                    <Sorter sort={header.column.getIsSorted()} />
+                                                    {flexRender(
+                                                        header.column.columnDef
+                                                            .header,
+                                                        header.getContext(),
+                                                    )}
+                                                    <Sorter
+                                                        sort={header.column.getIsSorted()}
+                                                    />
                                                     {header.column.getCanFilter() ? (
                                                         <input
                                                             type="text"
                                                             value={
-                                                                filtering.find((filter) => filter.id === header.id)?.value?.toString() || ''
+                                                                filtering
+                                                                    .find(
+                                                                        (
+                                                                            filter,
+                                                                        ) =>
+                                                                            filter.id ===
+                                                                            header.id,
+                                                                    )
+                                                                    ?.value?.toString() ||
+                                                                ''
                                                             }
                                                             onChange={(e) =>
-                                                                handleFilterChange(header.id, e.target.value)
+                                                                handleFilterChange(
+                                                                    header.id,
+                                                                    e.target
+                                                                        .value,
+                                                                )
                                                             }
                                                             placeholder="Buscar"
                                                             className="mt-2 p-1 border rounded"
-                                                            onClick={(e) => e.stopPropagation()} // Evita la propagación del evento de clic
+                                                            onClick={(e) =>
+                                                                e.stopPropagation()
+                                                            } // Evita la propagación del evento de clic
                                                         />
                                                     ) : null}
                                                 </div>
                                             )}
                                         </Th>
                                     ))}
-                                    <Th>Acción</Th> {/* Encabezado para el botón */}
+                                    <Th>Acción</Th>{' '}
+                                    {/* Encabezado para el botón */}
                                 </Tr>
                             ))}
                         </THead>
                         <TBody>
                             {table2
                                 .getRowModel()
-                                .rows.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+                                .rows.slice(
+                                    (currentPage - 1) * rowsPerPage,
+                                    currentPage * rowsPerPage,
+                                )
                                 .map((row) => (
                                     <Tr key={row.id}>
                                         {row.getVisibleCells().map((cell) => (
                                             <Td key={cell.id}>
-                                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext(),
+                                                )}
                                             </Td>
                                         ))}
                                         <Td>
                                             <button
                                                 className="bg-blue-500 text-white px-4 py-2 rounded"
-                                                onClick={() => handleSubscribe(row.original)} // Llama a la función de suscripción
+                                                onClick={() =>
+                                                    handleSubscribe(
+                                                        row.original,
+                                                    )
+                                                } // Llama a la función de suscripción
                                             >
                                                 Suscribirse
                                             </button>
@@ -1084,9 +1143,7 @@ const ProfileGarage = () => {
                             >
                                 <option value="Aprobado">Aprobado</option>
                                 <option value="Pendiente">Pendiente</option>
-                                <option value="No Operativo">
-                                    No Operativo
-                                </option>
+                                <option value="Rechazado">Rechazado</option>
                             </select>
                         </label>
                         <label className="block">

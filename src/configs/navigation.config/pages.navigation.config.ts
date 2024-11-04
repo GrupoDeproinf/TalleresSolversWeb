@@ -116,6 +116,16 @@ const pagesNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN, USER],
                 subMenu: [],
             },
+            {
+                key: 'apps.subscriptions',
+                path: '/subscriptions',
+                title: 'Subscripciones',
+                translateKey: 'nav.pages.subscriptions',
+                icon: '',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
         ],
     },
 ]
