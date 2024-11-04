@@ -92,7 +92,7 @@ const Garages = () => {
 
         querySnapshot.forEach((doc) => {
             const userData = doc.data() as Person
-            if (userData.typeUser === 'Taller') {
+            if (userData.typeUser === 'Taller' && userData.status === 'Aprobado') {
                 usuarios.push({ ...userData, id: doc.id }) // Guardar el ID del documento
             }
         })
