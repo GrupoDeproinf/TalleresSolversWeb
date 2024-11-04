@@ -192,7 +192,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={Input}
                                     />
                                 </FormItem>
-
                                 <FormItem
                                     label={
                                         values.typeUser === 'Cliente'
@@ -204,17 +203,60 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     }
                                     errorMessage={errors.cedulaOrif}
                                 >
-                                    <Field
-                                        type="text"
-                                        autoComplete="off"
-                                        name="cedulaOrif"
-                                        placeholder={
-                                            values.typeUser === 'Cliente'
-                                                ? 'Ingrese su cédula'
-                                                : 'Ingrese su Rif'
-                                        }
-                                        component={Input}
-                                    />
+                                    <div className="flex items-center">
+                                        <select
+                                            value={
+                                                values.cedulaOrif?.split(
+                                                    '-',
+                                                )[0] || 'V'
+                                            }
+                                            onChange={(e) => {
+                                                const suffix =
+                                                    values.cedulaOrif?.split(
+                                                        '-',
+                                                    )[1] || ''
+                                                setFieldValue(
+                                                    'cedulaOrif',
+                                                    `${e.target.value}-${suffix}`,
+                                                )
+                                            }}
+                                            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                        >
+                                            <option value="V">V-</option>
+                                            <option value="E">E-</option>
+                                            <option value="C">C-</option>
+                                            <option value="G">G-</option>
+                                            <option value="J">J-</option>
+                                            <option value="P">P-</option>
+                                        </select>
+                                        <Field
+                                            type="text"
+                                            autoComplete="off"
+                                            name="cedulaOrif"
+                                            placeholder={
+                                                values.typeUser === 'Cliente'
+                                                    ? 'Ingrese su cédula'
+                                                    : 'Ingrese su Rif'
+                                            }
+                                            value={
+                                                values.cedulaOrif?.split(
+                                                    '-',
+                                                )[1] || ''
+                                            }
+                                            onChange={(e: any) => {
+                                                const prefix =
+                                                    values.cedulaOrif?.split(
+                                                        '-',
+                                                    )[0] || 'V'
+                                                setFieldValue(
+                                                    'cedulaOrif',
+                                                    `${prefix}-${e.target.value}`,
+                                                )
+                                            }}
+                                            component={Input}
+                                            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                                        />
+                                    </div>
                                 </FormItem>
 
                                 <FormItem

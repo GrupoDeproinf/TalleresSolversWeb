@@ -13,8 +13,15 @@ import type {
     ColumnSort,
     ColumnFiltersState,
 } from '@tanstack/react-table'
-import { FaEdit, FaTrash, FaEye, FaEyeSlash, FaUserCircle, FaUserShield } from 'react-icons/fa'
-import { z } from "zod";
+import {
+    FaEdit,
+    FaTrash,
+    FaEye,
+    FaEyeSlash,
+    FaUserCircle,
+    FaUserShield,
+} from 'react-icons/fa'
+import { z } from 'zod'
 import {
     collection,
     getDocs,
@@ -31,7 +38,7 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar, Drawer } from '@/components/ui'
-import Password from '@/views/account/Settings/components/Password';
+import Password from '@/views/account/Settings/components/Password'
 
 type Person = {
     nombre?: string
@@ -61,14 +68,16 @@ const Users = () => {
         querySnapshot.forEach((doc) => {
             const userData = doc.data() as Person
             // Filtrar por typeUser "Cliente" o "Certificador"
-            if (userData.typeUser === 'Cliente' || userData.typeUser === 'Certificador') {
+            if (
+                userData.typeUser === 'Cliente' ||
+                userData.typeUser === 'Certificador'
+            ) {
                 usuarios.push({
                     ...userData,
                     id: doc.id, // Guarda el id generado por Firebase
                 })
             }
         })
-        
 
         setDataUsers(usuarios)
     }
@@ -99,39 +108,47 @@ const Users = () => {
     }
 
     // Define el esquema de validación
-    const createUserSchema = z.object({
-    nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-    email: z.string().email("Ingrese un correo válido"),
-    //cedula: z.string()
-    //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
-    phone: z.string()
-        .regex(/^\d{9,10}$/, "El teléfono debe tener entre 9 y 10 caracteres y contener solo números"),
-    //typeUser
-    password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
-    confirmPassword: z.string().min(6, "Confirmar contraseñas"),
-    }).refine((data: any) => data.password === data.confirmPassword, {
-        path: ["confirmPassword"],
-        message: "Las contraseñas no coinciden",
-    });
+    const createUserSchema = z
+        .object({
+            nombre: z
+                .string()
+                .min(3, 'El nombre debe tener al menos 3 caracteres'),
+            email: z.string().email('Ingrese un correo válido'),
+            //cedula: z.string()
+            //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
+            phone: z
+                .string()
+                .regex(
+                    /^\d{9,10}$/,
+                    'El teléfono debe tener entre 9 y 10 caracteres y contener solo números',
+                ),
+            //typeUser
+            password: z
+                .string()
+                .min(6, 'La contraseña debe tener al menos 6 caracteres'),
+            confirmPassword: z.string().min(6, 'Confirmar contraseñas'),
+        })
+        .refine((data: any) => data.password === data.confirmPassword, {
+            path: ['confirmPassword'],
+            message: 'Las contraseñas no coinciden',
+        })
 
     const handleCreateUser = async () => {
         if (!newUser) {
             toast.push(
                 <Notification title="Error">
                     Los datos del usuario son nulos. Por favor, verifica.
-                </Notification>
-            );
-            return;
+                </Notification>,
+            )
+            return
         }
-    
+
         try {
             // Validación de Zod
-            createUserSchema.parse(newUser);
+            createUserSchema.parse(newUser)
 
-            
-    
             // Creación del usuario en la base de datos
-            const userRef = collection(db, 'Usuarios');
+            const userRef = collection(db, 'Usuarios')
             const docRef = await addDoc(userRef, {
                 nombre: newUser.nombre,
                 email: newUser.email,
@@ -140,60 +157,61 @@ const Users = () => {
                 Password: newUser.password,
                 typeUser: newUser.typeUser, // Ahora siempre tiene valor
                 uid: '', // Inicialmente vacío, se actualizará después
-            });
+            })
 
             // Si el campo typeUser es indefinido, asigna 'Cliente' por defecto
             if (!newUser?.typeUser) {
                 setNewUser((prev: any) => ({
                     ...prev,
                     typeUser: 'Cliente',
-                }));
+                }))
             }
-    
+
             // Verificación de contraseñas
             if (newUser.password !== newUser.confirmPassword) {
                 toast.push(
                     <Notification title="Error">
-                        Las contraseñas no coinciden. Por favor, verifica los campos.
-                    </Notification>
-                );
-                return;
+                        Las contraseñas no coinciden. Por favor, verifica los
+                        campos.
+                    </Notification>,
+                )
+                return
             }
-    
+
             // Actualización del uid
             await updateDoc(docRef, {
                 uid: docRef.id,
-            });
-    
+            })
+
             toast.push(
                 <Notification title="Éxito">
                     Usuario creado con éxito.
-                </Notification>
-            );
-    
-            setDrawerCreateIsOpen(false); // Cerrar el Drawer
+                </Notification>,
+            )
+
+            setDrawerCreateIsOpen(false) // Cerrar el Drawer
             // getData(); // Refrescar la lista de usuarios
             // Recargar la pantalla
-            window.location.reload();
+            window.location.reload()
         } catch (error) {
             if (error instanceof z.ZodError) {
-                const errorMessages = error.errors.map((err) => err.message).join(', ');
+                const errorMessages = error.errors
+                    .map((err) => err.message)
+                    .join(', ')
                 toast.push(
-                    <Notification title="Error">
-                        {errorMessages}
-                    </Notification>
-                );
+                    <Notification title="Error">{errorMessages}</Notification>,
+                )
             } else {
-                console.error('Error creando usuario:', error);
+                console.error('Error creando usuario:', error)
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el usuario.
-                    </Notification>
-                );
+                    </Notification>,
+                )
             }
         }
-    };    
-        
+    }
+
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
             // Actualizar el filtro correspondiente a la columna
@@ -233,20 +251,21 @@ const Users = () => {
                 )
             }
         }
-
     }
-    
+
     // Obtener iniciales de los nombres
-const getInitials = (nombre: string | undefined): string => {
-    if (!nombre) return ''
-    const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
-    return words.map((word) => {
-        if (typeof word === 'string' && word.length > 0) {
-            return word[0].toUpperCase()
-        }
-        return '' // Retorna una cadena vacía si la palabra no es válida
-    }).join('')
-}
+    const getInitials = (nombre: string | undefined): string => {
+        if (!nombre) return ''
+        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
+        return words
+            .map((word) => {
+                if (typeof word === 'string' && word.length > 0) {
+                    return word[0].toUpperCase()
+                }
+                return '' // Retorna una cadena vacía si la palabra no es válida
+            })
+            .join('')
+    }
 
     const columns: ColumnDef<Person>[] = [
         {
@@ -278,7 +297,7 @@ const getInitials = (nombre: string | undefined): string => {
                         <Avatar
                             style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
                             className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
-                            >
+                        >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}
                             </span>
@@ -293,34 +312,33 @@ const getInitials = (nombre: string | undefined): string => {
             header: 'Tipo de Usuario',
             accessorKey: 'typeUser',
             cell: ({ row }) => {
-                const typeUser = row.getValue('typeUser') as string; // Aserción de tipo
-                let icon;
-                let color;
-        
+                const typeUser = row.getValue('typeUser') as string // Aserción de tipo
+                let icon
+                let color
+
                 switch (typeUser) {
                     case 'Cliente':
-                        icon = <FaUserCircle className="text-green-500 mr-1" />;
-                        color = 'text-green-500'; // Color para el texto
-                        break;
+                        icon = <FaUserCircle className="text-green-500 mr-1" />
+                        color = 'text-green-500' // Color para el texto
+                        break
                     case 'Certificador':
-                        icon = <FaUserShield className="text-yellow-500 mr-1" />;
-                        color = 'text-yellow-500'; // Color para el texto
-                        break;
+                        icon = <FaUserShield className="text-yellow-500 mr-1" />
+                        color = 'text-yellow-500' // Color para el texto
+                        break
                     default:
-                        icon = null;
-                        color = 'text-gray-500'; // Color predeterminado
+                        icon = null
+                        color = 'text-gray-500' // Color predeterminado
                 }
-        
+
                 return (
                     <div className={`flex items-center ${color}`}>
                         {icon}
                         <span>{typeUser}</span>
                     </div>
-                );
+                )
             },
         },
-        
-        
+
         {
             header: ' ',
             cell: ({ row }) => {
@@ -354,11 +372,10 @@ const getInitials = (nombre: string | undefined): string => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerIsOpen(false);
-        setSelectedPerson(null); // Limpiar la selección
-    };
-    
+        console.log('Drawer cerrado', e)
+        setDrawerIsOpen(false)
+        setSelectedPerson(null) // Limpiar la selección
+    }
 
     const handleDelete = async () => {
         if (selectedPerson) {
@@ -411,9 +428,8 @@ const getInitials = (nombre: string | undefined): string => {
 
     const [currentPage, setCurrentPage] = useState(1)
     const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
-        
 
-        const [showPassword, setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState(false)
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
     const totalRows = data.length
@@ -556,7 +572,7 @@ const getInitials = (nombre: string | undefined): string => {
                     </Button>
                     <Button
                         style={{ backgroundColor: '#B91C1C' }}
-                        className='text-white hover:opacity-80'
+                        className="text-white hover:opacity-80"
                         onClick={handleDelete}
                     >
                         Eliminar
@@ -564,132 +580,150 @@ const getInitials = (nombre: string | undefined): string => {
                 </div>
             </Dialog>
             <Drawer
-    isOpen={drawerIsOpen}
-    onClose={handleDrawerClose}
-    className="rounded-md shadow"
->
-    <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
-    <div className="flex flex-col space-y-6">
-        {/* Campo para Nombre */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Nombre:</span>
-            <input
-                type="text"
-                value={selectedPerson?.nombre || ''}
-                onChange={(e) =>
-                    setSelectedPerson((prev: any) => ({
-                        ...prev,
-                        nombre: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Campo para Email */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Email:</span>
-            <input
-                type="email"
-                value={selectedPerson?.email || ''}
-                onChange={(e) =>
-                    setSelectedPerson((prev: any) => ({
-                        ...prev,
-                        email: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Campo para Cédula */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Cédula:</span>
-            <div className="flex items-center mt-1">
-                <select
-                    value={selectedPerson?.cedula?.split('-')[0] || 'V'}
-                    onChange={(e) =>
-                        setSelectedPerson((prev: any) => ({
-                            ...prev,
-                            cedula: `${e.target.value}-${(prev?.cedula?.split('-')[1] || '')}`,
-                        }))
-                    }
-                    className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                >
-                    <option value="V">V-</option>
-                    <option value="E">E-</option>
-                    <option value="C">C-</option>
-                    <option value="G">G-</option>
-                    <option value="J">J-</option>
-                    <option value="P">P-</option>
-                </select>
-                <input
-                    type="text"
-                    value={selectedPerson?.cedula?.split('-')[1] || ''}
-                    onChange={(e) =>
-                        setSelectedPerson((prev: any) => ({
-                            ...prev,
-                            cedula: `${(prev?.cedula?.split('-')[0] || 'V')}-${e.target.value}`,
-                        }))
-                    }
-                    className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-                />
-            </div>
-        </label>
-
-        {/* Campo para Teléfono */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Teléfono:</span>
-            <input
-                type="text"
-                value={selectedPerson?.phone || ''}
-                onChange={(e) =>
-                    setSelectedPerson((prev: any) => ({
-                        ...prev,
-                        phone: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Campo para Tipo de Usuario */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Tipo de Usuario:</span>
-            <select
-                value={selectedPerson?.typeUser || 'Cliente'}
-                onChange={(e) =>
-                    setSelectedPerson((prev: any) => ({
-                        ...prev,
-                        typeUser: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                isOpen={drawerIsOpen}
+                onClose={handleDrawerClose}
+                className="rounded-md shadow"
             >
-                <option value="Cliente">Cliente</option>
-                <option value="Certificador">Certificador</option>
-            </select>
-        </label>
-    </div>
+                <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
+                <div className="flex flex-col space-y-6">
+                    {/* Campo para Nombre */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Nombre:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedPerson?.nombre || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev: any) => ({
+                                    ...prev,
+                                    nombre: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
 
-    <div className="text-right mt-6">
-        <Button
-            className="mr-2"
-            variant="default"
-            onClick={handleDrawerClose}
-        >
-            Cancelar
-        </Button>
-        <Button
-            onClick={handleSaveChanges}
-            style={{ backgroundColor: '#000B7E' }}
-            className="text-white hover:opacity-80"
-        >
-            Guardar Cambios
-        </Button>
-    </div>
-</Drawer>
-<Drawer
+                    {/* Campo para Email */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Email:
+                        </span>
+                        <input
+                            type="email"
+                            value={selectedPerson?.email || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev: any) => ({
+                                    ...prev,
+                                    email: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+
+                    {/* Campo para Cédula */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Cédula:
+                        </span>
+                        <div className="flex items-center mt-1">
+                            <select
+                                value={
+                                    selectedPerson?.cedula?.split('-')[0] || 'V'
+                                }
+                                onChange={(e) =>
+                                    setSelectedPerson((prev: any) => ({
+                                        ...prev,
+                                        cedula: `${e.target.value}-${
+                                            prev?.cedula?.split('-')[1] || ''
+                                        }`,
+                                    }))
+                                }
+                                className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            >
+                                <option value="V">V-</option>
+                                <option value="E">E-</option>
+                                <option value="C">C-</option>
+                                <option value="G">G-</option>
+                                <option value="J">J-</option>
+                                <option value="P">P-</option>
+                            </select>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson?.cedula?.split('-')[1] || ''
+                                }
+                                onChange={(e) =>
+                                    setSelectedPerson((prev: any) => ({
+                                        ...prev,
+                                        cedula: `${
+                                            prev?.cedula?.split('-')[0] || 'V'
+                                        }-${e.target.value}`,
+                                    }))
+                                }
+                                className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                            />
+                        </div>
+                    </label>
+
+                    {/* Campo para Teléfono */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Teléfono:
+                        </span>
+                        <input
+                            type="text"
+                            value={selectedPerson?.phone || ''}
+                            onChange={(e) =>
+                                setSelectedPerson((prev: any) => ({
+                                    ...prev,
+                                    phone: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+
+                    {/* Campo para Tipo de Usuario */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Tipo de Usuario:
+                        </span>
+                        <select
+                            value={selectedPerson?.typeUser || 'Cliente'}
+                            onChange={(e) =>
+                                setSelectedPerson((prev: any) => ({
+                                    ...prev,
+                                    typeUser: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        >
+                            <option value="Cliente">Cliente</option>
+                            <option value="Certificador">Certificador</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div className="text-right mt-6">
+                    <Button
+                        className="mr-2"
+                        variant="default"
+                        onClick={handleDrawerClose}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        onClick={handleSaveChanges}
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                    >
+                        Guardar Cambios
+                    </Button>
+                </div>
+            </Drawer>
+            <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={() => setDrawerCreateIsOpen(false)}
                 className="rounded-md shadow"
@@ -729,45 +763,51 @@ const getInitials = (nombre: string | undefined): string => {
                         />
                     </label>
                     <label className="flex flex-col">
-    <span className="font-semibold text-gray-700">Cédula:</span>
-    <div className="flex items-center mt-1">
-        <select
-            value={newUser?.cedula?.split('-')[0] || 'V'}
-            onChange={(e) =>
-                setNewUser((prev: any) => ({
-                    ...(prev ?? {}),
-                    cedula: `${e.target.value}-${(prev?.cedula?.split('-')[1] || '')}`,
-                }))
-            }
-            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-        >
-            <option value="V">V-</option>
-            <option value="E">E-</option>
-            <option value="C">C-</option>
-            <option value="G">G-</option>
-            <option value="J">J-</option>
-            <option value="P">P-</option>
-        </select>
-        <input
-            type="text"
-            value={newUser?.cedula?.split('-')[1] || ''}
-            onChange={(e) =>
-                setNewUser((prev: any) => ({
-                    ...(prev ?? {}),
-                    cedula: `${(prev?.cedula?.split('-')[0] || 'V')}-${e.target.value}`,
-                }))
-            }
-            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-        />
-    </div>
-</label>
+                        <span className="font-semibold text-gray-700">
+                            Cédula:
+                        </span>
+                        <div className="flex items-center mt-1">
+                            <select
+                                value={newUser?.cedula?.split('-')[0] || 'V'}
+                                onChange={(e) =>
+                                    setNewUser((prev: any) => ({
+                                        ...(prev ?? {}),
+                                        cedula: `${e.target.value}-${
+                                            prev?.cedula?.split('-')[1] || ''
+                                        }`,
+                                    }))
+                                }
+                                className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            >
+                                <option value="V">V-</option>
+                                <option value="E">E-</option>
+                                <option value="C">C-</option>
+                                <option value="G">G-</option>
+                                <option value="J">J-</option>
+                                <option value="P">P-</option>
+                            </select>
+                            <input
+                                type="text"
+                                value={newUser?.cedula?.split('-')[1] || ''}
+                                onChange={(e) =>
+                                    setNewUser((prev: any) => ({
+                                        ...(prev ?? {}),
+                                        cedula: `${
+                                            prev?.cedula?.split('-')[0] || 'V'
+                                        }-${e.target.value}`,
+                                    }))
+                                }
+                                className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                            />
+                        </div>
+                    </label>
 
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Teléfono:
                         </span>
                         <input
-                            placeholder='Ejem (4142611966)'
+                            placeholder="Ejem (4142611966)"
                             type="text"
                             value={newUser?.phone || ''}
                             onChange={(e) =>
@@ -798,48 +838,52 @@ const getInitials = (nombre: string | undefined): string => {
                         </select>
                     </label>
                     <label className="flex flex-col relative">
-                <span className="font-semibold text-gray-700">Contraseña:</span>
-                <input
-                    type={showPassword ? "text" : "password"}
-                    value={newUser?.password || ''}
-                    onChange={(e) =>
-                        setNewUser((prev: any) => ({
-                            ...prev,
-                            password: e.target.value,
-                        }))
-                    }
-                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                />
-                <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-10 text-gray-600"
-                >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
-            </label>
+                        <span className="font-semibold text-gray-700">
+                            Contraseña:
+                        </span>
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={newUser?.password || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...prev,
+                                    password: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute right-3 top-10 text-gray-600"
+                        >
+                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                    </label>
 
-            <label className="flex flex-col relative mt-4">
-                <span className="font-semibold text-gray-700">Confirmar Contraseña:</span>
-                <input
-                    type={showPassword ? "text" : "password"}
-                    value={newUser?.confirmPassword || ''}
-                    onChange={(e) =>
-                        setNewUser((prev: any) => ({
-                            ...prev,
-                            confirmPassword: e.target.value,
-                        }))
-                    }
-                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                />
-                <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-10 text-gray-600"
-                >
-                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                </button>
-            </label>
+                    <label className="flex flex-col relative mt-4">
+                        <span className="font-semibold text-gray-700">
+                            Confirmar Contraseña:
+                        </span>
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={newUser?.confirmPassword || ''}
+                            onChange={(e) =>
+                                setNewUser((prev: any) => ({
+                                    ...prev,
+                                    confirmPassword: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute right-3 top-10 text-gray-600"
+                        >
+                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                    </label>
                     <div className="text-right mt-6">
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
@@ -850,7 +894,7 @@ const getInitials = (nombre: string | undefined): string => {
                         </Button>
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
-                            className='text-white hover:opacity-80'
+                            className="text-white hover:opacity-80"
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar
