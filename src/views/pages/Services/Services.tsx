@@ -196,10 +196,6 @@ const Services = () => {
 
     const columns: ColumnDef<Service>[] = [
         {
-            header: 'Taller Asociado',
-            accessorKey: 'taller',
-        },
-        {
             header: 'Nombre del Servicio',
             accessorKey: 'nombre_servicio',
         },
@@ -290,10 +286,10 @@ const Services = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerIsOpen(false);
-        setSelectedService(null); // Limpiar la selección
-    };
+        console.log('Drawer cerrado', e)
+        setDrawerIsOpen(false)
+        setSelectedService(null) // Limpiar la selección
+    }
 
     const handleDelete = async () => {
         if (selectedService) {
@@ -375,7 +371,7 @@ const Services = () => {
                     <div className="flex justify-end">
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
-                            className='text-white hover:opacity-80'
+                            className="text-white hover:opacity-80"
                             onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                         >
                             Crear Servicio
@@ -500,10 +496,11 @@ const Services = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button 
-                    style={{ backgroundColor: '#B91C1C' }}
-                    className='text-white hover:opacity-80'
-                    onClick={handleDelete}>
+                    <Button
+                        style={{ backgroundColor: '#B91C1C' }}
+                        className="text-white hover:opacity-80"
+                        onClick={handleDelete}
+                    >
                         Eliminar
                     </Button>
                 </div>
@@ -517,32 +514,6 @@ const Services = () => {
                 <div className="flex flex-col space-y-4">
                     {' '}
                     {/* Aumentar el espacio entre campos */}
-                    {/* Campo para Taller */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Taller Asociado:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedService?.taller || ''}
-                            onChange={(e) =>
-                                setSelectedService((prev) => ({
-                                    ...(prev ?? {
-                                        nombre_servicio: '',
-                                        descripcion: '',
-                                        taller: '',
-                                        precio: '',
-                                        uid_servicio: '',
-                                        puntuacion: '',
-                                        id: '',
-                                    }),
-                                    taller: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    {/* Campo para nombre_servicio */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Nombre Servicio:
@@ -675,10 +646,11 @@ const Services = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button 
-                    style={{ backgroundColor: '#000B7E' }}
-                    className='text-white hover:opacity-80'
-                    onClick={handleSaveChanges}>
+                    <Button
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                        onClick={handleSaveChanges}
+                    >
                         Guardar Cambios
                     </Button>
                 </div>
@@ -690,22 +662,6 @@ const Services = () => {
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Servicio</h2>
                 <div className="flex flex-col space-y-6">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Taller Asociado:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.taller || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...prev, // Esto preserva los valores existentes
-                                    taller: e.target.value, // Solo actualiza el campo necesario
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Nombre Servicio:
@@ -780,7 +736,7 @@ const Services = () => {
                         </Button>
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
-                            className='text-white hover:opacity-80'
+                            className="text-white hover:opacity-80"
                             onClick={handleCreateService} // Llamar a la función para crear usuario
                         >
                             Guardar

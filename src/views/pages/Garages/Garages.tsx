@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { useNavigate } from 'react-router-dom';
+import { z } from "zod";
 import {
     flexRender,
     getCoreRowModel,
@@ -15,9 +16,11 @@ import type {
     ColumnSort,
 } from '@tanstack/react-table'
 import {
+    FaCamera,
     FaCheckCircle,
     FaEdit,
     FaExclamationCircle,
+    FaFolder,
     FaRegEye,
     FaTimesCircle,
     FaTrash,
@@ -49,6 +52,8 @@ type Person = {
     phone?: string
     uid: string
     typeUser?: string
+    logoUrl?: string
+    direccion?: string,
     id?: string
     status?: string
 }
@@ -91,6 +96,9 @@ const Garages = () => {
         phone: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         typeUser: 'Taller',
+        logoUrl: '',
+        status: 'Aprobado',
+        direccion: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
@@ -104,9 +112,24 @@ const Garages = () => {
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
+    // Define el esquema de validación
+    const createUserSchema = z.object({
+        nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+        email: z.string().email("Ingrese un correo válido"),
+        //cedula: z.string()
+        //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
+        phone: z.string()
+            .regex(/^\d{9,10}$/, "El teléfono debe tener entre 9 y 10 caracteres y contener solo números"),
+        //typeUser
+        });
+
     const handleCreateUser = async () => {
         if (newUser && newUser.nombre && newUser.email) {
             try {
+
+                // Validación de Zod
+                createUserSchema.parse(newUser);
+
                 const userRef = collection(db, 'Usuarios')
                 const docRef = await addDoc(userRef, {
                     nombre: newUser.nombre,
@@ -114,6 +137,9 @@ const Garages = () => {
                     rif: newUser.rif,
                     phone: newUser.phone,
                     typeUser: newUser.typeUser,
+                    logoUrl: newUser.logoUrl,
+                    status: newUser.status,
+                    direccion: newUser.direccion,
                     // Inicialmente puedes dejar el campo uid vacío aquí
                     uid: '', // Este se actualizará después
                 })
@@ -129,21 +155,25 @@ const Garages = () => {
                     </Notification>,
                 )
                 setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
-                getData() // Refrescar la lista de usuarios
+                // getData() // Refrescar la lista de usuarios
+                window.location.reload();
             } catch (error) {
-                console.error('Error creando usuario:', error)
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al crear el Taller.
-                    </Notification>,
-                )
+                if (error instanceof z.ZodError) {
+                    const errorMessages = error.errors.map((err) => err.message).join(', ');
+                    toast.push(
+                        <Notification title="Error">
+                            {errorMessages}
+                        </Notification>
+                    );
+                } else {
+                    console.error('Error creando usuario:', error);
+                    toast.push(
+                        <Notification title="Error">
+                            Hubo un error al crear el Taller.
+                        </Notification>
+                    );
+                }
             }
-        } else {
-            toast.push(
-                <Notification title="Error">
-                    Por favor, complete todos los campos requeridos.
-                </Notification>,
-            )
         }
     }
 
@@ -165,6 +195,7 @@ const Garages = () => {
                     email: selectedPerson.email,
                     rif: selectedPerson.rif,
                     phone: selectedPerson.phone,
+                    logoUrl: selectedPerson.logoUrl,
                 })
                 // Mensaje de éxito
                 toast.push(
@@ -205,6 +236,32 @@ const Garages = () => {
         {
             header: 'Nombre',
             accessorKey: 'nombre',
+            cell: ({ getValue, row }) => {
+                const logoUrl = row.original.logoUrl as string | undefined // Obtener el logo de la fila
+                return (
+                    <div className="flex items-center">
+                        {logoUrl ? (
+                            <img
+                                src={logoUrl}
+                                alt="Logo"
+                                className="h-10 w-10 object-cover rounded-full mr-4" // Espaciado a la derecha del logo
+                            />
+                        ) : (
+                            <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center mr-2">
+                                <FaFolder
+                                    className="h-6 w-6 text-gray-400"
+                                    aria-hidden="true"
+                                />{' '}
+                                {/* Icono por defecto */}
+                            </div>
+                        )}
+                        {getValue() as string}{' '}
+                        {/* Mostrar el nombre de la categoría */}
+                    </div>
+                )
+            },
+            filterFn: 'includesString',
+            footer: (props) => props.column.id,
         },
         {
             header: 'RIF',
@@ -223,7 +280,7 @@ const Garages = () => {
                     <div className="flex items-center">
                         <Avatar
                             className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
-                            style={{ backgroundColor: getRandomColor() }}
+                            style={{ backgroundColor: '#FFCC29' }}
                         >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}
@@ -278,13 +335,13 @@ const Garages = () => {
                     <div className="flex gap-2">
                         <button
                             onClick={() => navigate(`/profilegarage/${person.uid}`)}
-                            className="hover:text-blue-700"
+                            className="text-blue-900"
                         >
                             <FaRegEye />
                         </button>
                         <button
                             onClick={() => openDialog(person)}
-                            className="hover:text-red-700"
+                            className="text-red-700"
                         >
                             <FaTrash />
                         </button>
@@ -370,7 +427,8 @@ const Garages = () => {
                 <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
                 <div className="flex justify-end">
                     <Button
-                        className="bg-blue w-40"
+                        className="w-40 text-white hover:opacity-80"
+                        style={{ backgroundColor: '#000B7E' }}
                         onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                     >
                         Crear Taller
@@ -494,7 +552,11 @@ const Garages = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button variant="solid" onClick={handleDelete}>
+                    <Button 
+                        style={{ backgroundColor: '#B91C1C' }}
+                        className='text-white hover:opacity-80'
+                        onClick={handleDelete}
+                    >
                         Eliminar
                     </Button>
                 </div>
@@ -614,21 +676,39 @@ const Garages = () => {
                         />
                     </label>
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            RIF:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.rif || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    rif: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
+    <span className="font-semibold text-gray-700">RIF:</span>
+    <div className="flex items-center mt-1">
+        <select
+            value={newUser?.rif?.split('-')[0] || 'J'}
+            onChange={(e) =>
+                setNewUser((prev: any) => ({
+                    ...(prev ?? {}),
+                    rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
+                }))
+            }
+            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+        >
+            <option value="J">J-</option>
+            <option value="V">V-</option>
+            <option value="E">E-</option>
+            <option value="C">C-</option>
+            <option value="G">G-</option>
+            <option value="P">P-</option>
+        </select>
+        <input
+            type="text"
+            value={newUser?.rif?.split('-')[1] || ''}
+            onChange={(e) =>
+                setNewUser((prev: any) => ({
+                    ...(prev ?? {}),
+                    rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
+                }))
+            }
+            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+        />
+    </div>
+</label>
+
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Teléfono:
@@ -645,6 +725,79 @@ const Garages = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Dirección:
+                        </span>
+                        <textarea
+                            value={newUser?.direccion || ''}
+                            onChange={(e) => {
+                                setNewUser((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    direccion: e.target.value,
+                                }))
+                                e.target.style.height = 'auto' // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
+                            }}
+                            rows={1} // Altura inicial
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                            style={{
+                                maxHeight: '150px', // Límite máximo de altura
+                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                            }}
+                        />
+                    </label>
+                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                        <div className="text-center">
+                            {!newUser?.logoUrl ? (
+                                <FaCamera
+                                    className="mx-auto h-12 w-12 text-gray-300"
+                                    aria-hidden="true"
+                                />
+                            ) : (
+                                <img
+                                    src={newUser.logoUrl}
+                                    alt="Preview Logo"
+                                    className="mx-auto h-32 w-32 object-cover"
+                                />
+                            )}
+                            <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                <label
+                                    htmlFor="logo-upload"
+                                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                >
+                                    <span>
+                                        {newUser?.logoUrl
+                                            ? 'Cambiar Logo'
+                                            : 'Seleccionar Logo'}
+                                    </span>
+                                    <input
+                                        id="logo-upload"
+                                        name="logo-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) {
+                                                const reader = new FileReader()
+                                                reader.onloadend = () => {
+                                                    setNewUser(
+                                                        (prev: any) => ({
+                                                            ...prev,
+                                                            logoUrl:
+                                                                reader.result, // Almacena la URL del logo
+                                                        }),
+                                                    )
+                                                }
+                                                reader.readAsDataURL(file) // Leer el archivo como una URL de datos
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
                     <div className="text-right mt-6">
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
@@ -654,7 +807,8 @@ const Garages = () => {
                             Cancelar
                         </Button>
                         <Button
-                            variant="solid"
+                            style={{ backgroundColor: '#000B7E' }}
+                            className='text-white hover:opacity-80'
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar
