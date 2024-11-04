@@ -8,6 +8,7 @@ import {
     where,
     DocumentData,
     query,
+    addDoc,
 } from 'firebase/firestore'
 import Container from '@/components/shared/Container'
 import Card from '@/components/ui/Card'
@@ -59,7 +60,7 @@ type Planes = {
     status: string
     vigencia: string
     cantidad_servicios: string
-    
+
 }
 
 const ProfileGarage = () => {
@@ -150,10 +151,31 @@ const ProfileGarage = () => {
         value?: string
     }
 
-    const handleSubscribe = (plan: any) => {
-        setSelectedPlan(plan); // Guardar el plan seleccionado
-        setIsSuscrito(true); // Cambiar el estado a suscrito
-        onDialogClosesub(); // Cerrar el modal
+    const handleSubscribe = async (plan: any) => {
+        try {
+            // Obtener información del taller desde `dataFinal`
+            const workshopName = data?.nombre || 'Nombre del Taller';
+    
+            // Crear una nueva suscripción en Firebase
+            await addDoc(collection(db, 'Subscripciones'), {
+                taller_subscrito: workshopName,
+                uid: plan?.uid || '',
+                plan: plan?.nombre || '',
+                monto: plan?.monto || 0,
+                vigencia: plan?.vigencia || '',
+                cantidad_servicios: plan?.cantidad_servicios || 0,
+                status: 'Por Aprobar',
+            });
+    
+            // Guardar el plan seleccionado en el estado local
+            setSelectedPlan(plan);
+            setIsSuscrito(true);
+            onDialogClosesub(); // Cerrar el modal
+    
+            console.log('Subscripción guardada exitosamente.');
+        } catch (error) {
+            console.error('Error al guardar la subscripción:', error);
+        }
     };
 
     const CustomerInfoField = ({ title, value }: CustomerInfoFieldProps) => {
@@ -419,8 +441,8 @@ const ProfileGarage = () => {
                                 <span>Redes Sociales</span>
                                 <div className="flex mt-4 gap-2">
                                     {data?.LinkFacebook ||
-                                    data?.LinkInstagram ||
-                                    data?.LinkTiktok ? (
+                                        data?.LinkInstagram ||
+                                        data?.LinkTiktok ? (
                                         <>
                                             {data.LinkFacebook && (
                                                 <a
@@ -505,33 +527,53 @@ const ProfileGarage = () => {
                                 <h6 className="mb-4">Subscripción</h6>
                                 <Card bordered className="mb-4">
                                     {!isSuscrito ? (
+                                        <>
+
+                                        <div className="flex justify-end">
+                                        <p className='text-xs mr-64 mt-3'>
+                                                Puede visualisar y subscribirse a un plan para su taller...
+                                        </p>
                                         <button
                                             onClick={() => setDialogOpensub(true)}
-                                            className="btn btn-primary"
+                                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
                                         >
                                             Ver Planes
                                         </button>
-                                    ) : (
-                                        <>
-                                        <div className="flex items-center space-x-4 p-4 border rounded-lg shadow-md bg-white">
-                                            <div className="flex-grow">
-                                                <p className="text-sm text-gray-500">Suscripción Activa</p>
-                                                <h3 className="text-lg font-semibold text-gray-800">{selectedPlan?.nombre}</h3>
-                                                <p className="text-sm text-gray-600">Vigencia: {selectedPlan?.vigencia} dias</p>
-                                                <p className="text-sm text-gray-600">Monto mensual: <span className="font-bold text-gray-800">${selectedPlan?.monto}</span></p>
-                                                <p className="text-xs text-gray-400">Próximo pago: <span className="font-medium text-gray-600">12/10/2021</span></p> {/* Puedes cambiar la fecha dinámica según el plan */}
-                                            </div>
-                                            <button
-                                                onClick={() => setIsSuscrito(false)}
-                                                className="ml-4 px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600"
-                                            >
-                                                Cancelar Suscripción
-                                            </button>
-                                        </div>
+                                    </div>
                                     </>
-                                    
+                                    ) : (
+                                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border rounded-lg shadow-md bg-white">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar
+                                                    className="bg-emerald-500"
+                                                    shape="circle"
+                                                    icon={<HiFire />}
+                                                />
+                                                <div>
+                                                    <div className="flex items-center">
+                                                        <h3 className="text-lg font-semibold text-gray-800">{selectedPlan?.nombre}</h3>
+                                                        <Tag className="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 rounded-md border-0 mx-2">
+                                                            {selectedPlan?.status}
+                                                        </Tag>
+                                                    </div>
+                                                    <div className='grid grid-cols-3'>
+                                                    <p className="text-sm text-gray-500">
+                                                        Vigencia: {selectedPlan?.vigencia} días
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        Monto mensual: <span className="font-bold text-gray-800">${selectedPlan?.monto}</span>
+                                                    </p>
+                                                    <p className="text-xs mt-1 text-gray-400">
+                                                        Próximo pago: <span className="font-medium text-gray-600">12/10/2021</span>
+                                                    </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                        </div>
                                     )}
                                 </Card>
+
 
                                 <div>
                                     <div>
@@ -592,9 +634,9 @@ const ProfileGarage = () => {
                                                     .getRowModel()
                                                     .rows.slice(
                                                         (currentPage - 1) *
-                                                            rowsPerPage,
+                                                        rowsPerPage,
                                                         currentPage *
-                                                            rowsPerPage,
+                                                        rowsPerPage,
                                                     )
                                                     .map((row) => {
                                                         return (
@@ -985,38 +1027,38 @@ const ProfileGarage = () => {
                             />
                         </label>
                         <label className="flex flex-col">
-    <span className="font-semibold text-gray-700">RIF:</span>
-    <div className="flex items-center mt-1">
-        <select
-            value={formData.rif?.split('-')[0] || 'J'}
-            onChange={(e) =>
-                setFormData((prev: any) => ({
-                    ...prev,
-                    rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
-                }))
-            }
-            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-        >
-            <option value="J">J-</option>
-            <option value="V">V-</option>
-            <option value="E">E-</option>
-            <option value="C">C-</option>
-            <option value="G">G-</option>
-            <option value="P">P-</option>
-        </select>
-        <input
-            type="text"
-            value={formData.rif?.split('-')[1] || ''}
-            onChange={(e) =>
-                setFormData((prev: any) => ({
-                    ...prev,
-                    rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
-                }))
-            }
-            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-        />
-    </div>
-</label>
+                            <span className="font-semibold text-gray-700">RIF:</span>
+                            <div className="flex items-center mt-1">
+                                <select
+                                    value={formData.rif?.split('-')[0] || 'J'}
+                                    onChange={(e) =>
+                                        setFormData((prev: any) => ({
+                                            ...prev,
+                                            rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
+                                        }))
+                                    }
+                                    className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                >
+                                    <option value="J">J-</option>
+                                    <option value="V">V-</option>
+                                    <option value="E">E-</option>
+                                    <option value="C">C-</option>
+                                    <option value="G">G-</option>
+                                    <option value="P">P-</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    value={formData.rif?.split('-')[1] || ''}
+                                    onChange={(e) =>
+                                        setFormData((prev: any) => ({
+                                            ...prev,
+                                            rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
+                                        }))
+                                    }
+                                    className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                                />
+                            </div>
+                        </label>
 
                         <label className="block">
                             <span className="text-gray-700 font-semibold">
