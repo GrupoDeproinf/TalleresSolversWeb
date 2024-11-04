@@ -574,8 +574,8 @@ const ProfileGarage = () => {
                                                 <div>
                                                     <div className="flex items-center">
                                                         <h3 className="text-lg font-semibold text-gray-800">{selectedPlan?.nombre}</h3>
-                                                        <Tag className="bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 rounded-md border-0 mx-2">
-                                                            {selectedPlan?.status}
+                                                        <Tag className="bg-yellow-100 text-yellow-400 rounded-md border-0 mx-2">
+                                                            Por Aprobar
                                                         </Tag>
                                                     </div>
                                                     <div className='grid grid-cols-3'>
