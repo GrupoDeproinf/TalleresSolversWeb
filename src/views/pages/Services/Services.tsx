@@ -74,7 +74,7 @@ const Services = () => {
     }, [])
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newUser, setNewUser] = useState<Service | null>({
+    const [newService, setNewService] = useState<Service | null>({
         nombre_servicio: '',
         descripcion: '',
         precio: '',
@@ -93,14 +93,18 @@ const Services = () => {
     }
 
     const handleCreateService = async () => {
-        if (newUser && newUser.nombre_servicio && newUser.descripcion) {
+        if (
+            newService &&
+            newService.nombre_servicio &&
+            newService.descripcion
+        ) {
             try {
                 const userRef = collection(db, 'Servicios')
                 const docRef = await addDoc(userRef, {
-                    nombre_servicio: newUser.nombre_servicio,
-                    descripcion: newUser.descripcion,
-                    precio: newUser.precio,
-                    puntuacion: newUser.puntuacion,
+                    nombre_servicio: newService.nombre_servicio,
+                    descripcion: newService.descripcion,
+                    precio: newService.precio,
+                    puntuacion: newService.puntuacion,
                     uid_servicio: '', // Inicialmente vacío
                 })
 
@@ -117,7 +121,7 @@ const Services = () => {
                 )
 
                 // Limpiar los campos después de crear el servicio
-                setNewUser({
+                setNewService({
                     nombre_servicio: '',
                     descripcion: '',
                     precio: '',
@@ -283,7 +287,7 @@ const Services = () => {
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e);
         setDrawerCreateIsOpen(false); // Cierra el Drawer
-        setNewUser({ // Limpia los campos de usuario
+        setNewService({ // Limpia los campos de usuario
             nombre_servicio: '',
             descripcion: '',
             precio: '',
@@ -646,9 +650,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.nombre_servicio || ''}
+                            value={newService?.nombre_servicio || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     nombre_servicio: e.target.value,
                                 }))
@@ -662,9 +666,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.descripcion || ''}
+                            value={newService?.descripcion || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     descripcion: e.target.value,
                                 }))
@@ -678,9 +682,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.precio || ''}
+                            value={newService?.precio || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     precio: e.target.value,
                                 }))
@@ -694,9 +698,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.puntuacion || ''}
+                            value={newService?.puntuacion || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     puntuacion: e.target.value,
                                 }))
