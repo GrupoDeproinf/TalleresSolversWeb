@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
-import { useNavigate } from 'react-router-dom';
-import { z } from "zod";
+import { useNavigate } from 'react-router-dom'
+import { z } from 'zod'
 import {
     flexRender,
     getCoreRowModel,
@@ -18,7 +18,6 @@ import type {
 import {
     FaCamera,
     FaCheckCircle,
-    FaEdit,
     FaExclamationCircle,
     FaFolder,
     FaRegEye,
@@ -41,11 +40,9 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
-import Shape from '@/views/ui-components/common/Button/Shape'
 import { Avatar } from '@/components/ui'
-import { HiOutlineUser } from 'react-icons/hi'
 
-type Person = {
+type Garage = {
     nombre?: string
     email?: string
     rif?: string
@@ -53,43 +50,42 @@ type Person = {
     uid: string
     typeUser?: string
     logoUrl?: string
-    direccion?: string,
+    direccion?: string
     id?: string
     status?: string
 }
 
 const Garages = () => {
-    const [dataUsers, setDataUsers] = useState<Person[]>([])
+    const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
-    const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+    const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
         const querySnapshot = await getDocs(q)
-        const usuarios: Person[] = []
+        const talleres: Garage[] = []
 
         querySnapshot.forEach((doc) => {
-            const userData = doc.data() as Person
-            if (userData.typeUser === 'Taller') {
-                usuarios.push({ ...userData, id: doc.id }) // Guardar el ID del documento
+            const garageData = doc.data() as Garage
+            if (garageData.typeUser === 'Taller') {
+                talleres.push({ ...garageData, id: doc.id }) // Guardar el ID del documento
             }
         })
 
-        setDataUsers(usuarios)
+        setDataGarages(talleres)
     }
 
-    const navigate = useNavigate();
-    
+    const navigate = useNavigate()
 
     useEffect(() => {
         getData()
     }, [])
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newUser, setNewUser] = useState<Person | null>({
+    const [newGarage, setNewGarage] = useState<Garage | null>({
         nombre: '',
         email: '',
         rif: '',
@@ -102,44 +98,47 @@ const Garages = () => {
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
-    const openDialog = (person: Person) => {
+    const openDialog = (person: Garage) => {
         setSelectedPerson(person)
         setIsOpen(true)
     }
 
-    const openDrawer = (person: Person) => {
+    const openDrawer = (person: Garage) => {
         setSelectedPerson(person)
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
     // Define el esquema de validación
     const createUserSchema = z.object({
-        nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-        email: z.string().email("Ingrese un correo válido"),
+        nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
+        email: z.string().email('Ingrese un correo válido'),
         //cedula: z.string()
         //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
-        phone: z.string()
-            .regex(/^\d{9,10}$/, "El teléfono debe tener entre 9 y 10 caracteres y contener solo números"),
+        phone: z
+            .string()
+            .regex(
+                /^\d{9,10}$/,
+                'El teléfono debe tener entre 9 y 10 caracteres y contener solo números',
+            ),
         //typeUser
-        });
+    })
 
     const handleCreateUser = async () => {
-        if (newUser && newUser.nombre && newUser.email) {
+        if (newGarage && newGarage.nombre && newGarage.email) {
             try {
-
                 // Validación de Zod
-                createUserSchema.parse(newUser);
+                createUserSchema.parse(newGarage)
 
                 const userRef = collection(db, 'Usuarios')
                 const docRef = await addDoc(userRef, {
-                    nombre: newUser.nombre,
-                    email: newUser.email,
-                    rif: newUser.rif,
-                    phone: newUser.phone,
-                    typeUser: newUser.typeUser,
-                    logoUrl: newUser.logoUrl,
-                    status: newUser.status,
-                    direccion: newUser.direccion,
+                    nombre: newGarage.nombre,
+                    email: newGarage.email,
+                    rif: newGarage.rif,
+                    phone: newGarage.phone,
+                    typeUser: newGarage.typeUser,
+                    logoUrl: newGarage.logoUrl,
+                    status: newGarage.status,
+                    direccion: newGarage.direccion,
                     // Inicialmente puedes dejar el campo uid vacío aquí
                     uid: '', // Este se actualizará después
                 })
@@ -156,22 +155,24 @@ const Garages = () => {
                 )
                 setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
                 // getData() // Refrescar la lista de usuarios
-                window.location.reload();
+                window.location.reload()
             } catch (error) {
                 if (error instanceof z.ZodError) {
-                    const errorMessages = error.errors.map((err) => err.message).join(', ');
+                    const errorMessages = error.errors
+                        .map((err) => err.message)
+                        .join(', ')
                     toast.push(
                         <Notification title="Error">
                             {errorMessages}
-                        </Notification>
-                    );
+                        </Notification>,
+                    )
                 } else {
-                    console.error('Error creando usuario:', error);
+                    console.error('Error creando el taller:', error)
                     toast.push(
                         <Notification title="Error">
                             Hubo un error al crear el Taller.
-                        </Notification>
-                    );
+                        </Notification>,
+                    )
                 }
             }
         }
@@ -206,7 +207,7 @@ const Garages = () => {
                 setDrawerIsOpen(false)
                 getData() // Refrescar datos después de guardar
             } catch (error) {
-                console.error('Error actualizando el usuario:', error)
+                console.error('Error actualizando el taller:', error)
                 // Mensaje de error
                 toast.push(
                     <Notification title="Error">
@@ -240,7 +241,7 @@ const Garages = () => {
         return color
     }
 
-    const columns: ColumnDef<Person>[] = [
+    const columns: ColumnDef<Garage>[] = [
         {
             header: 'Nombre',
             accessorKey: 'nombre',
@@ -342,7 +343,9 @@ const Garages = () => {
                 return (
                     <div className="flex gap-2">
                         <button
-                            onClick={() => navigate(`/profilegarage/${person.uid}`)}
+                            onClick={() =>
+                                navigate(`/profilegarage/${person.uid}`)
+                            }
                             className="text-blue-900"
                         >
                             <FaRegEye />
@@ -377,18 +380,18 @@ const Garages = () => {
 
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Usuario {selectedPerson.nombre} eliminado con éxito.
+                        Taller {selectedPerson.nombre} eliminado con éxito.
                     </Notification>
                 )
                 toast.push(toastNotification)
 
                 getData() // Refrescar datos después de eliminar
             } catch (error) {
-                console.error('Error eliminando el usuario:', error)
+                console.error('Error eliminando el taller:', error)
 
                 const errorNotification = (
                     <Notification title="Error">
-                        Hubo un error eliminando el usuario.
+                        Hubo un error eliminando el taller.
                     </Notification>
                 )
                 toast.push(errorNotification)
@@ -400,7 +403,7 @@ const Garages = () => {
     }
 
     const table = useReactTable({
-        data: dataUsers,
+        data: dataGarages,
         columns,
         state: {
             sorting,
@@ -560,9 +563,9 @@ const Garages = () => {
                     >
                         Cancelar
                     </Button>
-                    <Button 
+                    <Button
                         style={{ backgroundColor: '#B91C1C' }}
-                        className='text-white hover:opacity-80'
+                        className="text-white hover:opacity-80"
                         onClick={handleDelete}
                     >
                         Eliminar
@@ -657,9 +660,9 @@ const Garages = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.nombre || ''}
+                            value={newGarage?.nombre || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewGarage((prev: any) => ({
                                     ...prev, // Esto preserva los valores existentes
                                     nombre: e.target.value, // Solo actualiza el campo necesario
                                 }))
@@ -673,9 +676,9 @@ const Garages = () => {
                         </span>
                         <input
                             type="email"
-                            value={newUser?.email || ''}
+                            value={newGarage?.email || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewGarage((prev: any) => ({
                                     ...(prev ?? {}),
                                     email: e.target.value,
                                 }))
@@ -684,38 +687,44 @@ const Garages = () => {
                         />
                     </label>
                     <label className="flex flex-col">
-    <span className="font-semibold text-gray-700">RIF:</span>
-    <div className="flex items-center mt-1">
-        <select
-            value={newUser?.rif?.split('-')[0] || 'J'}
-            onChange={(e) =>
-                setNewUser((prev: any) => ({
-                    ...(prev ?? {}),
-                    rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
-                }))
-            }
-            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-        >
-            <option value="J">J-</option>
-            <option value="V">V-</option>
-            <option value="E">E-</option>
-            <option value="C">C-</option>
-            <option value="G">G-</option>
-            <option value="P">P-</option>
-        </select>
-        <input
-            type="text"
-            value={newUser?.rif?.split('-')[1] || ''}
-            onChange={(e) =>
-                setNewUser((prev: any) => ({
-                    ...(prev ?? {}),
-                    rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
-                }))
-            }
-            className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-        />
-    </div>
-</label>
+                        <span className="font-semibold text-gray-700">
+                            RIF:
+                        </span>
+                        <div className="flex items-center mt-1">
+                            <select
+                                value={newGarage?.rif?.split('-')[0] || 'J'}
+                                onChange={(e) =>
+                                    setNewGarage((prev: any) => ({
+                                        ...(prev ?? {}),
+                                        rif: `${e.target.value}-${
+                                            prev?.rif?.split('-')[1] || ''
+                                        }`,
+                                    }))
+                                }
+                                className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            >
+                                <option value="J">J-</option>
+                                <option value="V">V-</option>
+                                <option value="E">E-</option>
+                                <option value="C">C-</option>
+                                <option value="G">G-</option>
+                                <option value="P">P-</option>
+                            </select>
+                            <input
+                                type="text"
+                                value={newGarage?.rif?.split('-')[1] || ''}
+                                onChange={(e) =>
+                                    setNewGarage((prev: any) => ({
+                                        ...(prev ?? {}),
+                                        rif: `${
+                                            prev?.rif?.split('-')[0] || 'J'
+                                        }-${e.target.value}`,
+                                    }))
+                                }
+                                className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                            />
+                        </div>
+                    </label>
 
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
@@ -723,9 +732,9 @@ const Garages = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.phone || ''}
+                            value={newGarage?.phone || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewGarage((prev: any) => ({
                                     ...(prev ?? {}),
                                     phone: e.target.value,
                                 }))
@@ -738,9 +747,9 @@ const Garages = () => {
                             Dirección:
                         </span>
                         <textarea
-                            value={newUser?.direccion || ''}
+                            value={newGarage?.direccion || ''}
                             onChange={(e) => {
-                                setNewUser((prev: any) => ({
+                                setNewGarage((prev: any) => ({
                                     ...(prev ?? {}),
                                     direccion: e.target.value,
                                 }))
@@ -757,14 +766,14 @@ const Garages = () => {
                     </label>
                     <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                         <div className="text-center">
-                            {!newUser?.logoUrl ? (
+                            {!newGarage?.logoUrl ? (
                                 <FaCamera
                                     className="mx-auto h-12 w-12 text-gray-300"
                                     aria-hidden="true"
                                 />
                             ) : (
                                 <img
-                                    src={newUser.logoUrl}
+                                    src={newGarage.logoUrl}
                                     alt="Preview Logo"
                                     className="mx-auto h-32 w-32 object-cover"
                                 />
@@ -775,7 +784,7 @@ const Garages = () => {
                                     className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
                                 >
                                     <span>
-                                        {newUser?.logoUrl
+                                        {newGarage?.logoUrl
                                             ? 'Cambiar Logo'
                                             : 'Seleccionar Logo'}
                                     </span>
@@ -790,7 +799,7 @@ const Garages = () => {
                                             if (file) {
                                                 const reader = new FileReader()
                                                 reader.onloadend = () => {
-                                                    setNewUser(
+                                                    setNewGarage(
                                                         (prev: any) => ({
                                                             ...prev,
                                                             logoUrl:
@@ -816,7 +825,7 @@ const Garages = () => {
                         </Button>
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
-                            className='text-white hover:opacity-80'
+                            className="text-white hover:opacity-80"
                             onClick={handleCreateUser} // Llamar a la función para crear usuario
                         >
                             Guardar
