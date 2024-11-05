@@ -285,17 +285,18 @@ const Services = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerCreateIsOpen(false); // Cierra el Drawer
-        setNewService({ // Limpia los campos de usuario
+        console.log('Drawer cerrado', e)
+        setDrawerCreateIsOpen(false) // Cierra el Drawer
+        setNewService({
+            // Limpia los campos de usuario
             nombre_servicio: '',
             descripcion: '',
             precio: '',
             puntuacion: '',
             id: '',
             uid_servicio: '',
-        });
-        setSelectedService(null); // Limpia la selección (si es necesario)
+        })
+        setSelectedService(null) // Limpia la selección (si es necesario)
     }
 
     const handleDelete = async () => {
