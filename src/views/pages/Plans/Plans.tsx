@@ -97,7 +97,7 @@ const Plans = () => {
         vigencia: z.string().optional(), // Ajusta según sea necesario
     })
 
-    const handleCreateUser = async () => {
+    const handleCreatePlans = async () => {
         if (!newPlan) {
             toast.push(
                 <Notification title="Error">
@@ -686,7 +686,7 @@ const Plans = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={handleCreateUser} // Llamar a la función para crear usuario
+                            onClick={handleCreatePlans} // Llamar a la función para crear usuario
                         >
                             Guardar
                         </Button>
