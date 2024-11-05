@@ -253,8 +253,8 @@ const Users = () => {
         } else {
             console.error('selectedCategory o uid no están definidos.')
             console.error()
-        }
-    }
+    }
+    }
     
     
 
