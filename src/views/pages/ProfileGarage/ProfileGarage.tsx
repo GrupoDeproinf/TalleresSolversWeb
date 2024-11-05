@@ -62,6 +62,16 @@ type Planes = {
     cantidad_servicios: string
 }
 
+type SubscriptionHistory = {
+    uid: string;
+    nombre: string;
+    monto: string;
+    vigencia: string;
+    status: string;
+    fecha_vencimiento: string; // Add other relevant fields as per your Firestore structure
+}
+
+
 const ProfileGarage = () => {
     const [data, setData] = useState<DocumentData | null>(null)
     const [isSuscrito, setIsSuscrito] = useState(false)
@@ -72,6 +82,17 @@ const ProfileGarage = () => {
     const [dialogOpen, setDialogOpen] = useState(false)
     const [dialogOpensub, setDialogOpensub] = useState(false)
     const [editModalOpen, setEditModalOpen] = useState(false)
+    const [diasRestantes, setDiasRestantes] = useState<number | null>(null);
+    const [subscription, setSubscription] = useState({
+        fecha_fin: '',
+        fecha_inicio: '',
+        nombre: '',
+        cantidad_servicios: '',
+        monto: '',
+        status: '',
+        vigencia: '',
+    }); // Estado para la suscripción actual
+    const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
     const [formData, setFormData] = useState({
         logoUrl: '',
         nombre: '',
@@ -90,22 +111,37 @@ const ProfileGarage = () => {
     )
 
     const getData = async () => {
-        setLoading(true)
+        setLoading(true);
         try {
-            // Obtener datos del usuario
-            const docRef = doc(db, 'Usuarios', path)
-            const resp = await getDoc(docRef)
-            const dataFinal = resp.data() || null
+            // Obtener datos del usuario desde la colección 'Usuarios'
+            const docRef = doc(db, 'Usuarios', path); // `path` es el ID del usuario o taller
+            const resp = await getDoc(docRef);
+            const dataFinal = resp.data() || null;
 
-            // Obtener IDs de los servicios
-            const serviceIds = dataFinal?.servicios || []
+            // Obtener información de la suscripción actual
+            const subscripcionActual = dataFinal?.subscripcion_actual || null;
+            console.log("aqui el plan", subscripcionActual)
 
-            // Obtener detalles de cada servicio
+            setIsSuscrito(!!subscripcionActual)
+
+
+            // Obtener historial de suscripciones desde la subcolección 'historial_subscripcion'
+            const historialSnapshot = await getDocs(collection(docRef, 'historial_subscripcion'));
+            const historialSubscripcion = historialSnapshot.docs.map((doc) => ({
+                ...doc.data() as SubscriptionHistory, // Spread the properties from doc.data()
+                uid: doc.id, // Assign uid from doc.id separately
+            }));
+
+
+            // Obtener IDs de los servicios asociados al usuario
+            const serviceIds = dataFinal?.servicios || [];
+
+            // Obtener detalles de cada servicio basado en los IDs
             const services = await Promise.all(
                 serviceIds.map(async (serviceId: any) => {
-                    const serviceDocRef = doc(db, 'Servicios', serviceId)
-                    const serviceDoc = await getDoc(serviceDocRef)
-                    const serviceData = serviceDoc.data()
+                    const serviceDocRef = doc(db, 'Servicios', serviceId);
+                    const serviceDoc = await getDoc(serviceDocRef);
+                    const serviceData = serviceDoc.data();
 
                     return {
                         uid_servicio: serviceId,
@@ -114,26 +150,39 @@ const ProfileGarage = () => {
                         precio: serviceData?.precio || '0',
                         taller: serviceData?.taller || '',
                         puntuacion: serviceData?.puntuacion || '0',
-                    }
-                }),
-            )
+                    };
+                })
+            );
 
             // Obtener todos los planes desde la colección 'Planes'
-            const planesSnapshot = await getDocs(collection(db, 'Planes'))
-            const planes: Planes[] = planesSnapshot.docs.map((doc) => ({
+            const planesSnapshot = await getDocs(collection(db, 'Planes'));
+            const planes = planesSnapshot.docs.map((doc) => ({
                 uid: doc.id,
-                nombre: doc.data().nombre || '', // Asegúrate que existan estas propiedades
+                nombre: doc.data().nombre || '',
                 descripcion: doc.data().descripcion || '',
                 monto: doc.data().monto || 0,
                 status: doc.data().status || '',
-                vigencia: doc.data().vigencia || '', // Asegúrate de que esta propiedad esté incluida
-                cantidad_servicios: doc.data().cantidad_servicios || 0, // Asegúrate de que esta propiedad esté incluida
-            }))
+                vigencia: doc.data().vigencia || '',
+                cantidad_servicios: doc.data().cantidad_servicios || 0,
+            }));
 
-            setData(dataFinal)
-            setServices(services) // Estado actualizado con la información completa de cada servicio
-            setPlanes(planes) // Estado con los datos de todos los planes
+            // Actualizar el estado con la información obtenida
+            setData(dataFinal); // Datos generales del usuario o taller
+            setServices(services); // Información detallada de cada servicio
+            setPlanes(planes); // Información de todos los planes disponibles
+            setSubscription(subscripcionActual); // Suscripción actual
+            setSubscriptionHistory(historialSubscripcion); // Historial de suscripciones
 
+            const endDate = subscripcionActual?.fecha_fin;
+            console.log("aqui endDate",endDate)
+
+            if (endDate) {
+                const daysRemaining = calculateDaysRemaining(endDate);
+                console.log('aqui la vigencia w', daysRemaining)
+                setDiasRestantes(daysRemaining);
+            }
+
+            // Actualizar formData con los datos relevantes del usuario o taller
             setFormData({
                 nombre: dataFinal?.nombre || '',
                 logoUrl: dataFinal?.logoUrl || '',
@@ -145,49 +194,76 @@ const ProfileGarage = () => {
                 LinkFacebook: dataFinal?.LinkFacebook || '',
                 LinkInstagram: dataFinal?.LinkInstagram || '',
                 LinkTiktok: dataFinal?.LinkTiktok || '',
-            })
+            });
         } catch (error) {
-            console.error('Error al obtener los datos del cliente:', error)
+            console.error('Error al obtener los datos del cliente:', error);
         } finally {
-            setLoading(false)
+            setLoading(false);
         }
-    }
+    };
 
     useEffect(() => {
-        getData()
-    }, [])
+        getData();
+    }, []);
+
 
     type CustomerInfoFieldProps = {
         title?: string
         value?: string
     }
 
+    const calculateDaysRemaining = (endDate: any) => {
+        const today = new Date();
+        const end = new Date(endDate);
+        const timeDifference = end.getTime() - today.getTime();// Diferencia en milisegundos
+        const daysRemaining = Math.ceil(timeDifference / (1000 * 60 * 60 * 24)); // Convertir a días
+        return daysRemaining;
+    };
+
+    const formatDate = (dateString: any) => {
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0'); // Asegurarse de que el día tenga 2 dígitos
+        const month = String(date.getMonth() + 1).padStart(2, '0'); // Mes comienza desde 0
+        const year = date.getFullYear();
+        return `${day}/${month}/${year}`;
+    };
+
+
     const handleSubscribe = async (plan: any) => {
         try {
-            // Obtener información del taller desde `dataFinal`
-            const workshopName = data?.nombre || 'Nombre del Taller';
-    
-            // Crear una nueva suscripción en Firebase
-            await addDoc(collection(db, 'Subscripciones'), {
-                taller_subscrito: workshopName,
-                uid: plan?.uid || '',
-                plan: plan?.nombre || '',
-                monto: plan?.monto || 0,
-                vigencia: plan?.vigencia || '',
-                cantidad_servicios: plan?.cantidad_servicios || 0,
-                status: 'Por Aprobar',
+            const usuarioDocRef = doc(db, 'Usuarios', path); // Path del taller
+            const historialRef = collection(usuarioDocRef, 'historial_subscripcion'); // Subcolección de historial
+
+            // Guardar el plan actual como historial antes de actualizar
+            if (data?.subscripcion_actual) {
+                await addDoc(historialRef, data.subscripcion_actual); // Añade la suscripción actual al historial
+            }
+
+            // Actualizar subscripción actual con el nuevo plan
+            await updateDoc(usuarioDocRef, {
+                subscripcion_actual: {
+                    uid: plan.uid,
+                    nombre: plan.nombre,
+                    monto: plan.monto,
+                    vigencia: plan.vigencia,
+                    cantidad_servicios: plan.cantidad_servicios,
+                    status: 'Por Aprobar',
+                },
             });
-    
-            // Guardar el plan seleccionado en el estado local
+
+            // Asegúrate de actualizar el estado de isSuscrito y el plan seleccionado
             setSelectedPlan(plan);
-            setIsSuscrito(true);
-            onDialogClosesub(); // Cerrar el modal
-    
-            console.log('Subscripción guardada exitosamente.');
+            setIsSuscrito(true); // Establece isSuscrito a true
+            await getData(); // Vuelve a cargar los datos para obtener la nueva suscripción
+
+            onDialogClosesub();
+            console.log('Subscripción actualizada y guardada en el historial.');
         } catch (error) {
             console.error('Error al guardar la subscripción:', error);
         }
     };
+
+
 
     const CustomerInfoField = ({ title, value }: CustomerInfoFieldProps) => {
         return (
@@ -341,26 +417,7 @@ const ProfileGarage = () => {
             accessorKey: 'cantidad_servicios',
         },
     ]
-    const planesSub = [
-        {
-            id: 1,
-            nombre: 'Plan Básico',
-            descripcion: 'Descripción del Plan Básico',
-            precio: '$10',
-        },
-        {
-            id: 2,
-            nombre: 'Plan Avanzado',
-            descripcion: 'Descripción del Plan Avanzado',
-            precio: '$20',
-        },
-        {
-            id: 3,
-            nombre: 'Plan Premium',
-            descripcion: 'Descripción del Plan Premium',
-            precio: '$30',
-        },
-    ]
+
 
     const suscribirse = (planId: any) => {
         setIsSuscrito(true)
@@ -551,18 +608,18 @@ const ProfileGarage = () => {
                                     {!isSuscrito ? (
                                         <>
 
-                                        <div className="flex justify-end">
-                                        <p className='text-xs mr-64 mt-3'>
-                                                Puede visualisar y subscribirse a un plan para su taller...
-                                        </p>
-                                        <button
-                                            onClick={() => setDialogOpensub(true)}
-                                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
-                                        >
-                                            Ver Planes
-                                        </button>
-                                    </div>
-                                    </>
+                                            <div className="flex justify-end">
+                                                <p className='text-xs mr-64 mt-3'>
+                                                    Puede visualisar y subscribirse a un plan para su taller...
+                                                </p>
+                                                <button
+                                                    onClick={() => setDialogOpensub(true)}
+                                                    className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
+                                                >
+                                                    Ver Planes
+                                                </button>
+                                            </div>
+                                        </>
                                     ) : (
                                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border rounded-lg shadow-md bg-white">
                                             <div className="flex items-center gap-3">
@@ -573,25 +630,27 @@ const ProfileGarage = () => {
                                                 />
                                                 <div>
                                                     <div className="flex items-center">
-                                                        <h3 className="text-lg font-semibold text-gray-800">{selectedPlan?.nombre}</h3>
-                                                        <Tag className="bg-yellow-100 text-yellow-400 rounded-md border-0 mx-2">
-                                                            Por Aprobar
+                                                        <h3 className="text-lg font-semibold text-gray-800">{subscription?.nombre}</h3>
+                                                        <Tag
+                                                            className={`rounded-md border-0 mx-2 ${subscription.status === 'Aprobado' ? 'bg-green-100 text-green-400' : 'bg-yellow-100 text-yellow-400'}`}
+                                                        >
+                                                            {subscription.status}
                                                         </Tag>
                                                     </div>
                                                     <div className='grid grid-cols-3'>
-                                                    <p className="text-sm text-gray-500">
-                                                        Vigencia: {selectedPlan?.vigencia} días
-                                                    </p>
-                                                    <p className="text-sm text-gray-600">
-                                                        Monto mensual: <span className="font-bold text-gray-800">${selectedPlan?.monto}</span>
-                                                    </p>
-                                                    <p className="text-xs mt-1 text-gray-400">
-                                                        Próximo pago: <span className="font-medium text-gray-600">12/10/2021</span>
-                                                    </p>
+                                                        <p className="text-sm text-gray-500">
+                                                            Vigencia: {diasRestantes} días
+                                                        </p>
+                                                        <p className="text-sm text-gray-600">
+                                                            Monto mensual: <span className="font-bold text-gray-800">${subscription.monto}</span>
+                                                        </p>
+                                                        <p className="text-xs mt-1 text-gray-400">
+                                                            Próximo pago: <span className="font-medium text-gray-600">{formatDate(subscription.fecha_fin)}</span>
+                                                        </p>
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                         </div>
                                     )}
                                 </Card>
