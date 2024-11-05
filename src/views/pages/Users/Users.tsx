@@ -190,9 +190,7 @@ const Users = () => {
             )
 
             setDrawerCreateIsOpen(false) // Cerrar el Drawer
-            // getData(); // Refrescar la lista de usuarios
-            // Recargar la pantalla
-            window.location.reload()
+            getData(); // Refrescar la lista de usuarios
         } catch (error) {
             if (error instanceof z.ZodError) {
                 const errorMessages = error.errors
@@ -372,11 +370,22 @@ const Users = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false)
-        setSelectedPerson(null) // Limpiar la selección
+        console.log('Drawer cerrado', e);
+        setDrawerCreateIsOpen(false); // Cierra el Drawer
+        setNewUser({ // Limpia los campos de usuario
+            nombre: '',
+            email: '',
+            cedula: '',
+            phone: '',
+            typeUser: 'Cliente', // O el valor por defecto que quieras
+            password: '',
+            confirmPassword: '',
+            id: '',
+            uid: '',
+        });
+        setSelectedPerson(null); // Limpia la selección (si es necesario)
     }
-
+    
     const handleDelete = async () => {
         if (selectedPerson) {
             console.log('Eliminando a:', selectedPerson)
@@ -725,7 +734,7 @@ const Users = () => {
             </Drawer>
             <Drawer
                 isOpen={drawerCreateIsOpen}
-                onClose={() => setDrawerCreateIsOpen(false)}
+                onClose={handleDrawerClose}
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Usuario</h2>
@@ -888,7 +897,7 @@ const Users = () => {
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
                             variant="default"
-                            onClick={() => setDrawerCreateIsOpen(false)}
+                            onClick={handleDrawerClose}
                         >
                             Cancelar
                         </Button>

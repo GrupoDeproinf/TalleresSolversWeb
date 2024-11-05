@@ -218,6 +218,20 @@ const Garages = () => {
         }
     }
 
+    const handleDrawerClose = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e);
+        setDrawerCreateIsOpen(false); // Cierra el Drawer
+        setNewGarage({ // Limpia los campos de usuario
+            nombre: '',
+            email: '',
+            rif: '',
+            phone: '',
+            id: '',
+            uid: '',
+        });
+        setSelectedPerson(null); // Limpia la selección (si es necesario)
+    }
+
     // Obtener iniciales de los nombres
     const getInitials = (nombre: string | undefined): string => {
         if (!nombre) return ''
@@ -649,7 +663,7 @@ const Garages = () => {
 
             <Drawer
                 isOpen={drawerCreateIsOpen}
-                onClose={() => setDrawerCreateIsOpen(false)}
+                onClose={handleDrawerClose}
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Taller</h2>
@@ -819,7 +833,7 @@ const Garages = () => {
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
                             variant="default"
-                            onClick={() => setDrawerCreateIsOpen(false)}
+                            onClick={handleDrawerClose}
                         >
                             Cancelar
                         </Button>
