@@ -217,10 +217,18 @@ const Garages = () => {
         }
     }
 
+    // Obtener iniciales de los nombres
     const getInitials = (nombre: string | undefined): string => {
         if (!nombre) return ''
-        const words = nombre.split(' ')
-        return words.map((word: string) => word[0].toUpperCase()).join('')
+        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
+        return words
+            .map((word) => {
+                if (typeof word === 'string' && word.length > 0) {
+                    return word[0].toUpperCase()
+                }
+                return '' // Retorna una cadena vacía si la palabra no es válida
+            })
+            .join('')
     }
 
     function getRandomColor() {
