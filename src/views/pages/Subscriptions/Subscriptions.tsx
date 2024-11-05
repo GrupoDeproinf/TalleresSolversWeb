@@ -151,16 +151,7 @@ const Subscriptions = () => {
                         icon = <FaCheckCircle className="text-green-500 mr-1" />
                         color = 'text-green-500' // Color para el texto
                         break
-                    case 'Por Aprobar':
-                        icon = (
-                            <FaExclamationCircle className="text-yellow-500 mr-1" />
-                        )
-                        color = 'text-yellow-500' // Color para el texto
-                        break
-                    default:
-                        icon = null
                 }
-
                 return (
                     <div className={`flex items-center ${color}`}>
                         {icon}

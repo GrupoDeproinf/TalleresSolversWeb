@@ -36,7 +36,6 @@ type Service = {
     nombre_servicio: string
     descripcion: string
     precio: string
-    taller: string
     puntuacion: string
     uid_servicio: string
     id: string
@@ -75,11 +74,10 @@ const Services = () => {
     }, [])
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newUser, setNewUser] = useState<Service | null>({
+    const [newService, setNewService] = useState<Service | null>({
         nombre_servicio: '',
         descripcion: '',
         precio: '',
-        taller: '',
         uid_servicio: '',
         puntuacion: '',
         id: '',
@@ -95,15 +93,18 @@ const Services = () => {
     }
 
     const handleCreateService = async () => {
-        if (newUser && newUser.nombre_servicio && newUser.descripcion) {
+        if (
+            newService &&
+            newService.nombre_servicio &&
+            newService.descripcion
+        ) {
             try {
                 const userRef = collection(db, 'Servicios')
                 const docRef = await addDoc(userRef, {
-                    nombre_servicio: newUser.nombre_servicio,
-                    descripcion: newUser.descripcion,
-                    precio: newUser.precio,
-                    taller: newUser.taller,
-                    puntuacion: newUser.puntuacion,
+                    nombre_servicio: newService.nombre_servicio,
+                    descripcion: newService.descripcion,
+                    precio: newService.precio,
+                    puntuacion: newService.puntuacion,
                     uid_servicio: '', // Inicialmente vacío
                 })
 
@@ -120,11 +121,10 @@ const Services = () => {
                 )
 
                 // Limpiar los campos después de crear el servicio
-                setNewUser({
+                setNewService({
                     nombre_servicio: '',
                     descripcion: '',
                     precio: '',
-                    taller: '',
                     puntuacion: '',
                     uid_servicio: '',
                     id: '',
@@ -171,7 +171,6 @@ const Services = () => {
                     nombre_servicio: selectedService?.nombre_servicio,
                     descripcion: selectedService?.descripcion,
                     precio: selectedService?.precio,
-                    taller: selectedService?.taller,
                     puntuacion: selectedService?.puntuacion,
                 })
                 // Mensaje de éxito
@@ -286,9 +285,17 @@ const Services = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false)
-        setSelectedService(null) // Limpiar la selección
+        console.log('Drawer cerrado', e);
+        setDrawerCreateIsOpen(false); // Cierra el Drawer
+        setNewService({ // Limpia los campos de usuario
+            nombre_servicio: '',
+            descripcion: '',
+            precio: '',
+            puntuacion: '',
+            id: '',
+            uid_servicio: '',
+        });
+        setSelectedService(null); // Limpia la selección (si es necesario)
     }
 
     const handleDelete = async () => {
@@ -563,31 +570,6 @@ const Services = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
-                    {/* Campo para Taller */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Taller:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedService?.taller || ''}
-                            onChange={(e) =>
-                                setSelectedService((prev) => ({
-                                    ...(prev ?? {
-                                        nombre_servicio: '',
-                                        descripcion: '',
-                                        taller: '',
-                                        precio: '',
-                                        uid_servicio: '',
-                                        puntuacion: '',
-                                        id: '',
-                                    }),
-                                    taller: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Precio:
@@ -657,7 +639,7 @@ const Services = () => {
             </Drawer>
             <Drawer
                 isOpen={drawerCreateIsOpen}
-                onClose={() => setDrawerCreateIsOpen(false)}
+                onClose={handleDrawerClose}
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Servicio</h2>
@@ -668,9 +650,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.nombre_servicio || ''}
+                            value={newService?.nombre_servicio || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     nombre_servicio: e.target.value,
                                 }))
@@ -684,9 +666,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.descripcion || ''}
+                            value={newService?.descripcion || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     descripcion: e.target.value,
                                 }))
@@ -700,9 +682,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.precio || ''}
+                            value={newService?.precio || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     precio: e.target.value,
                                 }))
@@ -716,9 +698,9 @@ const Services = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.puntuacion || ''}
+                            value={newService?.puntuacion || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewService((prev: any) => ({
                                     ...(prev ?? {}),
                                     puntuacion: e.target.value,
                                 }))
@@ -730,7 +712,7 @@ const Services = () => {
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
                             variant="default"
-                            onClick={() => setDrawerCreateIsOpen(false)}
+                            onClick={handleDrawerClose}
                         >
                             Cancelar
                         </Button>

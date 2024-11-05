@@ -138,9 +138,8 @@ const Users = () => {
         setSubcategories([...subcategories, { nombre: '', descripcion: '', estatus: 'true', uid: '' }]);
     };
 
-    const handleRemoveSubcategory = (index: number) => {
-        const newSubcategories = subcategories.filter((_, i) => i !== index);
-        setSubcategories(newSubcategories);
+    const handleRemoveSubcategory = (index: any) => {
+        setSubcategories((prevSubcategories) => prevSubcategories.filter((_, i) => i !== index));
     };
     
     
@@ -201,13 +200,27 @@ const Users = () => {
                 <Notification title="Éxito">Categoría y subcategorías creadas con éxito.</Notification>
             );
     
+            // Limpiar los inputs del Drawer
+            setnewCategory({
+                nombre: '',
+                descripcion: '',
+                fechaCreacion: Timestamp.fromDate(new Date()),
+                logoUrl: '',
+                nombreUser: '',
+                uid: '',
+                id: '',
+            });
+    
+            // Limpiar las subcategorías
+            setSubcategories([]);  // Esto asume que tienes `subcategories` como estado
+    
             setDrawerCreateIsOpen(false);
             getData();
-            window.location.reload();
         } catch (error) {
             // Manejo de errores aquí
         }
     };
+    
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -377,10 +390,19 @@ const Users = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false)
-        setSelectedCategory(null) // Limpiar la selección
-    }
+    console.log('Drawer cerrado', e);
+    setDrawerCreateIsOpen(false);
+    setnewCategory({
+        nombre: '',
+        descripcion: '',
+        logoUrl: '',
+        uid: '',
+        id: '',
+    }); // Limpia los campos de la categoría
+    setSubcategories([]); // Limpia las subcategorías
+    setSelectedCategory(null); // Limpia la selección
+};
+
 
     const handleDelete = async () => {
         if (selectedCategory) {
@@ -464,6 +486,8 @@ const Users = () => {
     // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
+
+    
 
     return (
         <>
@@ -709,129 +733,139 @@ const Users = () => {
         </Button>
     </div>
 </Drawer>
-
-
-
             <Drawer
-    isOpen={drawerCreateIsOpen}
-    onClose={() => setDrawerCreateIsOpen(false)}
-    className="rounded-md shadow"
->
-    <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
-    <div className="flex flex-col space-y-6">
-        
-        {/* Campo para el logo */}
-        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-            <div className="text-center">
-                {!newCategory?.logoUrl ? (
-                    <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-                ) : (
-                    <img src={newCategory.logoUrl} alt="Preview Logo" className="mx-auto h-32 w-32 object-cover" />
-                )}
-                <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                    <label htmlFor="logo-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center">
-                        <span>{newCategory?.logoUrl ? 'Cambiar Logo' : 'Seleccionar Logo'}</span>
+        isOpen={drawerCreateIsOpen}
+        onClose={handleDrawerClose}
+        className="rounded-md shadow"
+    >
+        <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
+        <div className="flex flex-col space-y-6">
+            
+            {/* Campo para el logo */}
+            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                <div className="text-center">
+                    {!newCategory?.logoUrl ? (
+                        <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+                    ) : (
+                        <img src={newCategory.logoUrl} alt="Preview Logo" className="mx-auto h-32 w-32 object-cover" />
+                    )}
+                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                        <label htmlFor="logo-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center">
+                            <span>{newCategory?.logoUrl ? 'Cambiar Logo' : 'Seleccionar Logo'}</span>
+                            <input
+                                id="logo-upload"
+                                name="logo-upload"
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            setnewCategory((prev: any) => ({
+                                                ...prev,
+                                                logoUrl: reader.result, // Almacena la URL del logo
+                                            }));
+                                        };
+                                        reader.readAsDataURL(file); // Leer el archivo como una URL de datos
+                                    }
+                                }}
+                            />
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            {/* Campos de la categoría */}
+            <label className="flex flex-col">
+                <span className="font-semibold text-gray-700">Nombre:</span>
+                <input
+                    type="text"
+                    value={newCategory?.nombre || ''}
+                    onChange={(e) =>
+                        setnewCategory((prev: any) => ({
+                            ...prev,
+                            nombre: e.target.value,
+                        }))
+                    }
+                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                />
+            </label>
+            <label className="flex flex-col">
+                <span className="font-semibold text-gray-700">Descripción:</span>
+                <textarea
+                    value={newCategory?.descripcion || ''}
+                    onChange={(e) => {
+                        setnewCategory((prev: any) => ({
+                            ...(prev ?? {}),
+                            descripcion: e.target.value,
+                        }));
+                        e.target.style.height = 'auto'; // Resetea la altura
+                        e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                    }}
+                    rows={1} // Altura inicial
+                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                    style={{
+                        maxHeight: '150px', // Límite máximo de altura
+                        overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                    }}
+                />
+            </label>
+
+            {/* Sección de subcategorías */}
+            <h3 className="mt-6 text-lg font-semibold">Subcategorías</h3>
+            {subcategories.map((subcategory, index) => (
+                <div key={index} className="flex flex-col space-y-2">
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">Nombre:</span>
                         <input
-                            id="logo-upload"
-                            name="logo-upload"
-                            type="file"
-                            accept="image/*"
-                            className="sr-only"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                        setnewCategory((prev: any) => ({
-                                            ...prev,
-                                            logoUrl: reader.result, // Almacena la URL del logo
-                                        }));
-                                    };
-                                    reader.readAsDataURL(file); // Leer el archivo como una URL de datos
-                                }
+                            type="text"
+                            value={subcategory.nombre}
+                            onChange={(e) => handleSubcategoryChange(index, 'nombre', e.target.value)}
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">Descripción:</span>
+                        <textarea
+                            value={subcategory.descripcion}
+                            onChange={(e) => handleSubcategoryChange(index, 'descripcion', e.target.value)}
+                            rows={1}
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                            style={{
+                                maxHeight: '150px',
+                                overflowY: 'auto',
                             }}
                         />
                     </label>
+                    {/* Botón para eliminar subcategoría */}
+                    <Button
+                        onClick={() => handleRemoveSubcategory(index)}
+                        className="text-white hover:opacity-80 focus:ring-2 focus:ring-red-500 mt-2"
+                        style={{ backgroundColor: '#B91C1C' }}
+                    >
+                        Eliminar Subcategoría
+                    </Button>
                 </div>
+            ))}
+            <Button onClick={handleAddSubcategory} variant="default">Agregar Subcategoría</Button>
+
+            {/* Botones de acción */}
+            <div className="text-right mt-6">
+                <Button className="ltr:mr-2 rtl:ml-2" 
+                variant="default" 
+                onClick={handleDrawerClose}
+                
+                >
+                    Cancelar
+                </Button>
+                <Button style={{ backgroundColor: '#000B7E' }} className="text-white hover:opacity-80" onClick={handleCreateUser}>
+                    Guardar
+                </Button>
             </div>
         </div>
-        {/* Campos de la categoría */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Nombre:</span>
-            <input
-                type="text"
-                value={newCategory?.nombre || ''}
-                onChange={(e) =>
-                    setnewCategory((prev: any) => ({
-                        ...prev,
-                        nombre: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Descripción:</span>
-            <textarea
-                value={newCategory?.descripcion || ''}
-                onChange={(e) => {
-                    setnewCategory((prev: any) => ({
-                        ...(prev ?? {}),
-                        descripcion: e.target.value,
-                    }));
-                    e.target.style.height = 'auto'; // Resetea la altura
-                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
-                }}
-                rows={1} // Altura inicial
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                style={{
-                    maxHeight: '150px', // Límite máximo de altura
-                    overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                }}
-            />
-        </label>
-
-        {/* Sección de subcategorías */}
-        <h3 className="mt-6 text-lg font-semibold">Subcategorías</h3>
-        {subcategories.map((subcategory, index) => (
-            <div key={index} className="flex flex-col space-y-2">
-                <label className="flex flex-col">
-                    <span className="font-semibold text-gray-700">Nombre:</span>
-                    <input
-                        type="text"
-                        value={subcategory.nombre}
-                        onChange={(e) => handleSubcategoryChange(index, 'nombre', e.target.value)}
-                        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                    />
-                </label>
-                <label className="flex flex-col">
-                    <span className="font-semibold text-gray-700">Descripción:</span>
-                    <textarea
-                        value={subcategory.descripcion}
-                        onChange={(e) => handleSubcategoryChange(index, 'descripcion', e.target.value)}
-                        rows={1}
-                        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                        style={{
-                            maxHeight: '150px',
-                            overflowY: 'auto',
-                        }}
-                    />
-                </label>
-            </div>
-        ))}
-        <Button onClick={handleAddSubcategory} variant="default">Agregar Subcategoría</Button>
-
-        {/* Botones de acción */}
-        <div className="text-right mt-6">
-            <Button className="ltr:mr-2 rtl:ml-2" variant="default" onClick={() => setDrawerCreateIsOpen(false)}>
-                Cancelar
-            </Button>
-            <Button style={{ backgroundColor: '#000B7E' }} className="text-white hover:opacity-80" onClick={handleCreateUser}>
-                Guardar
-            </Button>
-        </div>
-    </div>
-</Drawer>
+    </Drawer>
         </>
     )
 }
