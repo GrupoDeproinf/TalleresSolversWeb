@@ -390,10 +390,19 @@ const Users = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false)
-        setSelectedCategory(null) // Limpiar la selección
-    }
+    console.log('Drawer cerrado', e);
+    setDrawerCreateIsOpen(false);
+    setnewCategory({
+        nombre: '',
+        descripcion: '',
+        logoUrl: '',
+        uid: '',
+        id: '',
+    }); // Limpia los campos de la categoría
+    setSubcategories([]); // Limpia las subcategorías
+    setSelectedCategory(null); // Limpia la selección
+};
+
 
     const handleDelete = async () => {
         if (selectedCategory) {
@@ -724,12 +733,9 @@ const Users = () => {
         </Button>
     </div>
 </Drawer>
-
-
-
             <Drawer
         isOpen={drawerCreateIsOpen}
-        onClose={() => setDrawerCreateIsOpen(false)}
+        onClose={handleDrawerClose}
         className="rounded-md shadow"
     >
         <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
@@ -847,7 +853,11 @@ const Users = () => {
 
             {/* Botones de acción */}
             <div className="text-right mt-6">
-                <Button className="ltr:mr-2 rtl:ml-2" variant="default" onClick={() => setDrawerCreateIsOpen(false)}>
+                <Button className="ltr:mr-2 rtl:ml-2" 
+                variant="default" 
+                onClick={handleDrawerClose}
+                
+                >
                     Cancelar
                 </Button>
                 <Button style={{ backgroundColor: '#000B7E' }} className="text-white hover:opacity-80" onClick={handleCreateUser}>
