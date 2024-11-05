@@ -13,15 +13,7 @@ import type {
     ColumnSort,
     ColumnFiltersState,
 } from '@tanstack/react-table'
-import {
-    FaEye,
-    FaEyeSlash,
-    FaUserCircle,
-    FaUserShield,
-    FaRegEye,
-    FaCheckCircle,
-    FaTimesCircle,
-} from 'react-icons/fa'
+import { FaRegEye, FaCheckCircle, FaTimesCircle } from 'react-icons/fa'
 import { z } from 'zod'
 import {
     collection,
@@ -34,14 +26,12 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
-import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
-import { Avatar, Drawer, Switcher } from '@/components/ui'
-import Password from '@/views/account/Settings/components/Password'
+import { Drawer, Switcher } from '@/components/ui'
 
-type Person = {
+type Plans = {
     nombre?: string
     descripcion?: string
     cantidad_servicios?: string
@@ -52,25 +42,25 @@ type Person = {
     id: string
 }
 
-const Users = () => {
-    const [dataUsers, setDataUsers] = useState<Person[]>([])
+const Plans = () => {
+    const [dataPlans, setDataPlans] = useState<Plans[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+    const [selectedPerson, setSelectedPerson] = useState<Plans | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
     const getData = async () => {
         const q = query(collection(db, 'Planes'))
         const querySnapshot = await getDocs(q)
-        const usuarios: Person[] = []
+        const planes: Plans[] = []
 
         querySnapshot.forEach((doc) => {
-            const userData = doc.data() as Person
-            usuarios.push({ ...userData, uid: doc.id })
+            const plansData = doc.data() as Plans
+            planes.push({ ...plansData, uid: doc.id })
         })
 
-        setDataUsers(usuarios)
+        setDataPlans(planes)
     }
 
     useEffect(() => {
@@ -78,7 +68,7 @@ const Users = () => {
     }, [])
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newUser, setNewUser] = useState<Person | null>({
+    const [newPlan, setNewPlan] = useState<Plans | null>({
         nombre: '',
         descripcion: '',
         cantidad_servicios: '',
@@ -89,36 +79,29 @@ const Users = () => {
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
-    const openDialog = (person: Person) => {
+    const openDialog = (person: Plans) => {
         setSelectedPerson(person)
         setIsOpen(true)
     }
-    const openDrawer = (person: Person) => {
+    const openDrawer = (person: Plans) => {
         setSelectedPerson(person)
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
     // Define el esquema de validación
-    const createUserSchema = z
-        .object({
-            nombre: z
-                .string()
-                .min(3, 'El nombre debe tener al menos 3 caracteres'),
-            status: z.string().default('Activo'), // Añadir status, valor por defecto "Activo"
-            cantidad_servicios: z.string().optional(), // Ajusta según sea necesario
-            monto: z.string().optional(), // Ajusta según sea necesario
-            vigencia: z.string().optional(), // Ajusta según sea necesario
-        })
-        .refine((data: any) => data.password === data.confirmPassword, {
-            path: ['confirmPassword'],
-            message: 'Las contraseñas no coinciden',
-        })
+    const createUserSchema = z.object({
+        nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
+        status: z.string().default('Activo'), // Añadir status, valor por defecto "Activo"
+        cantidad_servicios: z.string().optional(), // Ajusta según sea necesario
+        monto: z.string().optional(), // Ajusta según sea necesario
+        vigencia: z.string().optional(), // Ajusta según sea necesario
+    })
 
-    const handleCreateUser = async () => {
-        if (!newUser) {
+    const handleCreatePlans = async () => {
+        if (!newPlan) {
             toast.push(
                 <Notification title="Error">
-                    Los datos del usuario son nulos. Por favor, verifica.
+                    Hubo un error inesperado. Por favor, verifica.
                 </Notification>,
             )
             return
@@ -126,17 +109,17 @@ const Users = () => {
 
         try {
             // Validación de Zod
-            createUserSchema.parse(newUser)
+            createUserSchema.parse(newPlan)
 
             // Creación del usuario en la base de datos
             const userRef = collection(db, 'Planes')
             const docRef = await addDoc(userRef, {
-                nombre: newUser.nombre,
-                descripcion: newUser.descripcion,
-                cantidad_servicios: newUser.cantidad_servicios,
-                monto: newUser.monto,
+                nombre: newPlan.nombre,
+                descripcion: newPlan.descripcion,
+                cantidad_servicios: newPlan.cantidad_servicios,
+                monto: newPlan.monto,
                 status: 'Activo',
-                vigencia: newUser.vigencia, // Ahora siempre tiene valor
+                vigencia: newPlan.vigencia, // Ahora siempre tiene valor
                 uid: '', // Inicialmente vacío, se actualizará después
             })
 
@@ -147,7 +130,7 @@ const Users = () => {
 
             toast.push(
                 <Notification title="Éxito">
-                    Usuario creado con éxito.
+                    Plan creado con éxito.
                 </Notification>,
             )
 
@@ -162,10 +145,10 @@ const Users = () => {
                     <Notification title="Error">{errorMessages}</Notification>,
                 )
             } else {
-                console.error('Error creando usuario:', error)
+                console.error('Error creando plan:', error)
                 toast.push(
                     <Notification title="Error">
-                        Hubo un error al crear el usuario.
+                        Hubo un error al crear el plan.
                     </Notification>,
                 )
             }
@@ -197,17 +180,17 @@ const Users = () => {
                 // Mensaje de éxito
                 toast.push(
                     <Notification title="Éxito">
-                        Usuario actualizado con éxito.
+                        Plan actualizado con éxito.
                     </Notification>,
                 )
                 setDrawerIsOpen(false)
                 getData() // Refrescar datos después de guardar
             } catch (error) {
-                console.error('Error actualizando el usuario:', error)
+                console.error('Error actualizando el plan:', error)
                 // Mensaje de error
                 toast.push(
                     <Notification title="Error">
-                        Hubo un error al actualizar el usuario.
+                        Hubo un error al actualizar el plan.
                     </Notification>,
                 )
             }
@@ -228,7 +211,7 @@ const Users = () => {
             .join('')
     }
 
-    const columns: ColumnDef<Person>[] = [
+    const columns: ColumnDef<Plans>[] = [
         {
             header: 'Nombre',
             accessorKey: 'nombre',
@@ -356,7 +339,7 @@ const Users = () => {
     }
 
     const table = useReactTable({
-        data: dataUsers,
+        data: dataPlans,
         columns,
         state: {
             sorting,
@@ -618,9 +601,9 @@ const Users = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.nombre || ''}
+                            value={newPlan?.nombre || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewPlan((prev: any) => ({
                                     ...prev, // Esto preserva los valores existentes
                                     nombre: e.target.value, // Solo actualiza el campo necesario
                                 }))
@@ -634,9 +617,9 @@ const Users = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.descripcion || ''}
+                            value={newPlan?.descripcion || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewPlan((prev: any) => ({
                                     ...(prev ?? {}),
                                     descripcion: e.target.value,
                                 }))
@@ -650,9 +633,9 @@ const Users = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.cantidad_servicios || ''}
+                            value={newPlan?.cantidad_servicios || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewPlan((prev: any) => ({
                                     ...(prev ?? {}),
                                     cantidad_servicios: e.target.value,
                                 }))
@@ -666,9 +649,9 @@ const Users = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.monto || ''}
+                            value={newPlan?.monto || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewPlan((prev: any) => ({
                                     ...(prev ?? {}),
                                     monto: e.target.value,
                                 }))
@@ -682,9 +665,9 @@ const Users = () => {
                         </span>
                         <input
                             type="text"
-                            value={newUser?.vigencia || ''}
+                            value={newPlan?.vigencia || ''}
                             onChange={(e) =>
-                                setNewUser((prev: any) => ({
+                                setNewPlan((prev: any) => ({
                                     ...(prev ?? {}),
                                     vigencia: e.target.value,
                                 }))
@@ -703,7 +686,7 @@ const Users = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={handleCreateUser} // Llamar a la función para crear usuario
+                            onClick={handleCreatePlans} // Llamar a la función para crear usuario
                         >
                             Guardar
                         </Button>
@@ -714,4 +697,4 @@ const Users = () => {
     )
 }
 
-export default Users
+export default Plans
