@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import {
     collection,
     doc,
@@ -73,9 +73,6 @@ const UsuariosComponent = () => {
                     }),
                 ) as Usuario[]
 
-                // Verifica las fechas de los usuarios
-                console.log('Usuarios con fechas:', usuariosData)
-
                 const usuariosConSubscripcion = usuariosData.filter(
                     (usuario) => usuario.subscripcion_actual,
                 )
@@ -90,31 +87,36 @@ const UsuariosComponent = () => {
 
         fetchUsuarios()
     }, [])
-    // Solo se ejecuta una vez cuando el componente se monta
 
-    const openDrawer = (usuario: Usuario, subscripcion: Subscripcion) => {
-        setSelectedPerson({ usuario, subscripcion })
-        setDrawerIsOpen(true)
-    }
+    // Función para abrir el drawer
+    const openDrawer = useCallback(
+        (usuario: Usuario, subscripcion: Subscripcion) => {
+            setSelectedPerson({ usuario, subscripcion })
+            setDrawerIsOpen(true)
+        },
+        [],
+    )
 
-    const closeDrawer = () => {
+    // Función para cerrar el drawer
+    const closeDrawer = useCallback(() => {
         setDrawerIsOpen(false)
         setSelectedPerson({ usuario: null, subscripcion: null })
-    }
+    }, [])
 
+    // Función para guardar cambios en la suscripción
     const handleSaveChanges = async () => {
         if (selectedPerson.usuario?.id && selectedPerson.subscripcion) {
             try {
-                // Verificar si el estado de la suscripción es "Por Aprobar"
+                // Verificar si la suscripción está "Por Aprobar"
                 if (selectedPerson.subscripcion.status === 'Por Aprobar') {
-                    // Comprobar si la suscripción está vigente (es decir, si ya tiene una fecha_fin definida)
                     const fechaFin = selectedPerson.subscripcion.fecha_fin
-                        ? selectedPerson.subscripcion.fecha_fin.toDate() // Convertir Timestamp a Date
+                        ? new Date(
+                              selectedPerson.subscripcion.fecha_fin.toDate(),
+                          ) // Convertir Timestamp a Date
                         : null
                     const fechaActual = new Date()
 
                     if (fechaFin && fechaActual < fechaFin) {
-                        // Si la suscripción está vigente, no permitir la actualización
                         toast.push(
                             <Notification title="Error">
                                 No se puede actualizar la suscripción porque aún
@@ -128,50 +130,59 @@ const UsuariosComponent = () => {
                 // Obtener la fecha actual (fecha_inicio)
                 const fechaInicio = new Date()
 
-                // Calcular la fecha_fin sumando los días de vigencia
+                // Verificar y convertir vigencia a un número
                 const vigenciaDias = parseInt(
                     selectedPerson.subscripcion.vigencia,
                     10,
-                ) // Asumiendo que la vigencia es un número de días
-                const fechaFin = new Date(fechaInicio)
-                fechaFin.setDate(fechaInicio.getDate() + vigenciaDias) // Sumar los días de vigencia
+                )
+                if (isNaN(vigenciaDias)) {
+                    toast.push(
+                        <Notification title="Error">
+                            La vigencia proporcionada no es válida.
+                        </Notification>,
+                    )
+                    return
+                }
 
-                // Referencia al documento del usuario en la colección Usuarios
+                const fechaFin = new Date(fechaInicio)
+                fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
+                const fechaInicioTimestamp = Timestamp.fromDate(fechaInicio)
+                const fechaFinTimestamp = Timestamp.fromDate(fechaFin)
                 const userDoc = doc(db, 'Usuarios', selectedPerson.usuario.id)
 
-                // Actualizar los campos en Firestore
                 await updateDoc(userDoc, {
                     'subscripcion_actual.status':
                         selectedPerson.subscripcion.status,
                     'subscripcion_actual.monto':
-                        selectedPerson.subscripcion.monto,
+                        selectedPerson.subscripcion.monto ?? '',
                     'subscripcion_actual.vigencia':
                         selectedPerson.subscripcion.vigencia,
-                    'subscripcion_actual.fecha_inicio': fechaInicio, // Fecha de inicio (actual)
-                    'subscripcion_actual.fecha_fin': fechaFin, // Fecha de fin calculada
+                    'subscripcion_actual.fecha_inicio': fechaInicioTimestamp,
+                    'subscripcion_actual.fecha_fin': fechaFinTimestamp,
                 })
-
                 toast.push(
                     <Notification title="Éxito">
                         Estado de suscripción actualizado con éxito.
                     </Notification>,
                 )
-
-                // Actualizar el estado local de usuarios
                 setUsuarios((prevUsuarios) => {
                     return prevUsuarios.map((usuario) => {
                         if (usuario.id === selectedPerson.usuario?.id) {
                             return {
                                 ...usuario,
-                                subscripcion_actual:
-                                    selectedPerson.subscripcion,
+                                subscripcion_actual: selectedPerson.subscripcion
+                                    ? {
+                                          ...selectedPerson.subscripcion,
+                                          fecha_inicio: fechaInicioTimestamp,
+                                          fecha_fin: fechaFinTimestamp,
+                                      }
+                                    : usuario.subscripcion_actual,
                             }
                         }
                         return usuario
                     })
                 })
-
-                setDrawerIsOpen(false) // Cierra el drawer
+                setDrawerIsOpen(false)
             } catch (error) {
                 console.error(
                     'Error actualizando el estado de la suscripción:',
@@ -423,8 +434,8 @@ const UsuariosComponent = () => {
     }
 
     return (
-        <div style={{ padding: '20px' }}>
-            <h2>Suscripciones Actuales</h2>
+        <div>
+            <h1 className="mb-6">Suscripciones Actuales</h1>
             {renderContent()}
             <Drawer
                 isOpen={drawerIsOpen}
