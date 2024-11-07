@@ -33,8 +33,8 @@ interface Subscripcion {
     status?: string
     monto: string
     vigencia: string
-    fecha_inicio: Timestamp
-    fecha_fin: Timestamp
+    fecha_inicio: Timestamp | null
+    fecha_fin: Timestamp | null
     proximo_pago?: string
 }
 
@@ -107,24 +107,57 @@ const UsuariosComponent = () => {
     const handleSaveChanges = async () => {
         if (selectedPerson.usuario?.id && selectedPerson.subscripcion) {
             try {
-                // Verificar si la suscripción está "Por Aprobar"
-                if (selectedPerson.subscripcion.status === 'Por Aprobar') {
-                    const fechaFin = selectedPerson.subscripcion.fecha_fin
-                        ? new Date(
-                              selectedPerson.subscripcion.fecha_fin.toDate(),
-                          ) // Convertir Timestamp a Date
-                        : null
-                    const fechaActual = new Date()
+                // Verificar si la suscripción está cambiando de "Aprobado" a "Por Aprobar"
+                if (
+                    selectedPerson.subscripcion.status === 'Por Aprobar' &&
+                    selectedPerson.usuario.subscripcion_actual?.status ===
+                        'Aprobado'
+                ) {
+                    // Borrar las fechas si se cambia a "Por Aprobar"
+                    await updateDoc(
+                        doc(db, 'Usuarios', selectedPerson.usuario.id),
+                        {
+                            'subscripcion_actual.status':
+                                selectedPerson.subscripcion.status,
+                            'subscripcion_actual.monto':
+                                selectedPerson.subscripcion.monto ?? '',
+                            'subscripcion_actual.fecha_inicio': null,
+                            'subscripcion_actual.fecha_fin': null,
+                        },
+                    )
 
-                    if (fechaFin && fechaActual < fechaFin) {
-                        toast.push(
-                            <Notification title="Error">
-                                No se puede actualizar la suscripción porque aún
-                                está vigente.
-                            </Notification>,
-                        )
-                        return // Salir de la función sin hacer nada
-                    }
+                    // Mostrar notificación de éxito
+                    toast.push(
+                        <Notification title="Éxito">
+                            Estado de suscripción actualizado con éxito.
+                        </Notification>,
+                    )
+
+                    // Actualizar el estado local
+                    setUsuarios((prevUsuarios) => {
+                        return prevUsuarios.map((usuario) => {
+                            if (usuario.id === selectedPerson.usuario?.id) {
+                                return {
+                                    ...usuario,
+                                    subscripcion_actual: {
+                                        ...selectedPerson.subscripcion,
+                                        fecha_inicio: null,
+                                        fecha_fin: null,
+                                        monto:
+                                            selectedPerson.subscripcion
+                                                ?.monto ?? '', // Valor por defecto para 'monto'
+                                        vigencia:
+                                            selectedPerson.subscripcion
+                                                ?.vigencia ?? '', // Valor por defecto para 'vigencia'
+                                    },
+                                }
+                            }
+                            return usuario
+                        })
+                    })
+
+                    setDrawerIsOpen(false)
+                    return // Salir de la función, ya que no es necesario continuar
                 }
 
                 // Obtener la fecha actual (fecha_inicio)
@@ -148,23 +181,30 @@ const UsuariosComponent = () => {
                 fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
                 const fechaInicioTimestamp = Timestamp.fromDate(fechaInicio)
                 const fechaFinTimestamp = Timestamp.fromDate(fechaFin)
-                const userDoc = doc(db, 'Usuarios', selectedPerson.usuario.id)
 
-                await updateDoc(userDoc, {
-                    'subscripcion_actual.status':
-                        selectedPerson.subscripcion.status,
-                    'subscripcion_actual.monto':
-                        selectedPerson.subscripcion.monto ?? '',
-                    'subscripcion_actual.vigencia':
-                        selectedPerson.subscripcion.vigencia,
-                    'subscripcion_actual.fecha_inicio': fechaInicioTimestamp,
-                    'subscripcion_actual.fecha_fin': fechaFinTimestamp,
-                })
+                // Actualizar el documento del usuario en Firestore
+                await updateDoc(
+                    doc(db, 'Usuarios', selectedPerson.usuario.id),
+                    {
+                        'subscripcion_actual.status':
+                            selectedPerson.subscripcion.status,
+                        'subscripcion_actual.monto':
+                            selectedPerson.subscripcion.monto ?? '',
+                        'subscripcion_actual.vigencia':
+                            selectedPerson.subscripcion.vigencia,
+                        'subscripcion_actual.fecha_inicio':
+                            fechaInicioTimestamp,
+                        'subscripcion_actual.fecha_fin': fechaFinTimestamp,
+                    },
+                )
+
                 toast.push(
                     <Notification title="Éxito">
                         Estado de suscripción actualizado con éxito.
                     </Notification>,
                 )
+
+                // Actualizar el estado local
                 setUsuarios((prevUsuarios) => {
                     return prevUsuarios.map((usuario) => {
                         if (usuario.id === selectedPerson.usuario?.id) {
@@ -182,6 +222,7 @@ const UsuariosComponent = () => {
                         return usuario
                     })
                 })
+
                 setDrawerIsOpen(false)
             } catch (error) {
                 console.error(
