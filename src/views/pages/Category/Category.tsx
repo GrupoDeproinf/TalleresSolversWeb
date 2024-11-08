@@ -54,13 +54,14 @@ type Category = {
     fechaCreacion?: Timestamp // Fecha de creación de la categoría
     logoUrl?: string // URL de la imagen que funcione como logo de la categoría
     nombreUser?: string // Nombre del creador
+    estatus?: string;
 
     uid?: string // ID del usuario que creó la categoría
     id: string // ID único de la categoría
 }
 
 const Users = () => {
-    const [dataUsers, setDataUsers] = useState<Category[]>([])
+    const [dataCategorys, setdataCategorys] = useState<Category[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
@@ -92,7 +93,7 @@ const Users = () => {
             }
         }
     
-        setDataUsers(categorias);
+        setdataCategorys(categorias);
     };
 
     useEffect(() => {
@@ -106,6 +107,7 @@ const Users = () => {
         fechaCreacion: Timestamp.fromDate(new Date()),
         logoUrl: '',
         nombreUser: '',
+        estatus: 'true',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
@@ -207,6 +209,7 @@ const Users = () => {
                 fechaCreacion: Timestamp.fromDate(new Date()),
                 logoUrl: '',
                 nombreUser: '',
+                estatus: 'true',
                 uid: '',
                 id: '',
             });
@@ -251,8 +254,7 @@ const Users = () => {
                 // Cerrar el drawer
                 setDrawerIsOpen(false)
 
-                // Recargar la página
-                window.location.reload()
+                
                 getData() // Refrescar datos después de guardar
             } catch (error) {
                 console.error('Error actualizando la categoría:', error)
@@ -457,7 +459,7 @@ const Users = () => {
     
 
     const table = useReactTable({
-        data: dataUsers,
+        data: dataCategorys,
         columns,
         state: {
             sorting,
