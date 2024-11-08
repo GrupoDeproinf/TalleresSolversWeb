@@ -975,14 +975,13 @@ const ProfileGarage = () => {
                 </Tabs>
             </div>
 
-            <ConfirmDialog
+            <Dialog
                 width={1000}
                 isOpen={dialogOpensub}
                 onClose={onDialogClosesub}
-                onCancel={onDialogClosesub}
-                title="Planes de Suscripción"
             >
                 <div className="table-responsive">
+                    <h2 className='mb-4'>Planes de Subscripción</h2>
                     <Table>
                         <THead>
                             {table2.getHeaderGroups().map((headerGroup) => (
@@ -1081,7 +1080,7 @@ const ProfileGarage = () => {
                         </TBody>
                     </Table>
                 </div>
-            </ConfirmDialog>
+            </Dialog>
 
 
             {/* Modal editar */}
