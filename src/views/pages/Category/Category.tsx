@@ -72,7 +72,7 @@ const Users = () => {
     const getData = async () => {
         const q = query(collection(db, 'Categorias'));
         const querySnapshot = await getDocs(q);
-        const usuarios = [];
+        const categorias = [];
     
         for (const doc of querySnapshot.docs) {
             const userData = doc.data();
@@ -84,7 +84,7 @@ const Users = () => {
                     uid: subDoc.id, // Almacena el ID de la subcategoría
                 }));
     
-                usuarios.push({
+                categorias.push({
                     ...userData,
                     id: doc.id,
                     subcategorias: subcategoriesData, // Añade las subcategorías aquí
@@ -92,7 +92,7 @@ const Users = () => {
             }
         }
     
-        setDataUsers(usuarios);
+        setDataUsers(categorias);
     };
 
     useEffect(() => {
