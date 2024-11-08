@@ -20,7 +20,7 @@ import {
     FaStar,
     FaStarHalfAlt,
 } from 'react-icons/fa'
-import { collection, getDocs, query, doc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, query, getDoc, doc, updateDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
@@ -39,6 +39,18 @@ type Person = {
     servicios?: string[]
     id?: string
     status?: string
+    subscripcion_actual?: subscricion
+}
+
+type subscricion = {
+    cantidad_servicios?: string
+    monto?: string
+    nombre?: string
+    status?: string
+    fecha_fin?: Timestamp
+    fecha_inicio?: Timestamp
+    vigencia?: string
+    uid?: string
 }
 
 type Service = {
@@ -297,48 +309,89 @@ const ServiceGarages = () => {
         setSelectedPerson(null) // Limpiar selección
     }
 
+    const [maxServices, setMaxServices] = useState(0); // Límite de servicios del taller
+const [assignedServices, setAssignedServices] = useState<string[]>([]); // Servicios ya asignados
+const [remainingServices, setRemainingServices] = useState(0); // Servicios restantes
+
+// Carga el límite de servicios y servicios actuales cuando se selecciona el taller
+useEffect(() => {
+    const loadServiceLimits = async () => {
+        if (selectedPerson) {
+            const personRef = doc(db, 'Usuarios', selectedPerson.uid);
+            const docSnap = await getDoc(personRef);
+            const personData = docSnap.data() as Person;
+
+            const fetchedMaxServices = Number(personData.subscripcion_actual?.cantidad_servicios) || 0;
+            const currentServices = personData.servicios || [];
+
+            setMaxServices(fetchedMaxServices);
+            setAssignedServices(currentServices);
+            setRemainingServices(fetchedMaxServices - currentServices.length);
+        }
+    };
+
+    loadServiceLimits();
+}, [selectedPerson]);
+
     const handleAssignServices = async () => {
-        if (selectedPerson && selectedServiceIds.length > 0) {
-            const personRef = doc(db, 'Usuarios', selectedPerson.uid)
-
-            try {
-                await updateDoc(personRef, {
-                    servicios: selectedServiceIds, // Actualiza el campo "servicios" en el taller seleccionado
-                })
-
-                setDrawerIsOpen(false) // Cierra el drawer después de la asignación
-
-                const toastNotification = (
-                    <Notification title="Éxito">
-                        Servicios asignados correctamente al taller{' '}
-                        {selectedPerson.nombre}.
-                    </Notification>
-                )
-                toast.push(toastNotification) // Muestra la notificación
-
-                // Establece un temporizador para recargar la página después de 3 segundos (3000 ms)
-                setTimeout(() => {
-                    window.location.reload()
-                }, 3000)
-            } catch (error) {
-                console.error('Error al asignar servicios:', error)
-
-                const errorNotification = (
-                    <Notification title="Error">
-                        Hubo un error asignando los servicios.
-                    </Notification>
-                )
-                toast.push(errorNotification) // Muestra la notificación de error
-            }
-        } else {
+        if (!selectedPerson) {
             const warningNotification = (
                 <Notification title="Advertencia">
-                    Seleccione al menos un servicio.
+                    Selecciona un taller antes de asignar servicios.
                 </Notification>
-            )
-            toast.push(warningNotification) // Muestra la notificación de advertencia
+            );
+            toast.push(warningNotification);
+            return;
         }
-    }
+
+        if (selectedServiceIds.length > maxServices) {
+            const warningNotification = (
+                <Notification title="Advertencia">
+                    Has seleccionado más servicios de los permitidos por la suscripción actual
+                    (Máximo: {maxServices} servicios).
+                </Notification>
+            );
+            toast.push(warningNotification);
+            return;
+        }
+
+        const personRef = doc(db, 'Usuarios', selectedPerson.uid);
+
+        try {
+            await updateDoc(personRef, {
+                servicios: selectedServiceIds,
+            });
+
+            setDrawerIsOpen(false);
+
+            const toastNotification = (
+                <Notification title="Éxito">
+                    Servicios asignados correctamente al taller {selectedPerson.nombre}.
+                </Notification>
+            );
+            toast.push(toastNotification);
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        } catch (error) {
+            console.error('Error al asignar servicios:', error);
+
+            const errorNotification = (
+                <Notification title="Error">
+                    Hubo un error asignando los servicios.
+                </Notification>
+            );
+            toast.push(errorNotification);
+        }
+    };
+
+    // Actualizar remainingServices al seleccionar o deseleccionar servicios
+    useEffect(() => {
+        setRemainingServices(Math.max(0, maxServices - selectedServiceIds.length));
+    }, [selectedServiceIds, maxServices]);
+
+
 
     const handleServiceSelection = (serviceId: string) => {
         setSelectedServiceIds((prevSelectedIds) => {
@@ -528,6 +581,10 @@ const ServiceGarages = () => {
                     Asignar Servicio al Taller:{' '}
                     {selectedPerson?.nombre || 'No especificado'}
                 </h2>
+                <div className="text-sm text-gray-500 mt-2">
+                    Servicios restantes antes de alcanzar el límite: {remainingServices}
+                </div>
+
                 <div className="mt-6 overflow-x-auto">
                     <Table>
                         <THead>
@@ -560,13 +617,12 @@ const ServiceGarages = () => {
                                                         .rows.length
                                                 }
                                                 className={`h-5 w-5 rounded border-2 focus:outline-none appearance-none
-                                            ${
-                                                selectedServiceIds.length ===
-                                                tableServices.getRowModel().rows
-                                                    .length
-                                                    ? 'bg-blue-500 border-blue-500'
-                                                    : 'bg-white border-gray-300'
-                                            }`}
+                                            ${selectedServiceIds.length ===
+                                                        tableServices.getRowModel().rows
+                                                            .length
+                                                        ? 'bg-blue-500 border-blue-500'
+                                                        : 'bg-white border-gray-300'
+                                                    }`}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -669,13 +725,12 @@ const ServiceGarages = () => {
                                                     )
                                                 }
                                                 className={`h-5 w-5 rounded border-2 focus:outline-none appearance-none
-                                            ${
-                                                selectedServiceIds.includes(
+                                            ${selectedServiceIds.includes(
                                                     row.original.id,
                                                 )
-                                                    ? 'bg-blue-500 border-blue-500'
-                                                    : 'bg-white border-gray-300'
-                                            }`}
+                                                        ? 'bg-blue-500 border-blue-500'
+                                                        : 'bg-white border-gray-300'
+                                                    }`}
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',

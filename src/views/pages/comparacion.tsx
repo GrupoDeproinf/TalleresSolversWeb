@@ -14,7 +14,14 @@ import type {
     ColumnFiltersState,
 } from '@tanstack/react-table'
 import { FaRegEye, FaCheckCircle, FaExclamationCircle } from 'react-icons/fa'
-import { collection, getDocs, query, doc, updateDoc } from 'firebase/firestore'
+import {
+    collection,
+    getDocs,
+    query,
+    doc,
+    updateDoc,
+    Timestamp,
+} from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import toast from '@/components/ui/toast'
@@ -27,7 +34,9 @@ type Subscriptions = {
     taller_subscrito?: string
     status?: string
     cantidad_servicios?: string
-    monto: string
+    fecha_inicio: Timestamp
+    fecha_fin: Timestamp
+    monto?: string
     uid: string
     id: string
 }
@@ -133,33 +142,8 @@ const Subscriptions = () => {
             header: 'Monto',
             accessorKey: 'monto',
             filterFn: 'includesString',
-            cell: ({ row }) => {
-                const monto = parseFloat(row.original.monto) // Asegúrate de que sea un número
-                return $${monto.toFixed(2)}
-            },
         },
-        {
-            header: 'Estado',
-            accessorKey: 'status',
-            cell: ({ row }) => {
-                const status = row.getValue('status') as string // Aserción de tipo
-                let icon
-                let color
 
-                switch (status) {
-                    case 'Aprobado':
-                        icon = <FaCheckCircle className="text-green-500 mr-1" />
-                        color = 'text-green-500' // Color para el texto
-                        break
-                }
-                return (
-                    <div className={flex items-center ${color}}>
-                        {icon}
-                        <span>{status}</span>
-                    </div>
-                )
-            },
-        },
         {
             header: ' ',
             cell: ({ row }) => {
@@ -226,7 +210,7 @@ const Subscriptions = () => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Subcripciones</h1>
+                <h1 className="mb-6 flex justify-start">Subscripciones</h1>
             </div>
             <div>
                 <Table>
@@ -281,7 +265,7 @@ const Subscriptions = () => {
                                                                         .value,
                                                                 )
                                                             }
-                                                            placeholder={Buscar}
+                                                            placeholder="buscar"
                                                             className="mt-2 p-1 border rounded"
                                                             onClick={(e) =>
                                                                 e.stopPropagation()
