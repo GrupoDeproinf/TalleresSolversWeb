@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { APP_PREFIX_PATH } from '@/constants/route.constant'
 import {
     doc,
     getDocs,
@@ -16,9 +17,10 @@ import Card from '@/components/ui/Card'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import { FaCamera, FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa'
+import { FaCamera, FaFacebookF, FaInstagram, FaArrowLeft , FaTiktok } from 'react-icons/fa'
 import { HiPencilAlt, HiOutlineTrash } from 'react-icons/hi'
 import { db } from '@/configs/firebaseAssets.config'
+import { useNavigate } from 'react-router-dom'
 import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
@@ -72,9 +74,9 @@ type SubscriptionHistory = {
     vigencia: string;
     status: string;
     cantidad_servicios: string;
-    fecha_fin:Timestamp;
-    fecha_inicio: Timestamp; 
-    taller_uid: string;  
+    fecha_fin: Timestamp;
+    fecha_inicio: Timestamp;
+    taller_uid: string;
 }
 
 
@@ -115,6 +117,8 @@ const ProfileGarage = () => {
     const path = location.pathname.substring(
         location.pathname.lastIndexOf('/') + 1,
     )
+    const navigate = useNavigate()
+
 
     const getData = async () => {
         setLoading(true);
@@ -133,22 +137,22 @@ const ProfileGarage = () => {
 
             const subscripcionesQuery = query(
                 collection(db, 'Subscripciones'),
-                where('taller_uid', '==', path) 
+                where('taller_uid', '==', path)
             );
-        
+
             const subscripcionesSnapshot = await getDocs(subscripcionesQuery);
             const subscripciones = subscripcionesSnapshot.docs.map((doc) => {
                 const data = doc.data();
-        
+
                 return {
-                    uid: doc.id, 
-                    nombre: data.nombre || '', 
-                    monto: data.monto || '0', 
+                    uid: doc.id,
+                    nombre: data.nombre || '',
+                    monto: data.monto || '0',
                     vigencia: data.vigencia || '',
-                    status: data.status || '', 
-                    cantidad_servicios: data.cantidad_servicios || '0', 
-                    fecha_fin: data.fecha_fin || Timestamp.fromDate(new Date()), 
-                    fecha_inicio: data.fecha_inicio || Timestamp.fromDate(new Date()), 
+                    status: data.status || '',
+                    cantidad_servicios: data.cantidad_servicios || '0',
+                    fecha_fin: data.fecha_fin || "no hay fecha",
+                    fecha_inicio: data.fecha_inicio || "no hay fecha",
                     taller_uid: data.taller_uid || '', // UID del taller
                 };
             });
@@ -463,14 +467,7 @@ const ProfileGarage = () => {
         {
             header: 'Fecha de vencimiento',
             accessorKey: 'fecha_fin',
-            cell: ({ row }) => {
-                const fechaFin = row.original.fecha_fin;
-                if (fechaFin instanceof Timestamp) {
-                    const date = fechaFin.toDate(); 
-                    return date.toLocaleDateString("es-ES"); 
-                }
-                return '';
-            },
+           
         },
     ]
 
@@ -534,7 +531,17 @@ const ProfileGarage = () => {
 
     return (
         <Container className="h-full">
+        <div className="flex items-center">
+            <button
+                onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
+                className="flex items-center text-blue-900 mb-3 ml-2 px-4 py-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition duration-200"
+            >
+                <FaArrowLeft className="mr-2" />
+                <span>Volver</span>
+            </button>
+        </div>
             <div className="flex flex-col xl:flex-row gap-4">
+                
                 <Card>
                     <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
                         <div className="flex xl:flex-col items-center gap-4">
@@ -1034,7 +1041,7 @@ const ProfileGarage = () => {
                                                             className="mt-2 p-1 border rounded"
                                                             onClick={(e) =>
                                                                 e.stopPropagation()
-                                                            } 
+                                                            }
                                                         />
                                                     ) : null}
                                                 </div>
@@ -1042,7 +1049,7 @@ const ProfileGarage = () => {
                                         </Th>
                                     ))}
                                     <Th>Acción</Th>{' '}
-                                    
+
                                 </Tr>
                             ))}
                         </THead>
