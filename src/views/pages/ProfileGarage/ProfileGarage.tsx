@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { APP_PREFIX_PATH } from '@/constants/route.constant'
 import {
     doc,
     getDocs,
@@ -16,9 +17,10 @@ import Card from '@/components/ui/Card'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import { FaCamera, FaFacebookF, FaInstagram, FaTiktok } from 'react-icons/fa'
+import { FaCamera, FaFacebookF, FaInstagram, FaArrowLeft , FaTiktok } from 'react-icons/fa'
 import { HiPencilAlt, HiOutlineTrash } from 'react-icons/hi'
 import { db } from '@/configs/firebaseAssets.config'
+import { useNavigate } from 'react-router-dom'
 import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
@@ -71,7 +73,10 @@ type SubscriptionHistory = {
     monto: string;
     vigencia: string;
     status: string;
-    fecha_vencimiento: string; // Add other relevant fields as per your Firestore structure
+    cantidad_servicios: string;
+    fecha_fin: Timestamp;
+    fecha_inicio: Timestamp;
+    taller_uid: string;
 }
 
 
@@ -95,7 +100,7 @@ const ProfileGarage = () => {
         status: '',
         vigencia: '',
     }); // Estado para la suscripción actual
-    const [subscriptionHistory, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
+    const [subscripciones, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
     const [formData, setFormData] = useState({
         logoUrl: '',
         nombre: '',
@@ -112,6 +117,8 @@ const ProfileGarage = () => {
     const path = location.pathname.substring(
         location.pathname.lastIndexOf('/') + 1,
     )
+    const navigate = useNavigate()
+
 
     const getData = async () => {
         setLoading(true);
@@ -128,13 +135,27 @@ const ProfileGarage = () => {
             setIsSuscrito(!!subscripcionActual)
 
 
-            // Obtener historial de suscripciones desde la subcolección 'historial_subscripcion'
-            const historialSnapshot = await getDocs(collection(docRef, 'historial_subscripcion'));
-            const historialSubscripcion = historialSnapshot.docs.map((doc) => ({
-                ...doc.data() as SubscriptionHistory, // Spread the properties from doc.data()
-                uid: doc.id, // Assign uid from doc.id separately
-            }));
+            const subscripcionesQuery = query(
+                collection(db, 'Subscripciones'),
+                where('taller_uid', '==', path)
+            );
 
+            const subscripcionesSnapshot = await getDocs(subscripcionesQuery);
+            const subscripciones = subscripcionesSnapshot.docs.map((doc) => {
+                const data = doc.data();
+
+                return {
+                    uid: doc.id,
+                    nombre: data.nombre || '',
+                    monto: data.monto || '0',
+                    vigencia: data.vigencia || '',
+                    status: data.status || '',
+                    cantidad_servicios: data.cantidad_servicios || '0',
+                    fecha_fin: data.fecha_fin || "no hay fecha",
+                    fecha_inicio: data.fecha_inicio || "no hay fecha",
+                    taller_uid: data.taller_uid || '', // UID del taller
+                };
+            });
 
             // Obtener IDs de los servicios asociados al usuario
             const serviceIds = dataFinal?.servicios || [];
@@ -174,7 +195,7 @@ const ProfileGarage = () => {
             setServices(services); // Información detallada de cada servicio
             setPlanes(planes); // Información de todos los planes disponibles
             setSubscription(subscripcionActual); // Suscripción actual
-            setSubscriptionHistory(historialSubscripcion); // Historial de suscripciones
+            setSubscriptionHistory(subscripciones); // Historial de suscripciones (ahora desde la colección 'Subscripciones')
 
             const endDate = subscripcionActual?.fecha_fin;
             console.log("aqui endDate", endDate)
@@ -234,18 +255,23 @@ const ProfileGarage = () => {
 
 
 
-
     const handleSubscribe = async (plan: any) => {
         try {
-            const usuarioDocRef = doc(db, 'Usuarios', path); // Path del taller
-            const historialRef = collection(usuarioDocRef, 'historial_subscripcion'); // Subcolección de historial
+            const usuarioDocRef = doc(db, 'Usuarios', path);
+            const subscripcionesRef = collection(db, 'Subscripciones');
 
-            // Guardar el plan actual como historial antes de actualizar
-            if (data?.subscripcion_actual) {
-                await addDoc(historialRef, data.subscripcion_actual); // Añade la suscripción actual al historial
-            }
 
-            // Actualizar subscripción actual con el nuevo plan
+            await addDoc(subscripcionesRef, {
+                uid: plan.uid,
+                nombre: plan.nombre,
+                monto: plan.monto,
+                vigencia: plan.vigencia,
+                cantidad_servicios: plan.cantidad_servicios,
+                status: 'Por Aprobar',
+                taller_uid: path,
+            });
+
+
             await updateDoc(usuarioDocRef, {
                 subscripcion_actual: {
                     uid: plan.uid,
@@ -257,18 +283,16 @@ const ProfileGarage = () => {
                 },
             });
 
-            // Asegúrate de actualizar el estado de isSuscrito y el plan seleccionado
-            setSelectedPlan(plan);
-            setIsSuscrito(true); // Establece isSuscrito a true
-            await getData(); // Vuelve a cargar los datos para obtener la nueva suscripción
+
+            setIsSuscrito(true);
+            await getData();
 
             onDialogClosesub();
-            console.log('Subscripción actualizada y guardada en el historial.');
+            console.log('Subscripción actualizada y guardada en Subscripciones.');
         } catch (error) {
             console.error('Error al guardar la subscripción:', error);
         }
     };
-
 
 
     const CustomerInfoField = ({ title, value }: CustomerInfoFieldProps) => {
@@ -423,12 +447,31 @@ const ProfileGarage = () => {
             accessorKey: 'cantidad_servicios',
         },
     ]
+    const columns3: ColumnDef<SubscriptionHistory>[] = [
+        {
+            header: 'Nombre del Plan',
+            accessorKey: 'nombre',
+        },
+        {
+            header: 'Monto',
+            accessorKey: 'monto',
+            cell: ({ row }) => {
+                const precio = parseFloat(row.original.monto) // Asegúrate de que sea un número
+                return `$${precio.toFixed(2)}`
+            },
+        },
+        {
+            header: 'vigencia',
+            accessorKey: 'vigencia',
+        },
+        {
+            header: 'Fecha de vencimiento',
+            accessorKey: 'fecha_fin',
+           
+        },
+    ]
 
 
-    const suscribirse = (planId: any) => {
-        setIsSuscrito(true)
-        setDialogOpen(false)
-    }
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
@@ -459,6 +502,19 @@ const ProfileGarage = () => {
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
     })
+    const table3 = useReactTable({
+        data: subscripciones, // Cambiar aquí para usar el estado de servicios
+        columns: columns3,
+        state: {
+            sorting,
+            columnFilters: filtering,
+        },
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setFiltering,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+    })
     const [currentPage, setCurrentPage] = useState(1)
     const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
 
@@ -475,7 +531,17 @@ const ProfileGarage = () => {
 
     return (
         <Container className="h-full">
+        <div className="flex items-center">
+            <button
+                onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
+                className="flex items-center text-blue-900 mb-3 ml-2 px-4 py-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition duration-200"
+            >
+                <FaArrowLeft className="mr-2" />
+                <span>Volver</span>
+            </button>
+        </div>
             <div className="flex flex-col xl:flex-row gap-4">
+                
                 <Card>
                     <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
                         <div className="flex xl:flex-col items-center gap-4">
@@ -617,7 +683,6 @@ const ProfileGarage = () => {
                                             >
                                                 Ver Planes
                                             </button>
-                                            
                                         </div>
                                     ) : (
                                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border rounded-lg shadow-md bg-white">
@@ -629,47 +694,41 @@ const ProfileGarage = () => {
                                                 />
                                                 <div>
                                                     <div className="flex items-center">
-                                                        <h3 className="text-lg font-semibold text-gray-800">{subscription?.nombre}</h3>
+                                                        <h3 className="text-lg font-semibold text-gray-800">{subscription?.nombre || 'Cargando...'}</h3>
                                                         <Tag
-                                                            className={`rounded-md border-0 mx-2 ${subscription.status === 'Aprobado' ? 'bg-green-100 text-green-400' : 'bg-yellow-100 text-yellow-400'
-                                                                }`}
+                                                            className={`rounded-md border-0 mx-2 ${subscription?.status === 'Aprobado' ? 'bg-green-100 text-green-400' : 'bg-yellow-100 text-yellow-400'}`}
                                                         >
-                                                            {subscription.status}
+                                                            {subscription?.status || 'Pendiente'}
                                                         </Tag>
                                                     </div>
                                                     <div className="grid grid-cols-4">
                                                         <p className="text-sm text-gray-500">
-                                                            Vigencia: {subscription.vigencia} días
+                                                            Vigencia: {subscription?.vigencia ?? '---'} días
                                                         </p>
                                                         <p className="text-sm text-gray-600">
-                                                            Monto mensual: <span className="font-bold text-gray-800">${subscription.monto}</span>
+                                                            Monto mensual: <span className="font-bold text-gray-800">${subscription?.monto ?? '---'}</span>
                                                         </p>
-                                                        {subscription.status === 'Aprobado' && (
+                                                        {subscription?.status === 'Aprobado' && (
                                                             <>
                                                                 <p className="text-sm ml-2 text-gray-600">
-                                                                    {diasRestantes} días restantes
+                                                                    {diasRestantes ?? '---'} días restantes
                                                                 </p>
                                                                 <p className="text-xs mt-1 text-gray-400">
                                                                     Próximo pago: <span className="text-gray-600">{formatDate(subscription.fecha_fin)}</span>
                                                                 </p>
                                                             </>
                                                         )}
-                                                       
                                                     </div>
                                                 </div>
                                             </div>
-                                            {subscription.status === 'Por Aprobar' && (
-                                                            <div className="flex justify-end mt-2">
-                                                                <PaymentDrawer />
-                                                            </div>
-                                                        )}
+                                            {subscription?.status === 'Por Aprobar' && (
+                                                <div className="flex justify-end mt-2">
+                                                    <PaymentDrawer />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </Card>
-
-
-
-
                                 <div>
                                     <div>
                                         <h6 className="mb-6 flex justify-start mt-4">
@@ -677,7 +736,7 @@ const ProfileGarage = () => {
                                         </h6>
                                         <Table>
                                             <THead>
-                                                {table2
+                                                {table3
                                                     .getHeaderGroups()
                                                     .map((headerGroup) => (
                                                         <Tr
@@ -725,7 +784,7 @@ const ProfileGarage = () => {
                                                     ))}
                                             </THead>
                                             <TBody>
-                                                {table2
+                                                {table3
                                                     .getRowModel()
                                                     .rows.slice(
                                                         (currentPage - 1) *
@@ -923,14 +982,13 @@ const ProfileGarage = () => {
                 </Tabs>
             </div>
 
-            <ConfirmDialog
+            <Dialog
                 width={1000}
                 isOpen={dialogOpensub}
                 onClose={onDialogClosesub}
-                onCancel={onDialogClosesub}
-                title="Planes de Suscripción"
             >
                 <div className="table-responsive">
+                    <h2 className='mb-4'>Planes de Subscripción</h2>
                     <Table>
                         <THead>
                             {table2.getHeaderGroups().map((headerGroup) => (
@@ -983,7 +1041,7 @@ const ProfileGarage = () => {
                                                             className="mt-2 p-1 border rounded"
                                                             onClick={(e) =>
                                                                 e.stopPropagation()
-                                                            } // Evita la propagación del evento de clic
+                                                            }
                                                         />
                                                     ) : null}
                                                 </div>
@@ -991,7 +1049,7 @@ const ProfileGarage = () => {
                                         </Th>
                                     ))}
                                     <Th>Acción</Th>{' '}
-                                    {/* Encabezado para el botón */}
+
                                 </Tr>
                             ))}
                         </THead>
@@ -1029,21 +1087,8 @@ const ProfileGarage = () => {
                         </TBody>
                     </Table>
                 </div>
-            </ConfirmDialog>
+            </Dialog>
 
-            {/* Modal eliminar */}
-            <ConfirmDialog
-                isOpen={dialogOpen}
-                type="danger"
-                title="Eliminar taller"
-                confirmButtonColor="red-600"
-                onClose={onDialogClose}
-                onRequestClose={onDialogClose}
-                onCancel={onDialogClose}
-                onConfirm={() => console.log('Customer deleted')} // Placeholder for actual delete logic
-            >
-                <p>Estas seguro de eliminar este taller?</p>
-            </ConfirmDialog>
 
             {/* Modal editar */}
             {editModalOpen && (

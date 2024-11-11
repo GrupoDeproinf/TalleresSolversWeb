@@ -54,13 +54,14 @@ type Category = {
     fechaCreacion?: Timestamp // Fecha de creación de la categoría
     logoUrl?: string // URL de la imagen que funcione como logo de la categoría
     nombreUser?: string // Nombre del creador
+    estatus?: string;
 
     uid?: string // ID del usuario que creó la categoría
     id: string // ID único de la categoría
 }
 
 const Users = () => {
-    const [dataUsers, setDataUsers] = useState<Category[]>([])
+    const [dataCategorys, setdataCategorys] = useState<Category[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
@@ -72,7 +73,7 @@ const Users = () => {
     const getData = async () => {
         const q = query(collection(db, 'Categorias'));
         const querySnapshot = await getDocs(q);
-        const usuarios = [];
+        const categorias = [];
     
         for (const doc of querySnapshot.docs) {
             const userData = doc.data();
@@ -84,7 +85,7 @@ const Users = () => {
                     uid: subDoc.id, // Almacena el ID de la subcategoría
                 }));
     
-                usuarios.push({
+                categorias.push({
                     ...userData,
                     id: doc.id,
                     subcategorias: subcategoriesData, // Añade las subcategorías aquí
@@ -92,7 +93,7 @@ const Users = () => {
             }
         }
     
-        setDataUsers(usuarios);
+        setdataCategorys(categorias);
     };
 
     useEffect(() => {
@@ -106,6 +107,7 @@ const Users = () => {
         fechaCreacion: Timestamp.fromDate(new Date()),
         logoUrl: '',
         nombreUser: '',
+        estatus: 'true',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
@@ -207,6 +209,7 @@ const Users = () => {
                 fechaCreacion: Timestamp.fromDate(new Date()),
                 logoUrl: '',
                 nombreUser: '',
+                estatus: 'true',
                 uid: '',
                 id: '',
             });
@@ -251,8 +254,7 @@ const Users = () => {
                 // Cerrar el drawer
                 setDrawerIsOpen(false)
 
-                // Recargar la página
-                window.location.reload()
+                
                 getData() // Refrescar datos después de guardar
             } catch (error) {
                 console.error('Error actualizando la categoría:', error)
@@ -457,7 +459,7 @@ const Users = () => {
     
 
     const table = useReactTable({
-        data: dataUsers,
+        data: dataCategorys,
         columns,
         state: {
             sorting,
@@ -486,6 +488,11 @@ const Users = () => {
     // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
+
+    const handleDrawerCloseEdit = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e);
+        setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
+    }
 
     
 
@@ -627,7 +634,7 @@ const Users = () => {
             </Dialog>
             <Drawer
     isOpen={drawerIsOpen}
-    onClose={handleDrawerClose}
+    onClose={handleDrawerCloseEdit}
     className="rounded-md shadow"
 >
     <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
@@ -721,7 +728,7 @@ const Users = () => {
     </div>
 
     <div className="text-right mt-6">
-        <Button variant="default" onClick={handleDrawerClose} className="mr-2">
+        <Button variant="default" onClick={handleDrawerCloseEdit} className="mr-2">
             Cancelar
         </Button>
         <Button
