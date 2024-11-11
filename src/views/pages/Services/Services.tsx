@@ -413,13 +413,13 @@ useEffect(() => {
         });
         setSelectedService(null); // Limpia la selección (si es necesario)
     }
-    
+
     const handleDrawerCloseEdit = (e: MouseEvent) => {
         console.log('Drawer cerrado', e);
         setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
     }
     
-    
+
     
 
     const handleDelete = async () => {

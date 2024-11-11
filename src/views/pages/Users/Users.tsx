@@ -452,6 +452,11 @@ const Users = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
+    const handleDrawerCloseEdit = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e);
+        setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
+    }
+
     return (
         <>
             <div className="grid grid-cols-2">
@@ -590,7 +595,7 @@ const Users = () => {
             </Dialog>
             <Drawer
                 isOpen={drawerIsOpen}
-                onClose={handleDrawerClose}
+                onClose={handleDrawerCloseEdit}
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
@@ -719,7 +724,7 @@ const Users = () => {
                     <Button
                         className="mr-2"
                         variant="default"
-                        onClick={handleDrawerClose}
+                        onClick={handleDrawerCloseEdit}
                     >
                         Cancelar
                     </Button>
