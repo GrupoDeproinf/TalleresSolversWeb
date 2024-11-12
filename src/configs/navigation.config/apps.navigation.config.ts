@@ -61,8 +61,8 @@ const appsNavigationConfig: NavigationTree[] = [
             {
                 key: 'apps.services',
                 path: `${APP_PREFIX_PATH}/services`,
-                title: 'Servicios',
-                translateKey: 'Servicios',
+                title: 'Plantillas Servicios',
+                translateKey: 'Plantillas Servicios',
                 icon: 'tools',
                 type: NAV_ITEM_TYPE_COLLAPSE,
                 authority: [ADMIN, USER],
