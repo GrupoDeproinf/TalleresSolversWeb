@@ -1,12 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react'
-import {
-    collection,
-    doc,
-    getDocs,
-    Timestamp,
-    updateDoc,
-} from 'firebase/firestore'
-import { db } from '@/configs/firebaseAssets.config'
+import { useEffect, useState } from 'react'
+import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import {
     flexRender,
@@ -14,160 +7,156 @@ import {
     getSortedRowModel,
     getFilteredRowModel,
     useReactTable,
-    ColumnFiltersState,
-    ColumnDef,
 } from '@tanstack/react-table'
-import { Row } from '@tanstack/react-table'
+import type {
+    ColumnDef,
+    ColumnSort,
+    ColumnFiltersState,
+    FilterFn,
+} from '@tanstack/react-table'
 import {
-    Drawer,
-    Pagination,
-    Button,
-    Switcher,
-    toast,
-    Notification,
-} from '@/components/ui'
-import { FaCheckCircle, FaExclamationCircle, FaRegEye } from 'react-icons/fa'
+    FaRegEye,
+    FaCheckCircle,
+    FaExclamationCircle,
+    FaTimesCircle,
+} from 'react-icons/fa'
+import {
+    collection,
+    getDocs,
+    query,
+    doc,
+    updateDoc,
+    Timestamp,
+    getDoc,
+} from 'firebase/firestore'
+import { db } from '@/configs/firebaseAssets.config'
+import Button from '@/components/ui/Button'
+import toast from '@/components/ui/toast'
+import Notification from '@/components/ui/Notification'
+import type { MouseEvent } from 'react'
+import { Drawer, Select, Switcher } from '@/components/ui'
 
-interface Subscripcion {
+type Subscriptions = {
     nombre?: string
+    taller_uid?: string
     status?: string
-    monto: string
+    cantidad_servicios?: string
+    fecha_inicio: Timestamp
+    fecha_fin: Timestamp
     vigencia: string
-    fecha_inicio: Timestamp | null
-    fecha_fin: Timestamp | null
-    proximo_pago?: string
-}
-
-interface Usuario {
+    monto?: string
+    uid: string
     id: string
-    nombre: string
-    subscripcion_actual?: Subscripcion | null
+    comprobante_pago: {
+        monto?: string
+        metodo?: string
+        banco?: string
+        cedula?: string
+        receiptFile?: string
+        numReferencia?: string
+        telefono?: string
+        fechaPago?: Timestamp
+        correo?: string
+        bancoOrigen?: string
+        bancoDestino?: string
+    }
 }
 
-const UsuariosComponent = () => {
-    const [usuarios, setUsuarios] = useState<Usuario[]>([])
-    const [loading, setLoading] = useState<boolean>(true)
-    const [error, setError] = useState<string | null>(null)
-    const [sorting, setSorting] = useState<any[]>([])
-    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
+const Subscriptions = () => {
+    const [dataSubs, setDataSubs] = useState<Subscriptions[]>([])
+    const [sorting, setSorting] = useState<ColumnSort[]>([])
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
+    const [dialogIsOpen, setIsOpen] = useState(false)
+    const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
+        null,
+    )
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
-    const [selectedPerson, setSelectedPerson] = useState<{
-        usuario: Usuario | null
-        subscripcion: Subscripcion | null
-    }>({
-        usuario: null,
-        subscripcion: null,
-    })
-    const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6
+
+    const getData = async () => {
+        const q = query(collection(db, 'Subscripciones'))
+        const querySnapshot = await getDocs(q)
+        const subcripciones: Subscriptions[] = []
+
+        const promises = querySnapshot.docs.map(async (docSnap) => {
+            const subsData = docSnap.data() as Subscriptions
+            const tallerUid = subsData.taller_uid
+
+            let nombreTaller = ''
+            if (tallerUid) {
+                const usuarioDoc = await getDoc(doc(db, 'Usuarios', tallerUid))
+                if (usuarioDoc.exists()) {
+                    nombreTaller = usuarioDoc.data().nombre // Asumiendo que el campo que necesitas es "nombre"
+                }
+            }
+
+            return { ...subsData, uid: docSnap.id, nombreTaller }
+        })
+
+        const resolvedSubcripciones = await Promise.all(promises)
+        console.log('Subcripciones obtenidas:', resolvedSubcripciones) // Verifica la data aquí
+        setDataSubs(resolvedSubcripciones)
+    }
 
     useEffect(() => {
-        const fetchUsuarios = async () => {
-            try {
-                const usuariosCollection = collection(db, 'Usuarios')
-                const usuariosSnapshot = await getDocs(usuariosCollection)
-                const usuariosData: Usuario[] = usuariosSnapshot.docs.map(
-                    (doc) => ({
-                        id: doc.id,
-                        ...doc.data(),
-                    }),
-                ) as Usuario[]
-
-                const usuariosConSubscripcion = usuariosData.filter(
-                    (usuario) => usuario.subscripcion_actual,
-                )
-                setUsuarios(usuariosConSubscripcion)
-            } catch (error) {
-                console.error('Error fetching usuarios:', error)
-                setError('Error al cargar las subscripciones')
-            } finally {
-                setLoading(false)
-            }
-        }
-
-        fetchUsuarios()
+        getData()
     }, [])
 
-    // Función para abrir el drawer
-    const openDrawer = useCallback(
-        (usuario: Usuario, subscripcion: Subscripcion) => {
-            setSelectedPerson({ usuario, subscripcion })
-            setDrawerIsOpen(true)
-        },
-        [],
-    )
+    const openDialog = (person: Subscriptions) => {
+        setSelectedPerson(person)
+        setIsOpen(true)
+    }
+    const openDrawer = (person: Subscriptions) => {
+        setSelectedPerson(person)
+        setDrawerIsOpen(true) // Abre el Drawer
+    }
 
-    // Función para cerrar el drawer
-    const closeDrawer = useCallback(() => {
-        setDrawerIsOpen(false)
-        setSelectedPerson({ usuario: null, subscripcion: null })
-    }, [])
-
-    // Función para guardar cambios en la suscripción
     const handleSaveChanges = async () => {
-        if (selectedPerson.usuario?.id && selectedPerson.subscripcion) {
+        if (selectedPerson) {
             try {
-                // Verificar si la suscripción está cambiando de "Aprobado" a "Por Aprobar"
-                if (
-                    selectedPerson.subscripcion.status === 'Por Aprobar' &&
-                    selectedPerson.usuario.subscripcion_actual?.status ===
-                        'Aprobado'
-                ) {
-                    // Borrar las fechas si se cambia a "Por Aprobar"
+                let updateData
+
+                // Verificar si el estado está cambiando de "Aprobado" a "Por Aprobar"
+                if (selectedPerson.status === 'Por Aprobar') {
+                    // Datos para limpiar fechas
+                    updateData = {
+                        status: selectedPerson.status,
+                        fecha_inicio: null,
+                        fecha_fin: null,
+                        monto: selectedPerson.monto ?? '',
+                        nombre: selectedPerson.nombre,
+                        vigencia: selectedPerson.vigencia,
+                    }
+
+                    // Actualizar documento en Firestore - Subscripciones
                     await updateDoc(
-                        doc(db, 'Usuarios', selectedPerson.usuario.id),
-                        {
-                            'subscripcion_actual.status':
-                                selectedPerson.subscripcion.status,
-                            'subscripcion_actual.monto':
-                                selectedPerson.subscripcion.monto ?? '',
-                            'subscripcion_actual.fecha_inicio': null,
-                            'subscripcion_actual.fecha_fin': null,
-                        },
+                        doc(db, 'Subscripciones', selectedPerson.uid),
+                        updateData,
                     )
 
-                    // Mostrar notificación de éxito
+                    // Actualizar documento en Firestore - Usuarios (subscripcion_actual)
+                    if (selectedPerson.taller_uid) {
+                        await updateDoc(
+                            doc(db, 'Usuarios', selectedPerson.taller_uid),
+                            { subscripcion_actual: updateData },
+                        )
+                    }
+
+                    // Notificación de éxito
                     toast.push(
                         <Notification title="Éxito">
-                            Estado de suscripción actualizado con éxito.
+                            Subscripción actualizada con éxito.
                         </Notification>,
                     )
 
-                    // Actualizar el estado local
-                    setUsuarios((prevUsuarios) => {
-                        return prevUsuarios.map((usuario) => {
-                            if (usuario.id === selectedPerson.usuario?.id) {
-                                return {
-                                    ...usuario,
-                                    subscripcion_actual: {
-                                        ...selectedPerson.subscripcion,
-                                        fecha_inicio: null,
-                                        fecha_fin: null,
-                                        monto:
-                                            selectedPerson.subscripcion
-                                                ?.monto ?? '', // Valor por defecto para 'monto'
-                                        vigencia:
-                                            selectedPerson.subscripcion
-                                                ?.vigencia ?? '', // Valor por defecto para 'vigencia'
-                                    },
-                                }
-                            }
-                            return usuario
-                        })
-                    })
-
                     setDrawerIsOpen(false)
-                    return // Salir de la función, ya que no es necesario continuar
+                    getData() // Refrescar datos después de guardar
+                    return // Salir de la función
                 }
 
-                // Obtener la fecha actual (fecha_inicio)
+                // Calcular fechas si el estado no es "Por Aprobar"
                 const fechaInicio = new Date()
+                const vigenciaDias = parseInt(selectedPerson.vigencia, 10)
 
-                // Verificar y convertir vigencia a un número
-                const vigenciaDias = parseInt(
-                    selectedPerson.subscripcion.vigencia,
-                    10,
-                )
                 if (isNaN(vigenciaDias)) {
                     toast.push(
                         <Notification title="Error">
@@ -179,68 +168,49 @@ const UsuariosComponent = () => {
 
                 const fechaFin = new Date(fechaInicio)
                 fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
-                const fechaInicioTimestamp = Timestamp.fromDate(fechaInicio)
-                const fechaFinTimestamp = Timestamp.fromDate(fechaFin)
 
-                // Actualizar el documento del usuario en Firestore
+                // Datos de actualización
+                updateData = {
+                    nombre: selectedPerson.nombre,
+                    vigencia: selectedPerson.vigencia,
+                    fecha_inicio: Timestamp.fromDate(fechaInicio),
+                    fecha_fin: Timestamp.fromDate(fechaFin),
+                    status: selectedPerson.status,
+                    cantidad_servicios: selectedPerson.cantidad_servicios,
+                    monto: selectedPerson.monto,
+                }
+
+                // Actualizar documento en Firestore - Subscripciones
                 await updateDoc(
-                    doc(db, 'Usuarios', selectedPerson.usuario.id),
-                    {
-                        'subscripcion_actual.status':
-                            selectedPerson.subscripcion.status,
-                        'subscripcion_actual.monto':
-                            selectedPerson.subscripcion.monto ?? '',
-                        'subscripcion_actual.vigencia':
-                            selectedPerson.subscripcion.vigencia,
-                        'subscripcion_actual.fecha_inicio':
-                            fechaInicioTimestamp,
-                        'subscripcion_actual.fecha_fin': fechaFinTimestamp,
-                    },
+                    doc(db, 'Subscripciones', selectedPerson.uid),
+                    updateData,
                 )
 
+                // Actualizar documento en Firestore - Usuarios (subscripcion_actual)
+                if (selectedPerson.taller_uid) {
+                    await updateDoc(
+                        doc(db, 'Usuarios', selectedPerson.taller_uid),
+                        { subscripcion_actual: updateData },
+                    )
+                }
+
+                // Notificación de éxito
                 toast.push(
                     <Notification title="Éxito">
-                        Estado de suscripción actualizado con éxito.
+                        Subscripción actualizada con éxito.
                     </Notification>,
                 )
 
-                // Actualizar el estado local
-                setUsuarios((prevUsuarios) => {
-                    return prevUsuarios.map((usuario) => {
-                        if (usuario.id === selectedPerson.usuario?.id) {
-                            return {
-                                ...usuario,
-                                subscripcion_actual: selectedPerson.subscripcion
-                                    ? {
-                                          ...selectedPerson.subscripcion,
-                                          fecha_inicio: fechaInicioTimestamp,
-                                          fecha_fin: fechaFinTimestamp,
-                                      }
-                                    : usuario.subscripcion_actual,
-                            }
-                        }
-                        return usuario
-                    })
-                })
-
                 setDrawerIsOpen(false)
+                getData() // Refrescar datos después de guardar
             } catch (error) {
-                console.error(
-                    'Error actualizando el estado de la suscripción:',
-                    error,
-                )
+                console.error('Error actualizando la subscripción:', error)
                 toast.push(
                     <Notification title="Error">
-                        Hubo un error al actualizar el estado de la suscripción.
+                        Hubo un error al actualizar la subscripción.
                     </Notification>,
                 )
             }
-        } else {
-            toast.push(
-                <Notification title="Error">
-                    Información de usuario o suscripción no disponible.
-                </Notification>,
-            )
         }
     }
 
@@ -253,68 +223,111 @@ const UsuariosComponent = () => {
         return '-' // Si no es un Timestamp, muestra un guión
     }
 
-    const columns: ColumnDef<Usuario>[] = [
+    const { Tr, Th, Td, THead, TBody, Sorter } = Table
+
+    const onDialogClose = (e: MouseEvent) => {
+        console.log('onDialogClose', e)
+        setIsOpen(false)
+        setSelectedPerson(null) // Limpiar selección
+    }
+
+    const handleDrawerClose = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e)
+        setDrawerIsOpen(false)
+        setSelectedPerson(null) // Limpiar la selección
+    }
+
+    const [currentPage, setCurrentPage] = useState(1)
+    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
+
+    const onPaginationChange = (page: number) => {
+        console.log('onPaginationChange', page)
+        setCurrentPage(page) // Actualiza la página actual
+    }
+
+    // Calcular el índice de inicio y fin para la paginación
+    const startIndex = (currentPage - 1) * rowsPerPage
+    const endIndex = startIndex + rowsPerPage
+
+    const handleFilterChange = (columnId: string, value: string) => {
+        setFiltering((prev) => {
+            // Actualizar el filtro correspondiente a la columna
+            const newFilters = prev.filter((filter) => filter.id !== columnId)
+            if (value !== '') {
+                newFilters.push({ id: columnId, value })
+            }
+            return newFilters
+        })
+    }
+
+    const options = [
+        { value: 'Aprobado', label: 'Aprobado', color: '#28a745' },
+        { value: 'Vencido', label: 'Vencido', color: '#dc3545' },
+        { value: 'Por Aprobar', label: 'Por Aprobar', color: '#ffc107' },
+    ]
+
+    const columns: ColumnDef<Subscriptions>[] = [
         {
             header: 'Plan',
-            accessorKey: 'subscripcion_actual.nombre',
+            accessorKey: 'nombre',
+            enableColumnFilter: true, // Mostrar buscador
         },
         {
             header: 'Taller Subscrito',
-            accessorKey: 'nombre',
+            accessorKey: 'nombreTaller',
+            enableColumnFilter: true,
+        },
+        {
+            header: 'Cantidad de Servicios',
+            accessorKey: 'cantidad_servicios',
         },
         {
             header: 'Monto',
-            accessorKey: 'subscripcion_actual.monto',
-            filterFn: (row, columnId, value) => {
-                const monto = row.getValue(columnId)
-                return monto?.toString().includes(value) || false
-            },
-            cell: ({ row }: { row: Row<Usuario> }) => {
-                const monto = parseFloat(
-                    row.original.subscripcion_actual?.monto || '0',
-                )
-                return `$${monto.toFixed(2)}`
-            },
+            accessorKey: 'monto',
         },
         {
             header: 'Fecha de Aprobacion',
-            accessorKey: 'subscripcion_actual.fecha_inicio',
+            accessorKey: 'fecha_inicio',
             cell: ({ row }) => {
-                const fechaInicio =
-                    row.original.subscripcion_actual?.fecha_inicio
-                console.log('Fecha inicio:', fechaInicio) // Verifica aquí la salida
+                const fechaInicio = row.original.fecha_inicio
                 return fechaInicio ? formatDate(fechaInicio) : '-'
             },
         },
         {
-            header: 'Vigente hasta',
-            accessorKey: 'subscripcion_actual.fecha_fin',
+            header: 'Vigente Hasta',
+            accessorKey: 'fecha_fin',
             cell: ({ row }) => {
-                console.log(
-                    'Fecha de fin:',
-                    row.original.subscripcion_actual?.fecha_fin,
-                )
-                const fechaFin = row.original.subscripcion_actual?.fecha_fin
+                const fechaFin = row.original.fecha_fin
+                console.log('fecha fin:', fechaFin) // Verifica aquí la salida
                 return fechaFin ? formatDate(fechaFin) : '-'
             },
         },
         {
-            header: 'Status',
-            accessorKey: 'subscripcion_actual.status',
-            cell: ({ getValue }) => {
-                const status = (getValue() as string) || 'N/A' // Asegura que status es un string
+            header: 'Estado',
+            accessorKey: 'status',
+            enableColumnFilter: true,
+            cell: ({ row }) => {
+                const status = row.getValue('status') as string
+                let icon
+                let color
 
-                let icon = null
-                let color = ''
-
-                if (status === 'Aprobado') {
-                    icon = <FaCheckCircle className="mr-1" />
-                    color = 'text-green-500'
-                } else if (status === 'Por Aprobar') {
-                    icon = <FaExclamationCircle className="mr-1" />
-                    color = 'text-yellow-500'
-                } else if (status === 'Rechazado') {
-                    color = 'text-red-500'
+                switch (status) {
+                    case 'Aprobado':
+                        icon = <FaCheckCircle className="text-green-500 mr-1" />
+                        color = 'text-green-500'
+                        break
+                    case 'Vencido':
+                        icon = <FaTimesCircle className="text-red-500 mr-1" />
+                        color = 'text-red-500'
+                        break
+                    case 'Por Aprobar':
+                        icon = (
+                            <FaExclamationCircle className="text-yellow-500 mr-1" />
+                        )
+                        color = 'text-yellow-500'
+                        break
+                    default:
+                        icon = null
                 }
 
                 return (
@@ -328,32 +341,26 @@ const UsuariosComponent = () => {
         {
             header: ' ',
             cell: ({ row }) => {
-                const subscription = row.original.subscripcion_actual
-
-                return (
+                const person = row.original
+                return person.status !== 'Vencido' ? (
                     <div className="gap-2">
-                        {subscription ? ( // Solo muestra el botón si subscription está definido
-                            <button
-                                onClick={() =>
-                                    openDrawer(row.original, subscription)
-                                }
-                                className="text-blue-900"
-                            >
-                                <FaRegEye />
-                            </button>
-                        ) : null}
+                        <button
+                            onClick={() => openDrawer(person)}
+                            className="text-blue-900"
+                        >
+                            <FaRegEye />
+                        </button>
                     </div>
-                )
+                ) : null // Retorna null si el status es "Vencido"
             },
         },
     ]
 
     const table = useReactTable({
-        data: usuarios,
+        data: dataSubs,
         columns,
         state: {
-            sorting,
-            columnFilters: filtering,
+            columnFilters: filtering, // Usar el array de filtros
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
@@ -362,208 +369,317 @@ const UsuariosComponent = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    const totalRows = table.getRowModel().rows.length
-    const startIndex = (currentPage - 1) * rowsPerPage
-    const endIndex = startIndex + rowsPerPage
+    const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
+    const totalRows = data.length
 
-    const handlePaginationChange = (page: number) => setCurrentPage(page)
-
-    const renderContent = () => {
-        if (error) return <p>{error}</p>
-
-        return (
-            <>
+    return (
+        <>
+            <div className="grid grid-cols-2">
+                <h1 className="mb-6 flex justify-start">Subscripciones</h1>
+            </div>
+            <div>
                 <Table>
-                    <Table.THead>
+                    <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
-                            <Table.Tr key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => (
-                                    <Table.Th
-                                        key={header.id}
-                                        colSpan={header.colSpan}
-                                    >
-                                        {header.isPlaceholder ? null : (
-                                            <div
-                                                {...{
-                                                    className:
-                                                        header.column.getCanSort()
-                                                            ? 'cursor-pointer select-none'
-                                                            : '',
-                                                    onClick:
-                                                        header.column.getToggleSortingHandler(),
-                                                }}
-                                            >
-                                                {flexRender(
+                            <Tr key={headerGroup.id}>
+                                {headerGroup.headers.map((header) => {
+                                    return (
+                                        <Th
+                                            key={header.id}
+                                            colSpan={header.colSpan}
+                                        >
+                                            {header.isPlaceholder ? null : (
+                                                <div
+                                                    {...{
+                                                        className:
+                                                            header.column.getCanSort()
+                                                                ? 'cursor-pointer select-none'
+                                                                : '',
+                                                        onClick:
+                                                            header.column.getToggleSortingHandler(),
+                                                    }}
+                                                >
+                                                    {flexRender(
+                                                        header.column.columnDef
+                                                            .header,
+                                                        header.getContext(),
+                                                    )}
+                                                    {/* Agregar un buscador para cada columna */}
+                                                    {header.column.getCanFilter() &&
                                                     header.column.columnDef
-                                                        .header,
-                                                    header.getContext(),
-                                                )}
-                                                {header.column.getIsSorted()
-                                                    ? header.column.getIsSorted() ===
-                                                      'asc'
-                                                        ? ' 🔼'
-                                                        : ' 🔽'
-                                                    : null}
-                                                {header.column.getCanFilter() && (
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Buscar"
-                                                        onChange={(e) =>
-                                                            setFiltering(
-                                                                (prev) => {
-                                                                    const newFilters =
-                                                                        prev.filter(
+                                                        .enableColumnFilter ? (
+                                                        header.column.id ===
+                                                        'status' ? ( // Verifica si es la columna "Estado"
+                                                            <Select
+                                                                options={
+                                                                    options
+                                                                }
+                                                                onChange={(
+                                                                    option,
+                                                                ) =>
+                                                                    handleFilterChange(
+                                                                        header.id,
+                                                                        option
+                                                                            ? option.value
+                                                                            : '',
+                                                                    )
+                                                                }
+                                                                placeholder="Filtrar estado"
+                                                                isClearable
+                                                                className="mt-2 w-44"
+                                                            />
+                                                        ) : (
+                                                            <input
+                                                                type="text"
+                                                                value={
+                                                                    filtering
+                                                                        .find(
                                                                             (
                                                                                 filter,
                                                                             ) =>
-                                                                                filter.id !==
+                                                                                filter.id ===
                                                                                 header.id,
                                                                         )
-                                                                    if (
+                                                                        ?.value?.toString() ||
+                                                                    ''
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleFilterChange(
+                                                                        header.id,
                                                                         e.target
-                                                                            .value
-                                                                    ) {
-                                                                        newFilters.push(
-                                                                            {
-                                                                                id: header.id,
-                                                                                value: e
-                                                                                    .target
-                                                                                    .value,
-                                                                            },
-                                                                        )
-                                                                    }
-                                                                    return newFilters
-                                                                },
-                                                            )
-                                                        }
-                                                        className="mt-2 p-1 border rounded"
-                                                    />
-                                                )}
-                                            </div>
-                                        )}
-                                    </Table.Th>
-                                ))}
-                            </Table.Tr>
-                        ))}
-                    </Table.THead>
-                    <Table.TBody>
-                        {table
-                            .getRowModel()
-                            .rows.slice(startIndex, endIndex)
-                            .map((row) => (
-                                <Table.Tr key={row.id}>
-                                    {row.getVisibleCells().map((cell) => (
-                                        <Table.Td key={cell.id}>
-                                            {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext(),
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                                placeholder="Buscar"
+                                                                className="mt-2 p-1 border rounded "
+                                                                onClick={(e) =>
+                                                                    e.stopPropagation()
+                                                                }
+                                                            />
+                                                        )
+                                                    ) : null}
+                                                </div>
                                             )}
-                                        </Table.Td>
-                                    ))}
-                                </Table.Tr>
-                            ))}
-                    </Table.TBody>
+                                        </Th>
+                                    )
+                                })}
+                            </Tr>
+                        ))}
+                    </THead>
+                    <TBody>
+                        {data.slice(startIndex, endIndex).map((row) => {
+                            return (
+                                <Tr key={row.id}>
+                                    {row.getVisibleCells().map((cell) => {
+                                        return (
+                                            <Td key={cell.id}>
+                                                {flexRender(
+                                                    cell.column.columnDef.cell,
+                                                    cell.getContext(),
+                                                )}
+                                            </Td>
+                                        )
+                                    })}
+                                </Tr>
+                            )
+                        })}
+                    </TBody>
                 </Table>
                 <Pagination
-                    onChange={handlePaginationChange}
+                    onChange={onPaginationChange}
                     currentPage={currentPage}
                     totalRows={totalRows}
                     rowsPerPage={rowsPerPage}
                 />
-            </>
-        )
-    }
-
-    return (
-        <div>
-            <h1 className="mb-6">Suscripciones Actuales</h1>
-            {renderContent()}
+            </div>
             <Drawer
                 isOpen={drawerIsOpen}
-                onClose={closeDrawer}
-                className="rounded-md shadow"
+                onClose={handleDrawerClose}
+                className="rounded-md shadow" // Añadir estilo al Drawer
             >
                 <div className="grid grid-cols-2">
                     <h2 className="flex mb-4 text-xl font-bold">
-                        Revisión Subscripción
+                        Revisión de Pago
                     </h2>
                     <div className="flex items-center">
                         <Switcher
-                            // Compara con el estado actual de la subscripción
                             defaultChecked={
-                                selectedPerson?.subscripcion?.status ===
-                                'Aprobado'
-                            }
-                            onChange={(e) => {
-                                setSelectedPerson((prev) => ({
-                                    ...prev, // Copia el objeto anterior
-                                    subscripcion: prev?.subscripcion
-                                        ? {
-                                              ...prev.subscripcion, // Copia de la subscripción actual
-                                              status: e
-                                                  ? 'Aprobado'
-                                                  : 'Por Aprobar', // Cambia el estado
-                                          }
-                                        : null, // Si no hay subscripción, se pone null (aunque deberías manejar este caso)
+                                selectedPerson?.status === 'Aprobado'
+                            } // Determina si el Switcher debe estar activado o no
+                            onChange={(e) =>
+                                setSelectedPerson((prev: any) => ({
+                                    ...(prev ?? {
+                                        nombre: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
+                                        uid: '',
+                                        vigencia: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    status: e ? 'Aprobado' : 'Por Aprobar', // Cambia el estado según la posición del Switcher
                                 }))
-                            }}
+                            }
                             color={
-                                selectedPerson?.subscripcion?.status ===
-                                'Aprobado'
+                                selectedPerson?.status === 'Aprobado'
                                     ? 'green-500'
                                     : 'red-500'
                             }
                         />
                         <span className="ml-2 text-gray-700">
-                            {selectedPerson?.subscripcion?.status}
-                        </span>
+                            {selectedPerson?.status}
+                        </span>{' '}
+                        {/* Muestra el estado actual */}
                     </div>
                 </div>
                 <div className="flex flex-col space-y-6">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Plan:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.subscripcion?.nombre || ''}
-                            readOnly // Aquí se agrega el atributo readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Taller Subscrito:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.usuario?.nombre || ''}
-                            readOnly // Aquí se agrega el atributo readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Monto
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.subscripcion?.monto || ''}
-                            readOnly // Aquí se agrega el atributo readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Vigencia:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.subscripcion?.vigencia || ''}
-                            readOnly // Aquí se agrega el atributo readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
+                    {' '}
+                    {selectedPerson?.comprobante_pago.metodo && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Metodo de Pago:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.metodo}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.fechaPago && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Fecha de Pago:
+                            </span>
+                            <input
+                                type="text"
+                                value={new Date(
+                                    selectedPerson.comprobante_pago.fechaPago
+                                        .seconds * 1000,
+                                ).toLocaleDateString('es-ES', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                })}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.bancoOrigen && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Banco Origen:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago.bancoOrigen
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.bancoDestino && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Banco Destino:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago.bancoDestino
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.correo && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Correo:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.correo}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.cedula && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Cedula:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.cedula}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.telefono && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Telefono:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.telefono}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.monto && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Monto:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.monto}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.numReferencia && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Numero de referencia:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago
+                                        .numReferencia
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.receiptFile && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Comprobante de pago:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago.receiptFile
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
                 </div>
                 <div className="text-center mt-6 ">
                     <Button
@@ -575,8 +691,8 @@ const UsuariosComponent = () => {
                     </Button>
                 </div>
             </Drawer>
-        </div>
+        </>
     )
 }
 
-export default UsuariosComponent
+export default Subscriptions

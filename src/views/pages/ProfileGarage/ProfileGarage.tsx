@@ -11,6 +11,7 @@ import {
     query,
     addDoc,
     Timestamp,
+    setDoc,
 } from 'firebase/firestore'
 import Container from '@/components/shared/Container'
 import Card from '@/components/ui/Card'
@@ -48,6 +49,7 @@ import Checkbox from '@/components/ui/Checkbox'
 import { SiZelle } from 'react-icons/si'
 import PaymentForm from './Components/PaymentForm'
 import PaymentDrawer from './Components/PaymentForm'
+import { original } from '@reduxjs/toolkit'
 
 type Service = {
     nombre_servicio: string
@@ -99,8 +101,9 @@ const ProfileGarage = () => {
         monto: '',
         status: '',
         vigencia: '',
+        uid: '' ,
     }); // Estado para la suscripción actual
-    const [subscripciones, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
+    const [subscripcionestable, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
     const [formData, setFormData] = useState({
         logoUrl: '',
         nombre: '',
@@ -199,6 +202,7 @@ const ProfileGarage = () => {
 
             const endDate = subscripcionActual?.fecha_fin;
             console.log("aqui endDate", endDate)
+            console.log('data', subscripciones)
 
             if (endDate) {
                 const daysRemaining = calculateDaysRemaining(endDate);
@@ -258,11 +262,10 @@ const ProfileGarage = () => {
     const handleSubscribe = async (plan: any) => {
         try {
             const usuarioDocRef = doc(db, 'Usuarios', path);
-            const subscripcionesRef = collection(db, 'Subscripciones');
+            const newSubscriptionRef = doc(collection(db, 'Subscripciones'));
 
-
-            await addDoc(subscripcionesRef, {
-                uid: plan.uid,
+            await setDoc(newSubscriptionRef, {
+                uid: newSubscriptionRef.id,  // Usa el ID generado como uid
                 nombre: plan.nombre,
                 monto: plan.monto,
                 vigencia: plan.vigencia,
@@ -271,10 +274,9 @@ const ProfileGarage = () => {
                 taller_uid: path,
             });
 
-
             await updateDoc(usuarioDocRef, {
                 subscripcion_actual: {
-                    uid: plan.uid,
+                    uid: newSubscriptionRef.id,
                     nombre: plan.nombre,
                     monto: plan.monto,
                     vigencia: plan.vigencia,
@@ -467,6 +469,10 @@ const ProfileGarage = () => {
         {
             header: 'Fecha de vencimiento',
             accessorKey: 'fecha_fin',
+            cell:({row})=>{
+                const fecha = formatDate(row.original.fecha_fin)
+                return `${fecha}`
+            }
            
         },
     ]
@@ -503,7 +509,7 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const table3 = useReactTable({
-        data: subscripciones, // Cambiar aquí para usar el estado de servicios
+        data: subscripcionestable, // Cambiar aquí para usar el estado de servicios
         columns: columns3,
         state: {
             sorting,
@@ -702,10 +708,10 @@ const ProfileGarage = () => {
                                                         </Tag>
                                                     </div>
                                                     <div className="grid grid-cols-4">
-                                                        <p className="text-sm text-gray-500">
+                                                        <p className="text-xs text-gray-500">
                                                             Vigencia: {subscription?.vigencia ?? '---'} días
                                                         </p>
-                                                        <p className="text-sm text-gray-600">
+                                                        <p className="text-xs text-gray-600">
                                                             Monto mensual: <span className="font-bold text-gray-800">${subscription?.monto ?? '---'}</span>
                                                         </p>
                                                         {subscription?.status === 'Aprobado' && (
@@ -723,7 +729,7 @@ const ProfileGarage = () => {
                                             </div>
                                             {subscription?.status === 'Por Aprobar' && (
                                                 <div className="flex justify-end mt-2">
-                                                    <PaymentDrawer />
+                                                    <PaymentDrawer subscriptionId={subscripcionestable[0]?.uid } />
                                                 </div>
                                             )}
                                         </div>
