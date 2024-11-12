@@ -35,6 +35,7 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Drawer, Select, Switcher } from '@/components/ui'
+import { HiOutlineRefresh } from 'react-icons/hi'
 
 type Subscriptions = {
     nombre?: string
@@ -65,7 +66,7 @@ type Subscriptions = {
 const Subscriptions = () => {
     const [dataSubs, setDataSubs] = useState<Subscriptions[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
         null,
@@ -85,7 +86,7 @@ const Subscriptions = () => {
             if (tallerUid) {
                 const usuarioDoc = await getDoc(doc(db, 'Usuarios', tallerUid))
                 if (usuarioDoc.exists()) {
-                    nombreTaller = usuarioDoc.data().nombre // Asumiendo que el campo que necesitas es "nombre"
+                    nombreTaller = usuarioDoc.data().nombre
                 }
             }
 
@@ -93,13 +94,20 @@ const Subscriptions = () => {
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
-        console.log('Subcripciones obtenidas:', resolvedSubcripciones) // Verifica la data aquí
         setDataSubs(resolvedSubcripciones)
     }
-
     useEffect(() => {
         getData()
     }, [])
+
+    const handleRefresh = async () => {
+        await getData()
+        toast.push(
+            <Notification title="Datos actualizados">
+                La tabla ha sido actualizada con éxito.
+            </Notification>,
+        )
+    }
 
     const openDialog = (person: Subscriptions) => {
         setSelectedPerson(person)
@@ -114,7 +122,6 @@ const Subscriptions = () => {
         if (selectedPerson) {
             try {
                 let updateData
-
                 // Verificar si el estado está cambiando de "Aprobado" a "Por Aprobar"
                 if (selectedPerson.status === 'Por Aprobar') {
                     // Datos para limpiar fechas
@@ -126,14 +133,11 @@ const Subscriptions = () => {
                         nombre: selectedPerson.nombre,
                         vigencia: selectedPerson.vigencia,
                     }
-
                     // Actualizar documento en Firestore - Subscripciones
                     await updateDoc(
                         doc(db, 'Subscripciones', selectedPerson.uid),
                         updateData,
                     )
-
-                    // Actualizar documento en Firestore - Usuarios (subscripcion_actual)
                     if (selectedPerson.taller_uid) {
                         await updateDoc(
                             doc(db, 'Usuarios', selectedPerson.taller_uid),
@@ -153,7 +157,7 @@ const Subscriptions = () => {
                     return // Salir de la función
                 }
 
-                // Calcular fechas si el estado no es "Por Aprobar"
+                // Calcular fechas si el estado es "Aprobado"
                 const fechaInicio = new Date()
                 const vigenciaDias = parseInt(selectedPerson.vigencia, 10)
 
@@ -179,7 +183,6 @@ const Subscriptions = () => {
                     cantidad_servicios: selectedPerson.cantidad_servicios,
                     monto: selectedPerson.monto,
                 }
-
                 // Actualizar documento en Firestore - Subscripciones
                 await updateDoc(
                     doc(db, 'Subscripciones', selectedPerson.uid),
@@ -219,17 +222,10 @@ const Subscriptions = () => {
             const dateObj = timestamp.toDate() // Convierte Timestamp a Date
             return dateObj.toLocaleDateString('es-ES') // Formatea la fecha en formato 'DD/MM/YYYY'
         }
-        console.warn('Timestamp no válido:', timestamp)
         return '-' // Si no es un Timestamp, muestra un guión
     }
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
-
-    const onDialogClose = (e: MouseEvent) => {
-        console.log('onDialogClose', e)
-        setIsOpen(false)
-        setSelectedPerson(null) // Limpiar selección
-    }
 
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
@@ -298,7 +294,6 @@ const Subscriptions = () => {
             accessorKey: 'fecha_fin',
             cell: ({ row }) => {
                 const fechaFin = row.original.fecha_fin
-                console.log('fecha fin:', fechaFin) // Verifica aquí la salida
                 return fechaFin ? formatDate(fechaFin) : '-'
             },
         },
@@ -342,7 +337,8 @@ const Subscriptions = () => {
             header: ' ',
             cell: ({ row }) => {
                 const person = row.original
-                return person.status !== 'Vencido' ? (
+                return person.status !== 'Vencido' &&
+                    person.comprobante_pago ? (
                     <div className="gap-2">
                         <button
                             onClick={() => openDrawer(person)}
@@ -351,7 +347,7 @@ const Subscriptions = () => {
                             <FaRegEye />
                         </button>
                     </div>
-                ) : null // Retorna null si el status es "Vencido"
+                ) : null
             },
         },
     ]
@@ -375,7 +371,13 @@ const Subscriptions = () => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Subscripciones</h1>
+                <h1 className="mb-6 flex justify-start">Subscripciones </h1>
+                <button className="flex justify-end mt-4 p-4">
+                    <HiOutlineRefresh
+                        onClick={handleRefresh}
+                        className="w-5 h-5 bg-slate-100 hover:bg-slate-300 rounded-md m-1 "
+                    />
+                </button>
             </div>
             <div>
                 <Table>

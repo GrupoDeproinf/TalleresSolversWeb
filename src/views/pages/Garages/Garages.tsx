@@ -139,7 +139,6 @@ const Garages = () => {
                     logoUrl: newGarage.logoUrl,
                     status: newGarage.status,
                     direccion: newGarage.direccion,
-                    // Inicialmente puedes dejar el campo uid vacío aquí
                     uid: '', // Este se actualizará después
                 })
 
@@ -154,8 +153,7 @@ const Garages = () => {
                     </Notification>,
                 )
                 setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
-                // getData() // Refrescar la lista de usuarios
-                window.location.reload()
+                getData()
             } catch (error) {
                 if (error instanceof z.ZodError) {
                     const errorMessages = error.errors
@@ -219,17 +217,18 @@ const Garages = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerCreateIsOpen(false); // Cierra el Drawer
-        setNewGarage({ // Limpia los campos de usuario
+        console.log('Drawer cerrado', e)
+        setDrawerCreateIsOpen(false) // Cierra el Drawer
+        setNewGarage({
+            // Limpia los campos de usuario
             nombre: '',
             email: '',
             rif: '',
             phone: '',
             id: '',
             uid: '',
-        });
-        setSelectedPerson(null); // Limpia la selección (si es necesario)
+        })
+        setSelectedPerson(null) // Limpia la selección (si es necesario)
     }
 
     // Obtener iniciales de los nombres

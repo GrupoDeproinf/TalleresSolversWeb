@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
+import { Drawer } from '@/components/ui'
+import Select from '@/components/ui/Select';
 import {
     flexRender,
     getCoreRowModel,
@@ -19,8 +21,10 @@ import {
     FaTimesCircle,
     FaStar,
     FaStarHalfAlt,
+    FaTrash,
+    FaEdit,
 } from 'react-icons/fa'
-import { collection, getDocs, query, getDoc, doc, updateDoc, Timestamp } from 'firebase/firestore'
+import { collection, getDocs, query, getDoc, doc, updateDoc, Timestamp, addDoc, where } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
@@ -29,7 +33,7 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar } from '@/components/ui'
 
-type Person = {
+type Garage = {
     nombre?: string
     email?: string
     rif?: string
@@ -54,84 +58,252 @@ type subscricion = {
 }
 
 type Service = {
-    nombre_servicio: string
-    descripcion: string
-    precio: string
-    taller: string
-    puntuacion: string
+    nombre?: string
+    descripcion?: string
+    precio?: string
+    uid_taller?: string,
+    taller?: string,
     uid_servicio: string
-    id: string
+    estatus?: boolean,
+    garantia?: string,
+    puntuacion?: number,
+    id?: string
+    // Campos para categoría
+    uid_categoria?: string
+    nombre_categoria?: string
+    // Campos para subcategoría
+    subcategoria?: []
 }
 
+type ServiceTemplate = {
+    nombre?: string
+    descripcion?: string
+    uid_servicio?: string
+    
+    // Campos para categoría
+    uid_categoria?: string
+    nombre_categoria?: string
+    // Campos para subcategoría
+    subcategoria?: []
+    garantia?: string,
+
+
+    id?: string
+}
+
+type Category = {
+    nombre?: string;
+    uid_categoria?: string;
+    id?: string;
+};
+
+type Subcategory = {
+    nombre?: string;
+    descripcion?: string;
+    estatus?: string;
+    uid_subcategoria?: string;
+};
+
 const ServiceGarages = () => {
-    const [dataServiceGarages, setDataServiceGarages] = useState<Person[]>([])
-    const [dataServices, setDataServices] = useState<Service[]>([])
-    const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [dialogIsOpen, setIsOpen] = useState(false)
-    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
-    const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
-    const [selectedService, setSelectedService] = useState<Service | null>(null)
-    const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
 
-    const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([])
+    const [dataGarages, setDataGarages] = useState<Garage[]>([]);
+  const [dataCategories, setDataCategories] = useState<Category[]>([]);
+  const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null); // Estado para la categoría seleccionada
+  const [dataServices, setDataServices] = useState<Service[]>([]);
+  const [dataServicesTemplate, setDataServicesTemplate] = useState<ServiceTemplate[]>([]);
 
-    const toggleServiceSelection = (serviceId: string) => {
-        setSelectedServiceIds((prev) =>
-            prev.includes(serviceId)
-                ? prev.filter((id) => id !== serviceId)
-                : [...prev, serviceId],
-        )
+  const fetchData = async () => {
+    try {
+      // Consultas para obtener datos
+      const garagesQuery = query(collection(db, 'Usuarios'));
+      const categoriesQuery = query(collection(db, 'Categorias'));
+      const servicesQuery = query(collection(db, 'Servicios'));
+      const servicesTemplateQuery = query(collection(db, 'ServiciosTemplate'));
+
+      // Ejecutar todas las consultas en paralelo
+      const [garagesSnapshot, categoriesSnapshot, servicesSnapshot, servicesTemplateSnapshot] = await Promise.all([
+        getDocs(garagesQuery),
+        getDocs(categoriesQuery),
+        getDocs(servicesQuery),
+        getDocs(servicesTemplateQuery),
+      ]);
+
+      // Procesar los datos obtenidos de las colecciones
+      const talleres = garagesSnapshot.docs
+        .map((doc) => ({ ...doc.data(), id: doc.id } as Garage))
+        .filter((garage) => garage.typeUser === 'Taller');
+
+      const categorias = categoriesSnapshot.docs.map((doc) => ({ ...doc.data(), uid_categoria: doc.id } as Category));
+      const servicios = servicesSnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as Service));
+      const serviciosTemplate = servicesTemplateSnapshot.docs.map((doc) => ({ ...doc.data(), uid_servicio: doc.id } as ServiceTemplate));
+
+      // Asignar datos a los estados correspondientes
+      setDataGarages(talleres);
+      setDataCategories(categorias);
+      setDataServices(servicios);
+      setDataServicesTemplate(serviciosTemplate);
+
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []); // Se ejecuta solo una vez cuando el componente se monta
+
+  // Función para manejar el cambio de categoría seleccionada
+  const handleCategoryChange = async (categoryId: string) => {
+    setSelectedCategoryId(categoryId); // Actualiza el estado con el ID de la categoría seleccionada
+
+    if (!categoryId) {
+      setDataSubcategories([]); // Limpiar subcategorías si no se selecciona ninguna categoría
+      return;
     }
 
-    const getData = async () => {
-        const q = query(collection(db, 'Usuarios'))
-        const querySnapshot = await getDocs(q)
-        const usuarios: Person[] = []
+    try {
+      // Realiza la consulta para obtener las subcategorías de la categoría seleccionada
+      const subcategoriesQuery = query(collection(db, 'Categorias', categoryId, 'Subcategorias'));
+      const subcategoriesSnapshot = await getDocs(subcategoriesQuery);
 
-        querySnapshot.forEach((doc) => {
-            const userData = doc.data() as Person
-            if (
-                userData.typeUser === 'Taller' &&
-                userData.status === 'Aprobado'
-            ) {
-                usuarios.push({ ...userData, id: doc.id }) // Guardar el ID del documento
+      // Procesar los documentos de subcategorías
+      const subcategorias = subcategoriesSnapshot.docs.map((doc) => ({
+        ...doc.data(),
+        uid_subcategoria: doc.id,
+        nombre_subcategoria: doc.data().nombre,
+      }));
+
+      // Asignar las subcategorías al estado correspondiente
+      setDataSubcategories(subcategorias);
+    } catch (error) {
+      console.error('Error fetching subcategorias:', error);
+      setDataSubcategories([]); // Limpiar subcategorías en caso de error
+    }
+  };
+
+
+    const [selectedServiceTemplate, setSelectedServiceTemplate] = useState<ServiceTemplate | null>(null);
+    const [drawerIsOpen, setDrawerIsOpen] = useState(false);
+    const [newService, setNewService] = useState<Service | null>({
+        nombre: '',
+        descripcion: '',
+        uid_categoria: '',
+        nombre_categoria: '',
+        subcategoria: [],
+        precio: '',
+        uid_servicio: '',
+
+        estatus: true,
+        garantia: '',
+        puntuacion: 0,
+    });
+    
+    const handleCreateService = async () => {
+        if (
+            newService &&
+            newService.nombre &&
+            newService.descripcion &&
+            newService.nombre_categoria &&
+            newService.uid_categoria
+        ) {
+            try {
+                const userRef = collection(db, 'Servicios');
+                
+                // Añadir el documento y guardar su referencia
+                const docRef = await addDoc(userRef, {
+                    nombre: newService.nombre,
+                    descripcion: newService.descripcion,
+                    nombre_categoria: newService.nombre_categoria,
+                    uid_categoria: newService.uid_categoria,
+                    subcategoria: newService.subcategoria,
+                    precio: newService.precio,
+                    uid_taller: newService.uid_taller,
+                    taller: newService.taller,
+                    uid_servicio: '', // Inicialmente vacío
+                    garantia: newService.garantia,
+                    estatus: true,
+                    puntuacion: newService.puntuacion || 0,
+                });
+                
+                // Actualizar el campo uid_servicio con el ID del documento recién creado
+                await updateDoc(docRef, {
+                    uid_servicio: docRef.id,
+                });
+
+                toast.push(
+                    <Notification title="Éxito">
+                        Servicio creado con éxito.
+                    </Notification>
+                );
+
+                setNewService({
+                    nombre: '',
+                    descripcion: '',
+                    uid_servicio: '',
+                    uid_categoria: '',
+                    nombre_categoria: '',
+                    subcategoria: [],
+                    precio: '',
+                    uid_taller: '',
+                    taller: '',
+                    garantia: '',
+                    estatus: true,
+                    puntuacion: 0,
+                });
+
+                setDrawerCreateIsOpen(false);
+                setDrawerIsOpen(false);
+                fetchData(); // Llamada a fetchData para refrescar los servicios
+            } catch (error) {
+                console.error('Error creando Servicio:', error);
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al crear el Servicio.
+                    </Notification>
+                );
             }
-        })
+        } else {
+            toast.push(
+                <Notification title="Error">
+                    Por favor, complete todos los campos requeridos.
+                </Notification>
+            );
+        }
+    };
 
-        setDataServiceGarages(usuarios)
-    }
-
-    // Nueva función para obtener los datos de la colección de servicios
-    const getDataServices = async () => {
-        const q = query(collection(db, 'Servicios'))
-        const querySnapshot = await getDocs(q)
-        const servicios: Service[] = []
-
-        querySnapshot.forEach((doc) => {
-            const serviceData = doc.data() as Service
-            servicios.push({ ...serviceData, id: doc.id }) // Guardar el ID del documento
-        })
-
-        setDataServices(servicios)
-    }
-
-    useEffect(() => {
-        getData() // Obtén los datos de usuarios
-        getDataServices() // Obtén los datos de servicios
-    }, [])
-
-    useEffect(() => {
-        getData()
-    }, [])
-
-    const openDrawer = (person: Person) => {
-        setSelectedPerson(person) // Establece el taller seleccionado
-
-        // Aquí asumiendo que `person.servicios` contiene los IDs de los servicios asignados
-        setSelectedServiceIds(person.servicios || []) // Establece los servicios seleccionados
-
-        setDrawerIsOpen(true) // Abre el drawer
-    }
+    const openCreateDrawer = () => {
+        setSelectedServiceTemplate(null); // No selecciona ningún template
+        setNewService({
+            nombre: '',
+            descripcion: '',
+            uid_categoria: '',
+            nombre_categoria: '',
+            subcategoria: [],
+            precio: '',
+            uid_servicio: '',
+            garantia: '',
+        });
+        setDrawerIsOpen(true);
+    };
+    
+    const openEditDrawer = (serviceTemplate: ServiceTemplate) => {
+        setSelectedServiceTemplate(serviceTemplate);
+        setNewService({
+            nombre: serviceTemplate.nombre || '',
+            descripcion: serviceTemplate.descripcion || '',
+            uid_categoria: serviceTemplate.uid_categoria || '',
+            nombre_categoria: serviceTemplate.nombre_categoria || '',
+            subcategoria: serviceTemplate.subcategoria || [],
+            precio: '',
+            uid_servicio: serviceTemplate.uid_servicio || '',
+            garantia: serviceTemplate.garantia || '',
+            puntuacion: 0,
+        });
+        setDrawerIsOpen(true);
+    };
+    
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -143,89 +315,43 @@ const ServiceGarages = () => {
         })
     }
 
-    // Obtener iniciales de los nombres
-    const getInitials = (nombre: string | undefined): string => {
-        if (!nombre) return ''
-        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
-        return words
-            .map((word) => {
-                if (typeof word === 'string' && word.length > 0) {
-                    return word[0].toUpperCase()
-                }
-                return '' // Retorna una cadena vacía si la palabra no es válida
-            })
-            .join('')
-    }
-
-    const columns: ColumnDef<Person>[] = [
+    const columns: ColumnDef<ServiceTemplate>[] = [
         {
-            header: 'Nombre',
+            header: 'Nombre del Servicio',
             accessorKey: 'nombre',
         },
         {
-            header: 'RIF',
-            accessorKey: 'rif',
+            header: 'Descripción',
+            accessorKey: 'descripcion',
         },
         {
-            header: 'Email',
-            accessorKey: 'email',
+            header: 'Categoría',
+            accessorKey: 'nombre_categoria',
         },
         {
-            header: 'Numero Telefonico',
-            accessorKey: 'phone',
+            header: 'Subcategorías',
+            accessorKey: 'subcategoria', // Asegúrate de que coincida con el campo de subcategorías en el objeto `Service`
             cell: ({ row }) => {
-                const nombre = row.original.nombre // Accede al nombre del cliente
-                return (
-                    <div className="flex items-center">
-                        <Avatar
-                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
-                            className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
-                        >
-                            <span className="text-white font-bold">
-                                {getInitials(nombre)}
-                            </span>
-                        </Avatar>
-                        {row.original.phone}{' '}
-                        {/* Muestra el número telefónico */}
-                    </div>
-                )
-            },
-        },
-        {
-            header: 'Estado',
-            accessorKey: 'status',
-            cell: ({ row }) => {
-                const status = row.getValue('status') as string // Aserción de tipo
-                let icon
-                let color
-
-                switch (status) {
-                    case 'Aprobado':
-                        icon = <FaCheckCircle className="text-green-500 mr-1" />
-                        color = 'text-green-500' // Color para el texto
-                        break
-                    case 'Rechazado':
-                        icon = <FaTimesCircle className="text-red-500 mr-1" />
-                        color = 'text-red-500' // Color para el texto
-                        break
-                    case 'Pendiente':
-                        icon = (
-                            <FaExclamationCircle className="text-yellow-500 mr-1" />
-                        )
-                        color = 'text-yellow-500' // Color para el texto
-                        break
-                    default:
-                        icon = null
+                const subcategories = row.original.subcategoria;
+        
+                // Asegurarse de que subcategories sea un arreglo
+                if (!Array.isArray(subcategories) || subcategories.length === 0) {
+                    return <span>No posee</span>; // Si no tiene subcategorías, muestra "No posee"
                 }
-
+        
                 return (
-                    <div className={`flex items-center ${color}`}>
-                        {icon}
-                        <span>{status}</span>
-                    </div>
-                )
+                    <ul>
+                        {subcategories.map((sub: any) => (
+                            <li key={sub.uid_subcategoria}>{sub.nombre_subcategoria}</li>
+                        ))}
+                    </ul>
+                );
             },
-        },
+        },      
+        {
+            header: 'Garantía',
+            accessorKey: 'garantia',
+        },  
         {
             header: ' ',
             cell: ({ row }) => {
@@ -235,9 +361,9 @@ const ServiceGarages = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={() => openDrawer(person)} // Usando la función openDrawer
+                            onClick={() => openEditDrawer(person)} // Usando la función openEditDrawer
                         >
-                            Asignar Servicio
+                            Usar Plantilla
                         </Button>
                     </div>
                 )
@@ -245,93 +371,32 @@ const ServiceGarages = () => {
         },
     ]
 
-    const columnsTable2: ColumnDef<Service>[] = [
-        {
-            header: 'Nombre del Servicio',
-            accessorKey: 'nombre_servicio',
-        },
-        {
-            header: 'Descripción',
-            accessorKey: 'descripcion',
-        },
-        {
-            header: 'Precio',
-            accessorKey: 'precio',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio) // Asegúrate de que sea un número
-                return `$${precio.toFixed(2)}`
-            },
-        },
-        {
-            header: 'Puntuación',
-            accessorKey: 'puntuacion',
-            cell: ({ row }) => {
-                const puntuacion = parseFloat(row.original.puntuacion) // Asegúrate de que sea un número
-                const fullStars = Math.floor(puntuacion)
-                const hasHalfStar = puntuacion % 1 >= 0.5
-                const stars = []
-
-                // Agrega las estrellas llenas
-                for (let i = 0; i < fullStars; i++) {
-                    stars.push(
-                        <FaStar
-                            key={`full-${i}`}
-                            className="text-yellow-500"
-                        />,
-                    )
-                }
-                // Agrega la estrella media si corresponde
-                if (hasHalfStar) {
-                    stars.push(
-                        <FaStarHalfAlt
-                            key="half"
-                            className="text-yellow-500"
-                        />,
-                    )
-                }
-                // Agrega las estrellas vacías (si es necesario, para un total de 5)
-                for (let i = fullStars + (hasHalfStar ? 1 : 0); i < 5; i++) {
-                    stars.push(
-                        <FaStar key={`empty-${i}`} className="text-gray-300" />,
-                    )
-                }
-
-                return <div className="flex">{stars}</div> // Renderiza las estrellas
-            },
-        },
-    ]
-
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    const onDialogClose = (e: MouseEvent) => {
-        console.log('onDialogClose', e)
-        setIsOpen(false)
-        setSelectedPerson(null) // Limpiar selección
-    }
 
-    const [maxServices, setMaxServices] = useState(0); // Límite de servicios del taller
-const [assignedServices, setAssignedServices] = useState<string[]>([]); // Servicios ya asignados
-const [remainingServices, setRemainingServices] = useState(0); // Servicios restantes
+    /*const [maxServices, setMaxServices] = useState(0); // Límite de servicios del taller
+    const [assignedServices, setAssignedServices] = useState<string[]>([]); // Servicios ya asignados
+    const [remainingServices, setRemainingServices] = useState(0); // Servicios restantes
 
-// Carga el límite de servicios y servicios actuales cuando se selecciona el taller
-useEffect(() => {
-    const loadServiceLimits = async () => {
-        if (selectedPerson) {
-            const personRef = doc(db, 'Usuarios', selectedPerson.uid);
-            const docSnap = await getDoc(personRef);
-            const personData = docSnap.data() as Person;
+     // Carga el límite de servicios y servicios actuales cuando se selecciona el taller
+    useEffect(() => {
+        const loadServiceLimits = async () => {
+            if (selectedPerson) {
+                const personRef = doc(db, 'Usuarios', selectedPerson.uid);
+                const docSnap = await getDoc(personRef);
+                const personData = docSnap.data() as Garage;
 
-            const fetchedMaxServices = Number(personData.subscripcion_actual?.cantidad_servicios) || 0;
-            const currentServices = personData.servicios || [];
+                const fetchedMaxServices = Number(personData.subscripcion_actual?.cantidad_servicios) || 0;
+                const currentServices = personData.servicios || [];
 
-            setMaxServices(fetchedMaxServices);
-            setAssignedServices(currentServices);
-            setRemainingServices(fetchedMaxServices - currentServices.length);
-        }
-    };
+                setMaxServices(fetchedMaxServices);
+                setAssignedServices(currentServices);
+                setRemainingServices(fetchedMaxServices - currentServices.length);
+            }
+        };
 
-    loadServiceLimits();
-}, [selectedPerson]);
+        loadServiceLimits();
+    }, [selectedPerson]);
 
     const handleAssignServices = async () => {
         if (!selectedPerson) {
@@ -403,14 +468,15 @@ useEffect(() => {
                 return [...prevSelectedIds, serviceId]
             }
         })
-    }
+    } */
 
+    const [sorting, setSorting] = useState<ColumnSort[]>([])
     const table = useReactTable({
-        data: dataServiceGarages,
+        data: dataServicesTemplate,
         columns,
         state: {
             sorting,
-            columnFilters: filtering,
+            columnFilters: filtering, // Usar el array de filtros
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
@@ -419,21 +485,10 @@ useEffect(() => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    const tableServices = useReactTable({
-        data: dataServices,
-        columns: columnsTable2,
-        state: {
-            sorting,
-            columnFilters: filtering,
-        },
-        onSortingChange: setSorting,
-        onColumnFiltersChange: setFiltering,
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-    })
+    // console.log('Datos de servicios antes de renderizar:', dataServicesTemplate) // Verifica el estado de los datos
 
-    // Paginación tabla Talleres
+
+    // Paginación tabla Servicios Template
     const [currentPage, setCurrentPage] = useState(1)
     const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
 
@@ -450,18 +505,32 @@ useEffect(() => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
-    // Paginacióno tabla Servicios
+    const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
 
-    const [currentPageServices, setCurrentPageServices] = useState(1)
-    const rowsPerPageServices = 4 // Número de filas por página para la tabla de servicios
-
-    const startIndexServices = (currentPageServices - 1) * rowsPerPageServices
-    const endIndexServices = startIndexServices + rowsPerPageServices
-    const totalRowsServices = tableServices.getRowModel().rows.length
-
-    const onPaginationChangeServices = (page: number) => {
-        setCurrentPageServices(page)
+    const handleDrawerClose = (e: MouseEvent) => {
+        // console.log('Drawer cerrado', e);
+        setDrawerCreateIsOpen(false); // Cierra el Drawer
+        setNewService({ // Limpia los campos de usuario
+            nombre: '',
+            descripcion: '',
+            id: '',
+            uid_servicio: '',
+            uid_categoria: '',
+            nombre_categoria: '',
+            subcategoria: [],
+            taller: '',
+            precio: '',
+            puntuacion: 0,
+            garantia: '',
+        });
+        setSelectedServiceTemplate(null); // Limpia la selección (si es necesario)
     }
+
+    const handleDrawerCloseEdit = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e);
+        setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
+    }
+    
 
     return (
         <>
@@ -469,6 +538,15 @@ useEffect(() => {
                 <h1 className="mb-6 flex justify-start">
                     Asignar Servicios a Talleres
                 </h1>
+                <div className="flex justify-end">
+                    <Button
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                        onClick={openCreateDrawer} // Abre el Drawer de creación
+                    >
+                        Crear Servicio
+                    </Button>
+                </div>
             </div>
             <div>
                 <Table>
@@ -569,226 +647,383 @@ useEffect(() => {
                     rowsPerPage={rowsPerPage}
                 />
             </div>
-
-            {/* Drawer para listado de servicios */}
-            <Dialog
-                width={1000}
-                isOpen={drawerIsOpen}
-                onClose={() => setDrawerIsOpen(false)}
-                className="rounded-md shadow"
+            {/* Drawer para crear un servicio en base a la plantilla */}
+            <Drawer
+    isOpen={drawerIsOpen}
+    onClose={handleDrawerCloseEdit}
+    className="rounded-md shadow"
+>
+    <h2 className="mb-4 text-xl font-bold">Crear Servicio</h2>
+    <div className="flex flex-col space-y-6">
+        {/* Nombre del Servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Nombre Servicio:</span>
+            <input
+                type="text"
+                value={newService?.nombre || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        nombre: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Taller */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Taller:</span>
+            <select
+                value={newService?.uid_taller || ''}
+                onChange={(e) => {
+                    const selectedId = e.target.value;
+                    const selectedCat = dataGarages.find(cat => cat.uid === selectedId);
+                    setNewService((prev: any) => ({
+                        ...prev,
+                        uid_taller: selectedCat?.uid,
+                        taller: selectedCat?.nombre,
+                    }));
+                }}
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
             >
-                <h2 className="text-xl font-bold p-2">
-                    Asignar Servicio al Taller:{' '}
-                    {selectedPerson?.nombre || 'No especificado'}
-                </h2>
-                <div className="text-sm text-gray-500 mt-2">
-                    Servicios restantes antes de alcanzar el límite: {remainingServices}
-                </div>
+                <option value="">Seleccione un Taller</option>
+                {dataGarages.map((garage) => (
+                    <option key={garage.uid} value={garage.uid}>
+                        {garage.nombre}
+                    </option>
+                ))}
+            </select>
+        </label>
 
-                <div className="mt-6 overflow-x-auto">
-                    <Table>
-                        <THead>
-                            {tableServices
-                                .getHeaderGroups()
-                                .map((headerGroup) => (
-                                    <Tr key={headerGroup.id}>
-                                        <Th>
-                                            {/* Columna para el checkbox */}
-                                            <input
-                                                type="checkbox"
-                                                onChange={(e) => {
-                                                    const allServiceIds =
-                                                        tableServices
-                                                            .getRowModel()
-                                                            .rows.map(
-                                                                (row) =>
-                                                                    row.original
-                                                                        .id,
-                                                            )
-                                                    setSelectedServiceIds(
-                                                        e.target.checked
-                                                            ? allServiceIds
-                                                            : [],
-                                                    )
-                                                }}
-                                                checked={
-                                                    selectedServiceIds.length ===
-                                                    tableServices.getRowModel()
-                                                        .rows.length
-                                                }
-                                                className={`h-5 w-5 rounded border-2 focus:outline-none appearance-none
-                                            ${selectedServiceIds.length ===
-                                                        tableServices.getRowModel().rows
-                                                            .length
-                                                        ? 'bg-blue-500 border-blue-500'
-                                                        : 'bg-white border-gray-300'
-                                                    }`}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    position: 'relative',
-                                                }}
-                                            />
-                                            <style>{`
-                                        input[type="checkbox"]:checked::before {
-                                            content: "✓";
-                                            color: white;
-                                            font-weight: bold;
-                                            position: absolute;
-                                            top: 50%;
-                                            left: 50%;
-                                            transform: translate(-50%, -50%);
-                                            font-size: 14px;
-                                        }
-                                    `}</style>
-                                        </Th>
-                                        {headerGroup.headers.map((header) => (
-                                            <Th
-                                                key={header.id}
-                                                colSpan={header.colSpan}
-                                            >
-                                                {header.isPlaceholder ? null : (
-                                                    <div
-                                                        {...{
-                                                            className:
-                                                                header.column.getCanSort()
-                                                                    ? 'cursor-pointer select-none'
-                                                                    : '',
-                                                            onClick:
-                                                                header.column.getToggleSortingHandler(),
-                                                        }}
-                                                    >
-                                                        {flexRender(
-                                                            header.column
-                                                                .columnDef
-                                                                .header,
-                                                            header.getContext(),
-                                                        )}
-                                                        <Sorter
-                                                            sort={header.column.getIsSorted()}
-                                                        />
-                                                        {header.column.getCanFilter() ? (
-                                                            <input
-                                                                type="text"
-                                                                value={
-                                                                    filtering
-                                                                        .find(
-                                                                            (
-                                                                                filter,
-                                                                            ) =>
-                                                                                filter.id ===
-                                                                                header.id,
-                                                                        )
-                                                                        ?.value?.toString() ||
-                                                                    ''
-                                                                }
-                                                                onChange={(e) =>
-                                                                    handleFilterChange(
-                                                                        header.id,
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                placeholder={`Buscar`}
-                                                                className="mt-2 p-1 border rounded"
-                                                                onClick={(e) =>
-                                                                    e.stopPropagation()
-                                                                }
-                                                            />
-                                                        ) : null}
-                                                    </div>
-                                                )}
-                                            </Th>
-                                        ))}
-                                    </Tr>
-                                ))}
-                        </THead>
-                        <TBody>
-                            {tableServices
-                                .getRowModel()
-                                .rows.slice(
-                                    startIndexServices,
-                                    endIndexServices,
-                                )
-                                .map((row) => (
-                                    <Tr key={row.id}>
-                                        <Td>
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedServiceIds.includes(
-                                                    row.original.id,
-                                                )}
-                                                onChange={() =>
-                                                    handleServiceSelection(
-                                                        row.original.id,
-                                                    )
-                                                }
-                                                className={`h-5 w-5 rounded border-2 focus:outline-none appearance-none
-                                            ${selectedServiceIds.includes(
-                                                    row.original.id,
-                                                )
-                                                        ? 'bg-blue-500 border-blue-500'
-                                                        : 'bg-white border-gray-300'
-                                                    }`}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    position: 'relative',
-                                                }}
-                                            />
-                                            <style>{`
-                                        input[type="checkbox"]:checked::before {
-                                            content: "✓";
-                                            color: white;
-                                            font-weight: bold;
-                                            position: absolute;
-                                            top: 50%;
-                                            left: 50%;
-                                            transform: translate(-50%, -50%);
-                                            font-size: 14px;
-                                        }
-                                    `}</style>
-                                        </Td>
-                                        {row.getVisibleCells().map((cell) => (
-                                            <Td key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </Td>
-                                        ))}
-                                    </Tr>
-                                ))}
-                        </TBody>
-                    </Table>
-                    <Pagination
-                        onChange={onPaginationChangeServices}
-                        currentPage={currentPageServices}
-                        totalRows={totalRowsServices}
-                        rowsPerPage={rowsPerPageServices}
-                    />
-                </div>
+        {/* Categoría */}
+<label className="flex flex-col">
+    <span className="font-semibold text-gray-700">Categoría:</span>
+    <select
+        value={newService?.uid_categoria || ''}
+        onChange={(e) => {
+            const selectedId = e.target.value;
+            const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
+            
+            // Actualizar el estado con la categoría seleccionada
+            setNewService((prev: any) => ({
+                ...prev,
+                uid_categoria: selectedCat?.uid_categoria,
+                nombre_categoria: selectedCat?.nombre,
+                subcategoria: [], // Limpiar subcategorías al cambiar de categoría
+            }));
 
-                {/* Botones de acción */}
-                <div className="text-right mt-6">
-                    <Button
-                        className="mr-2"
-                        variant="default"
-                        onClick={() => setDrawerIsOpen(false)}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        style={{ backgroundColor: '#000B7E' }}
-                        className="text-white hover:opacity-80"
-                        onClick={handleAssignServices}
-                    >
-                        Asignar Servicios
-                    </Button>
-                </div>
-            </Dialog>
+            // Filtrar subcategorías según la categoría seleccionada
+            handleCategoryChange(selectedId); // Asegúrate de que `handleCategoryChange` actualice `dataSubcategories`
+        }}
+        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+    >
+        <option value="">Seleccione una categoría</option>
+        {dataCategories.map((category) => (
+            <option key={category.uid_categoria} value={category.uid_categoria}>
+                {category.nombre}
+            </option>
+        ))}
+    </select>
+</label>
+
+{/* Subcategorías */}
+<label className="font-semibold text-gray-700">Subcategorías:</label>
+<Select
+    isMulti
+    placeholder="Selecciona subcategorías"
+    noOptionsMessage={() => "No hay Subcategorías disponibles"}
+    options={
+        newService?.uid_categoria
+            ? dataSubcategories.map((subcategory) => ({
+                  value: subcategory.uid_subcategoria,
+                  label: subcategory.nombre, // Asegúrate de que el nombre de la subcategoría se muestra aquí
+              }))
+            : []
+    }
+    value={newService?.subcategoria?.map((subcat: any) => ({
+        value: subcat.uid_subcategoria,
+        label: subcat.nombre_subcategoria,
+    })) || []} // Asegúrate de que el valor esté correctamente inicializado
+    onChange={(selectedOptions) => {
+        const selectedSubcategories = selectedOptions.map(option => ({
+            uid_subcategoria: option.value,
+            nombre_subcategoria: option.label,
+        }));
+
+        setNewService((prev: any) => ({
+            ...prev,
+            subcategoria: selectedSubcategories,
+        }));
+    }}
+    className="mt-1"
+ />
+
+        
+        {/* Descripción */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Descripción:</span>
+            <input
+                type="text"
+                value={newService?.descripcion || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        descripcion: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        {/* Precio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Precio:</span>
+            <input
+                type="text"
+                value={newService?.precio || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        precio: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+                {/* Garantía del Servicio */}
+                <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={newService?.garantia || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+                {/* Puntuación del Servicio */}
+                <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Puntuación:</span>
+            <input
+                type="text"
+                value={newService?.puntuacion || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        puntuacion: parseFloat(e.target.value),
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        <div className="text-right mt-6">
+            <Button className="mr-2" variant="default" onClick={handleDrawerCloseEdit}>
+                Cancelar
+            </Button>
+            <Button
+                style={{ backgroundColor: '#000B7E' }}
+                className="text-white hover:opacity-80"
+                onClick={handleCreateService}
+            >
+                Guardar
+            </Button>
+        </div>
+    </div>
+</Drawer>
+
+         {/* Drawer para crear un servicio desde cero */}
+<Drawer
+    isOpen={drawerCreateIsOpen}
+    onClose={handleDrawerClose}
+    className="rounded-md shadow"
+>
+    <h2 className="mb-4 text-xl font-bold">Crear Plantilla</h2>
+    <div className="flex flex-col space-y-6">
+        {/* Nombre del servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Nombre Servicio:</span>
+            <input
+                type="text"
+                value={newService?.nombre || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        nombre: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        {/* Taller */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Taller:</span>
+            <select
+                value={newService?.uid_taller || ''}
+                onChange={(e) => {
+                    const selectedId = e.target.value;
+                    const selectedCat = dataGarages.find(cat => cat.uid === selectedId);
+                    setNewService((prev: any) => ({
+                        ...prev,
+                        uid_taller: selectedCat?.uid,
+                        taller: selectedCat?.nombre,
+                    }));
+                }}
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            >
+                <option value="">Seleccione un Taller</option>
+                {dataGarages.map((garage) => (
+                    <option key={garage.uid} value={garage.uid}>
+                        {garage.nombre}
+                    </option>
+                ))}
+            </select>
+        </label>
+
+        {/* Categoría */}
+<label className="flex flex-col">
+    <span className="font-semibold text-gray-700">Categoría:</span>
+    <select
+        value={newService?.uid_categoria || ''}
+        onChange={async (e) => {
+            const selectedId = e.target.value;
+            const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
+            
+            // Actualizar el estado con la categoría seleccionada
+            setNewService((prev: any) => ({
+                ...prev,
+                uid_categoria: selectedCat?.uid_categoria,
+                nombre_categoria: selectedCat?.nombre,
+                subcategoria: [], // Limpiar subcategorías al cambiar de categoría
+            }));
+
+            // Filtrar subcategorías según la categoría seleccionada
+            handleCategoryChange(selectedId); // Asegúrate de que `handleCategoryChange` actualice `dataSubcategories`
+        }}
+        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+    >
+        <option value="">Seleccione una categoría</option>
+        {dataCategories.map((category) => (
+            <option key={category.uid_categoria} value={category.uid_categoria}>
+                {category.nombre}
+            </option>
+        ))}
+    </select>
+</label>
+
+{/* Subcategorías */}
+<label className="font-semibold text-gray-700">Subcategorías:</label>
+<Select
+    isMulti
+    placeholder="Selecciona subcategorías"
+    noOptionsMessage={() => "No hay Subcategorías disponibles"}
+    options={
+        newService?.uid_categoria
+            ? dataSubcategories.map((subcategory: any) => ({
+                  value: subcategory.uid_subcategoria,
+                  label: subcategory.nombre_subcategoria,
+              }))
+            : []
+    }
+    value={newService?.subcategoria?.map((subcat: any) => ({
+        value: subcat.uid_subcategoria,
+        label: subcat.nombre_subcategoria,
+    }))}
+    onChange={(selectedOptions) => {
+        const selectedSubcategories = selectedOptions.map(option => ({
+            uid_subcategoria: option.value,
+            nombre_subcategoria: option.label,
+        }));
+        setNewService((prev: any) => ({
+            ...prev,
+            subcategoria: selectedSubcategories,
+        }));
+    }}
+    className="mt-1"
+/>
+
+
+        {/* Descripción */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Descripción:</span>
+            <input
+                type="text"
+                value={newService?.descripcion || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        descripcion: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        {/* Precio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Precio:</span>
+            <input
+                type="text"
+                value={newService?.precio || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        precio: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Garantía del servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={newService?.garantia || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Puntuación del servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Puntuación:</span>
+            <input
+                type="text"
+                value={newService?.puntuacion || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        puntuacion: parseFloat(e.target.value),
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        <div className="text-right mt-6">
+            <Button className="mr-2" variant="default" onClick={handleDrawerClose}>
+                Cancelar
+            </Button>
+            <Button
+                style={{ backgroundColor: '#000B7E' }}
+                className="text-white hover:opacity-80"
+                onClick={handleCreateService}
+            >
+                Guardar
+            </Button>
+        </div>
+    </div>
+</Drawer>
         </>
     )
 }

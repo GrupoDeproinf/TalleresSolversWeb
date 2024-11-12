@@ -25,6 +25,7 @@ import {
     updateDoc,
     addDoc,
 } from 'firebase/firestore'
+import { z } from 'zod'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
@@ -33,34 +34,33 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Drawer } from '@/components/ui'
 
-type Service = {
-    nombre_servicio: string
-    descripcion: string
-    precio: string
-    puntuacion: string
+type ServiceTemplate = {
+    nombre?: string
+    descripcion?: string
     uid_servicio: string
     
     // Campos para categoría
-    uid_categoria: string
-    nombre_categoria: string
+    uid_categoria?: string
+    nombre_categoria?: string
     // Campos para subcategoría
-    subcategoria: []
+    subcategoria?: []
+    garantia?: string
 
 
-    id: string
+    id?: string
 }
 
 type Category = {
-    nombre: string;
-    uid_categoria: string;
-    id: string;
+    nombre?: string;
+    uid_categoria?: string;
+    id?: string;
 };
 
 type Subcategory = {
-    nombre: string;
-    descripcion: string;
-    estatus: string;
-    uid: string;
+    nombre?: string;
+    descripcion?: string;
+    estatus?: string;
+    uid_subcategoria?: string;
 };
 
 
@@ -69,127 +69,121 @@ type Subcategory = {
 
 const Services = () => {
 
-    // Obtener Categorías
-    const [dataCategories, setDataCategories] = useState<Category[]>([]);
-    const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+    const [sorting, setSorting] = useState<ColumnSort[]>([]);
+const [filtering, setFiltering] = useState<ColumnFiltersState>([]);
+const [dialogIsOpen, setIsOpen] = useState(false);
+const [selectedServiceTemplate, setSelectedServiceTemplate] = useState<ServiceTemplate | null>(null);
+const [drawerIsOpen, setDrawerIsOpen] = useState(false);
 
-const getCategories = async () => {
+const [dataCategories, setDataCategories] = useState<Category[]>([]);
+const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>([]);
+const [dataServicesTemplate, setDataServicesTemplate] = useState<ServiceTemplate[]>([]);
+
+const getAllData = async () => {
     try {
-        const q = query(collection(db, 'Categorias')); // Llamado a categorías
-        const querySnapshot = await getDocs(q);
-        const categorias: Category[] = [];
+        // Definir consultas
+        const categoriesQuery = query(collection(db, 'Categorias'));
+        const servicesQuery = query(collection(db, 'ServiciosTemplate'));
 
-        querySnapshot.forEach((doc) => {
-            const categoryData = doc.data() as Category;
-            // Asignar el id del documento al objeto de categoría
-            categorias.push({ ...categoryData, uid_categoria: doc.id });
-        });
+        // Ejecutar consultas en paralelo
+        const [categoriesSnapshot, servicesSnapshot] = await Promise.all([
+            getDocs(categoriesQuery),
+            getDocs(servicesQuery),
+        ]);
 
-        console.log('Categorias obtenidas:', categorias); // Verifica los datos obtenidos
-        setDataCategories(categorias);
+        // Procesar categorías
+        const categories: Category[] = categoriesSnapshot.docs.map((doc) => ({
+            ...doc.data(),
+            uid_categoria: doc.id,
+        })) as Category[];
+
+        // Procesar servicios
+        const services: ServiceTemplate[] = servicesSnapshot.docs.map((doc) => ({
+            ...doc.data(),
+            uid_servicio: doc.id,
+        })) as ServiceTemplate[];
+
+        // Actualizar el estado con los datos obtenidos
+        setDataCategories(categories);
+        setDataServicesTemplate(services);
     } catch (error) {
-        console.error('Error obteniendo categorias:', error);
+        console.error('Error obteniendo los datos:', error);
     }
 };
 
 useEffect(() => {
-    getCategories();
+    getAllData();
 }, []);
 
-    // Obtener Subcategorías de las categorías
-    const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>([]);
-    const [selectedSubcategory, setSelectedSubcategory] = useState<Subcategory | null>(null);
+const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null); // Estado para la categoría seleccionada
 
-    const getSubcategories = async (uid: string) => {
-        try {
-            const subcategoriesRef = collection(db, 'Categorias', uid, 'Subcategorias');
-            const querySnapshot = await getDocs(subcategoriesRef);
-            const subcategorias: Subcategory[] = [];
-    
-            querySnapshot.forEach((doc) => {
-                const subcategoryData = doc.data() as Subcategory;
-                subcategorias.push({ ...subcategoryData, uid: doc.id });
-            });
-    
-            console.log('Subcategorias obtenidas:', subcategorias); // Verifica las subcategorías obtenidas
-            setDataSubcategories(subcategorias);
-        } catch (error) {
-            console.error('Error obteniendo subcategorias:', error);
-        }
-    };
-    
+// Función para manejar el cambio de categoría seleccionada
+const handleCategoryChange = async (categoryId: string) => {
+    setSelectedCategoryId(categoryId); // Actualiza el estado con el ID de la categoría seleccionada
 
-    const [dataServices, setDataServices] = useState<Service[]>([])
-    const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
-    const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedService, setSelectedService] = useState<Service | null>(null)
-    const [drawerIsOpen, setDrawerIsOpen] = useState(false)
-
-    const getData = async () => {
-        try {
-            // Obtén la colección 'Servicios'
-            const q = query(collection(db, 'Servicios'))
-            const querySnapshot = await getDocs(q)
-            const servicios: Service[] = []
-
-            querySnapshot.forEach((doc) => {
-                const serviceData = doc.data() as Service
-                // Asignar el id del documento al objeto de servicio
-                servicios.push({ ...serviceData, uid_servicio: doc.id })
-            })
-
-            console.log('Servicios obtenidos:', servicios) // Verifica los datos obtenidos
-            setDataServices(servicios)
-        } catch (error) {
-            console.error('Error obteniendo servicios:', error)
-        }
+    if (!categoryId) {
+        setDataSubcategories([]); // Limpiar subcategorías si no se selecciona ninguna categoría
+        return;
     }
 
-    useEffect(() => {
-        getData()
-    }, [])
+    try {
+        // Realiza la consulta para obtener las subcategorías de la categoría seleccionada
+        const subcategoriesQuery = query(collection(db, 'Categorias', categoryId, 'Subcategorias'));
+        const subcategoriesSnapshot = await getDocs(subcategoriesQuery);
 
-    const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newService, setNewService] = useState<Service | null>({
-        nombre_servicio: '',
-        descripcion: '',
-        precio: '',
-        uid_servicio: '',
-        puntuacion: '',
-        uid_categoria: '',
-        nombre_categoria: '',
-        subcategoria: [],
+        // Procesar los documentos de subcategorías
+        const subcategorias = subcategoriesSnapshot.docs.map((doc) => ({
+            ...doc.data(),
+            uid_subcategoria: doc.id,
+            nombre_subcategoria: doc.data().nombre,
+        }));
 
-        id: '',
-    })
+        // Asignar las subcategorías al estado correspondiente
+        setDataSubcategories(subcategorias);
+    } catch (error) {
+        console.error('Error fetching subcategorias:', error);
+        setDataSubcategories([]); // Limpiar subcategorías en caso de error
+    }
+};
 
-    const openDialog = (service: Service) => {
-        setSelectedService(service)
+
+    const openDialog = (serviceTemplate: ServiceTemplate) => {
+        setSelectedServiceTemplate(serviceTemplate)
         setIsOpen(true)
     }
-    const openDrawer = (service: Service) => {
-        setSelectedService(service)
+    const openDrawer = (serviceTemplate: ServiceTemplate) => {
+        setSelectedServiceTemplate(serviceTemplate)
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
-    const handleCreateService = async () => {
+    const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
+    const [newServiceTemplate, setNewServiceTemplate] = useState<ServiceTemplate>({
+        nombre: '',
+        descripcion: '',
+        uid_servicio: '',
+        uid_categoria: '',
+        nombre_categoria: '',
+        subcategoria: [],
+        id: '',
+        garantia: '',
+    });
+
+    const handleCreateServiceTemplate = async () => {
         if (
-            newService &&
-            newService.nombre_servicio &&
-            newService.descripcion
+            newServiceTemplate &&
+            newServiceTemplate.nombre &&
+            newServiceTemplate.descripcion
         ) {
             try {
-                const userRef = collection(db, 'Servicios');
+                const userRef = collection(db, 'ServiciosTemplate');
                 const docRef = await addDoc(userRef, {
-                    nombre_servicio: newService.nombre_servicio,
-                    descripcion: newService.descripcion,
-                    precio: newService.precio,
-                    puntuacion: newService.puntuacion,
-                    nombre_categoria: newService.nombre_categoria,
-                    uid_categoria: newService.uid_categoria,
-                    subcategoria: newService.subcategoria, // Guarda el array de subcategorías seleccionadas
+                    nombre: newServiceTemplate.nombre,
+                    descripcion: newServiceTemplate.descripcion,
+                    nombre_categoria: newServiceTemplate.nombre_categoria,
+                    uid_categoria: newServiceTemplate.uid_categoria,
+                    subcategoria: newServiceTemplate.subcategoria, // Guarda el array de subcategorías seleccionadas
                     uid_servicio: '', // Inicialmente vacío
+                    garantia: newServiceTemplate.garantia,
                 });
     
                 // Actualiza el uid_servicio generado
@@ -205,20 +199,19 @@ useEffect(() => {
                 );
     
                 // Limpia los campos después de crear el servicio
-                setNewService({
-                    nombre_servicio: '',
+                setNewServiceTemplate({
+                    nombre: '',
                     descripcion: '',
-                    precio: '',
-                    puntuacion: '',
                     uid_servicio: '',
                     uid_categoria: '',
                     nombre_categoria: '',
                     subcategoria: [],
                     id: '',
+                    garantia: '',
                 });
     
                 setDrawerCreateIsOpen(false); // Cierra el Drawer después de crear el servicio
-                getData(); // Refresca la lista de servicios
+                getAllData(); // Refresca la lista de servicios
             } catch (error) {
                 console.error('Error creando Servicio:', error);
                 toast.push(
@@ -247,44 +240,51 @@ useEffect(() => {
             return newFilters
         })
     }
+
     const handleSaveChanges = async () => {
-        if (selectedService) {
-            try {
-                const userDoc = doc(
-                    db,
-                    'Servicios',
-                    selectedService?.uid_servicio,
-                )
-                await updateDoc(userDoc, {
-                    nombre_servicio: selectedService?.nombre_servicio,
-                    descripcion: selectedService?.descripcion,
-                    precio: selectedService?.precio,
-                    puntuacion: selectedService?.puntuacion,
-                })
-                // Mensaje de éxito
-                toast.push(
-                    <Notification title="Éxito">
-                        Servicio actualizado con éxito.
-                    </Notification>,
-                )
-                setDrawerIsOpen(false)
-                getData() // Refrescar datos después de guardar
-            } catch (error) {
-                console.error('Error actualizando el servicio:', error)
-                // Mensaje de error
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al actualizar el servicio.
-                    </Notification>,
-                )
-            }
+    if (selectedServiceTemplate) {
+        try {
+            // Obtiene el documento del servicio para actualizar
+            const userDoc = doc(db, 'ServiciosTemplate', selectedServiceTemplate?.uid_servicio);
+            
+            // Actualiza el servicio con los nuevos datos, incluyendo la categoría y subcategorías
+            await updateDoc(userDoc, {
+                nombre: selectedServiceTemplate?.nombre,
+                descripcion: selectedServiceTemplate?.descripcion,
+                uid_categoria: selectedServiceTemplate?.uid_categoria, // Asegura que se guarde la categoría seleccionada
+                nombre_categoria: selectedServiceTemplate?.nombre_categoria, // Nombre de la categoría
+                subcategoria: selectedServiceTemplate?.subcategoria || [], // Subcategorías seleccionadas
+                garantia: selectedServiceTemplate?.garantia,
+            });
+
+            // Notificación de éxito
+            toast.push(
+                <Notification title="Éxito">
+                    Servicio actualizado con éxito.
+                </Notification>,
+            );
+
+            setDrawerIsOpen(false); // Cierra el Drawer
+            getAllData(); // Refresca los datos
+
+        } catch (error) {
+            console.error('Error actualizando el servicio:', error);
+
+            // Notificación de error
+            toast.push(
+                <Notification title="Error">
+                    Hubo un error al actualizar el servicio.
+                </Notification>,
+            );
         }
     }
+}
 
-    const columns: ColumnDef<Service>[] = [
+
+    const columns: ColumnDef<ServiceTemplate>[] = [
         {
             header: 'Nombre del Servicio',
-            accessorKey: 'nombre_servicio',
+            accessorKey: 'nombre',
         },
         {
             header: 'Descripción',
@@ -300,8 +300,8 @@ useEffect(() => {
             cell: ({ row }) => {
                 const subcategories = row.original.subcategoria;
         
-                // Verificar si el servicio tiene subcategorías
-                if (!subcategories || subcategories.length === 0) {
+                // Asegurarse de que subcategories sea un arreglo
+                if (!Array.isArray(subcategories) || subcategories.length === 0) {
                     return <span>No posee</span>; // Si no tiene subcategorías, muestra "No posee"
                 }
         
@@ -313,53 +313,11 @@ useEffect(() => {
                     </ul>
                 );
             },
+        },  
+        {
+            header: 'Garantía',
+            accessorKey: 'garantia',
         },        
-        
-        {
-            header: 'Precio',
-            accessorKey: 'precio',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio) // Asegúrate de que sea un número
-                return `$${precio.toFixed(2)}`
-            },
-        },
-        {
-            header: 'Puntuación',
-            accessorKey: 'puntuacion',
-            cell: ({ row }) => {
-                const puntuacion = parseFloat(row.original.puntuacion) // Asegúrate de que sea un número
-                const fullStars = Math.floor(puntuacion)
-                const hasHalfStar = puntuacion % 1 >= 0.5
-                const stars = []
-
-                // Agrega las estrellas llenas
-                for (let i = 0; i < fullStars; i++) {
-                    stars.push(
-                        <FaStar
-                            key={`full-${i}`}
-                            className="text-yellow-500"
-                        />,
-                    )
-                }
-                // Agrega la estrella media si corresponde
-                if (hasHalfStar) {
-                    stars.push(
-                        <FaStarHalfAlt
-                            key="half"
-                            className="text-yellow-500"
-                        />,
-                    )
-                }
-                // Agrega las estrellas vacías (si es necesario, para un total de 5)
-                for (let i = fullStars + (hasHalfStar ? 1 : 0); i < 5; i++) {
-                    stars.push(
-                        <FaStar key={`empty-${i}`} className="text-gray-300" />,
-                    )
-                }
-
-                return <div className="flex">{stars}</div> // Renderiza las estrellas
-            },
-        },
         {
             header: ' ',
             cell: ({ row }) => {
@@ -386,7 +344,7 @@ useEffect(() => {
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    const handleEdit = (service: Service) => {
+    const handleEdit = (service: ServiceTemplate) => {
         console.log('Editando el servicio:', service)
         // Lógica de edición
     }
@@ -394,24 +352,23 @@ useEffect(() => {
     const onDialogClose = (e: MouseEvent) => {
         console.log('onDialogClose', e)
         setIsOpen(false)
-        setSelectedService(null) // Limpiar selección
+        setSelectedServiceTemplate(null) // Limpiar selección
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e);
         setDrawerCreateIsOpen(false); // Cierra el Drawer
-        setNewService({ // Limpia los campos de usuario
-            nombre_servicio: '',
+        setNewServiceTemplate({ // Limpia los campos de usuario
+            nombre: '',
             descripcion: '',
-            precio: '',
-            puntuacion: '',
             id: '',
             uid_servicio: '',
             uid_categoria: '',
             nombre_categoria: '',
             subcategoria: [],
+            garantia: '',
         });
-        setSelectedService(null); // Limpia la selección (si es necesario)
+        setSelectedServiceTemplate(null); // Limpia la selección (si es necesario)
     }
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
@@ -419,31 +376,24 @@ useEffect(() => {
         setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
     }
     
-
-    
-
     const handleDelete = async () => {
-        if (selectedService) {
-            console.log('Eliminando el servicio:', selectedService)
+        if (selectedServiceTemplate) {
+            console.log('Eliminando el servicio:', selectedServiceTemplate)
 
             try {
                 // Ahora estamos usando el id generado automáticamente por Firebase
-                const serviceDoc = doc(
-                    db,
-                    'Servicios',
-                    selectedService.uid_servicio,
-                )
+                const serviceDoc = doc(db, 'ServiciosTemplate', selectedServiceTemplate.uid_servicio)
                 await deleteDoc(serviceDoc)
 
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Servicio {selectedService.nombre_servicio} eliminado con
+                        Servicio {selectedServiceTemplate.nombre} eliminado con
                         éxito.
                     </Notification>
                 )
                 toast.push(toastNotification)
 
-                getData() // Refrescar datos después de eliminar
+                getAllData() // Refrescar datos después de eliminar
             } catch (error) {
                 console.error('Error eliminando el servicio:', error)
 
@@ -455,13 +405,13 @@ useEffect(() => {
                 toast.push(errorNotification)
             } finally {
                 setIsOpen(false) // Cerrar diálogo después de la operación
-                setSelectedService(null) // Limpiar selección
+                setSelectedServiceTemplate(null) // Limpiar selección
             }
         }
     }
 
     const table = useReactTable({
-        data: dataServices,
+        data: dataServicesTemplate,
         columns,
         state: {
             sorting,
@@ -474,7 +424,7 @@ useEffect(() => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    console.log('Datos de servicios antes de renderizar:', dataServices) // Verifica el estado de los datos
+    // console.log('Datos de servicios antes de renderizar:', dataServicesTemplate) // Verifica el estado de los datos
 
     const [currentPage, setCurrentPage] = useState(1)
     const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
@@ -492,12 +442,26 @@ useEffect(() => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
+    {/* useEffect para cargar subcategories en base a la categoria seleccionada (para editar) */}
+    {/*useEffect(() => {
+        if (selectedServiceTemplate?.uid_categoria) {
+            getSubcategories(selectedServiceTemplate.uid_categoria);
+        }
+    }, [selectedServiceTemplate?.uid_categoria, getSubcategories]);*/}
+
+    {/* useEffect para cargar subcategories en base a la categoria seleccionada (para crear) */}
+    {/*useEffect(() => {
+        if (newServiceTemplate?.uid_categoria) {
+            getSubcategories(newServiceTemplate.uid_categoria);
+        }
+    }, [newServiceTemplate?.uid_categoria, getSubcategories]);*/}
+
     return (
         <>
             <div>
                 <div className="grid grid-cols-2">
                     <h1 className="mb-6 flex justify-start">
-                        Lista de Servicios
+                        Plantilla de Servicios
                     </h1>
                     <div className="flex justify-end">
                         <Button
@@ -505,7 +469,7 @@ useEffect(() => {
                             className="text-white hover:opacity-80"
                             onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
                         >
-                            Crear Servicio
+                            Crear Plantilla
                         </Button>
                     </div>
                 </div>
@@ -617,7 +581,7 @@ useEffect(() => {
                 <h5 className="mb-4">Confirmar Eliminación</h5>
                 <p>
                     ¿Estás seguro de que deseas eliminar el servicio{' '}
-                    {selectedService?.nombre_servicio}?
+                    {selectedServiceTemplate?.nombre}?
                 </p>
                 <div className="text-right mt-6">
                     <Button
@@ -637,168 +601,47 @@ useEffect(() => {
                 </div>
             </Dialog>
             <Drawer
-                isOpen={drawerIsOpen}
-                onClose={handleDrawerCloseEdit}
-                className="rounded-md" // Añadir estilo al Drawer
-            >
-                <h2 className="text-xl font-bold">Editar Servicio</h2>
-                <div className="flex flex-col space-y-4">
-                    {' '}
-                    {/* Aumentar el espacio entre campos */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre Servicio:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedService?.nombre_servicio || ''}
-                            onChange={(e) =>
-                                setSelectedService((prev: any) => ({
-                                    ...(prev ?? {
-                                        nombre_servicio: '',
-                                        descripcion: '',
-                                        taller: '',
-                                        precio: '',
-                                        uid_servicio: '',
-                                        puntuacion: '',
-                                        id: '',
-                                    }),
-                                    nombre_servicio: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    {/* Campo para descripcion */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Descripcion:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedService?.descripcion || ''}
-                            onChange={(e) =>
-                                setSelectedService((prev: any) => ({
-                                    ...(prev ?? {
-                                        nombre_servicio: '',
-                                        descripcion: '',
-                                        taller: '',
-                                        precio: '',
-                                        uid_servicio: '',
-                                        puntuacion: '',
-                                        id: '',
-                                    }),
-                                    descripcion: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Precio:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedService?.precio || ''}
-                            onChange={(e) =>
-                                setSelectedService((prev: any) => ({
-                                    ...(prev ?? {
-                                        nombre_servicio: '',
-                                        descripcion: '',
-                                        taller: '',
-                                        precio: '',
-                                        uid_servicio: '',
-                                        puntuacion: '',
-                                        id: '',
-                                    }),
-                                    precio: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Puntuación:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedService?.puntuacion || ''}
-                            onChange={(e) =>
-                                setSelectedService((prev: any) => ({
-                                    ...(prev ?? {
-                                        nombre_servicio: '',
-                                        descripcion: '',
-                                        taller: '',
-                                        precio: '',
-                                        uid_servicio: '',
-                                        puntuacion: '',
-                                        id: '',
-                                    }),
-                                    puntuacion: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                </div>
+    isOpen={drawerIsOpen}
+    onClose={handleDrawerCloseEdit}
+    className="rounded-md shadow"
+>
+    <h2 className="mb-4 text-xl font-bold">Editar Plantilla</h2>
+    <div className="flex flex-col space-y-6">
+        {/* Nombre del Servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Nombre Servicio:</span>
+            <input
+                type="text"
+                value={selectedServiceTemplate?.nombre || ''}
+                onChange={(e) =>
+                    setSelectedServiceTemplate((prev: any) => ({
+                        ...(prev ?? {}),
+                        nombre: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
 
-                <div className="text-right mt-6">
-                    <Button
-                        className="mr-2" // Espaciado entre botones
-                        variant="default"
-                        onClick={handleDrawerCloseEdit}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        style={{ backgroundColor: '#000B7E' }}
-                        className="text-white hover:opacity-80"
-                        onClick={handleSaveChanges}
-                    >
-                        Guardar Cambios
-                    </Button>
-                </div>
-            </Drawer>
-            <Drawer
-                isOpen={drawerCreateIsOpen}
-                onClose={handleDrawerClose}
-                className="rounded-md shadow"
-            >
-                <h2 className="mb-4 text-xl font-bold">Crear Servicio</h2>
-                <div className="flex flex-col space-y-6">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre Servicio:
-                        </span>
-                        <input
-                            type="text"
-                            value={newService?.nombre_servicio || ''}
-                            onChange={(e) =>
-                                setNewService((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    nombre_servicio: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
+        {/* Categoría */}
+<label className="flex flex-col">
     <span className="font-semibold text-gray-700">Categoría:</span>
     <select
-        value={newService?.uid_categoria || ''}
+        value={selectedServiceTemplate?.uid_categoria || ''}
         onChange={(e) => {
             const selectedId = e.target.value;
             const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
-            setNewService((prev: any) => ({
+
+            // Actualizar el estado con la categoría seleccionada
+            setSelectedServiceTemplate((prev: any) => ({
                 ...prev,
                 uid_categoria: selectedCat?.uid_categoria,
                 nombre_categoria: selectedCat?.nombre,
+                subcategoria: [], // Limpiar subcategorías al cambiar de categoría
             }));
-            if (selectedCat?.uid_categoria) {
-                getSubcategories(selectedCat.uid_categoria); // Obtener subcategorías
-            }
+
+            // Filtrar subcategorías según la categoría seleccionada
+            handleCategoryChange(selectedId); // Asegúrate de que `handleCategoryChange` actualice `dataSubcategories`
         }}
         className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
     >
@@ -810,95 +653,219 @@ useEffect(() => {
         ))}
     </select>
 </label>
+
+{/* Subcategorías */}
 <label className="font-semibold text-gray-700">Subcategorías:</label>
 <Select
     isMulti
     placeholder="Selecciona subcategorías"
-    options={dataSubcategories.map((subcategory) => ({
-        value: subcategory.uid,
-        label: subcategory.nombre,
-    }))}
+    noOptionsMessage={() => "No hay Subcategorías disponibles"}
+    options={
+        selectedServiceTemplate?.uid_categoria
+        ? dataSubcategories.map((subcategory) => ({
+            value: subcategory.uid_subcategoria,
+            label: subcategory.nombre, // Asegúrate de que el nombre de la subcategoría se muestra aquí
+        }))
+      : []
+    }
+    value={selectedServiceTemplate?.subcategoria?.map((subcat: any) => ({
+        value: subcat.uid_subcategoria,
+        label: subcat.nombre_subcategoria,
+    })) || []} // Asegúrate de que el valor esté correctamente inicializado
     onChange={(selectedOptions) => {
         const selectedSubcategories = selectedOptions.map(option => ({
             uid_subcategoria: option.value,
             nombre_subcategoria: option.label,
         }));
 
-        setNewService((prev: any) => ({
+        setSelectedServiceTemplate((prev: any) => ({
             ...prev,
-            subcategoria: selectedSubcategories, // Actualiza el estado con las subcategorías seleccionadas
+            subcategoria: selectedSubcategories,
+        }));
+    }}
+    className="mt-1"
+/>
+        {/* Descripción */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Descripción:</span>
+            <input
+                type="text"
+                value={selectedServiceTemplate?.descripcion || ''}
+                onChange={(e) =>
+                    setSelectedServiceTemplate((prev: any) => ({
+                        ...(prev ?? {}),
+                        descripcion: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Garantía del Servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={selectedServiceTemplate?.garantia || ''}
+                onChange={(e) =>
+                    setSelectedServiceTemplate((prev: any) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Botones */}
+        <div className="text-right mt-6">
+            <Button className="mr-2" variant="default" onClick={handleDrawerCloseEdit}>
+                Cancelar
+            </Button>
+            <Button
+                style={{ backgroundColor: '#000B7E' }}
+                className="text-white hover:opacity-80"
+                onClick={handleSaveChanges}
+            >
+                Guardar Cambios
+            </Button>
+        </div>
+    </div>
+</Drawer>
+
+
+<Drawer
+    isOpen={drawerCreateIsOpen}
+    onClose={handleDrawerClose}
+    className="rounded-md shadow"
+>
+    <h2 className="mb-4 text-xl font-bold">Crear Plantilla</h2>
+    <div className="flex flex-col space-y-6">
+        {/* Nombre del Servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Nombre Servicio:</span>
+            <input
+                type="text"
+                value={newServiceTemplate?.nombre || ''}
+                onChange={(e) =>
+                    setNewServiceTemplate((prev) => ({
+                        ...(prev ?? {}),
+                        nombre: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        {/* Categoría */}
+<label className="flex flex-col">
+    <span className="font-semibold text-gray-700">Categoría:</span>
+    <select
+        value={newServiceTemplate?.uid_categoria || ''}
+        onChange={async (e) => {
+            const selectedId = e.target.value;
+            const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
+
+            // Actualizar el estado con la categoría seleccionada
+            setNewServiceTemplate((prev: any) => ({
+                ...prev,
+                uid_categoria: selectedCat?.uid_categoria,
+                nombre_categoria: selectedCat?.nombre,
+                subcategoria: [], // Limpiar subcategorías al cambiar de categoría
+            }));
+            // Filtrar subcategorías según la categoría seleccionada
+            handleCategoryChange(selectedId); // Asegúrate de que `handleCategoryChange` actualice `dataSubcategories`
+        
+            
+        }}
+        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+    >
+        <option value="">Seleccione una categoría</option>
+        {dataCategories.map((category) => (
+            <option key={category.uid_categoria} value={category.uid_categoria}>
+                {category.nombre}
+            </option>
+        ))}
+    </select>
+</label>
+
+{/* Subcategorías */}
+<label className="font-semibold text-gray-700">Subcategorías:</label>
+<Select
+    isMulti
+    placeholder="Selecciona subcategorías"
+    noOptionsMessage={() => "No hay Subcategorías disponibles"}
+    options={
+        newServiceTemplate?.uid_categoria
+            ? dataSubcategories.map((subcategory) => ({
+                  value: subcategory.uid_subcategoria,
+                  label: subcategory.nombre,
+              }))
+            : []
+    }
+    value={newServiceTemplate?.subcategoria?.map((subcat: any) => ({
+        value: subcat.uid_subcategoria,
+        label: subcat.nombre_subcategoria,
+    }))}
+    onChange={(selectedOptions) => {
+        const selectedSubcategories = selectedOptions.map(option => ({
+            uid_subcategoria: option.value,
+            nombre_subcategoria: option.label,
+        }));
+        setNewServiceTemplate((prev: any) => ({
+            ...prev,
+            subcategoria: selectedSubcategories,
         }));
     }}
     className="mt-1"
 />
 
 
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Descripcion:
-                        </span>
-                        <input
-                            type="text"
-                            value={newService?.descripcion || ''}
-                            onChange={(e) =>
-                                setNewService((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    descripcion: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Precio:
-                        </span>
-                        <input
-                            type="text"
-                            value={newService?.precio || ''}
-                            onChange={(e) =>
-                                setNewService((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    precio: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Puntuacion:
-                        </span>
-                        <input
-                            type="text"
-                            value={newService?.puntuacion || ''}
-                            onChange={(e) =>
-                                setNewService((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    puntuacion: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <div className="text-right mt-6">
-                        <Button
-                            className="ltr:mr-2 rtl:ml-2"
-                            variant="default"
-                            onClick={handleDrawerClose}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="text-white hover:opacity-80"
-                            onClick={handleCreateService} // Llamar a la función para crear usuario
-                        >
-                            Guardar
-                        </Button>
-                    </div>
-                </div>
-            </Drawer>
+        {/* Descripción */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Descripción:</span>
+            <input
+                type="text"
+                value={newServiceTemplate?.descripcion || ''}
+                onChange={(e) =>
+                    setNewServiceTemplate((prev) => ({
+                        ...(prev ?? {}),
+                        descripcion: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Garantía del Servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={newServiceTemplate?.garantia || ''}
+                onChange={(e) =>
+                    setNewServiceTemplate((prev) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
+        {/* Botones */}
+        <div className="text-right mt-6">
+            <Button className="mr-2" variant="default" onClick={handleDrawerClose}>
+                Cancelar
+            </Button>
+            <Button
+                style={{ backgroundColor: '#000B7E' }}
+                className="text-white hover:opacity-80"
+                onClick={handleCreateServiceTemplate}
+            >
+                Guardar
+            </Button>
+        </div>
+    </div>
+</Drawer>
+
         </>
     )
 }
