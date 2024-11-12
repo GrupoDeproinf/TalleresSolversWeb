@@ -139,7 +139,6 @@ const Garages = () => {
                     logoUrl: newGarage.logoUrl,
                     status: newGarage.status,
                     direccion: newGarage.direccion,
-                    // Inicialmente puedes dejar el campo uid vacío aquí
                     uid: '', // Este se actualizará después
                 })
 
