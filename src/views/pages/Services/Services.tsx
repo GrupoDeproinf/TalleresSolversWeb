@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
+import Select from '@/components/ui/Select';
 import {
     flexRender,
     getCoreRowModel,
@@ -38,10 +39,86 @@ type Service = {
     precio: string
     puntuacion: string
     uid_servicio: string
+    
+    // Campos para categoría
+    uid_categoria: string
+    nombre_categoria: string
+    // Campos para subcategoría
+    subcategoria: []
+
+
     id: string
 }
 
+type Category = {
+    nombre: string;
+    uid_categoria: string;
+    id: string;
+};
+
+type Subcategory = {
+    nombre: string;
+    descripcion: string;
+    estatus: string;
+    uid: string;
+};
+
+
+
+
+
 const Services = () => {
+
+    // Obtener Categorías
+    const [dataCategories, setDataCategories] = useState<Category[]>([]);
+    const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+
+const getCategories = async () => {
+    try {
+        const q = query(collection(db, 'Categorias')); // Llamado a categorías
+        const querySnapshot = await getDocs(q);
+        const categorias: Category[] = [];
+
+        querySnapshot.forEach((doc) => {
+            const categoryData = doc.data() as Category;
+            // Asignar el id del documento al objeto de categoría
+            categorias.push({ ...categoryData, uid_categoria: doc.id });
+        });
+
+        console.log('Categorias obtenidas:', categorias); // Verifica los datos obtenidos
+        setDataCategories(categorias);
+    } catch (error) {
+        console.error('Error obteniendo categorias:', error);
+    }
+};
+
+useEffect(() => {
+    getCategories();
+}, []);
+
+    // Obtener Subcategorías de las categorías
+    const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>([]);
+    const [selectedSubcategory, setSelectedSubcategory] = useState<Subcategory | null>(null);
+
+    const getSubcategories = async (uid: string) => {
+        try {
+            const subcategoriesRef = collection(db, 'Categorias', uid, 'Subcategorias');
+            const querySnapshot = await getDocs(subcategoriesRef);
+            const subcategorias: Subcategory[] = [];
+    
+            querySnapshot.forEach((doc) => {
+                const subcategoryData = doc.data() as Subcategory;
+                subcategorias.push({ ...subcategoryData, uid: doc.id });
+            });
+    
+            console.log('Subcategorias obtenidas:', subcategorias); // Verifica las subcategorías obtenidas
+            setDataSubcategories(subcategorias);
+        } catch (error) {
+            console.error('Error obteniendo subcategorias:', error);
+        }
+    };
+    
+
     const [dataServices, setDataServices] = useState<Service[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
@@ -80,6 +157,10 @@ const Services = () => {
         precio: '',
         uid_servicio: '',
         puntuacion: '',
+        uid_categoria: '',
+        nombre_categoria: '',
+        subcategoria: [],
+
         id: '',
     })
 
@@ -99,55 +180,62 @@ const Services = () => {
             newService.descripcion
         ) {
             try {
-                const userRef = collection(db, 'Servicios')
+                const userRef = collection(db, 'Servicios');
                 const docRef = await addDoc(userRef, {
                     nombre_servicio: newService.nombre_servicio,
                     descripcion: newService.descripcion,
                     precio: newService.precio,
                     puntuacion: newService.puntuacion,
+                    nombre_categoria: newService.nombre_categoria,
+                    uid_categoria: newService.uid_categoria,
+                    subcategoria: newService.subcategoria, // Guarda el array de subcategorías seleccionadas
                     uid_servicio: '', // Inicialmente vacío
-                })
-
-                // Ahora actualiza el documento para incluir el uid_servicio generado
+                });
+    
+                // Actualiza el uid_servicio generado
                 await updateDoc(docRef, {
                     uid_servicio: docRef.id, // Establece el uid_servicio al ID del documento generado
-                })
-
+                });
+    
                 // Notificación de éxito
                 toast.push(
                     <Notification title="Éxito">
                         Servicio creado con éxito.
                     </Notification>,
-                )
-
-                // Limpiar los campos después de crear el servicio
+                );
+    
+                // Limpia los campos después de crear el servicio
                 setNewService({
                     nombre_servicio: '',
                     descripcion: '',
                     precio: '',
                     puntuacion: '',
                     uid_servicio: '',
+                    uid_categoria: '',
+                    nombre_categoria: '',
+                    subcategoria: [],
                     id: '',
-                })
-
-                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el servicio
-                getData() // Refrescar la lista de servicios
+                });
+    
+                setDrawerCreateIsOpen(false); // Cierra el Drawer después de crear el servicio
+                getData(); // Refresca la lista de servicios
             } catch (error) {
-                console.error('Error creando Servicio:', error)
+                console.error('Error creando Servicio:', error);
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el Servicio.
                     </Notification>,
-                )
+                );
             }
         } else {
             toast.push(
                 <Notification title="Error">
                     Por favor, complete todos los campos requeridos.
                 </Notification>,
-            )
+            );
         }
-    }
+    };
+    
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -202,6 +290,31 @@ const Services = () => {
             header: 'Descripción',
             accessorKey: 'descripcion',
         },
+        {
+            header: 'Categoría',
+            accessorKey: 'nombre_categoria',
+        },
+        {
+            header: 'Subcategorías',
+            accessorKey: 'subcategoria', // Asegúrate de que coincida con el campo de subcategorías en el objeto `Service`
+            cell: ({ row }) => {
+                const subcategories = row.original.subcategoria;
+        
+                // Verificar si el servicio tiene subcategorías
+                if (!subcategories || subcategories.length === 0) {
+                    return <span>No posee</span>; // Si no tiene subcategorías, muestra "No posee"
+                }
+        
+                return (
+                    <ul>
+                        {subcategories.map((sub: any) => (
+                            <li key={sub.uid_subcategoria}>{sub.nombre_subcategoria}</li>
+                        ))}
+                    </ul>
+                );
+            },
+        },        
+        
         {
             header: 'Precio',
             accessorKey: 'precio',
@@ -285,19 +398,29 @@ const Services = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
-        setDrawerCreateIsOpen(false) // Cierra el Drawer
-        setNewService({
-            // Limpia los campos de usuario
+        console.log('Drawer cerrado', e);
+        setDrawerCreateIsOpen(false); // Cierra el Drawer
+        setNewService({ // Limpia los campos de usuario
             nombre_servicio: '',
             descripcion: '',
             precio: '',
             puntuacion: '',
             id: '',
             uid_servicio: '',
-        })
-        setSelectedService(null) // Limpia la selección (si es necesario)
+            uid_categoria: '',
+            nombre_categoria: '',
+            subcategoria: [],
+        });
+        setSelectedService(null); // Limpia la selección (si es necesario)
     }
+
+    const handleDrawerCloseEdit = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e);
+        setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
+    }
+    
+
+    
 
     const handleDelete = async () => {
         if (selectedService) {
@@ -515,7 +638,7 @@ const Services = () => {
             </Dialog>
             <Drawer
                 isOpen={drawerIsOpen}
-                onClose={handleDrawerClose}
+                onClose={handleDrawerCloseEdit}
                 className="rounded-md" // Añadir estilo al Drawer
             >
                 <h2 className="text-xl font-bold">Editar Servicio</h2>
@@ -530,7 +653,7 @@ const Services = () => {
                             type="text"
                             value={selectedService?.nombre_servicio || ''}
                             onChange={(e) =>
-                                setSelectedService((prev) => ({
+                                setSelectedService((prev: any) => ({
                                     ...(prev ?? {
                                         nombre_servicio: '',
                                         descripcion: '',
@@ -555,7 +678,7 @@ const Services = () => {
                             type="text"
                             value={selectedService?.descripcion || ''}
                             onChange={(e) =>
-                                setSelectedService((prev) => ({
+                                setSelectedService((prev: any) => ({
                                     ...(prev ?? {
                                         nombre_servicio: '',
                                         descripcion: '',
@@ -579,7 +702,7 @@ const Services = () => {
                             type="text"
                             value={selectedService?.precio || ''}
                             onChange={(e) =>
-                                setSelectedService((prev) => ({
+                                setSelectedService((prev: any) => ({
                                     ...(prev ?? {
                                         nombre_servicio: '',
                                         descripcion: '',
@@ -603,7 +726,7 @@ const Services = () => {
                             type="text"
                             value={selectedService?.puntuacion || ''}
                             onChange={(e) =>
-                                setSelectedService((prev) => ({
+                                setSelectedService((prev: any) => ({
                                     ...(prev ?? {
                                         nombre_servicio: '',
                                         descripcion: '',
@@ -625,7 +748,7 @@ const Services = () => {
                     <Button
                         className="mr-2" // Espaciado entre botones
                         variant="default"
-                        onClick={handleDrawerClose}
+                        onClick={handleDrawerCloseEdit}
                     >
                         Cancelar
                     </Button>
@@ -661,6 +784,55 @@ const Services = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
+                    <label className="flex flex-col">
+    <span className="font-semibold text-gray-700">Categoría:</span>
+    <select
+        value={newService?.uid_categoria || ''}
+        onChange={(e) => {
+            const selectedId = e.target.value;
+            const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
+            setNewService((prev: any) => ({
+                ...prev,
+                uid_categoria: selectedCat?.uid_categoria,
+                nombre_categoria: selectedCat?.nombre,
+            }));
+            if (selectedCat?.uid_categoria) {
+                getSubcategories(selectedCat.uid_categoria); // Obtener subcategorías
+            }
+        }}
+        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+    >
+        <option value="">Seleccione una categoría</option>
+        {dataCategories.map((category) => (
+            <option key={category.uid_categoria} value={category.uid_categoria}>
+                {category.nombre}
+            </option>
+        ))}
+    </select>
+</label>
+<label className="font-semibold text-gray-700">Subcategorías:</label>
+<Select
+    isMulti
+    placeholder="Selecciona subcategorías"
+    options={dataSubcategories.map((subcategory) => ({
+        value: subcategory.uid,
+        label: subcategory.nombre,
+    }))}
+    onChange={(selectedOptions) => {
+        const selectedSubcategories = selectedOptions.map(option => ({
+            uid_subcategoria: option.value,
+            nombre_subcategoria: option.label,
+        }));
+
+        setNewService((prev: any) => ({
+            ...prev,
+            subcategoria: selectedSubcategories, // Actualiza el estado con las subcategorías seleccionadas
+        }));
+    }}
+    className="mt-1"
+/>
+
+
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Descripcion:

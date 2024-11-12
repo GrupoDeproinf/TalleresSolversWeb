@@ -300,8 +300,11 @@ const Plans = () => {
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
         setDrawerIsOpen(false)
+        setDrawerCreateIsOpen(false)
         setSelectedPerson(null) // Limpiar la selección
+        setNewPlan({ nombre: '', descripcion: '', cantidad_servicios: '', monto: '', vigencia: '', id: '', uid: '', }) // Limpiar inputs
     }
+    
 
     const handleDelete = async () => {
         if (selectedPerson) {
@@ -590,7 +593,7 @@ const Plans = () => {
             </Drawer>
             <Drawer
                 isOpen={drawerCreateIsOpen}
-                onClose={() => setDrawerCreateIsOpen(false)}
+                onClose={handleDrawerClose}
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Plan</h2>
@@ -679,7 +682,7 @@ const Plans = () => {
                         <Button
                             className="ltr:mr-2 rtl:ml-2"
                             variant="default"
-                            onClick={() => setDrawerCreateIsOpen(false)}
+                            onClick={handleDrawerClose}
                         >
                             Cancelar
                         </Button>
