@@ -58,24 +58,25 @@ type subscricion = {
 }
 
 type Service = {
-    nombre_servicio?: string
+    nombre?: string
     descripcion?: string
     precio?: string
-    uid_taller?: '',
-    nombre_taller?: '',
-    uid_servicio?: string
+    uid_taller?: string,
+    taller?: string,
+    uid_servicio: string
+    estatus?: boolean,
+    garantia?: string,
+    puntuacion?: number,
     id?: string
-    
     // Campos para categoría
-    uid_categoria: string
-    nombre_categoria: string
+    uid_categoria?: string
+    nombre_categoria?: string
     // Campos para subcategoría
-    subcategoria: []
-
+    subcategoria?: []
 }
 
 type ServiceTemplate = {
-    nombre_servicio?: string
+    nombre?: string
     descripcion?: string
     uid_servicio?: string
     
@@ -84,6 +85,7 @@ type ServiceTemplate = {
     nombre_categoria?: string
     // Campos para subcategoría
     subcategoria?: []
+    garantia?: string,
 
 
     id?: string
@@ -184,19 +186,23 @@ const ServiceGarages = () => {
     const [selectedServiceTemplate, setSelectedServiceTemplate] = useState<ServiceTemplate | null>(null);
     const [drawerIsOpen, setDrawerIsOpen] = useState(false);
     const [newService, setNewService] = useState<Service | null>({
-        nombre_servicio: '',
+        nombre: '',
         descripcion: '',
         uid_categoria: '',
         nombre_categoria: '',
         subcategoria: [],
         precio: '',
         uid_servicio: '',
+
+        estatus: true,
+        garantia: '',
+        puntuacion: 0,
     });
     
     const handleCreateService = async () => {
         if (
             newService &&
-            newService.nombre_servicio &&
+            newService.nombre &&
             newService.descripcion &&
             newService.nombre_categoria &&
             newService.uid_categoria
@@ -206,15 +212,18 @@ const ServiceGarages = () => {
                 
                 // Añadir el documento y guardar su referencia
                 const docRef = await addDoc(userRef, {
-                    nombre_servicio: newService.nombre_servicio,
+                    nombre: newService.nombre,
                     descripcion: newService.descripcion,
                     nombre_categoria: newService.nombre_categoria,
                     uid_categoria: newService.uid_categoria,
                     subcategoria: newService.subcategoria,
                     precio: newService.precio,
                     uid_taller: newService.uid_taller,
-                    nombre_taller: newService.nombre_taller,
+                    taller: newService.taller,
                     uid_servicio: '', // Inicialmente vacío
+                    garantia: newService.garantia,
+                    estatus: true,
+                    puntuacion: newService.puntuacion || 0,
                 });
                 
                 // Actualizar el campo uid_servicio con el ID del documento recién creado
@@ -229,7 +238,7 @@ const ServiceGarages = () => {
                 );
 
                 setNewService({
-                    nombre_servicio: '',
+                    nombre: '',
                     descripcion: '',
                     uid_servicio: '',
                     uid_categoria: '',
@@ -237,7 +246,10 @@ const ServiceGarages = () => {
                     subcategoria: [],
                     precio: '',
                     uid_taller: '',
-                    nombre_taller: '',
+                    taller: '',
+                    garantia: '',
+                    estatus: true,
+                    puntuacion: 0,
                 });
 
                 setDrawerCreateIsOpen(false);
@@ -260,16 +272,33 @@ const ServiceGarages = () => {
         }
     };
 
-    const openDrawer = (serviceTemplate: ServiceTemplate) => {
+    const openCreateDrawer = () => {
+        setSelectedServiceTemplate(null); // No selecciona ningún template
+        setNewService({
+            nombre: '',
+            descripcion: '',
+            uid_categoria: '',
+            nombre_categoria: '',
+            subcategoria: [],
+            precio: '',
+            uid_servicio: '',
+            garantia: '',
+        });
+        setDrawerIsOpen(true);
+    };
+    
+    const openEditDrawer = (serviceTemplate: ServiceTemplate) => {
         setSelectedServiceTemplate(serviceTemplate);
         setNewService({
-            nombre_servicio: serviceTemplate.nombre_servicio || '',
+            nombre: serviceTemplate.nombre || '',
             descripcion: serviceTemplate.descripcion || '',
             uid_categoria: serviceTemplate.uid_categoria || '',
             nombre_categoria: serviceTemplate.nombre_categoria || '',
             subcategoria: serviceTemplate.subcategoria || [],
             precio: '',
-            uid_servicio: '',
+            uid_servicio: serviceTemplate.uid_servicio || '',
+            garantia: serviceTemplate.garantia || '',
+            puntuacion: 0,
         });
         setDrawerIsOpen(true);
     };
@@ -286,24 +315,10 @@ const ServiceGarages = () => {
         })
     }
 
-    // Obtener iniciales de los nombres
-    const getInitials = (nombre: string | undefined): string => {
-        if (!nombre) return ''
-        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
-        return words
-            .map((word) => {
-                if (typeof word === 'string' && word.length > 0) {
-                    return word[0].toUpperCase()
-                }
-                return '' // Retorna una cadena vacía si la palabra no es válida
-            })
-            .join('')
-    }
-
     const columns: ColumnDef<ServiceTemplate>[] = [
         {
             header: 'Nombre del Servicio',
-            accessorKey: 'nombre_servicio',
+            accessorKey: 'nombre',
         },
         {
             header: 'Descripción',
@@ -332,7 +347,11 @@ const ServiceGarages = () => {
                     </ul>
                 );
             },
-        },        
+        },      
+        {
+            header: 'Garantía',
+            accessorKey: 'garantia',
+        },  
         {
             header: ' ',
             cell: ({ row }) => {
@@ -342,7 +361,7 @@ const ServiceGarages = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={() => openDrawer(person)} // Usando la función openDrawer
+                            onClick={() => openEditDrawer(person)} // Usando la función openEditDrawer
                         >
                             Usar Plantilla
                         </Button>
@@ -355,11 +374,11 @@ const ServiceGarages = () => {
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
 
-    const [maxServices, setMaxServices] = useState(0); // Límite de servicios del taller
+    /*const [maxServices, setMaxServices] = useState(0); // Límite de servicios del taller
     const [assignedServices, setAssignedServices] = useState<string[]>([]); // Servicios ya asignados
     const [remainingServices, setRemainingServices] = useState(0); // Servicios restantes
 
-    /* // Carga el límite de servicios y servicios actuales cuando se selecciona el taller
+     // Carga el límite de servicios y servicios actuales cuando se selecciona el taller
     useEffect(() => {
         const loadServiceLimits = async () => {
             if (selectedPerson) {
@@ -492,32 +511,20 @@ const ServiceGarages = () => {
         // console.log('Drawer cerrado', e);
         setDrawerCreateIsOpen(false); // Cierra el Drawer
         setNewService({ // Limpia los campos de usuario
-            nombre_servicio: '',
+            nombre: '',
             descripcion: '',
             id: '',
             uid_servicio: '',
             uid_categoria: '',
             nombre_categoria: '',
             subcategoria: [],
-            nombre_taller: '',
+            taller: '',
             precio: '',
+            puntuacion: 0,
+            garantia: '',
         });
         setSelectedServiceTemplate(null); // Limpia la selección (si es necesario)
     }
-
-    {/* useEffect para cargar subcategories en base a la categoria seleccionada (para editar) */}
-    {/*useEffect(() => {
-        if (selectedServiceTemplate?.uid_categoria) {
-            getSubcategories(selectedServiceTemplate.uid_categoria);
-        }
-    }, [selectedServiceTemplate?.uid_categoria, getSubcategories]);*/}
-
-    {/* useEffect para cargar subcategories en base a la categoria seleccionada (para crear) */}
-    {/*useEffect(() => {
-        if (newService?.uid_categoria) {
-            getSubcategories(newService.uid_categoria);
-        }
-    }, [newService?.uid_categoria, getSubcategories]);*/}
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
         console.log('Drawer cerrado', e);
@@ -535,7 +542,7 @@ const ServiceGarages = () => {
                     <Button
                         style={{ backgroundColor: '#000B7E' }}
                         className="text-white hover:opacity-80"
-                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                        onClick={openCreateDrawer} // Abre el Drawer de creación
                     >
                         Crear Servicio
                     </Button>
@@ -653,11 +660,11 @@ const ServiceGarages = () => {
             <span className="font-semibold text-gray-700">Nombre Servicio:</span>
             <input
                 type="text"
-                value={newService?.nombre_servicio || ''}
+                value={newService?.nombre || ''}
                 onChange={(e) =>
                     setNewService((prev: any) => ({
                         ...(prev ?? {}),
-                        nombre_servicio: e.target.value,
+                        nombre: e.target.value,
                     }))
                 }
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -674,7 +681,7 @@ const ServiceGarages = () => {
                     setNewService((prev: any) => ({
                         ...prev,
                         uid_taller: selectedCat?.uid,
-                        nombre_taller: selectedCat?.nombre,
+                        taller: selectedCat?.nombre,
                     }));
                 }}
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -783,6 +790,37 @@ const ServiceGarages = () => {
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
             />
         </label>
+                {/* Garantía del Servicio */}
+                <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={newService?.garantia || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+                {/* Puntuación del Servicio */}
+                <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Puntuación:</span>
+            <input
+                type="text"
+                value={newService?.puntuacion || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        puntuacion: parseFloat(e.target.value),
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+
         <div className="text-right mt-6">
             <Button className="mr-2" variant="default" onClick={handleDrawerCloseEdit}>
                 Cancelar
@@ -811,11 +849,11 @@ const ServiceGarages = () => {
             <span className="font-semibold text-gray-700">Nombre Servicio:</span>
             <input
                 type="text"
-                value={newService?.nombre_servicio || ''}
+                value={newService?.nombre || ''}
                 onChange={(e) =>
                     setNewService((prev: any) => ({
                         ...(prev ?? {}),
-                        nombre_servicio: e.target.value,
+                        nombre: e.target.value,
                     }))
                 }
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -833,7 +871,7 @@ const ServiceGarages = () => {
                     setNewService((prev: any) => ({
                         ...prev,
                         uid_taller: selectedCat?.uid,
-                        nombre_taller: selectedCat?.nombre,
+                        taller: selectedCat?.nombre,
                     }));
                 }}
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -941,6 +979,36 @@ const ServiceGarages = () => {
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
             />
         </label>
+        {/* Garantía del servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={newService?.garantia || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Puntuación del servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Puntuación:</span>
+            <input
+                type="text"
+                value={newService?.puntuacion || ''}
+                onChange={(e) =>
+                    setNewService((prev: any) => ({
+                        ...(prev ?? {}),
+                        puntuacion: parseFloat(e.target.value),
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
 
         <div className="text-right mt-6">
             <Button className="mr-2" variant="default" onClick={handleDrawerClose}>
@@ -956,11 +1024,6 @@ const ServiceGarages = () => {
         </div>
     </div>
 </Drawer>
-
-
-
-
-
         </>
     )
 }

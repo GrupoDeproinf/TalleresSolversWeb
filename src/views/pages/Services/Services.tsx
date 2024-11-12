@@ -35,7 +35,7 @@ import type { MouseEvent } from 'react'
 import { Drawer } from '@/components/ui'
 
 type ServiceTemplate = {
-    nombre_servicio?: string
+    nombre?: string
     descripcion?: string
     uid_servicio: string
     
@@ -44,6 +44,7 @@ type ServiceTemplate = {
     nombre_categoria?: string
     // Campos para subcategoría
     subcategoria?: []
+    garantia?: string
 
 
     id?: string
@@ -157,30 +158,32 @@ const handleCategoryChange = async (categoryId: string) => {
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
     const [newServiceTemplate, setNewServiceTemplate] = useState<ServiceTemplate>({
-        nombre_servicio: '',
+        nombre: '',
         descripcion: '',
         uid_servicio: '',
         uid_categoria: '',
         nombre_categoria: '',
         subcategoria: [],
         id: '',
+        garantia: '',
     });
 
     const handleCreateServiceTemplate = async () => {
         if (
             newServiceTemplate &&
-            newServiceTemplate.nombre_servicio &&
+            newServiceTemplate.nombre &&
             newServiceTemplate.descripcion
         ) {
             try {
                 const userRef = collection(db, 'ServiciosTemplate');
                 const docRef = await addDoc(userRef, {
-                    nombre_servicio: newServiceTemplate.nombre_servicio,
+                    nombre: newServiceTemplate.nombre,
                     descripcion: newServiceTemplate.descripcion,
                     nombre_categoria: newServiceTemplate.nombre_categoria,
                     uid_categoria: newServiceTemplate.uid_categoria,
                     subcategoria: newServiceTemplate.subcategoria, // Guarda el array de subcategorías seleccionadas
                     uid_servicio: '', // Inicialmente vacío
+                    garantia: newServiceTemplate.garantia,
                 });
     
                 // Actualiza el uid_servicio generado
@@ -197,13 +200,14 @@ const handleCategoryChange = async (categoryId: string) => {
     
                 // Limpia los campos después de crear el servicio
                 setNewServiceTemplate({
-                    nombre_servicio: '',
+                    nombre: '',
                     descripcion: '',
                     uid_servicio: '',
                     uid_categoria: '',
                     nombre_categoria: '',
                     subcategoria: [],
                     id: '',
+                    garantia: '',
                 });
     
                 setDrawerCreateIsOpen(false); // Cierra el Drawer después de crear el servicio
@@ -245,11 +249,12 @@ const handleCategoryChange = async (categoryId: string) => {
             
             // Actualiza el servicio con los nuevos datos, incluyendo la categoría y subcategorías
             await updateDoc(userDoc, {
-                nombre_servicio: selectedServiceTemplate?.nombre_servicio,
+                nombre: selectedServiceTemplate?.nombre,
                 descripcion: selectedServiceTemplate?.descripcion,
                 uid_categoria: selectedServiceTemplate?.uid_categoria, // Asegura que se guarde la categoría seleccionada
                 nombre_categoria: selectedServiceTemplate?.nombre_categoria, // Nombre de la categoría
                 subcategoria: selectedServiceTemplate?.subcategoria || [], // Subcategorías seleccionadas
+                garantia: selectedServiceTemplate?.garantia,
             });
 
             // Notificación de éxito
@@ -279,7 +284,7 @@ const handleCategoryChange = async (categoryId: string) => {
     const columns: ColumnDef<ServiceTemplate>[] = [
         {
             header: 'Nombre del Servicio',
-            accessorKey: 'nombre_servicio',
+            accessorKey: 'nombre',
         },
         {
             header: 'Descripción',
@@ -308,6 +313,10 @@ const handleCategoryChange = async (categoryId: string) => {
                     </ul>
                 );
             },
+        },  
+        {
+            header: 'Garantía',
+            accessorKey: 'garantia',
         },        
         {
             header: ' ',
@@ -350,13 +359,14 @@ const handleCategoryChange = async (categoryId: string) => {
         console.log('Drawer cerrado', e);
         setDrawerCreateIsOpen(false); // Cierra el Drawer
         setNewServiceTemplate({ // Limpia los campos de usuario
-            nombre_servicio: '',
+            nombre: '',
             descripcion: '',
             id: '',
             uid_servicio: '',
             uid_categoria: '',
             nombre_categoria: '',
             subcategoria: [],
+            garantia: '',
         });
         setSelectedServiceTemplate(null); // Limpia la selección (si es necesario)
     }
@@ -366,9 +376,6 @@ const handleCategoryChange = async (categoryId: string) => {
         setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
     }
     
-
-    
-
     const handleDelete = async () => {
         if (selectedServiceTemplate) {
             console.log('Eliminando el servicio:', selectedServiceTemplate)
@@ -380,7 +387,7 @@ const handleCategoryChange = async (categoryId: string) => {
 
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Servicio {selectedServiceTemplate.nombre_servicio} eliminado con
+                        Servicio {selectedServiceTemplate.nombre} eliminado con
                         éxito.
                     </Notification>
                 )
@@ -574,7 +581,7 @@ const handleCategoryChange = async (categoryId: string) => {
                 <h5 className="mb-4">Confirmar Eliminación</h5>
                 <p>
                     ¿Estás seguro de que deseas eliminar el servicio{' '}
-                    {selectedServiceTemplate?.nombre_servicio}?
+                    {selectedServiceTemplate?.nombre}?
                 </p>
                 <div className="text-right mt-6">
                     <Button
@@ -605,11 +612,11 @@ const handleCategoryChange = async (categoryId: string) => {
             <span className="font-semibold text-gray-700">Nombre Servicio:</span>
             <input
                 type="text"
-                value={selectedServiceTemplate?.nombre_servicio || ''}
+                value={selectedServiceTemplate?.nombre || ''}
                 onChange={(e) =>
                     setSelectedServiceTemplate((prev: any) => ({
                         ...(prev ?? {}),
-                        nombre_servicio: e.target.value,
+                        nombre: e.target.value,
                     }))
                 }
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -678,8 +685,6 @@ const handleCategoryChange = async (categoryId: string) => {
     }}
     className="mt-1"
 />
-
-
         {/* Descripción */}
         <label className="flex flex-col">
             <span className="font-semibold text-gray-700">Descripción:</span>
@@ -690,6 +695,21 @@ const handleCategoryChange = async (categoryId: string) => {
                     setSelectedServiceTemplate((prev: any) => ({
                         ...(prev ?? {}),
                         descripcion: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Garantía del Servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={selectedServiceTemplate?.garantia || ''}
+                onChange={(e) =>
+                    setSelectedServiceTemplate((prev: any) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
                     }))
                 }
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -724,11 +744,11 @@ const handleCategoryChange = async (categoryId: string) => {
             <span className="font-semibold text-gray-700">Nombre Servicio:</span>
             <input
                 type="text"
-                value={newServiceTemplate?.nombre_servicio || ''}
+                value={newServiceTemplate?.nombre || ''}
                 onChange={(e) =>
                     setNewServiceTemplate((prev) => ({
                         ...(prev ?? {}),
-                        nombre_servicio: e.target.value,
+                        nombre: e.target.value,
                     }))
                 }
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -809,6 +829,21 @@ const handleCategoryChange = async (categoryId: string) => {
                     setNewServiceTemplate((prev) => ({
                         ...(prev ?? {}),
                         descripcion: e.target.value,
+                    }))
+                }
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+            />
+        </label>
+        {/* Garantía del Servicio */}
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Garantía:</span>
+            <input
+                type="text"
+                value={newServiceTemplate?.garantia || ''}
+                onChange={(e) =>
+                    setNewServiceTemplate((prev) => ({
+                        ...(prev ?? {}),
+                        garantia: e.target.value,
                     }))
                 }
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
