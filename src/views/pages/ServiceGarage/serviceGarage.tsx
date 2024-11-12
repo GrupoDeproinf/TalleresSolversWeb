@@ -63,16 +63,16 @@ type Service = {
     precio?: string
     uid_taller?: string,
     taller?: string,
-    uid_servicio?: string
+    uid_servicio: string
     estatus?: boolean,
     garantia?: string,
     puntuacion?: number,
     id?: string
     // Campos para categoría
-    uid_categoria: string
-    nombre_categoria: string
+    uid_categoria?: string
+    nombre_categoria?: string
     // Campos para subcategoría
-    subcategoria: []
+    subcategoria?: []
 }
 
 type ServiceTemplate = {
@@ -272,7 +272,22 @@ const ServiceGarages = () => {
         }
     };
 
-    const openDrawer = (serviceTemplate: ServiceTemplate) => {
+    const openCreateDrawer = () => {
+        setSelectedServiceTemplate(null); // No selecciona ningún template
+        setNewService({
+            nombre: '',
+            descripcion: '',
+            uid_categoria: '',
+            nombre_categoria: '',
+            subcategoria: [],
+            precio: '',
+            uid_servicio: '',
+            garantia: '',
+        });
+        setDrawerIsOpen(true);
+    };
+    
+    const openEditDrawer = (serviceTemplate: ServiceTemplate) => {
         setSelectedServiceTemplate(serviceTemplate);
         setNewService({
             nombre: serviceTemplate.nombre || '',
@@ -281,8 +296,9 @@ const ServiceGarages = () => {
             nombre_categoria: serviceTemplate.nombre_categoria || '',
             subcategoria: serviceTemplate.subcategoria || [],
             precio: '',
-            uid_servicio: '',
+            uid_servicio: serviceTemplate.uid_servicio || '',
             garantia: serviceTemplate.garantia || '',
+            puntuacion: 0,
         });
         setDrawerIsOpen(true);
     };
@@ -345,7 +361,7 @@ const ServiceGarages = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={() => openDrawer(person)} // Usando la función openDrawer
+                            onClick={() => openEditDrawer(person)} // Usando la función openEditDrawer
                         >
                             Usar Plantilla
                         </Button>
@@ -526,7 +542,7 @@ const ServiceGarages = () => {
                     <Button
                         style={{ backgroundColor: '#000B7E' }}
                         className="text-white hover:opacity-80"
-                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                        onClick={openCreateDrawer} // Abre el Drawer de creación
                     >
                         Crear Servicio
                     </Button>
