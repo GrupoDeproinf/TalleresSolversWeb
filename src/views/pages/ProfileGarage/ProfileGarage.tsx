@@ -18,7 +18,7 @@ import Card from '@/components/ui/Card'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import { FaCamera, FaFacebookF, FaInstagram, FaArrowLeft , FaTiktok } from 'react-icons/fa'
+import { FaCamera, FaFacebookF, FaInstagram, FaArrowLeft, FaTiktok } from 'react-icons/fa'
 import { HiPencilAlt, HiOutlineTrash } from 'react-icons/hi'
 import { db } from '@/configs/firebaseAssets.config'
 import { useNavigate } from 'react-router-dom'
@@ -27,7 +27,7 @@ import { HiFire } from 'react-icons/hi'
 import { NumericFormat } from 'react-number-format'
 import dayjs from 'dayjs'
 import Table from '@/components/ui/Table'
-import { Dialog, Pagination } from '@/components/ui'
+import { Dialog, Notification, Pagination, toast } from '@/components/ui'
 import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import Tabs from '@/components/ui/Tabs'
 import {
@@ -50,6 +50,7 @@ import { SiZelle } from 'react-icons/si'
 import PaymentForm from './Components/PaymentForm'
 import PaymentDrawer from './Components/PaymentForm'
 import { original } from '@reduxjs/toolkit'
+
 
 type Service = {
     nombre_servicio: string
@@ -101,7 +102,7 @@ const ProfileGarage = () => {
         monto: '',
         status: '',
         vigencia: '',
-        uid: '' ,
+        uid: '',
     }); // Estado para la suscripción actual
     const [subscripcionestable, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
     const [formData, setFormData] = useState({
@@ -116,6 +117,16 @@ const ProfileGarage = () => {
         LinkTiktok: '',
         LinkInstagram: '',
     })
+    const [paymentMethodsState, setPaymentMethodsState] = useState<Record<string, boolean>>({
+        pagoMovil: false,
+        transferencia: false,
+        puntoVenta: false,
+        zinli: false,
+        efectivo: false,
+        zelle: false,
+        tarjetaCreditoN: false,
+        tarjetaCreditoI: false,
+    });
 
     const path = location.pathname.substring(
         location.pathname.lastIndexOf('/') + 1,
@@ -130,6 +141,14 @@ const ProfileGarage = () => {
             const docRef = doc(db, 'Usuarios', path); // `path` es el ID del usuario o taller
             const resp = await getDoc(docRef);
             const dataFinal = resp.data() || null;
+
+            console.log(dataFinal)
+
+            const paymentMethodsData = dataFinal?.metodos_pago || {};
+            setPaymentMethodsState((prevState) => ({
+                ...prevState,
+                ...paymentMethodsData,
+            }));
 
             // Obtener información de la suscripción actual
             const subscripcionActual = dataFinal?.subscripcion_actual || null;
@@ -160,26 +179,30 @@ const ProfileGarage = () => {
                 };
             });
 
-            // Obtener IDs de los servicios asociados al usuario
-            const serviceIds = dataFinal?.servicios || [];
+            
 
             // Obtener detalles de cada servicio basado en los IDs
-            const services = await Promise.all(
-                serviceIds.map(async (serviceId: any) => {
-                    const serviceDocRef = doc(db, 'Servicios', serviceId);
-                    const serviceDoc = await getDoc(serviceDocRef);
-                    const serviceData = serviceDoc.data();
-
-                    return {
-                        uid_servicio: serviceId,
-                        nombre_servicio: serviceData?.nombre_servicio || '',
-                        descripcion: serviceData?.descripcion || '',
-                        precio: serviceData?.precio || '0',
-                        taller: serviceData?.taller || '',
-                        puntuacion: serviceData?.puntuacion || '0',
-                    };
-                })
+            const servicesQuery = query(
+                collection(db, 'Servicios'),
+                where('uid_taller', '==', path)
             );
+            
+            // Obtener los servicios que coinciden con el `uid_taller`
+            const querySnapshot = await getDocs(servicesQuery);
+            
+            // Procesar los resultados y devolver un array con los servicios
+            const services = querySnapshot.docs.map((doc) => {
+                const serviceData = doc.data();
+            
+                return {
+                    uid_servicio: doc.id,
+                    nombre_servicio: serviceData?.nombre || '',
+                    descripcion: serviceData?.descripcion || '',
+                    precio: serviceData?.precio || '0',
+                    taller: serviceData?.taller || '',
+                    puntuacion: serviceData?.puntuacion || '0',
+                };
+            });
 
             // Obtener todos los planes desde la colección 'Planes'
             const planesSnapshot = await getDocs(collection(db, 'Planes'));
@@ -193,12 +216,11 @@ const ProfileGarage = () => {
                 cantidad_servicios: doc.data().cantidad_servicios || 0,
             }));
 
-            // Actualizar el estado con la información obtenida
-            setData(dataFinal); // Datos generales del usuario o taller
-            setServices(services); // Información detallada de cada servicio
-            setPlanes(planes); // Información de todos los planes disponibles
-            setSubscription(subscripcionActual); // Suscripción actual
-            setSubscriptionHistory(subscripciones); // Historial de suscripciones (ahora desde la colección 'Subscripciones')
+            setData(dataFinal);
+            setServices(services);
+            setPlanes(planes); 
+            setSubscription(subscripcionActual); 
+            setSubscriptionHistory(subscripciones); 
 
             const endDate = subscripcionActual?.fecha_fin;
             console.log("aqui endDate", endDate)
@@ -218,13 +240,18 @@ const ProfileGarage = () => {
                 phone: dataFinal?.phone || '',
                 rif: dataFinal?.rif || '',
                 status: dataFinal?.status || '',
-                location: dataFinal?.location || '',
+                location: dataFinal?.direccion || '',
                 LinkFacebook: dataFinal?.LinkFacebook || '',
                 LinkInstagram: dataFinal?.LinkInstagram || '',
                 LinkTiktok: dataFinal?.LinkTiktok || '',
             });
         } catch (error) {
             console.error('Error al obtener los datos del cliente:', error);
+            toast.push(
+                <Notification title="Error">
+                    Ocurrio un error al cargar los datos del cliente.
+                </Notification>
+            );
         } finally {
             setLoading(false);
         }
@@ -291,8 +318,18 @@ const ProfileGarage = () => {
 
             onDialogClosesub();
             console.log('Subscripción actualizada y guardada en Subscripciones.');
+            toast.push(
+                <Notification title="Éxito" type="success">
+                    Se ha subscrito correctamente a este plan.
+                </Notification>
+            );
         } catch (error) {
             console.error('Error al guardar la subscripción:', error);
+            toast.push(
+                <Notification title="Error">
+                    Ocurrió un error al subscribirse a este plan. Inténtalo nuevamente.
+                </Notification>
+            );
         }
     };
 
@@ -324,16 +361,51 @@ const ProfileGarage = () => {
         setFormData((prev) => ({ ...prev, [name]: value }))
     }
 
+  
+
     const handleEditSave = async () => {
         try {
             const docRef = doc(db, 'Usuarios', path)
             await updateDoc(docRef, formData)
-            setData(formData) // Actualizar estado local
-            setEditModalOpen(false) // Cerrar el modal de edición
+            setData(formData)
+            setEditModalOpen(false)
+            toast.push(
+                <Notification title="Éxito" type="success">
+                    Datos de Usuario actualizados correctamente.
+                </Notification>
+            );
         } catch (error) {
             console.error('Error al actualizar los datos:', error)
+            toast.push(
+                <Notification title="Error">
+                    Ocurrió un error al actualizar los datos del usuario. Inténtalo nuevamente.
+                </Notification>
+            );
         }
     }
+
+
+    const handleSavePaymentMethods = async () => {
+        try {
+            const docRef = doc(db, 'Usuarios', path);
+            await updateDoc(docRef, {
+                metodos_pago: paymentMethodsState,
+            });
+            toast.push(
+                <Notification title="Éxito" type="success">
+                    Métodos de pago actualizados correctamente.
+                </Notification>
+            );
+        } catch (error) {
+            console.error('Error al guardar los métodos de pago:', error);
+            toast.push(
+                <Notification title="Error">
+                    Ocurrió un error al actualizar los métodos de pago. Inténtalo nuevamente.
+                </Notification>
+            );
+        }
+    };
+
 
     const paymentMethods = [
         {
@@ -469,11 +541,11 @@ const ProfileGarage = () => {
         {
             header: 'Fecha de vencimiento',
             accessorKey: 'fecha_fin',
-            cell:({row})=>{
+            cell: ({ row }) => {
                 const fecha = formatDate(row.original.fecha_fin)
                 return `${fecha}`
             }
-           
+
         },
     ]
 
@@ -537,17 +609,17 @@ const ProfileGarage = () => {
 
     return (
         <Container className="h-full">
-        <div className="flex items-center">
-            <button
-                onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
-                className="flex items-center text-blue-900 mb-3 ml-2 px-4 py-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition duration-200"
-            >
-                <FaArrowLeft className="mr-2" />
-                <span>Volver</span>
-            </button>
-        </div>
+            <div className="flex items-center">
+                <button
+                    onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
+                    className="flex items-center text-blue-900 mb-3 ml-2 px-4 py-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition duration-200"
+                >
+                    <FaArrowLeft className="mr-2" />
+                    <span>Volver</span>
+                </button>
+            </div>
             <div className="flex flex-col xl:flex-row gap-4">
-                
+
                 <Card>
                     <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
                         <div className="flex xl:flex-col items-center gap-4">
@@ -584,7 +656,7 @@ const ProfileGarage = () => {
                             <CustomerInfoField
                                 title="Ubicacion"
                                 value={
-                                    data?.location || 'Ubicacion no disponible'
+                                    data?.direccion || 'Ubicacion no disponible'
                                 }
                             />
 
@@ -729,7 +801,7 @@ const ProfileGarage = () => {
                                             </div>
                                             {subscription?.status === 'Por Aprobar' && (
                                                 <div className="flex justify-end mt-2">
-                                                    <PaymentDrawer subscriptionId={subscripcionestable[0]?.uid } />
+                                                    <PaymentDrawer subscriptionId={subscripcionestable[0]?.uid} />
                                                 </div>
                                             )}
                                         </div>
@@ -838,19 +910,33 @@ const ProfileGarage = () => {
                                     </div>
                                 </div>
                                 <div className="border-t border-gray-300 my-4" />
-
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
                                     {paymentMethods.map((method) => (
-                                        <div
-                                            key={method.name}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <Checkbox readOnly />
+                                        <div key={method.name} className="flex items-center gap-2">
+                                            <Checkbox
+                                                checked={paymentMethodsState[method.dbKey] || false}
+                                                onChange={(checked: boolean) => {
+                                                    setPaymentMethodsState((prevState) => ({
+                                                        ...prevState,
+                                                        [method.dbKey]: checked,
+                                                    }));
+                                                }}
+                                            />
                                             <span>{method.icon}</span>
                                             <span>{method.name}</span>
                                         </div>
                                     ))}
                                 </div>
+
+                                <div className="flex justify-end mt-4">
+                                    <button
+                                        onClick={handleSavePaymentMethods}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none"
+                                    >
+                                        Guardar
+                                    </button>
+                                </div>
+
                             </div>
                         </TabContent>
                     </div>

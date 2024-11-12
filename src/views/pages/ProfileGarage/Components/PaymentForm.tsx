@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Drawer, Input } from '@/components/ui'
+import { Button, Drawer, Input, Notification, toast } from '@/components/ui'
 import { Formik, Form, Field } from 'formik'
 import * as Yup from 'yup'
 import { db } from '@/configs/firebaseAssets.config'
@@ -10,6 +10,15 @@ type MetodoPago = 'Transferencia' | 'Pago Móvil' | 'Zelle' | 'Efectivo'
 interface MetodoPagoInfo {
     tipo_pago: MetodoPago
     status: boolean
+    email?: string
+    num_ref?: string
+    banco?: string
+    cedula_rif?: string
+    cuenta?: string
+    status_pago?: boolean
+    tipo_cuenta?: string
+    telefono?: string
+    titular?: string
 }
 
 const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) => {
@@ -45,11 +54,9 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
         fechaPago: '',
     }
 
-    // Validación completa basada en el método de pago
     const validationSchema = Yup.object({
         monto: Yup.string().required('Por favor, ingrese el monto'),
         fechaPago: Yup.date().required('Por favor, ingrese la fecha de pago'),
-        
     })
 
     const handleSubmit = async (values: any) => {
@@ -61,10 +68,8 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
         setCargando(true)
 
         try {
-            // Convertir fechaPago a un timestamp
             const fechaPagoTimestamp = values.fechaPago ? Timestamp.fromDate(new Date(values.fechaPago)) : null
 
-            // Construir el objeto `comprobantePago`
             const comprobantePago: any = {
                 metodo: metodoPago,
                 monto: values.monto,
@@ -90,34 +95,44 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                 comprobantePago.numReferencia = values.numReferencia
             }
 
-            // Limpiar datos nulos o vacíos
             Object.keys(comprobantePago).forEach(key => {
                 if (comprobantePago[key] === null || comprobantePago[key] === '') {
                     delete comprobantePago[key]
                 }
             })
 
-            // Actualizar documento en Firestore
             const subscriptionRef = doc(db, 'Subscripciones', subscriptionId)
-            console.log(subscriptionId)
             await updateDoc(subscriptionRef, {
                 comprobante_pago: comprobantePago,
             })
 
             console.log('Pago registrado exitosamente')
+            toast.push(
+                <Notification title="Éxito" type="success">
+                    Se ha registrado el pago correctamente.
+                </Notification>
+            );
         } catch (error) {
             console.error('Error al registrar el pago:', error)
+            toast.push(
+                <Notification title="Error">
+                    Ocurrió un problema al registrar el pago.
+                </Notification>
+            );
         } finally {
             setCargando(false)
             setOpenDrawer(false)
         }
     }
 
+    // Filtra los detalles del método de pago seleccionado
+    const metodoPagoInfo = metodosPago.find(m => m.tipo_pago === metodoPago)
+
     return (
         <>
-            <Button onClick={() => setOpenDrawer(true)} variant="solid">
+            <button onClick={() => setOpenDrawer(true)} className='bg-blue-500 rounded-md p-2 text-white hover:bg-blue-600'>
                 Reportar Pago
-            </Button>
+            </button>
 
             <Drawer isOpen={openDrawer} onClose={() => setOpenDrawer(false)} title="Registrar Pago">
                 <Formik
@@ -141,6 +156,20 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                                     </button>
                                 ))}
                             </div>
+                            {metodoPago !== 'Efectivo' && metodoPagoInfo && (
+                                <div className="bg-gray-100 p-4 rounded-lg mb-4">
+                                    <h5 className="font-semibold text-lg">Detalles de la Empresa</h5>
+                                    {metodoPagoInfo.email && <p><strong>Email:</strong> {metodoPagoInfo.email}</p>}
+                                    {metodoPagoInfo.num_ref && <p><strong>Número de Referencia:</strong> {metodoPagoInfo.num_ref}</p>}
+                                    {metodoPagoInfo.banco && <p><strong>Banco:</strong> {metodoPagoInfo.banco}</p>}
+                                    {metodoPagoInfo.cedula_rif && <p><strong>Cédula/RIF:</strong> {metodoPagoInfo.cedula_rif}</p>}
+                                    {metodoPagoInfo.cuenta && <p><strong>Cuenta:</strong> {metodoPagoInfo.cuenta}</p>}
+                                    {metodoPagoInfo.status_pago !== undefined && <p><strong>Status:</strong> {metodoPagoInfo.status_pago ? 'Activo' : 'Inactivo'}</p>}
+                                    {metodoPagoInfo.tipo_cuenta && <p><strong>Tipo de Cuenta:</strong> {metodoPagoInfo.tipo_cuenta}</p>}
+                                    {metodoPagoInfo.telefono && <p><strong>Teléfono:</strong> {metodoPagoInfo.telefono}</p>}
+                                    {metodoPagoInfo.titular && <p><strong>Titular:</strong> {metodoPagoInfo.titular}</p>}
+                                </div>
+                            )}
 
                             <Field name="monto" as={Input} placeholder="Monto" />
                             <Field name="fechaPago" as={Input} type="date" placeholder="Fecha de pago" />
@@ -148,9 +177,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                             {metodoPago === 'Pago Móvil' && <Field name="telefono" as={Input} placeholder="Teléfono" />}
                             {metodoPago === 'Zelle' && <Field name="correo" as={Input} placeholder="Correo Zelle" />}
                             {['Transferencia', 'Pago Móvil'].includes(metodoPago!) && (
-                                <>
-                                    <Field name="numReferencia" as={Input} placeholder="Número de referencia" />
-                                </>
+                                <Field name="numReferencia" as={Input} placeholder="Número de referencia" />
                             )}
                             {['Transferencia', 'Pago Móvil'].includes(metodoPago!) && (
                                 <>
