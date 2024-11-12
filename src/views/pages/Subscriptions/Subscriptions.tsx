@@ -47,6 +47,19 @@ type Subscriptions = {
     monto?: string
     uid: string
     id: string
+    comprobante_pago: {
+        monto?: string
+        metodo?: string
+        banco?: string
+        cedula?: string
+        receiptFile?: string
+        numReferencia?: string
+        telefono?: string
+        fechaPago?: Timestamp
+        correo?: string
+        bancoOrigen?: string
+        bancoDestino?: string
+    }
 }
 
 const Subscriptions = () => {
@@ -267,12 +280,10 @@ const Subscriptions = () => {
         {
             header: 'Cantidad de Servicios',
             accessorKey: 'cantidad_servicios',
-            enableColumnFilter: true,
         },
         {
             header: 'Monto',
             accessorKey: 'monto',
-            enableColumnFilter: true,
         },
         {
             header: 'Fecha de Aprobacion',
@@ -283,7 +294,7 @@ const Subscriptions = () => {
             },
         },
         {
-            header: 'Fecha de Aprobacion',
+            header: 'Vigente Hasta',
             accessorKey: 'fecha_fin',
             cell: ({ row }) => {
                 const fechaFin = row.original.fecha_fin
@@ -440,7 +451,7 @@ const Subscriptions = () => {
                                                                     )
                                                                 }
                                                                 placeholder="Buscar"
-                                                                className="mt-2 p-1 border rounded"
+                                                                className="mt-2 p-1 border rounded "
                                                                 onClick={(e) =>
                                                                     e.stopPropagation()
                                                                 }
@@ -488,7 +499,7 @@ const Subscriptions = () => {
             >
                 <div className="grid grid-cols-2">
                     <h2 className="flex mb-4 text-xl font-bold">
-                        Revisión Subscripción
+                        Revisión de Pago
                     </h2>
                     <div className="flex items-center">
                         <Switcher
@@ -513,7 +524,7 @@ const Subscriptions = () => {
                                 selectedPerson?.status === 'Aprobado'
                                     ? 'green-500'
                                     : 'red-500'
-                            } // Cambia el color según el estado
+                            }
                         />
                         <span className="ml-2 text-gray-700">
                             {selectedPerson?.status}
@@ -523,41 +534,152 @@ const Subscriptions = () => {
                 </div>
                 <div className="flex flex-col space-y-6">
                     {' '}
-                    {/* Aumentar el espacio entre campos */}
-                    {/* Campo para Nombre */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Plan:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.nombre || ''}
-                            readOnly // Aquí se agrega el atributo readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cantidad de Servicios:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.cantidad_servicios || ''}
-                            readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Monto:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.monto || ''}
-                            readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
+                    {selectedPerson?.comprobante_pago.metodo && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Metodo de Pago:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.metodo}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.fechaPago && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Fecha de Pago:
+                            </span>
+                            <input
+                                type="text"
+                                value={new Date(
+                                    selectedPerson.comprobante_pago.fechaPago
+                                        .seconds * 1000,
+                                ).toLocaleDateString('es-ES', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                })}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.bancoOrigen && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Banco Origen:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago.bancoOrigen
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.bancoDestino && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Banco Destino:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago.bancoDestino
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.correo && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Correo:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.correo}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.cedula && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Cedula:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.cedula}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.telefono && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Telefono:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.telefono}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.monto && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Monto:
+                            </span>
+                            <input
+                                type="text"
+                                value={selectedPerson.comprobante_pago.monto}
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.numReferencia && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Numero de referencia:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago
+                                        .numReferencia
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
+                    {selectedPerson?.comprobante_pago.receiptFile && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Comprobante de pago:
+                            </span>
+                            <input
+                                type="text"
+                                value={
+                                    selectedPerson.comprobante_pago.receiptFile
+                                }
+                                readOnly
+                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                            />
+                        </label>
+                    )}
                 </div>
                 <div className="text-center mt-6 ">
                     <Button
