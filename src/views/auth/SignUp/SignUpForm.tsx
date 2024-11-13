@@ -45,7 +45,7 @@ const validationSchema = Yup.object().shape({
         .required('Por favor ingrese su número teléfonico'),
 })
 
-const SignUpForm = (props: SignUpFormProps) => {
+    const SignUpForm = (props: SignUpFormProps) => {
     const { disableSubmit = false, className, signInUrl = '/sign-in' } = props
     const { signUp } = useAuth()
     const [message, setMessage] = useTimeOutMessage()

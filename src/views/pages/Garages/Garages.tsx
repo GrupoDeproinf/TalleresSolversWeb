@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import {
@@ -19,6 +20,8 @@ import {
     FaCamera,
     FaCheckCircle,
     FaExclamationCircle,
+    FaEye,
+    FaEyeSlash,
     FaFolder,
     FaRegEye,
     FaTimesCircle,
@@ -33,7 +36,7 @@ import {
     updateDoc,
     addDoc,
 } from 'firebase/firestore'
-import { db } from '@/configs/firebaseAssets.config'
+import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
@@ -53,6 +56,8 @@ type Garage = {
     direccion?: string
     id?: string
     status?: string
+    password?: string
+    confirmPassword?: string
 }
 
 const Garages = () => {
@@ -96,6 +101,7 @@ const Garages = () => {
         status: 'Aprobado',
         direccion: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
+        password: '',
     })
 
     const openDialog = (person: Garage) => {
@@ -121,39 +127,66 @@ const Garages = () => {
                 'El teléfono debe tener entre 9 y 10 caracteres y contener solo números',
             ),
         //typeUser
-    })
+        password: z
+                .string()
+                .min(6, 'La contraseña debe tener al menos 6 caracteres'),
+            confirmPassword: z.string().min(6, 'Confirmar contraseñas'),
+        })
+        .refine((data: any) => data.password === data.confirmPassword, {
+            path: ['confirmPassword'],
+            message: 'Las contraseñas no coinciden',
+        })
 
-    const handleCreateUser = async () => {
-        if (newGarage && newGarage.nombre && newGarage.email) {
+    const [showPassword, setShowPassword] = useState(false)
+    
+    const handleCreateGarage = async () => {
+        if (newGarage && newGarage.email && newGarage.password && newGarage.nombre) {
             try {
                 // Validación de Zod
                 createUserSchema.parse(newGarage)
 
+                // Validación de contraseñas
+                if (newGarage.password !== newGarage.confirmPassword) {
+                    toast.push(
+                        <Notification title="Error">
+                            Las contraseñas no coinciden. Por favor, verifica los campos.
+                        </Notification>
+                    )
+                    return
+                }
+    
+                // Crear y autenticar el usuario en Firebase (taller)
+                const userCredential = await createUserWithEmailAndPassword(auth, newGarage.email, newGarage.password)
+                const user = userCredential.user // Usuario autenticado desde Firebase
+    
+                // Crear el documento en Firestore con el UID de Firebase
                 const userRef = collection(db, 'Usuarios')
                 const docRef = await addDoc(userRef, {
                     nombre: newGarage.nombre,
                     email: newGarage.email,
                     rif: newGarage.rif,
                     phone: newGarage.phone,
-                    typeUser: newGarage.typeUser,
+                    typeUser: newGarage.typeUser || 'Taller', // Tipo de usuario (Taller)
                     logoUrl: newGarage.logoUrl,
-                    status: newGarage.status,
+                    status: newGarage.status || 'Activo', // Por defecto, puede ser 'Activo'
                     direccion: newGarage.direccion,
-                    uid: '', // Este se actualizará después
+                    uid: user.uid,  // Usar el UID de Firebase para asociar el taller
                 })
-
-                // Ahora actualiza el documento para incluir el uid generado
+    
+                // Actualización del UID en Firestore con el ID de Firebase
                 await updateDoc(docRef, {
-                    uid: docRef.id, // Establece el uid al ID del documento generado
+                    uid: user.uid, // Establecer el UID de Firebase
                 })
-
+    
                 toast.push(
                     <Notification title="Éxito">
-                        Taller creado con éxito.
-                    </Notification>,
+                        Taller creado y autenticado con éxito.
+                    </Notification>
                 )
-                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
-                getData()
+    
+                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el taller
+                getData() // Refrescar la lista de talleres
+    
             } catch (error) {
                 if (error instanceof z.ZodError) {
                     const errorMessages = error.errors
@@ -162,19 +195,26 @@ const Garages = () => {
                     toast.push(
                         <Notification title="Error">
                             {errorMessages}
-                        </Notification>,
+                        </Notification>
                     )
                 } else {
                     console.error('Error creando el taller:', error)
                     toast.push(
                         <Notification title="Error">
                             Hubo un error al crear el Taller.
-                        </Notification>,
+                        </Notification>
                     )
                 }
             }
+        } else {
+            toast.push(
+                <Notification title="Error">
+                    Por favor, asegúrate de que todos los campos necesarios estén completos.
+                </Notification>
+            )
         }
     }
+    
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -777,6 +817,53 @@ const Garages = () => {
                             }}
                         />
                     </label>
+                    <label className="flex flex-col relative">
+                        <span className="font-semibold text-gray-700">
+                            Contraseña:
+                        </span>
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={newGarage?.password || ''}
+                            onChange={(e) =>
+                                setNewGarage((prev: any) => ({
+                                    ...prev,
+                                    password: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute right-3 top-10 text-gray-600"
+                        >
+                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                    </label>
+
+                    <label className="flex flex-col relative mt-4">
+                        <span className="font-semibold text-gray-700">
+                            Confirmar Contraseña:
+                        </span>
+                        <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={newGarage?.confirmPassword || ''}
+                            onChange={(e) =>
+                                setNewGarage((prev: any) => ({
+                                    ...prev,
+                                    confirmPassword: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword((prev) => !prev)}
+                            className="absolute right-3 top-10 text-gray-600"
+                        >
+                            {showPassword ? <FaEyeSlash /> : <FaEye />}
+                        </button>
+                    </label>
                     <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                         <div className="text-center">
                             {!newGarage?.logoUrl ? (
@@ -839,7 +926,7 @@ const Garages = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={handleCreateUser} // Llamar a la función para crear usuario
+                            onClick={handleCreateGarage} // Llamar a la función para crear usuario
                         >
                             Guardar
                         </Button>

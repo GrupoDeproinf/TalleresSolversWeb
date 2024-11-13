@@ -762,16 +762,22 @@ const ServiceGarages = () => {
         {/* Descripción */}
         <label className="flex flex-col">
             <span className="font-semibold text-gray-700">Descripción:</span>
-            <input
-                type="text"
+            <textarea
                 value={newService?.descripcion || ''}
-                onChange={(e) =>
+                onChange={(e) => {
                     setNewService((prev: any) => ({
                         ...(prev ?? {}),
                         descripcion: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                    }));
+                    e.target.style.height = 'auto'; // Resetea la altura
+                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                }}
+                rows={1} // Altura inicial
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                style={{
+                    maxHeight: '150px', // Límite máximo de altura
+                    overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                }}            
             />
         </label>
 
@@ -823,195 +829,6 @@ const ServiceGarages = () => {
 
         <div className="text-right mt-6">
             <Button className="mr-2" variant="default" onClick={handleDrawerCloseEdit}>
-                Cancelar
-            </Button>
-            <Button
-                style={{ backgroundColor: '#000B7E' }}
-                className="text-white hover:opacity-80"
-                onClick={handleCreateService}
-            >
-                Guardar
-            </Button>
-        </div>
-    </div>
-</Drawer>
-
-         {/* Drawer para crear un servicio desde cero */}
-<Drawer
-    isOpen={drawerCreateIsOpen}
-    onClose={handleDrawerClose}
-    className="rounded-md shadow"
->
-    <h2 className="mb-4 text-xl font-bold">Crear Plantilla</h2>
-    <div className="flex flex-col space-y-6">
-        {/* Nombre del servicio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Nombre Servicio:</span>
-            <input
-                type="text"
-                value={newService?.nombre || ''}
-                onChange={(e) =>
-                    setNewService((prev: any) => ({
-                        ...(prev ?? {}),
-                        nombre: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Taller */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Taller:</span>
-            <select
-                value={newService?.uid_taller || ''}
-                onChange={(e) => {
-                    const selectedId = e.target.value;
-                    const selectedCat = dataGarages.find(cat => cat.uid === selectedId);
-                    setNewService((prev: any) => ({
-                        ...prev,
-                        uid_taller: selectedCat?.uid,
-                        taller: selectedCat?.nombre,
-                    }));
-                }}
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            >
-                <option value="">Seleccione un Taller</option>
-                {dataGarages.map((garage) => (
-                    <option key={garage.uid} value={garage.uid}>
-                        {garage.nombre}
-                    </option>
-                ))}
-            </select>
-        </label>
-
-        {/* Categoría */}
-<label className="flex flex-col">
-    <span className="font-semibold text-gray-700">Categoría:</span>
-    <select
-        value={newService?.uid_categoria || ''}
-        onChange={async (e) => {
-            const selectedId = e.target.value;
-            const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
-            
-            // Actualizar el estado con la categoría seleccionada
-            setNewService((prev: any) => ({
-                ...prev,
-                uid_categoria: selectedCat?.uid_categoria,
-                nombre_categoria: selectedCat?.nombre,
-                subcategoria: [], // Limpiar subcategorías al cambiar de categoría
-            }));
-
-            // Filtrar subcategorías según la categoría seleccionada
-            handleCategoryChange(selectedId); // Asegúrate de que `handleCategoryChange` actualice `dataSubcategories`
-        }}
-        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-    >
-        <option value="">Seleccione una categoría</option>
-        {dataCategories.map((category) => (
-            <option key={category.uid_categoria} value={category.uid_categoria}>
-                {category.nombre}
-            </option>
-        ))}
-    </select>
-</label>
-
-{/* Subcategorías */}
-<label className="font-semibold text-gray-700">Subcategorías:</label>
-<Select
-    isMulti
-    placeholder="Selecciona subcategorías"
-    noOptionsMessage={() => "No hay Subcategorías disponibles"}
-    options={
-        newService?.uid_categoria
-            ? dataSubcategories.map((subcategory: any) => ({
-                  value: subcategory.uid_subcategoria,
-                  label: subcategory.nombre_subcategoria,
-              }))
-            : []
-    }
-    value={newService?.subcategoria?.map((subcat: any) => ({
-        value: subcat.uid_subcategoria,
-        label: subcat.nombre_subcategoria,
-    }))}
-    onChange={(selectedOptions) => {
-        const selectedSubcategories = selectedOptions.map(option => ({
-            uid_subcategoria: option.value,
-            nombre_subcategoria: option.label,
-        }));
-        setNewService((prev: any) => ({
-            ...prev,
-            subcategoria: selectedSubcategories,
-        }));
-    }}
-    className="mt-1"
-/>
-
-
-        {/* Descripción */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Descripción:</span>
-            <input
-                type="text"
-                value={newService?.descripcion || ''}
-                onChange={(e) =>
-                    setNewService((prev: any) => ({
-                        ...(prev ?? {}),
-                        descripcion: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Precio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Precio:</span>
-            <input
-                type="text"
-                value={newService?.precio || ''}
-                onChange={(e) =>
-                    setNewService((prev: any) => ({
-                        ...(prev ?? {}),
-                        precio: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-        {/* Garantía del servicio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Garantía:</span>
-            <input
-                type="text"
-                value={newService?.garantia || ''}
-                onChange={(e) =>
-                    setNewService((prev: any) => ({
-                        ...(prev ?? {}),
-                        garantia: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-        {/* Puntuación del servicio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Puntuación:</span>
-            <input
-                type="text"
-                value={newService?.puntuacion || ''}
-                onChange={(e) =>
-                    setNewService((prev: any) => ({
-                        ...(prev ?? {}),
-                        puntuacion: parseFloat(e.target.value),
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        <div className="text-right mt-6">
-            <Button className="mr-2" variant="default" onClick={handleDrawerClose}>
                 Cancelar
             </Button>
             <Button

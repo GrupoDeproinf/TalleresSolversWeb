@@ -54,7 +54,7 @@ type Category = {
     fechaCreacion?: Timestamp // Fecha de creación de la categoría
     logoUrl?: string // URL de la imagen que funcione como logo de la categoría
     nombreUser?: string // Nombre del creador
-    estatus?: string;
+    estatus?: boolean;
 
     uid?: string // ID del usuario que creó la categoría
     id: string // ID único de la categoría
@@ -107,7 +107,7 @@ const Users = () => {
         fechaCreacion: Timestamp.fromDate(new Date()),
         logoUrl: '',
         nombreUser: '',
-        estatus: 'true',
+        estatus: true,
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
@@ -130,14 +130,14 @@ const Users = () => {
     type Subcategory = {
         nombre: string;
         descripcion: string;
-        estatus: string;
+        estatus: boolean;
         uid: string;
     };
     
-    const [subcategories, setSubcategories] = useState<Subcategory[]>([{ nombre: '', descripcion: '', estatus: 'true', uid: '' }]);
+    const [subcategories, setSubcategories] = useState<Subcategory[]>([{ nombre: '', descripcion: '', estatus: true, uid: '' }]);
     
     const handleAddSubcategory = () => {
-        setSubcategories([...subcategories, { nombre: '', descripcion: '', estatus: 'true', uid: '' }]);
+        setSubcategories([...subcategories, { nombre: '', descripcion: '', estatus: true, uid: '' }]);
     };
 
     const handleRemoveSubcategory = (index: any) => {
@@ -209,7 +209,7 @@ const Users = () => {
                 fechaCreacion: Timestamp.fromDate(new Date()),
                 logoUrl: '',
                 nombreUser: '',
-                estatus: 'true',
+                estatus: true,
                 uid: '',
                 id: '',
             });
@@ -660,13 +660,15 @@ const Users = () => {
             <span className="font-semibold text-gray-700">Descripción:</span>
             <textarea
                 value={selectedCategory?.descripcion || ''}
-                onChange={(e) =>
+                onChange={(e) => {
                     setSelectedCategory((prev: any) => ({
                         ...prev,
                         descripcion: e.target.value,
-                    }))
-                }
-                rows={1}
+                    }));
+                    e.target.style.height = 'auto'; // Resetea la altura
+                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                }}
+                rows={1} // altura inicial
                 className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
                 style={{ maxHeight: '150px', overflowY: 'auto' }}
             />

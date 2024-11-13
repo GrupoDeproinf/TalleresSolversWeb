@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import {
@@ -31,7 +32,7 @@ import {
     updateDoc,
     addDoc,
 } from 'firebase/firestore'
-import { db } from '@/configs/firebaseAssets.config'
+import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
@@ -42,10 +43,10 @@ import Password from '@/views/account/Settings/components/Password'
 
 type Person = {
     nombre?: string
-    email?: string
+    email: string
     cedula?: string
     phone?: string
-    password?: string
+    password: string
     confirmPassword?: string
     uid: string
     typeUser?: string
@@ -133,82 +134,78 @@ const Users = () => {
             message: 'Las contraseñas no coinciden',
         })
 
-    const handleCreateUser = async () => {
-        if (!newUser) {
-            toast.push(
-                <Notification title="Error">
-                    Los datos del usuario son nulos. Por favor, verifica.
-                </Notification>,
-            )
-            return
-        }
-
-        try {
-            // Validación de Zod
-            createUserSchema.parse(newUser)
-
-            // Creación del usuario en la base de datos
-            const userRef = collection(db, 'Usuarios')
-            const docRef = await addDoc(userRef, {
-                nombre: newUser.nombre,
-                email: newUser.email,
-                cedula: newUser.cedula,
-                phone: newUser.phone,
-                Password: newUser.password,
-                typeUser: newUser.typeUser, // Ahora siempre tiene valor
-                uid: '', // Inicialmente vacío, se actualizará después
-            })
-
-            // Si el campo typeUser es indefinido, asigna 'Cliente' por defecto
-            if (!newUser?.typeUser) {
-                setNewUser((prev: any) => ({
-                    ...prev,
-                    typeUser: 'Cliente',
-                }))
-            }
-
-            // Verificación de contraseñas
-            if (newUser.password !== newUser.confirmPassword) {
+        const handleCreateUser = async () => {
+            if (!newUser) {
                 toast.push(
                     <Notification title="Error">
-                        Las contraseñas no coinciden. Por favor, verifica los
-                        campos.
-                    </Notification>,
+                        Los datos del usuario son nulos. Por favor, verifica.
+                    </Notification>
                 )
                 return
             }
-
-            // Actualización del uid
-            await updateDoc(docRef, {
-                uid: docRef.id,
-            })
-
-            toast.push(
-                <Notification title="Éxito">
-                    Usuario creado con éxito.
-                </Notification>,
-            )
-
-            setDrawerCreateIsOpen(false) // Cerrar el Drawer
-            getData(); // Refrescar la lista de usuarios
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                const errorMessages = error.errors
-                    .map((err) => err.message)
-                    .join(', ')
+        
+            try {
+                // Validación de Zod
+                createUserSchema.parse(newUser)
+        
+                // Validación de contraseñas
+                if (newUser.password !== newUser.confirmPassword) {
+                    toast.push(
+                        <Notification title="Error">
+                            Las contraseñas no coinciden. Por favor, verifica los campos.
+                        </Notification>
+                    )
+                    return
+                }
+        
+                // Crear y autenticar el usuario en Firebase
+                const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, newUser.password)
+                const user = userCredential.user // Usuario autenticado desde Firebase
+        
+                // Crear el documento en Firestore con el UID de Firebase
+                const userRef = collection(db, 'Usuarios')
+                const docRef = await addDoc(userRef, {
+                    nombre: newUser.nombre,
+                    email: newUser.email,
+                    cedula: newUser.cedula,
+                    phone: newUser.phone,
+                    Password: newUser.password,
+                    typeUser: newUser.typeUser || 'Cliente', // Asegurarse de que siempre tenga un tipo de usuario
+                    uid: user.uid,  // Usar el UID de Firebase para asociar el usuario
+                })
+        
+                // Actualización del UID en Firestore (si es necesario)
+                await updateDoc(docRef, {
+                    uid: docRef.id,
+                })
+        
                 toast.push(
-                    <Notification title="Error">{errorMessages}</Notification>,
+                    <Notification title="Éxito">
+                        Usuario creado y autenticado con éxito.
+                    </Notification>
                 )
-            } else {
-                console.error('Error creando usuario:', error)
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al crear el usuario.
-                    </Notification>,
-                )
+        
+                setDrawerCreateIsOpen(false) // Cerrar el Drawer
+                getData() // Refrescar la lista de usuarios
+        
+            } catch (error) {
+                if (error instanceof z.ZodError) {
+                    const errorMessages = error.errors
+                        .map((err) => err.message)
+                        .join(', ')
+                    toast.push(
+                        <Notification title="Error">{errorMessages}</Notification>
+                    )
+                } else {
+                    console.error('Error creando usuario:', error)
+                    toast.push(
+                        <Notification title="Error">
+                            Hubo un error al crear el usuario.
+                        </Notification>
+                    )
+                }
             }
         }
-    }
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -626,13 +623,14 @@ const Users = () => {
                         <input
                             type="email"
                             value={selectedPerson?.email || ''}
+                            readOnly
                             onChange={(e) =>
                                 setSelectedPerson((prev: any) => ({
                                     ...prev,
                                     email: e.target.value,
                                 }))
                             }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 transition duration-200  cursor-not-allowed"
                         />
                     </label>
 

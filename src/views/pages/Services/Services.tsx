@@ -688,18 +688,25 @@ const handleCategoryChange = async (categoryId: string) => {
         {/* Descripción */}
         <label className="flex flex-col">
             <span className="font-semibold text-gray-700">Descripción:</span>
-            <input
-                type="text"
+            <textarea
                 value={selectedServiceTemplate?.descripcion || ''}
-                onChange={(e) =>
+                onChange={(e) => {
                     setSelectedServiceTemplate((prev: any) => ({
                         ...(prev ?? {}),
                         descripcion: e.target.value,
                     }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                    e.target.style.height = 'auto'; // Resetea la altura
+                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                    }}
+                rows={1} // altura inicial
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                style={{
+                    maxHeight: '150px', // Límite máximo de altura
+                    overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                }}
             />
         </label>
+        
         {/* Garantía del Servicio */}
         <label className="flex flex-col">
             <span className="font-semibold text-gray-700">Garantía:</span>
@@ -822,18 +829,25 @@ const handleCategoryChange = async (categoryId: string) => {
         {/* Descripción */}
         <label className="flex flex-col">
             <span className="font-semibold text-gray-700">Descripción:</span>
-            <input
-                type="text"
+            <textarea
                 value={newServiceTemplate?.descripcion || ''}
-                onChange={(e) =>
+                onChange={(e) => {
                     setNewServiceTemplate((prev) => ({
                         ...(prev ?? {}),
                         descripcion: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                    }));
+                    e.target.style.height = 'auto'; // Resetea la altura
+                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                }}
+                rows={1} // Altura inicial
+                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                style={{
+                    maxHeight: '150px', // Límite máximo de altura
+                    overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                }}
             />
         </label>
+
         {/* Garantía del Servicio */}
         <label className="flex flex-col">
             <span className="font-semibold text-gray-700">Garantía:</span>

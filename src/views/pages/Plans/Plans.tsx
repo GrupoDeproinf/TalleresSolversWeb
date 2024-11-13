@@ -618,16 +618,22 @@ const Plans = () => {
                         <span className="font-semibold text-gray-700">
                             Descripcion:
                         </span>
-                        <input
-                            type="text"
+                        <textarea
                             value={newPlan?.descripcion || ''}
-                            onChange={(e) =>
+                            onChange={(e) => {
                                 setNewPlan((prev: any) => ({
                                     ...(prev ?? {}),
                                     descripcion: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                }));
+                                e.target.style.height = 'auto'; // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                            }}
+                            rows={1} // Altura inicial
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                            style={{
+                                maxHeight: '150px', // Límite máximo de altura
+                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                            }} 
                         />
                     </label>
                     <label className="flex flex-col">
