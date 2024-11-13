@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import {
@@ -22,7 +22,6 @@ import {
     FaUserCircle,
     FaUserShield,
 } from 'react-icons/fa'
-import { z } from 'zod'
 import {
     collection,
     getDocs,
@@ -39,7 +38,9 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar, Drawer } from '@/components/ui'
+import * as yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
+import { HiOutlineRefresh } from 'react-icons/hi'
 
 type Person = {
     nombre?: string
@@ -86,7 +87,14 @@ const Users = () => {
     useEffect(() => {
         getData()
     }, [])
-
+    const handleRefresh = async () => {
+        await getData()
+        toast.push(
+            <Notification title="Datos actualizados">
+                La tabla ha sido actualizada con éxito.
+            </Notification>,
+        )
+    }
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
     const [newUser, setNewUser] = useState<Person | null>({
         nombre: '',
@@ -109,103 +117,91 @@ const Users = () => {
     }
 
     // Define el esquema de validación
-    const createUserSchema = z
-        .object({
-            nombre: z
-                .string()
-                .min(3, 'El nombre debe tener al menos 3 caracteres'),
-            email: z.string().email('Ingrese un correo válido'),
-            //cedula: z.string()
-            //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
-            phone: z
-                .string()
-                .regex(
-                    /^\d{9,10}$/,
-                    'El teléfono debe tener entre 9 y 10 caracteres y contener solo números',
-                ),
-            //typeUser
-            password: z
-                .string()
-                .min(6, 'La contraseña debe tener al menos 6 caracteres'),
-            confirmPassword: z.string().min(6, 'Confirmar contraseñas'),
-        })
-        .refine((data: any) => data.password === data.confirmPassword, {
-            path: ['confirmPassword'],
-            message: 'Las contraseñas no coinciden',
-        })
+    const validationSchema = yup.object().shape({
+        nombre: yup
+            .string()
+            .min(3, 'El nombre debe tener al menos 3 caracteres')
+            .required('El nombre es obligatorio'),
+        email: yup
+            .string()
+            .email('Ingrese un correo válido')
+            .required('El correo es obligatorio'),
+        phone: yup
+            .string()
+            .matches(
+                /^\d{9,11}$/,
+                'El teléfono debe tener entre 9 y 11 caracteres y contener solo números',
+            )
+            .required('El teléfono es obligatorio'),
+        password: yup.string().required('Por favor ingrese una contraseña'),
+        confirmPassword: yup
+            .string()
+            .oneOf([yup.ref('password')], 'Las contraseñas no coinciden')
+            .required('Por favor confirme su contraseña'),
+    })
 
-        const handleCreateUser = async () => {
-            if (!newUser) {
+    const handleCreateUser = async () => {
+        if (!newUser) {
+            toast.push(
+                <Notification title="Error">
+                    Los datos del usuario son nulos. Por favor, verifica.
+                </Notification>,
+            )
+            return
+        }
+
+        try {
+            await validationSchema.validate(newUser, { abortEarly: false })
+
+            // Crear y autenticar el usuario en Firebase
+            const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                newUser.email,
+                newUser.password,
+            )
+            const user = userCredential.user // Usuario autenticado desde Firebase
+
+            // Crear el documento en Firestore con el UID de Firebase
+            const userRef = collection(db, 'Usuarios')
+            const docRef = await addDoc(userRef, {
+                nombre: newUser.nombre,
+                email: newUser.email,
+                cedula: newUser.cedula,
+                phone: newUser.phone,
+                Password: newUser.password,
+                typeUser: newUser.typeUser || 'Cliente', // Asegurarse de que siempre tenga un tipo de usuario
+                uid: user.uid, // Usar el UID de Firebase para asociar el usuario
+            })
+
+            // Actualización del UID en Firestore (si es necesario)
+            await updateDoc(docRef, {
+                uid: docRef.id,
+            })
+
+            toast.push(
+                <Notification title="Éxito">
+                    Usuario creado exitosamente.
+                </Notification>,
+            )
+        } catch (error) {
+            if (error instanceof yup.ValidationError) {
+                error.inner.forEach((validationError) => {
+                    toast.push(
+                        <Notification title="Error">
+                            {validationError.message}
+                        </Notification>,
+                    )
+                })
+            } else {
                 toast.push(
                     <Notification title="Error">
-                        Los datos del usuario son nulos. Por favor, verifica.
-                    </Notification>
+                        Ocurrió un error inesperado. Por favor, intenta
+                        nuevamente.
+                    </Notification>,
                 )
-                return
-            }
-        
-            try {
-                // Validación de Zod
-                createUserSchema.parse(newUser)
-        
-                // Validación de contraseñas
-                if (newUser.password !== newUser.confirmPassword) {
-                    toast.push(
-                        <Notification title="Error">
-                            Las contraseñas no coinciden. Por favor, verifica los campos.
-                        </Notification>
-                    )
-                    return
-                }
-        
-                // Crear y autenticar el usuario en Firebase
-                const userCredential = await createUserWithEmailAndPassword(auth, newUser.email, newUser.password)
-                const user = userCredential.user // Usuario autenticado desde Firebase
-        
-                // Crear el documento en Firestore con el UID de Firebase
-                const userRef = collection(db, 'Usuarios')
-                const docRef = await addDoc(userRef, {
-                    nombre: newUser.nombre,
-                    email: newUser.email,
-                    cedula: newUser.cedula,
-                    phone: newUser.phone,
-                    Password: newUser.password,
-                    typeUser: newUser.typeUser || 'Cliente', // Asegurarse de que siempre tenga un tipo de usuario
-                    uid: user.uid,  // Usar el UID de Firebase para asociar el usuario
-                })
-        
-                // Actualización del UID en Firestore (si es necesario)
-                await updateDoc(docRef, {
-                    uid: docRef.id,
-                })
-        
-                toast.push(
-                    <Notification title="Éxito">
-                        Usuario creado y autenticado con éxito.
-                    </Notification>
-                )
-        
-                setDrawerCreateIsOpen(false) // Cerrar el Drawer
-                getData() // Refrescar la lista de usuarios
-        
-            } catch (error) {
-                if (error instanceof z.ZodError) {
-                    const errorMessages = error.errors
-                        .map((err) => err.message)
-                        .join(', ')
-                    toast.push(
-                        <Notification title="Error">{errorMessages}</Notification>
-                    )
-                } else {
-                    console.error('Error creando usuario:', error)
-                    toast.push(
-                        <Notification title="Error">
-                            Hubo un error al crear el usuario.
-                        </Notification>
-                    )
-                }
             }
         }
+    }
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -367,9 +363,10 @@ const Users = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerCreateIsOpen(false); // Cierra el Drawer
-        setNewUser({ // Limpia los campos de usuario
+        console.log('Drawer cerrado', e)
+        setDrawerCreateIsOpen(false) // Cierra el Drawer
+        setNewUser({
+            // Limpia los campos de usuario
             nombre: '',
             email: '',
             cedula: '',
@@ -379,10 +376,10 @@ const Users = () => {
             confirmPassword: '',
             id: '',
             uid: '',
-        });
-        setSelectedPerson(null); // Limpia la selección (si es necesario)
+        })
+        setSelectedPerson(null) // Limpia la selección (si es necesario)
     }
-    
+
     const handleDelete = async () => {
         if (selectedPerson) {
             console.log('Eliminando a:', selectedPerson)
@@ -450,8 +447,8 @@ const Users = () => {
     const endIndex = startIndex + rowsPerPage
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
+        console.log('Drawer cerrado', e)
+        setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
     }
 
     return (
@@ -459,6 +456,12 @@ const Users = () => {
             <div className="grid grid-cols-2">
                 <h1 className="mb-6 flex justify-start">Lista de Usuarios</h1>
                 <div className="flex justify-end">
+                    <button className="mt-4 p-4">
+                        <HiOutlineRefresh
+                            onClick={handleRefresh}
+                            className="w-5 h-5 bg-slate-100 hover:bg-slate-300 rounded-md m-1 "
+                        />
+                    </button>
                     <Button
                         className="w-40 text-white hover:opacity-80"
                         style={{ backgroundColor: '#000B7E' }}
