@@ -33,15 +33,22 @@ const validationSchema = Yup.object().shape({
         .email('email invalido')
         .required('Por favor ingrese su email'),
     password: Yup.string().required('Por favor ingrese una contraseña'),
-    confirmPassword: Yup.string().oneOf(
-        [Yup.ref('password')],
-        'Las contraseñas no coinciden',
-    ),
-    cedulaOrif: Yup.string().required(
-        'Por favor ingrese su cédula o RIF según corresponda',
-    ),
+    confirmPassword: Yup.string()
+        .oneOf([Yup.ref('password')], 'Las contraseñas no coinciden')
+        .required('Por favor confirme su contraseña'),
+    cedulaOrif: Yup.string().when('typeUser', {
+        is: 'Taller',
+        then: () =>
+            Yup.string()
+                .matches(/^\d{7,10}$/, 'Debe contener de 7 a 10 digitos')
+                .required('Por favor ingrese su RIF'),
+        otherwise: () =>
+            Yup.string()
+                .matches(/^\d{7,10}$/, 'Debe contener 7 a 10 digitos')
+                .required('Por favor ingrese su cédula'),
+    }),
     phone: Yup.string()
-        .matches(/^\d{10,14}$/, 'Número de teléfono inválido')
+        .matches(/^\d{11}$/, 'Debe contener 11 digitos')
         .required('Por favor ingrese su número teléfonico'),
 })
 
@@ -129,7 +136,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                 }}
                 validationSchema={validationSchema}
                 validateOnChange={false}
-                validateOnBlur={false}
+                validateOnBlur={true}
                 onSubmit={(values, { setSubmitting }) => {
                     if (!disableSubmit) {
                         onSignUp(values, setSubmitting)
@@ -172,7 +179,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                                     </Button>
                                 </div>
                             </div>
-
                             <div className="grid grid-cols-2 gap-3">
                                 <FormItem
                                     label={
@@ -195,7 +201,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={Input}
                                     />
                                 </FormItem>
-
                                 <FormItem
                                     label={
                                         values.typeUser === 'Cliente'
@@ -256,14 +261,11 @@ const SignUpForm = (props: SignUpFormProps) => {
                                                 const prefix =
                                                     values.cedulaOrif?.split(
                                                         '-',
-                                                    )[0] ||
-                                                    (values.typeUser ===
-                                                    'Cliente'
-                                                        ? 'V'
-                                                        : 'J')
+                                                    )[0] || 'V' // Mantén el prefijo actual
+                                                const newSuffix = e.target.value // Usa el valor nuevo del input
                                                 setFieldValue(
                                                     'cedulaOrif',
-                                                    `${prefix}-${e.target.value}`,
+                                                    `${prefix}-${newSuffix}`,
                                                 )
                                             }}
                                             component={Input}
@@ -271,7 +273,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         />
                                     </div>
                                 </FormItem>
-
                                 <FormItem
                                     label="Email"
                                     invalid={errors.email && touched.email}
@@ -285,7 +286,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={Input}
                                     />
                                 </FormItem>
-
                                 <FormItem
                                     label="Número Teléfonico"
                                     invalid={errors.phone && touched.phone}
@@ -299,7 +299,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         component={Input}
                                     />
                                 </FormItem>
-
                                 <FormItem
                                     label="Contraseña"
                                     invalid={
@@ -330,6 +329,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                             </div>
                             <Button
                                 type="submit"
+                                variant={disableSubmit ? 'default' : 'solid'}
                                 disabled={isSubmitting || disableSubmit}
                                 className="w-full mt-4"
                             >
