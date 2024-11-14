@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
-import Select from '@/components/ui/Select';
+import Select from '@/components/ui/Select'
 import {
     flexRender,
     getCoreRowModel,
@@ -33,12 +33,14 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Drawer } from '@/components/ui'
+import * as Yup from 'yup'
+import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 
 type ServiceTemplate = {
     nombre?: string
     descripcion?: string
     uid_servicio: string
-    
+
     // Campos para categoría
     uid_categoria?: string
     nombre_categoria?: string
@@ -46,106 +48,112 @@ type ServiceTemplate = {
     subcategoria?: []
     garantia?: string
 
-
     id?: string
 }
 
 type Category = {
-    nombre?: string;
-    uid_categoria?: string;
-    id?: string;
-};
+    nombre?: string
+    uid_categoria?: string
+    id?: string
+}
 
 type Subcategory = {
-    nombre?: string;
-    descripcion?: string;
-    estatus?: string;
-    uid_subcategoria?: string;
-};
-
-
-
-
+    nombre?: string
+    descripcion?: string
+    estatus?: string
+    uid_subcategoria?: string
+}
 
 const Services = () => {
+    const [sorting, setSorting] = useState<ColumnSort[]>([])
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
+    const [dialogIsOpen, setIsOpen] = useState(false)
+    const [selectedServiceTemplate, setSelectedServiceTemplate] =
+        useState<ServiceTemplate | null>(null)
+    const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
-    const [sorting, setSorting] = useState<ColumnSort[]>([]);
-const [filtering, setFiltering] = useState<ColumnFiltersState>([]);
-const [dialogIsOpen, setIsOpen] = useState(false);
-const [selectedServiceTemplate, setSelectedServiceTemplate] = useState<ServiceTemplate | null>(null);
-const [drawerIsOpen, setDrawerIsOpen] = useState(false);
+    const [dataCategories, setDataCategories] = useState<Category[]>([])
+    const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>(
+        [],
+    )
+    const [dataServicesTemplate, setDataServicesTemplate] = useState<
+        ServiceTemplate[]
+    >([])
 
-const [dataCategories, setDataCategories] = useState<Category[]>([]);
-const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>([]);
-const [dataServicesTemplate, setDataServicesTemplate] = useState<ServiceTemplate[]>([]);
+    const getAllData = async () => {
+        try {
+            // Definir consultas
+            const categoriesQuery = query(collection(db, 'Categorias'))
+            const servicesQuery = query(collection(db, 'ServiciosTemplate'))
 
-const getAllData = async () => {
-    try {
-        // Definir consultas
-        const categoriesQuery = query(collection(db, 'Categorias'));
-        const servicesQuery = query(collection(db, 'ServiciosTemplate'));
+            // Ejecutar consultas en paralelo
+            const [categoriesSnapshot, servicesSnapshot] = await Promise.all([
+                getDocs(categoriesQuery),
+                getDocs(servicesQuery),
+            ])
 
-        // Ejecutar consultas en paralelo
-        const [categoriesSnapshot, servicesSnapshot] = await Promise.all([
-            getDocs(categoriesQuery),
-            getDocs(servicesQuery),
-        ]);
+            // Procesar categorías
+            const categories: Category[] = categoriesSnapshot.docs.map(
+                (doc) => ({
+                    ...doc.data(),
+                    uid_categoria: doc.id,
+                }),
+            ) as Category[]
 
-        // Procesar categorías
-        const categories: Category[] = categoriesSnapshot.docs.map((doc) => ({
-            ...doc.data(),
-            uid_categoria: doc.id,
-        })) as Category[];
+            // Procesar servicios
+            const services: ServiceTemplate[] = servicesSnapshot.docs.map(
+                (doc) => ({
+                    ...doc.data(),
+                    uid_servicio: doc.id,
+                }),
+            ) as ServiceTemplate[]
 
-        // Procesar servicios
-        const services: ServiceTemplate[] = servicesSnapshot.docs.map((doc) => ({
-            ...doc.data(),
-            uid_servicio: doc.id,
-        })) as ServiceTemplate[];
-
-        // Actualizar el estado con los datos obtenidos
-        setDataCategories(categories);
-        setDataServicesTemplate(services);
-    } catch (error) {
-        console.error('Error obteniendo los datos:', error);
-    }
-};
-
-useEffect(() => {
-    getAllData();
-}, []);
-
-const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null); // Estado para la categoría seleccionada
-
-// Función para manejar el cambio de categoría seleccionada
-const handleCategoryChange = async (categoryId: string) => {
-    setSelectedCategoryId(categoryId); // Actualiza el estado con el ID de la categoría seleccionada
-
-    if (!categoryId) {
-        setDataSubcategories([]); // Limpiar subcategorías si no se selecciona ninguna categoría
-        return;
+            // Actualizar el estado con los datos obtenidos
+            setDataCategories(categories)
+            setDataServicesTemplate(services)
+        } catch (error) {
+            console.error('Error obteniendo los datos:', error)
+        }
     }
 
-    try {
-        // Realiza la consulta para obtener las subcategorías de la categoría seleccionada
-        const subcategoriesQuery = query(collection(db, 'Categorias', categoryId, 'Subcategorias'));
-        const subcategoriesSnapshot = await getDocs(subcategoriesQuery);
+    useEffect(() => {
+        getAllData()
+    }, [])
 
-        // Procesar los documentos de subcategorías
-        const subcategorias = subcategoriesSnapshot.docs.map((doc) => ({
-            ...doc.data(),
-            uid_subcategoria: doc.id,
-            nombre_subcategoria: doc.data().nombre,
-        }));
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+        null,
+    ) // Estado para la categoría seleccionada
 
-        // Asignar las subcategorías al estado correspondiente
-        setDataSubcategories(subcategorias);
-    } catch (error) {
-        console.error('Error fetching subcategorias:', error);
-        setDataSubcategories([]); // Limpiar subcategorías en caso de error
+    // Función para manejar el cambio de categoría seleccionada
+    const handleCategoryChange = async (categoryId: string) => {
+        setSelectedCategoryId(categoryId) // Actualiza el estado con el ID de la categoría seleccionada
+
+        if (!categoryId) {
+            setDataSubcategories([]) // Limpiar subcategorías si no se selecciona ninguna categoría
+            return
+        }
+
+        try {
+            // Realiza la consulta para obtener las subcategorías de la categoría seleccionada
+            const subcategoriesQuery = query(
+                collection(db, 'Categorias', categoryId, 'Subcategorias'),
+            )
+            const subcategoriesSnapshot = await getDocs(subcategoriesQuery)
+
+            // Procesar los documentos de subcategorías
+            const subcategorias = subcategoriesSnapshot.docs.map((doc) => ({
+                ...doc.data(),
+                uid_subcategoria: doc.id,
+                nombre_subcategoria: doc.data().nombre,
+            }))
+
+            // Asignar las subcategorías al estado correspondiente
+            setDataSubcategories(subcategorias)
+        } catch (error) {
+            console.error('Error fetching subcategorias:', error)
+            setDataSubcategories([]) // Limpiar subcategorías en caso de error
+        }
     }
-};
-
 
     const openDialog = (serviceTemplate: ServiceTemplate) => {
         setSelectedServiceTemplate(serviceTemplate)
@@ -157,78 +165,105 @@ const handleCategoryChange = async (categoryId: string) => {
     }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    const [newServiceTemplate, setNewServiceTemplate] = useState<ServiceTemplate>({
-        nombre: '',
-        descripcion: '',
-        uid_servicio: '',
-        uid_categoria: '',
-        nombre_categoria: '',
-        subcategoria: [],
-        id: '',
-        garantia: '',
-    });
+    const [newServiceTemplate, setNewServiceTemplate] =
+        useState<ServiceTemplate>({
+            nombre: '',
+            descripcion: '',
+            uid_servicio: '',
+            uid_categoria: '',
+            nombre_categoria: '',
+            subcategoria: [],
+            id: '',
+            garantia: '',
+        })
 
-    const handleCreateServiceTemplate = async () => {
-        if (
-            newServiceTemplate &&
-            newServiceTemplate.nombre &&
-            newServiceTemplate.descripcion
-        ) {
-            try {
-                const userRef = collection(db, 'ServiciosTemplate');
-                const docRef = await addDoc(userRef, {
-                    nombre: newServiceTemplate.nombre,
-                    descripcion: newServiceTemplate.descripcion,
-                    nombre_categoria: newServiceTemplate.nombre_categoria,
-                    uid_categoria: newServiceTemplate.uid_categoria,
-                    subcategoria: newServiceTemplate.subcategoria, // Guarda el array de subcategorías seleccionadas
-                    uid_servicio: '', // Inicialmente vacío
-                    garantia: newServiceTemplate.garantia,
-                });
-    
-                // Actualiza el uid_servicio generado
-                await updateDoc(docRef, {
-                    uid_servicio: docRef.id, // Establece el uid_servicio al ID del documento generado
-                });
-    
-                // Notificación de éxito
+    const validationSchema = Yup.object().shape({
+        nombre: Yup.string()
+            .required('El nombre del servicio es obligatorio')
+            .min(3, 'El nombre debe tener al menos 3 caracteres'),
+        descripcion: Yup.string()
+            .required('La descripción es obligatoria')
+            .min(5, 'La descripción debe tener al menos 5 caracteres'),
+        nombre_categoria: Yup.string().required('La categoría es obligatoria'),
+        uid_categoria: Yup.string().required(
+            'Debe seleccionar una categoría válida',
+        ),
+        subcategoria: Yup.array()
+            .min(1, 'Debe seleccionar al menos una subcategoría')
+            .of(
+                Yup.object().shape({
+                    uid_subcategoria: Yup.string().required(
+                        'ID de subcategoría es obligatorio',
+                    ),
+                    nombre_subcategoria: Yup.string().required(
+                        'Nombre de subcategoría es obligatorio',
+                    ),
+                }),
+            ),
+        garantia: Yup.string().required('La categoría es obligatoria'),
+    })
+
+    const handleCreateServiceTemplate = async (values: any) => {
+        try {
+            // Validación de los valores usando Yup
+            await validationSchema.validate(values, { abortEarly: false })
+
+            // Referencia a la colección 'ServiciosTemplate' en la base de datos
+            const serviceRef = collection(db, 'ServiciosTemplate')
+
+            // Creación del documento con los datos proporcionados
+            const docRef = await addDoc(serviceRef, {
+                nombre: values.nombre,
+                descripcion: values.descripcion,
+                nombre_categoria: values.nombre_categoria,
+                uid_categoria: values.uid_categoria,
+                subcategoria: values.subcategoria,
+                uid_servicio: '', // Inicialmente vacío, se actualizará con docRef.id
+                garantia: values.garantia,
+            })
+
+            // Actualización del campo uid_servicio con el ID del documento recién creado
+            await updateDoc(docRef, { uid_servicio: docRef.id })
+
+            // Notificación de éxito
+            toast.push(
+                <Notification title="Éxito">
+                    Servicio creado con éxito.
+                </Notification>,
+            )
+
+            // Reseteo del formulario a su estado inicial
+            setNewServiceTemplate({
+                nombre: '',
+                descripcion: '',
+                uid_servicio: '',
+                uid_categoria: '',
+                nombre_categoria: '',
+                subcategoria: [],
+                garantia: '',
+            })
+
+            // Cierre del Drawer y actualización de la lista de datos
+            setDrawerCreateIsOpen(false)
+            getAllData() // Actualiza la lista de servicios o plantilla de servicios
+        } catch (error) {
+            // Manejo de errores de validación Yup
+            if (error instanceof Yup.ValidationError) {
+                const errorMessages = error.errors.join(', ')
                 toast.push(
-                    <Notification title="Éxito">
-                        Servicio creado con éxito.
-                    </Notification>,
-                );
-    
-                // Limpia los campos después de crear el servicio
-                setNewServiceTemplate({
-                    nombre: '',
-                    descripcion: '',
-                    uid_servicio: '',
-                    uid_categoria: '',
-                    nombre_categoria: '',
-                    subcategoria: [],
-                    id: '',
-                    garantia: '',
-                });
-    
-                setDrawerCreateIsOpen(false); // Cierra el Drawer después de crear el servicio
-                getAllData(); // Refresca la lista de servicios
-            } catch (error) {
-                console.error('Error creando Servicio:', error);
+                    <Notification title="Error">{errorMessages}</Notification>,
+                )
+            } else {
+                // Manejo de errores inesperados
+                console.error('Error creando Servicio:', error)
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el Servicio.
                     </Notification>,
-                );
+                )
             }
-        } else {
-            toast.push(
-                <Notification title="Error">
-                    Por favor, complete todos los campos requeridos.
-                </Notification>,
-            );
         }
-    };
-    
+    }
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -241,45 +276,47 @@ const handleCategoryChange = async (categoryId: string) => {
         })
     }
 
-    const handleSaveChanges = async () => {
-    if (selectedServiceTemplate) {
-        try {
-            // Obtiene el documento del servicio para actualizar
-            const userDoc = doc(db, 'ServiciosTemplate', selectedServiceTemplate?.uid_servicio);
-            
-            // Actualiza el servicio con los nuevos datos, incluyendo la categoría y subcategorías
-            await updateDoc(userDoc, {
-                nombre: selectedServiceTemplate?.nombre,
-                descripcion: selectedServiceTemplate?.descripcion,
-                uid_categoria: selectedServiceTemplate?.uid_categoria, // Asegura que se guarde la categoría seleccionada
-                nombre_categoria: selectedServiceTemplate?.nombre_categoria, // Nombre de la categoría
-                subcategoria: selectedServiceTemplate?.subcategoria || [], // Subcategorías seleccionadas
-                garantia: selectedServiceTemplate?.garantia,
-            });
+    const handleSaveChanges = async (values: any) => {
+        if (selectedServiceTemplate) {
+            try {
+                // Obtiene el documento del servicio para actualizar
+                const userDoc = doc(
+                    db,
+                    'ServiciosTemplate',
+                    selectedServiceTemplate?.uid_servicio, // Utiliza el uid_servicio de la plantilla seleccionada
+                )
 
-            // Notificación de éxito
-            toast.push(
-                <Notification title="Éxito">
-                    Servicio actualizado con éxito.
-                </Notification>,
-            );
+                // Actualiza el servicio con los nuevos datos, incluyendo la categoría y subcategorías
+                await updateDoc(userDoc, {
+                    nombre: values.nombre,
+                    descripcion: values.descripcion,
+                    uid_categoria: values.uid_categoria,
+                    nombre_categoria: values.nombre_categoria,
+                    subcategoria: values.subcategoria || [],
+                    garantia: values.garantia,
+                })
 
-            setDrawerIsOpen(false); // Cierra el Drawer
-            getAllData(); // Refresca los datos
+                // Notificación de éxito
+                toast.push(
+                    <Notification title="Éxito">
+                        Servicio actualizado con éxito.
+                    </Notification>,
+                )
 
-        } catch (error) {
-            console.error('Error actualizando el servicio:', error);
+                setDrawerIsOpen(false) // Cierra el Drawer
+                getAllData() // Refresca los datos
+            } catch (error) {
+                console.error('Error actualizando el servicio:', error)
 
-            // Notificación de error
-            toast.push(
-                <Notification title="Error">
-                    Hubo un error al actualizar el servicio.
-                </Notification>,
-            );
+                // Notificación de error
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al actualizar el servicio.
+                    </Notification>,
+                )
+            }
         }
     }
-}
-
 
     const columns: ColumnDef<ServiceTemplate>[] = [
         {
@@ -298,26 +335,31 @@ const handleCategoryChange = async (categoryId: string) => {
             header: 'Subcategorías',
             accessorKey: 'subcategoria', // Asegúrate de que coincida con el campo de subcategorías en el objeto `Service`
             cell: ({ row }) => {
-                const subcategories = row.original.subcategoria;
-        
+                const subcategories = row.original.subcategoria
+
                 // Asegurarse de que subcategories sea un arreglo
-                if (!Array.isArray(subcategories) || subcategories.length === 0) {
-                    return <span>No posee</span>; // Si no tiene subcategorías, muestra "No posee"
+                if (
+                    !Array.isArray(subcategories) ||
+                    subcategories.length === 0
+                ) {
+                    return <span>No posee</span> // Si no tiene subcategorías, muestra "No posee"
                 }
-        
+
                 return (
                     <ul>
                         {subcategories.map((sub: any) => (
-                            <li key={sub.uid_subcategoria}>{sub.nombre_subcategoria}</li>
+                            <li key={sub.uid_subcategoria}>
+                                {sub.nombre_subcategoria}
+                            </li>
                         ))}
                     </ul>
-                );
+                )
             },
-        },  
+        },
         {
             header: 'Garantía',
             accessorKey: 'garantia',
-        },        
+        },
         {
             header: ' ',
             cell: ({ row }) => {
@@ -356,9 +398,10 @@ const handleCategoryChange = async (categoryId: string) => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerCreateIsOpen(false); // Cierra el Drawer
-        setNewServiceTemplate({ // Limpia los campos de usuario
+        console.log('Drawer cerrado', e)
+        setDrawerCreateIsOpen(false) // Cierra el Drawer
+        setNewServiceTemplate({
+            // Limpia los campos de usuario
             nombre: '',
             descripcion: '',
             id: '',
@@ -367,22 +410,26 @@ const handleCategoryChange = async (categoryId: string) => {
             nombre_categoria: '',
             subcategoria: [],
             garantia: '',
-        });
-        setSelectedServiceTemplate(null); // Limpia la selección (si es necesario)
+        })
+        setSelectedServiceTemplate(null) // Limpia la selección (si es necesario)
     }
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
+        console.log('Drawer cerrado', e)
+        setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
     }
-    
+
     const handleDelete = async () => {
         if (selectedServiceTemplate) {
             console.log('Eliminando el servicio:', selectedServiceTemplate)
 
             try {
                 // Ahora estamos usando el id generado automáticamente por Firebase
-                const serviceDoc = doc(db, 'ServiciosTemplate', selectedServiceTemplate.uid_servicio)
+                const serviceDoc = doc(
+                    db,
+                    'ServiciosTemplate',
+                    selectedServiceTemplate.uid_servicio,
+                )
                 await deleteDoc(serviceDoc)
 
                 const toastNotification = (
@@ -442,19 +489,27 @@ const handleCategoryChange = async (categoryId: string) => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
-    {/* useEffect para cargar subcategories en base a la categoria seleccionada (para editar) */}
-    {/*useEffect(() => {
+    {
+        /* useEffect para cargar subcategories en base a la categoria seleccionada (para editar) */
+    }
+    {
+        /*useEffect(() => {
         if (selectedServiceTemplate?.uid_categoria) {
             getSubcategories(selectedServiceTemplate.uid_categoria);
         }
-    }, [selectedServiceTemplate?.uid_categoria, getSubcategories]);*/}
+    }, [selectedServiceTemplate?.uid_categoria, getSubcategories]);*/
+    }
 
-    {/* useEffect para cargar subcategories en base a la categoria seleccionada (para crear) */}
-    {/*useEffect(() => {
+    {
+        /* useEffect para cargar subcategories en base a la categoria seleccionada (para crear) */
+    }
+    {
+        /*useEffect(() => {
         if (newServiceTemplate?.uid_categoria) {
             getSubcategories(newServiceTemplate.uid_categoria);
         }
-    }, [newServiceTemplate?.uid_categoria, getSubcategories]);*/}
+    }, [newServiceTemplate?.uid_categoria, getSubcategories]);*/
+    }
 
     return (
         <>
@@ -601,285 +656,403 @@ const handleCategoryChange = async (categoryId: string) => {
                 </div>
             </Dialog>
             <Drawer
-    isOpen={drawerIsOpen}
-    onClose={handleDrawerCloseEdit}
-    className="rounded-md shadow"
->
-    <h2 className="mb-4 text-xl font-bold">Editar Plantilla</h2>
-    <div className="flex flex-col space-y-6">
-        {/* Nombre del Servicio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Nombre Servicio:</span>
-            <input
-                type="text"
-                value={selectedServiceTemplate?.nombre || ''}
-                onChange={(e) =>
-                    setSelectedServiceTemplate((prev: any) => ({
-                        ...(prev ?? {}),
-                        nombre: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Categoría */}
-<label className="flex flex-col">
-    <span className="font-semibold text-gray-700">Categoría:</span>
-    <select
-        value={selectedServiceTemplate?.uid_categoria || ''}
-        onChange={(e) => {
-            const selectedId = e.target.value;
-            const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
-
-            // Actualizar el estado con la categoría seleccionada
-            setSelectedServiceTemplate((prev: any) => ({
-                ...prev,
-                uid_categoria: selectedCat?.uid_categoria,
-                nombre_categoria: selectedCat?.nombre,
-                subcategoria: [], // Limpiar subcategorías al cambiar de categoría
-            }));
-
-            // Filtrar subcategorías según la categoría seleccionada
-            handleCategoryChange(selectedId); // Asegúrate de que `handleCategoryChange` actualice `dataSubcategories`
-        }}
-        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-    >
-        <option value="">Seleccione una categoría</option>
-        {dataCategories.map((category) => (
-            <option key={category.uid_categoria} value={category.uid_categoria}>
-                {category.nombre}
-            </option>
-        ))}
-    </select>
-</label>
-
-{/* Subcategorías */}
-<label className="font-semibold text-gray-700">Subcategorías:</label>
-<Select
-    isMulti
-    placeholder="Selecciona subcategorías"
-    noOptionsMessage={() => "No hay Subcategorías disponibles"}
-    options={
-        selectedServiceTemplate?.uid_categoria
-        ? dataSubcategories.map((subcategory) => ({
-            value: subcategory.uid_subcategoria,
-            label: subcategory.nombre, // Asegúrate de que el nombre de la subcategoría se muestra aquí
-        }))
-      : []
-    }
-    value={selectedServiceTemplate?.subcategoria?.map((subcat: any) => ({
-        value: subcat.uid_subcategoria,
-        label: subcat.nombre_subcategoria,
-    })) || []} // Asegúrate de que el valor esté correctamente inicializado
-    onChange={(selectedOptions) => {
-        const selectedSubcategories = selectedOptions.map(option => ({
-            uid_subcategoria: option.value,
-            nombre_subcategoria: option.label,
-        }));
-
-        setSelectedServiceTemplate((prev: any) => ({
-            ...prev,
-            subcategoria: selectedSubcategories,
-        }));
-    }}
-    className="mt-1"
-/>
-        {/* Descripción */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Descripción:</span>
-            <textarea
-                value={selectedServiceTemplate?.descripcion || ''}
-                onChange={(e) => {
-                    setSelectedServiceTemplate((prev: any) => ({
-                        ...(prev ?? {}),
-                        descripcion: e.target.value,
-                    }))
-                    e.target.style.height = 'auto'; // Resetea la altura
-                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
+                isOpen={drawerIsOpen}
+                onClose={handleDrawerCloseEdit}
+                className="rounded-md shadow"
+            >
+                <h2 className="mb-4 text-xl font-bold">Editar Plantilla</h2>
+                <Formik
+                    initialValues={{
+                        nombre: selectedServiceTemplate?.nombre || '',
+                        descripcion: selectedServiceTemplate?.descripcion || '',
+                        uid_categoria:
+                            selectedServiceTemplate?.uid_categoria || '',
+                        subcategoria:
+                            selectedServiceTemplate?.subcategoria || [],
+                        garantia: selectedServiceTemplate?.garantia || '',
                     }}
-                rows={1} // altura inicial
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                style={{
-                    maxHeight: '150px', // Límite máximo de altura
-                    overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                }}
-            />
-        </label>
-        
-        {/* Garantía del Servicio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Garantía:</span>
-            <input
-                type="text"
-                value={selectedServiceTemplate?.garantia || ''}
-                onChange={(e) =>
-                    setSelectedServiceTemplate((prev: any) => ({
-                        ...(prev ?? {}),
-                        garantia: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-        {/* Botones */}
-        <div className="text-right mt-6">
-            <Button className="mr-2" variant="default" onClick={handleDrawerCloseEdit}>
-                Cancelar
-            </Button>
-            <Button
-                style={{ backgroundColor: '#000B7E' }}
-                className="text-white hover:opacity-80"
-                onClick={handleSaveChanges}
+                    validationSchema={validationSchema}
+                    onSubmit={handleSaveChanges}
+                >
+                    {({ isSubmitting, setFieldValue, values }) => (
+                        <Form className="flex flex-col space-y-6">
+                            {/* Nombre */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Nombre Servicio:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="nombre"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <ErrorMessage
+                                    name="nombre"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            {/* Categoría */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Categoría:
+                                </label>
+                                <Field
+                                    as="select"
+                                    name="uid_categoria"
+                                    onChange={(e: any) => {
+                                        const selectedId = e.target.value
+                                        const selectedCat = dataCategories.find(
+                                            (cat) =>
+                                                cat.uid_categoria ===
+                                                selectedId,
+                                        )
+                                        setFieldValue(
+                                            'uid_categoria',
+                                            selectedId,
+                                        )
+                                        setFieldValue(
+                                            'nombre_categoria',
+                                            selectedCat?.nombre || '',
+                                        )
+                                        setFieldValue('subcategoria', []) // Reset subcategorías
+                                        handleCategoryChange(selectedId)
+                                    }}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">
+                                        Seleccione una categoría
+                                    </option>
+                                    {dataCategories.map((category) => (
+                                        <option
+                                            key={category.uid_categoria}
+                                            value={category.uid_categoria}
+                                        >
+                                            {category.nombre}
+                                        </option>
+                                    ))}
+                                </Field>
+                                <ErrorMessage
+                                    name="uid_categoria"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            {/* Subcategorías */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Subcategorías:
+                                </label>
+                                <Select
+                                    placeholder="Seleccione una o más subcategorías"
+                                    isMulti
+                                    noOptionsMessage={() =>
+                                        'No hay Subcategorías disponibles'
+                                    }
+                                    options={
+                                        values.uid_categoria
+                                            ? dataSubcategories.map(
+                                                  (subcategory) => ({
+                                                      value: subcategory.uid_subcategoria,
+                                                      label: subcategory.nombre,
+                                                  }),
+                                              )
+                                            : []
+                                    }
+                                    value={values.subcategoria.map(
+                                        (subcat: any) => ({
+                                            value: subcat.uid_subcategoria,
+                                            label: subcat.nombre_subcategoria,
+                                        }),
+                                    )}
+                                    onChange={(selectedOptions) => {
+                                        const selectedSubcategories =
+                                            selectedOptions.map((option) => ({
+                                                uid_subcategoria: option.value,
+                                                nombre_subcategoria:
+                                                    option.label,
+                                            }))
+                                        setFieldValue(
+                                            'subcategoria',
+                                            selectedSubcategories,
+                                        )
+                                    }}
+                                    className="mt-1"
+                                />
+                                <ErrorMessage
+                                    name="subcategoria"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            {/* Descripción */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Descripción:
+                                </label>
+                                <Field
+                                    as="textarea"
+                                    name="descripcion"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    rows={1}
+                                    style={{
+                                        maxHeight: '150px',
+                                        overflowY: 'auto',
+                                    }}
+                                    onInput={(e: any) => {
+                                        e.target.style.height = 'auto'
+                                        e.target.style.height = `${e.target.scrollHeight}px`
+                                    }}
+                                />
+                                <ErrorMessage
+                                    name="descripcion"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            {/* Garantía */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Garantía:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="garantia"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <ErrorMessage
+                                    name="garantia"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            {/* Botones */}
+                            <div className="text-right mt-6">
+                                <Button
+                                    variant="default"
+                                    onClick={() => setDrawerIsOpen(false)}
+                                    className="mr-2"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    style={{ backgroundColor: '#000B7E' }}
+                                    className="text-white hover:opacity-80"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? 'Guardando...' : 'Guardar'}
+                                </Button>
+                            </div>
+                        </Form>
+                    )}
+                </Formik>
+            </Drawer>
+
+            <Drawer
+                isOpen={drawerCreateIsOpen}
+                onClose={() => setDrawerCreateIsOpen(false)}
+                className="rounded-md shadow"
             >
-                Guardar Cambios
-            </Button>
-        </div>
-    </div>
-</Drawer>
+                <h2 className="mb-4 text-xl font-bold">Crear Plantilla</h2>
+                <Formik
+                    initialValues={{
+                        nombre: '',
+                        descripcion: '',
+                        uid_categoria: '',
+                        subcategoria: [],
+                        garantia: '',
+                    }}
+                    validationSchema={validationSchema}
+                    onSubmit={(values, { setSubmitting }) => {
+                        handleCreateServiceTemplate(values)
+                        setSubmitting(false)
+                    }}
+                >
+                    {({ isSubmitting, setFieldValue, values }) => (
+                        <Form className="flex flex-col space-y-6">
+                            {/* Nombre */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Nombre Servicio:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="nombre"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <ErrorMessage
+                                    name="nombre"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
 
+                            {/* Categoría */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Categoría:
+                                </label>
+                                <Field
+                                    as="select"
+                                    name="uid_categoria"
+                                    onChange={(e: any) => {
+                                        const selectedId = e.target.value
+                                        const selectedCat = dataCategories.find(
+                                            (cat) =>
+                                                cat.uid_categoria ===
+                                                selectedId,
+                                        )
+                                        setFieldValue(
+                                            'uid_categoria',
+                                            selectedId,
+                                        )
+                                        setFieldValue(
+                                            'nombre_categoria',
+                                            selectedCat?.nombre || '',
+                                        )
+                                        setFieldValue('subcategoria', []) // Reset subcategorías
+                                        handleCategoryChange(selectedId)
+                                    }}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">
+                                        Seleccione una categoría
+                                    </option>
+                                    {dataCategories.map((category) => (
+                                        <option
+                                            key={category.uid_categoria}
+                                            value={category.uid_categoria}
+                                        >
+                                            {category.nombre}
+                                        </option>
+                                    ))}
+                                </Field>
+                                <ErrorMessage
+                                    name="uid_categoria"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
 
-<Drawer
-    isOpen={drawerCreateIsOpen}
-    onClose={handleDrawerClose}
-    className="rounded-md shadow"
->
-    <h2 className="mb-4 text-xl font-bold">Crear Plantilla</h2>
-    <div className="flex flex-col space-y-6">
-        {/* Nombre del Servicio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Nombre Servicio:</span>
-            <input
-                type="text"
-                value={newServiceTemplate?.nombre || ''}
-                onChange={(e) =>
-                    setNewServiceTemplate((prev) => ({
-                        ...(prev ?? {}),
-                        nombre: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
+                            {/* Subcategorías */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Subcategorías:
+                                </label>
+                                <Select
+                                    placeholder="Seleccione una o más subcategorías"
+                                    isMulti
+                                    noOptionsMessage={() =>
+                                        'No hay Subcategorías disponibles'
+                                    }
+                                    options={
+                                        values.uid_categoria
+                                            ? dataSubcategories.map(
+                                                  (subcategory) => ({
+                                                      value: subcategory.uid_subcategoria,
+                                                      label: subcategory.nombre,
+                                                  }),
+                                              )
+                                            : []
+                                    }
+                                    value={values.subcategoria.map(
+                                        (subcat: any) => ({
+                                            value: subcat.uid_subcategoria,
+                                            label: subcat.nombre_subcategoria,
+                                        }),
+                                    )}
+                                    onChange={(selectedOptions) => {
+                                        const selectedSubcategories =
+                                            selectedOptions.map((option) => ({
+                                                uid_subcategoria: option.value,
+                                                nombre_subcategoria:
+                                                    option.label,
+                                            }))
+                                        setFieldValue(
+                                            'subcategoria',
+                                            selectedSubcategories,
+                                        )
+                                    }}
+                                    className="mt-1"
+                                />
+                                <ErrorMessage
+                                    name="subcategoria"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
 
-        {/* Categoría */}
-<label className="flex flex-col">
-    <span className="font-semibold text-gray-700">Categoría:</span>
-    <select
-        value={newServiceTemplate?.uid_categoria || ''}
-        onChange={async (e) => {
-            const selectedId = e.target.value;
-            const selectedCat = dataCategories.find(cat => cat.uid_categoria === selectedId);
+                            {/* Descripción */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Descripción:
+                                </label>
+                                <Field
+                                    as="textarea"
+                                    name="descripcion"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    rows={1}
+                                    style={{
+                                        maxHeight: '150px',
+                                        overflowY: 'auto',
+                                    }}
+                                    onInput={(e: any) => {
+                                        e.target.style.height = 'auto'
+                                        e.target.style.height = `${e.target.scrollHeight}px`
+                                    }}
+                                />
+                                <ErrorMessage
+                                    name="descripcion"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
 
-            // Actualizar el estado con la categoría seleccionada
-            setNewServiceTemplate((prev: any) => ({
-                ...prev,
-                uid_categoria: selectedCat?.uid_categoria,
-                nombre_categoria: selectedCat?.nombre,
-                subcategoria: [], // Limpiar subcategorías al cambiar de categoría
-            }));
-            // Filtrar subcategorías según la categoría seleccionada
-            handleCategoryChange(selectedId); // Asegúrate de que `handleCategoryChange` actualice `dataSubcategories`
-        
-            
-        }}
-        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-    >
-        <option value="">Seleccione una categoría</option>
-        {dataCategories.map((category) => (
-            <option key={category.uid_categoria} value={category.uid_categoria}>
-                {category.nombre}
-            </option>
-        ))}
-    </select>
-</label>
+                            {/* Garantía */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Garantía:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="garantia"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <ErrorMessage
+                                    name="garantia"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
 
-{/* Subcategorías */}
-<label className="font-semibold text-gray-700">Subcategorías:</label>
-<Select
-    isMulti
-    placeholder="Selecciona subcategorías"
-    noOptionsMessage={() => "No hay Subcategorías disponibles"}
-    options={
-        newServiceTemplate?.uid_categoria
-            ? dataSubcategories.map((subcategory) => ({
-                  value: subcategory.uid_subcategoria,
-                  label: subcategory.nombre,
-              }))
-            : []
-    }
-    value={newServiceTemplate?.subcategoria?.map((subcat: any) => ({
-        value: subcat.uid_subcategoria,
-        label: subcat.nombre_subcategoria,
-    }))}
-    onChange={(selectedOptions) => {
-        const selectedSubcategories = selectedOptions.map(option => ({
-            uid_subcategoria: option.value,
-            nombre_subcategoria: option.label,
-        }));
-        setNewServiceTemplate((prev: any) => ({
-            ...prev,
-            subcategoria: selectedSubcategories,
-        }));
-    }}
-    className="mt-1"
-/>
-
-
-        {/* Descripción */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Descripción:</span>
-            <textarea
-                value={newServiceTemplate?.descripcion || ''}
-                onChange={(e) => {
-                    setNewServiceTemplate((prev) => ({
-                        ...(prev ?? {}),
-                        descripcion: e.target.value,
-                    }));
-                    e.target.style.height = 'auto'; // Resetea la altura
-                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
-                }}
-                rows={1} // Altura inicial
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                style={{
-                    maxHeight: '150px', // Límite máximo de altura
-                    overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                }}
-            />
-        </label>
-
-        {/* Garantía del Servicio */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Garantía:</span>
-            <input
-                type="text"
-                value={newServiceTemplate?.garantia || ''}
-                onChange={(e) =>
-                    setNewServiceTemplate((prev) => ({
-                        ...(prev ?? {}),
-                        garantia: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Botones */}
-        <div className="text-right mt-6">
-            <Button className="mr-2" variant="default" onClick={handleDrawerClose}>
-                Cancelar
-            </Button>
-            <Button
-                style={{ backgroundColor: '#000B7E' }}
-                className="text-white hover:opacity-80"
-                onClick={handleCreateServiceTemplate}
-            >
-                Guardar
-            </Button>
-        </div>
-    </div>
-</Drawer>
-
+                            {/* Botones */}
+                            <div className="text-right mt-6">
+                                <Button
+                                    variant="default"
+                                    onClick={() => setDrawerCreateIsOpen(false)}
+                                    className="mr-2"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    style={{ backgroundColor: '#000B7E' }}
+                                    className="text-white hover:opacity-80"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? 'Guardando...' : 'Guardar'}
+                                </Button>
+                            </div>
+                        </Form>
+                    )}
+                </Formik>
+            </Drawer>
         </>
     )
 }

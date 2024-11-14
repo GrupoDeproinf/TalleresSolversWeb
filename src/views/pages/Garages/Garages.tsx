@@ -354,7 +354,7 @@ const Garages = () => {
                     <div className="flex items-center">
                         <Avatar
                             className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
-                            style={{ backgroundColor: '#FFCC29' }}
+                            style={{ backgroundColor: '#887677' }}
                         >
                             <span className="text-white font-bold">
                                 {getInitials(nombre)}

@@ -278,7 +278,7 @@ const Users = () => {
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
+                            style={{ backgroundColor: '#887677' }} // Establecer el color directamente
                             className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
@@ -447,14 +447,16 @@ const Users = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">
-                    Lista de Usuarios{' '}
-                    <button className="">
-                        <HiOutlineRefresh
-                            onClick={handleRefresh}
-                            className="w-5 h-5 bg-slate-100 hover:bg-slate-300 rounded-md m-1 "
-                        />
+            <div className="grid grid-cols-2 mb-6">
+                <h1 className="mb-6 flex justify-start items-center space-x-4">
+                    {' '}
+                    {/* Espacio entre el título y el botón de refrescar */}
+                    <span>Lista de Usuarios</span>
+                    <button
+                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        onClick={handleRefresh}
+                    >
+                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                     </button>
                 </h1>
                 <div className="flex justify-end">
