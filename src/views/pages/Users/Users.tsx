@@ -286,7 +286,7 @@ const Users = () => {
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            style={{ backgroundColor: '#FFCC29' }} // Establecer el color directamente
+                            style={{ backgroundColor: '#887677' }} // Establecer el color directamente
                             className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
@@ -363,7 +363,7 @@ const Users = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
+        // console.log('Drawer cerrado', e)
         setDrawerCreateIsOpen(false) // Cierra el Drawer
         setNewUser({
             // Limpia los campos de usuario
