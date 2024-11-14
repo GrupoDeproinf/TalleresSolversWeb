@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import {
@@ -115,19 +115,22 @@ const Garages = () => {
     }
 
     // Define el esquema de validación
-    const createUserSchema = z.object({
-        nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-        email: z.string().email('Ingrese un correo válido'),
-        //cedula: z.string()
-        //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
-        phone: z
-            .string()
-            .regex(
-                /^\d{9,10}$/,
-                'El teléfono debe tener entre 9 y 10 caracteres y contener solo números',
-            ),
-        //typeUser
-        password: z
+    const createUserSchema = z
+        .object({
+            nombre: z
+                .string()
+                .min(3, 'El nombre debe tener al menos 3 caracteres'),
+            email: z.string().email('Ingrese un correo válido'),
+            //cedula: z.string()
+            //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
+            phone: z
+                .string()
+                .regex(
+                    /^\d{9,10}$/,
+                    'El teléfono debe tener entre 9 y 10 caracteres y contener solo números',
+                ),
+            //typeUser
+            password: z
                 .string()
                 .min(6, 'La contraseña debe tener al menos 6 caracteres'),
             confirmPassword: z.string().min(6, 'Confirmar contraseñas'),
@@ -138,9 +141,14 @@ const Garages = () => {
         })
 
     const [showPassword, setShowPassword] = useState(false)
-    
+
     const handleCreateGarage = async () => {
-        if (newGarage && newGarage.email && newGarage.password && newGarage.nombre) {
+        if (
+            newGarage &&
+            newGarage.email &&
+            newGarage.password &&
+            newGarage.nombre
+        ) {
             try {
                 // Validación de Zod
                 createUserSchema.parse(newGarage)
@@ -149,16 +157,21 @@ const Garages = () => {
                 if (newGarage.password !== newGarage.confirmPassword) {
                     toast.push(
                         <Notification title="Error">
-                            Las contraseñas no coinciden. Por favor, verifica los campos.
-                        </Notification>
+                            Las contraseñas no coinciden. Por favor, verifica
+                            los campos.
+                        </Notification>,
                     )
                     return
                 }
-    
+
                 // Crear y autenticar el usuario en Firebase (taller)
-                const userCredential = await createUserWithEmailAndPassword(auth, newGarage.email, newGarage.password)
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth,
+                    newGarage.email,
+                    newGarage.password,
+                )
                 const user = userCredential.user // Usuario autenticado desde Firebase
-    
+
                 // Crear el documento en Firestore con el UID de Firebase
                 const userRef = collection(db, 'Usuarios')
                 const docRef = await addDoc(userRef, {
@@ -170,23 +183,22 @@ const Garages = () => {
                     logoUrl: newGarage.logoUrl,
                     status: newGarage.status || 'Activo', // Por defecto, puede ser 'Activo'
                     direccion: newGarage.direccion,
-                    uid: user.uid,  // Usar el UID de Firebase para asociar el taller
+                    uid: user.uid, // Usar el UID de Firebase para asociar el taller
                 })
-    
+
                 // Actualización del UID en Firestore con el ID de Firebase
                 await updateDoc(docRef, {
                     uid: user.uid, // Establecer el UID de Firebase
                 })
-    
+
                 toast.push(
                     <Notification title="Éxito">
                         Taller creado y autenticado con éxito.
-                    </Notification>
+                    </Notification>,
                 )
-    
+
                 setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el taller
                 getData() // Refrescar la lista de talleres
-    
             } catch (error) {
                 if (error instanceof z.ZodError) {
                     const errorMessages = error.errors
@@ -195,26 +207,26 @@ const Garages = () => {
                     toast.push(
                         <Notification title="Error">
                             {errorMessages}
-                        </Notification>
+                        </Notification>,
                     )
                 } else {
                     console.error('Error creando el taller:', error)
                     toast.push(
                         <Notification title="Error">
                             Hubo un error al crear el Taller.
-                        </Notification>
+                        </Notification>,
                     )
                 }
             }
         } else {
             toast.push(
                 <Notification title="Error">
-                    Por favor, asegúrate de que todos los campos necesarios estén completos.
-                </Notification>
+                    Por favor, asegúrate de que todos los campos necesarios
+                    estén completos.
+                </Notification>,
             )
         }
     }
-    
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -699,7 +711,6 @@ const Garages = () => {
                     </Button>
                 </div>
             </Dialog>
-
             <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={handleDrawerClose}

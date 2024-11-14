@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { APP_PREFIX_PATH } from '@/constants/route.constant'
+import Switcher from '@/components/ui/Switcher';
+import { ChangeEvent } from 'react';
 import {
     doc,
     getDocs,
@@ -19,16 +21,14 @@ import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
 import { FaCamera, FaFacebookF, FaInstagram, FaArrowLeft, FaTiktok } from 'react-icons/fa'
-import { HiPencilAlt, HiOutlineTrash } from 'react-icons/hi'
+import { HiPencilAlt } from 'react-icons/hi'
 import { db } from '@/configs/firebaseAssets.config'
 import { useNavigate } from 'react-router-dom'
 import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
-import { NumericFormat } from 'react-number-format'
-import dayjs from 'dayjs'
 import Table from '@/components/ui/Table'
 import { Dialog, Notification, Pagination, toast } from '@/components/ui'
-import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
+import { FaEdit, FaStar, FaStarHalfAlt } from 'react-icons/fa'
 import Tabs from '@/components/ui/Tabs'
 import {
     flexRender,
@@ -47,9 +47,7 @@ import { RiBankLine } from 'react-icons/ri'
 import { MdOutlinePhoneAndroid } from 'react-icons/md'
 import Checkbox from '@/components/ui/Checkbox'
 import { SiZelle } from 'react-icons/si'
-import PaymentForm from './Components/PaymentForm'
 import PaymentDrawer from './Components/PaymentForm'
-import { original } from '@reduxjs/toolkit'
 
 
 type Service = {
@@ -59,6 +57,7 @@ type Service = {
     taller: string
     puntuacion: string
     uid_servicio: string
+    estatus: boolean
 }
 type Planes = {
     uid: string
@@ -88,6 +87,7 @@ const ProfileGarage = () => {
     const [isSuscrito, setIsSuscrito] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null)
     const [services, setServices] = useState<Service[]>([])
+
     const [planes, setPlanes] = useState<Planes[]>([])
     const [loading, setLoading] = useState(true)
     const [dialogOpen, setDialogOpen] = useState(false)
@@ -199,6 +199,7 @@ const ProfileGarage = () => {
                     nombre_servicio: serviceData?.nombre || '',
                     descripcion: serviceData?.descripcion || '',
                     precio: serviceData?.precio || '0',
+                    estatus: serviceData?.estatus,
                     taller: serviceData?.taller || '',
                     puntuacion: serviceData?.puntuacion || '0',
                 };
@@ -218,6 +219,7 @@ const ProfileGarage = () => {
 
             setData(dataFinal);
             setServices(services);
+            console.log(services)
             setPlanes(planes); 
             setSubscription(subscripcionActual); 
             setSubscriptionHistory(subscripciones); 
@@ -361,6 +363,8 @@ const ProfileGarage = () => {
         setFormData((prev) => ({ ...prev, [name]: value }))
     }
 
+    
+
   
 
     const handleEditSave = async () => {
@@ -457,48 +461,78 @@ const ProfileGarage = () => {
             header: 'Precio',
             accessorKey: 'precio',
             cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio) // Asegúrate de que sea un número
-                return `$${precio.toFixed(2)}`
+                const precio = parseFloat(row.original.precio); // Asegúrate de que sea un número
+                return `$${precio.toFixed(2)}`;
+            },
+        },
+        {
+            header: 'Estatus',
+            accessorKey: 'estatus',
+            cell: ({ row }) => {
+                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false); // Estado local solo para el estatus
+    
+                const handleStatusChange = async (val: boolean) => {
+                    setEstatus(val); // Actualizamos el estado local del switch
+    
+                    // Actualizamos el estado global de los servicios
+                    const updatedServices = services.map(service =>
+                        service.uid_servicio === row.original.uid_servicio
+                            ? { ...service, estatus: val }
+                            : service
+                    );
+                    setServices(updatedServices); // Actualizamos el estado de la lista global
+    
+                    // También puedes hacer la actualización en la base de datos, como se mencionó antes:
+                    try {
+                        const docRef = doc(db, 'Servicios', row.original.uid_servicio);
+                        await updateDoc(docRef, { estatus: val });
+                        console.log('Estado del servicio actualizado');
+                    } catch (error) {
+                        console.error('Error al actualizar el estado del servicio:', error);
+                    }
+                };
+    
+                return (
+                    <div>
+                        <Switcher
+                            checked={estatus}
+                            onChange={() => handleStatusChange(!estatus)} // Cambiar el estado cuando el switch cambie
+                        />
+                    </div>
+                );
             },
         },
         {
             header: 'Puntuación',
             accessorKey: 'puntuacion',
             cell: ({ row }) => {
-                const puntuacion = parseFloat(row.original.puntuacion) // Asegúrate de que sea un número
-                const fullStars = Math.floor(puntuacion)
-                const hasHalfStar = puntuacion % 1 >= 0.5
-                const stars = []
-
-                // Agrega las estrellas llenas
+                const puntuacion = parseFloat(row.original.puntuacion);
+                const fullStars = Math.floor(puntuacion);
+                const hasHalfStar = puntuacion % 1 >= 0.5;
+                const stars = [];
+    
                 for (let i = 0; i < fullStars; i++) {
                     stars.push(
-                        <FaStar
-                            key={`full-${i}`}
-                            className="text-yellow-500"
-                        />,
-                    )
+                        <FaStar key={`full-${i}`} className="text-yellow-500" />
+                    );
                 }
-                // Agrega la estrella media si corresponde
                 if (hasHalfStar) {
                     stars.push(
-                        <FaStarHalfAlt
-                            key="half"
-                            className="text-yellow-500"
-                        />,
-                    )
+                        <FaStarHalfAlt key="half" className="text-yellow-500" />
+                    );
                 }
-                // Agrega las estrellas vacías (si es necesario, para un total de 5)
                 for (let i = fullStars + (hasHalfStar ? 1 : 0); i < 5; i++) {
                     stars.push(
-                        <FaStar key={`empty-${i}`} className="text-gray-300" />,
-                    )
+                        <FaStar key={`empty-${i}`} className="text-gray-300" />
+                    );
                 }
-
-                return <div className="flex">{stars}</div> // Renderiza las estrellas
+    
+                return <div className="flex">{stars}</div>;
             },
         },
-    ]
+    ];
+    
+
     const columns2: ColumnDef<Planes>[] = [
         {
             header: 'Nombre del Plan',
@@ -945,7 +979,7 @@ const ProfileGarage = () => {
                             <div>
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
-                                </h6>
+                                </h6> 
                                 <Table>
                                     <THead>
                                         {table
@@ -985,40 +1019,7 @@ const ProfileGarage = () => {
                                                                                 sort={header.column.getIsSorted()}
                                                                             />
                                                                             {/* Agregar un buscador para cada columna */}
-                                                                            {header.column.getCanFilter() ? (
-                                                                                <input
-                                                                                    type="text"
-                                                                                    value={
-                                                                                        filtering
-                                                                                            .find(
-                                                                                                (
-                                                                                                    filter,
-                                                                                                ) =>
-                                                                                                    filter.id ===
-                                                                                                    header.id,
-                                                                                            )
-                                                                                            ?.value?.toString() ||
-                                                                                        ''
-                                                                                    }
-                                                                                    onChange={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        handleFilterChange(
-                                                                                            header.id,
-                                                                                            e
-                                                                                                .target
-                                                                                                .value,
-                                                                                        )
-                                                                                    }
-                                                                                    placeholder={`Buscar`}
-                                                                                    className="mt-2 p-1 border rounded"
-                                                                                    onClick={(
-                                                                                        e,
-                                                                                    ) =>
-                                                                                        e.stopPropagation()
-                                                                                    } // Evita la propagación del evento de clic
-                                                                                />
-                                                                            ) : null}
+                                                                            
                                                                         </div>
                                                                     )}
                                                                 </Th>

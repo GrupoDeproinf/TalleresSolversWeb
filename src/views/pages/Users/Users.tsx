@@ -38,9 +38,10 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar, Drawer } from '@/components/ui'
-import * as yup from 'yup'
+import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
 import { HiOutlineRefresh } from 'react-icons/hi'
+import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 
 type Person = {
     nombre?: string
@@ -116,64 +117,53 @@ const Users = () => {
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
-    // Define el esquema de validación
-    const validationSchema = yup.object().shape({
-        nombre: yup
-            .string()
-            .min(3, 'El nombre debe tener al menos 3 caracteres')
-            .required('El nombre es obligatorio'),
-        email: yup
-            .string()
-            .email('Ingrese un correo válido')
-            .required('El correo es obligatorio'),
-        phone: yup
-            .string()
-            .matches(
-                /^\d{9,11}$/,
-                'El teléfono debe tener entre 9 y 11 caracteres y contener solo números',
-            )
+    const validationSchema = Yup.object().shape({
+        nombre: Yup.string().required('El nombre es obligatorio'),
+        email: Yup.string()
+            .email('Debe ser un email válido')
+            .required('El correo electrónico es obligatorio'),
+        cedula: Yup.string()
+            .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
+            .required('La cédula es obligatoria'),
+        phone: Yup.string()
+            .matches(/^\d{11}$/, 'El teléfono debe tener 11 dígitos')
             .required('El teléfono es obligatorio'),
-        password: yup.string().required('Por favor ingrese una contraseña'),
-        confirmPassword: yup
-            .string()
-            .oneOf([yup.ref('password')], 'Las contraseñas no coinciden')
+        typeUser: Yup.string()
+            .oneOf(['Cliente', 'Certificador'], 'Tipo de usuario inválido')
+            .required('El tipo de usuario es obligatorio'),
+        password: Yup.string().required('Por favor ingrese una contraseña'),
+        confirmPassword: Yup.string()
+            .oneOf([Yup.ref('password')], 'Las contraseñas no coinciden')
             .required('Por favor confirme su contraseña'),
     })
 
-    const handleCreateUser = async () => {
-        if (!newUser) {
-            toast.push(
-                <Notification title="Error">
-                    Los datos del usuario son nulos. Por favor, verifica.
-                </Notification>,
-            )
-            return
-        }
-
+    const handleCreateUser = async (values: any) => {
+        const { resetForm } = useFormikContext() // Aquí obtenemos resetForm
         try {
-            await validationSchema.validate(newUser, { abortEarly: false })
+            // Verifica que los valores sean válidos a través de Yup
+            await validationSchema.validate(values, { abortEarly: false })
 
             // Crear y autenticar el usuario en Firebase
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
-                newUser.email,
-                newUser.password,
+                values.email,
+                values.password,
             )
             const user = userCredential.user // Usuario autenticado desde Firebase
 
             // Crear el documento en Firestore con el UID de Firebase
             const userRef = collection(db, 'Usuarios')
             const docRef = await addDoc(userRef, {
-                nombre: newUser.nombre,
-                email: newUser.email,
-                cedula: newUser.cedula,
-                phone: newUser.phone,
-                Password: newUser.password,
-                typeUser: newUser.typeUser || 'Cliente', // Asegurarse de que siempre tenga un tipo de usuario
+                nombre: values.nombre,
+                email: values.email,
+                cedula: values.cedula,
+                phone: values.phone,
+                Password: values.password,
+                typeUser: values.typeUser || 'Cliente',
                 uid: user.uid, // Usar el UID de Firebase para asociar el usuario
             })
 
-            // Actualización del UID en Firestore (si es necesario)
+            // Actualización del UID en Firestore
             await updateDoc(docRef, {
                 uid: docRef.id,
             })
@@ -183,8 +173,12 @@ const Users = () => {
                     Usuario creado exitosamente.
                 </Notification>,
             )
+
+            setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
+            resetForm() // Resetea los valores del formulario después de crear el usuario
+            getData() // Llamada a obtener los datos (si es necesario)
         } catch (error) {
-            if (error instanceof yup.ValidationError) {
+            if (error instanceof Yup.ValidationError) {
                 error.inner.forEach((validationError) => {
                     toast.push(
                         <Notification title="Error">
@@ -195,8 +189,7 @@ const Users = () => {
             } else {
                 toast.push(
                     <Notification title="Error">
-                        Ocurrió un error inesperado. Por favor, intenta
-                        nuevamente.
+                        Hubo un error al crear el Usuario.
                     </Notification>,
                 )
             }
@@ -257,7 +250,6 @@ const Users = () => {
             })
             .join('')
     }
-
     const columns: ColumnDef<Person>[] = [
         {
             header: 'Nombre',
@@ -363,20 +355,21 @@ const Users = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        // console.log('Drawer cerrado', e)
-        setDrawerCreateIsOpen(false) // Cierra el Drawer
+        // Cierra el Drawer
+        setDrawerCreateIsOpen(false)
+        // Limpia otros estados si es necesario (como el estado de newUser)
         setNewUser({
-            // Limpia los campos de usuario
             nombre: '',
             email: '',
             cedula: '',
             phone: '',
-            typeUser: 'Cliente', // O el valor por defecto que quieras
+            typeUser: 'Cliente',
             password: '',
             confirmPassword: '',
             id: '',
             uid: '',
         })
+
         setSelectedPerson(null) // Limpia la selección (si es necesario)
     }
 
@@ -433,6 +426,7 @@ const Users = () => {
     const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
 
     const [showPassword, setShowPassword] = useState(false)
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
     const totalRows = data.length
@@ -454,18 +448,20 @@ const Users = () => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Lista de Usuarios</h1>
-                <div className="flex justify-end">
-                    <button className="mt-4 p-4">
+                <h1 className="mb-6 flex justify-start">
+                    Lista de Usuarios{' '}
+                    <button className="">
                         <HiOutlineRefresh
                             onClick={handleRefresh}
                             className="w-5 h-5 bg-slate-100 hover:bg-slate-300 rounded-md m-1 "
                         />
                     </button>
+                </h1>
+                <div className="flex justify-end">
                     <Button
                         className="w-40 text-white hover:opacity-80"
                         style={{ backgroundColor: '#000B7E' }}
-                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                        onClick={() => setDrawerCreateIsOpen(true)}
                     >
                         Crear Usuario
                     </Button>
@@ -565,7 +561,6 @@ const Users = () => {
                     rowsPerPage={rowsPerPage}
                 />
             </div>
-
             <Dialog
                 isOpen={dialogIsOpen}
                 onClose={onDialogClose}
@@ -636,8 +631,6 @@ const Users = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 transition duration-200  cursor-not-allowed"
                         />
                     </label>
-
-                    {/* Campo para Cédula */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Cédula:
@@ -738,185 +731,243 @@ const Users = () => {
                     </Button>
                 </div>
             </Drawer>
-            <Drawer
-                isOpen={drawerCreateIsOpen}
-                onClose={handleDrawerClose}
-                className="rounded-md shadow"
+            <Formik
+                initialValues={{
+                    nombre: '',
+                    email: '',
+                    cedula: '',
+                    phone: '',
+                    typeUser: 'Cliente',
+                    password: '',
+                    confirmPassword: '',
+                }}
+                validationSchema={validationSchema}
+                onSubmit={handleCreateUser}
             >
-                <h2 className="mb-4 text-xl font-bold">Crear Usuario</h2>
-                <div className="flex flex-col space-y-6">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre:
-                        </span>
-                        <input
-                            type="text"
-                            value={newUser?.nombre || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...prev, // Esto preserva los valores existentes
-                                    nombre: e.target.value, // Solo actualiza el campo necesario
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <input
-                            type="email"
-                            value={newUser?.email || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cédula:
-                        </span>
-                        <div className="flex items-center mt-1">
-                            <select
-                                value={newUser?.cedula?.split('-')[0] || 'V'}
-                                onChange={(e) =>
-                                    setNewUser((prev: any) => ({
-                                        ...(prev ?? {}),
-                                        cedula: `${e.target.value}-${
-                                            prev?.cedula?.split('-')[1] || ''
-                                        }`,
-                                    }))
-                                }
-                                className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                            >
-                                <option value="V">V-</option>
-                                <option value="E">E-</option>
-                                <option value="C">C-</option>
-                                <option value="G">G-</option>
-                                <option value="J">J-</option>
-                                <option value="P">P-</option>
-                            </select>
-                            <input
-                                type="text"
-                                value={newUser?.cedula?.split('-')[1] || ''}
-                                onChange={(e) =>
-                                    setNewUser((prev: any) => ({
-                                        ...(prev ?? {}),
-                                        cedula: `${
-                                            prev?.cedula?.split('-')[0] || 'V'
-                                        }-${e.target.value}`,
-                                    }))
-                                }
-                                className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-                            />
-                        </div>
-                    </label>
+                {({
+                    values,
+                    handleChange,
+                    setFieldValue,
+                    errors,
+                    touched,
+                    resetForm,
+                    setTouched,
+                }) => (
+                    <Drawer
+                        isOpen={drawerCreateIsOpen}
+                        onClose={() => {
+                            setDrawerCreateIsOpen(false) // Cierra el Drawer
+                            resetForm() // Resetea el formulario, lo que limpia los valores
+                            setSelectedPerson(null) // Limpia la selección, si es necesario
+                        }}
+                        className="rounded-md shadow"
+                    >
+                        <h2 className="mb-4 text-xl font-bold">
+                            Crear Usuario
+                        </h2>
+                        <Form className="flex flex-col space-y-6">
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Nombre:
+                                </span>
+                                <Field
+                                    type="text"
+                                    name="nombre"
+                                    value={values.nombre}
+                                    onChange={handleChange}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                />
+                                <ErrorMessage
+                                    name="nombre"
+                                    component="div"
+                                    className="text-red-500"
+                                />
+                            </label>
 
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <input
-                            placeholder="Ejem (4142611966)"
-                            type="text"
-                            value={newUser?.phone || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    phone: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Tipo de Usuario:
-                        </span>
-                        <select
-                            value={newUser?.typeUser || 'Cliente'} // Valor por defecto 'Cliente'
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    typeUser: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        >
-                            <option value="Cliente">Cliente</option>
-                            <option value="Certificador">Certificador</option>
-                        </select>
-                    </label>
-                    <label className="flex flex-col relative">
-                        <span className="font-semibold text-gray-700">
-                            Contraseña:
-                        </span>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={newUser?.password || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...prev,
-                                    password: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            className="absolute right-3 top-10 text-gray-600"
-                        >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                        </button>
-                    </label>
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Email:
+                                </span>
+                                <Field
+                                    type="email"
+                                    name="email"
+                                    value={values.email}
+                                    onChange={handleChange}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                />
+                                <ErrorMessage
+                                    name="email"
+                                    component="div"
+                                    className="text-red-500"
+                                />
+                            </label>
 
-                    <label className="flex flex-col relative mt-4">
-                        <span className="font-semibold text-gray-700">
-                            Confirmar Contraseña:
-                        </span>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={newUser?.confirmPassword || ''}
-                            onChange={(e) =>
-                                setNewUser((prev: any) => ({
-                                    ...prev,
-                                    confirmPassword: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            className="absolute right-3 top-10 text-gray-600"
-                        >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                        </button>
-                    </label>
-                    <div className="text-right mt-6">
-                        <Button
-                            className="ltr:mr-2 rtl:ml-2"
-                            variant="default"
-                            onClick={handleDrawerClose}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="text-white hover:opacity-80"
-                            onClick={handleCreateUser} // Llamar a la función para crear usuario
-                        >
-                            Guardar
-                        </Button>
-                    </div>
-                </div>
-            </Drawer>
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Cédula:
+                                </span>
+                                <div className="flex items-center mt-1">
+                                    <select
+                                        name="cedulaPrefix"
+                                        value={
+                                            values.cedula.split('-')[0] || 'V'
+                                        }
+                                        onChange={(e) => {
+                                            const newCedula = `${
+                                                e.target.value
+                                            }-${
+                                                values.cedula.split('-')[1] ||
+                                                ''
+                                            }`
+                                            setFieldValue('cedula', newCedula)
+                                        }}
+                                        className="mx-2 p-3 border border-gray-300 rounded-l-lg"
+                                    >
+                                        <option value="V">V-</option>
+                                        <option value="E">E-</option>
+                                        <option value="C">C-</option>
+                                        <option value="G">G-</option>
+                                        <option value="J">J-</option>
+                                        <option value="P">P-</option>
+                                    </select>
+                                    <Field
+                                        type="text"
+                                        name="cedula"
+                                        value={
+                                            values.cedula.split('-')[1] || ''
+                                        }
+                                        onChange={(e: any) => {
+                                            const newCedula = `${
+                                                values.cedula.split('-')[0] ||
+                                                'V'
+                                            }-${e.target.value}`
+                                            setFieldValue('cedula', newCedula)
+                                        }}
+                                        className="p-3 border border-gray-300 rounded-r-lg mx-2 w-full"
+                                    />
+                                    <ErrorMessage
+                                        name="cedula"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </div>
+                            </label>
+
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Teléfono:
+                                </span>
+                                <Field
+                                    type="text"
+                                    name="phone"
+                                    placeholder="Ejem (4142611966)"
+                                    value={values.phone}
+                                    onChange={handleChange}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                />
+                                <ErrorMessage
+                                    name="phone"
+                                    component="div"
+                                    className="text-red-500"
+                                />
+                            </label>
+
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Tipo de Usuario:
+                                </span>
+                                <Field
+                                    as="select"
+                                    name="typeUser"
+                                    value={values.typeUser}
+                                    onChange={handleChange}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                >
+                                    <option value="Cliente">Cliente</option>
+                                    <option value="Certificador">
+                                        Certificador
+                                    </option>
+                                </Field>
+                                <ErrorMessage
+                                    name="typeUser"
+                                    component="div"
+                                    className="text-red-500"
+                                />
+                            </label>
+                            <label className="flex flex-col relative">
+                                <span className="font-semibold text-gray-700">
+                                    Contraseña:
+                                </span>
+                                <Field
+                                    type={showPassword ? 'text' : 'password'}
+                                    name="password"
+                                    value={values.password}
+                                    onChange={handleChange}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowPassword((prev) => !prev)
+                                    }
+                                    className="absolute right-3 top-10 text-gray-600"
+                                >
+                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                                </button>
+                                <ErrorMessage
+                                    name="password"
+                                    component="div"
+                                    className="text-red-500"
+                                />
+                            </label>
+
+                            <label className="flex flex-col relative mt-4">
+                                <span className="font-semibold text-gray-700">
+                                    Confirmar Contraseña:
+                                </span>
+                                <Field
+                                    type={
+                                        showConfirmPassword
+                                            ? 'text'
+                                            : 'password'
+                                    }
+                                    name="confirmPassword"
+                                    value={values.confirmPassword}
+                                    onChange={handleChange}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setShowConfirmPassword((prev) => !prev)
+                                    }
+                                    className="absolute right-3 top-10 text-gray-600"
+                                >
+                                    {showConfirmPassword ? (
+                                        <FaEyeSlash />
+                                    ) : (
+                                        <FaEye />
+                                    )}
+                                </button>
+                                <ErrorMessage
+                                    name="confirmPassword"
+                                    component="div"
+                                    className="text-red-500"
+                                />
+                            </label>
+                            <div className="text-right mt-6">
+                                <Button
+                                    style={{ backgroundColor: '#000B7E' }}
+                                    className="text-white hover:opacity-80"
+                                    type="submit"
+                                >
+                                    Crear
+                                </Button>
+                            </div>
+                        </Form>
+                    </Drawer>
+                )}
+            </Formik>
         </>
     )
 }
