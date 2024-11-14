@@ -30,6 +30,8 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Drawer, Switcher } from '@/components/ui'
+import * as Yup from 'yup'
+import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 
 type Plans = {
     nombre?: string
@@ -88,72 +90,73 @@ const Plans = () => {
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
-    // Define el esquema de validación
-    const createUserSchema = z.object({
-        nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres'),
-        status: z.string().default('Activo'), // Añadir status, valor por defecto "Activo"
-        cantidad_servicios: z.string().optional(), // Ajusta según sea necesario
-        monto: z.string().optional(), // Ajusta según sea necesario
-        vigencia: z.string().optional(), // Ajusta según sea necesario
+    const validationSchema = Yup.object().shape({
+        nombre: Yup.string()
+            .required('El nombre es obligatorio')
+            .min(3, 'El nombre debe tener al menos 3 caracteres'),
+        descripcion: Yup.string()
+            .required('La descripción es obligatoria')
+            .min(5, 'La descripción debe tener al menos 5 caracteres'),
+            cantidad_servicios: Yup.number()
+            .typeError('Debe ingresar un número en la cantidad de servicios')
+            .required('La cantidad de servicios es obligatoria')
+            .integer('Debe ser un número entero')
+            .positive('Debe ser un número positivo'),
+        monto: Yup.number()
+            .typeError('Debe ingresar un número en el monto')
+            .required('El monto es obligatorio')
+            .positive('Debe ser un monto positivo'),
+        vigencia: Yup.string()
+            .required('La vigencia es obligatoria')
+            .matches(/^\d+$/, 'La vigencia debe ser un número válido'),
     })
 
-    const handleCreatePlans = async () => {
-        if (!newPlan) {
-            toast.push(
-                <Notification title="Error">
-                    Hubo un error inesperado. Por favor, verifica.
-                </Notification>,
-            )
-            return
-        }
-
+    const handleCreatePlans = async (values: any) => {
         try {
-            // Validación de Zod
-            createUserSchema.parse(newPlan)
-
             // Creación del usuario en la base de datos
-            const userRef = collection(db, 'Planes')
+            const userRef = collection(db, 'Planes');
             const docRef = await addDoc(userRef, {
-                nombre: newPlan.nombre,
-                descripcion: newPlan.descripcion,
-                cantidad_servicios: newPlan.cantidad_servicios,
-                monto: newPlan.monto,
+                nombre: values.nombre,
+                descripcion: values.descripcion,
+                cantidad_servicios: values.cantidad_servicios,
+                monto: values.monto,
                 status: 'Activo',
-                vigencia: newPlan.vigencia, // Ahora siempre tiene valor
+                vigencia: values.vigencia, // Ahora siempre tiene valor
                 uid: '', // Inicialmente vacío, se actualizará después
-            })
-
+            });
+    
             // Actualización del uid
             await updateDoc(docRef, {
                 uid: docRef.id,
-            })
-
+            });
+    
             toast.push(
                 <Notification title="Éxito">
                     Plan creado con éxito.
                 </Notification>,
-            )
-
-            setDrawerCreateIsOpen(false) // Cerrar el Drawer
-            getData() // Refrescar la lista de usuarios
+            );
+    
+            setDrawerCreateIsOpen(false); // Cerrar el Drawer
+            getData(); // Refrescar la lista de usuarios
         } catch (error) {
             if (error instanceof z.ZodError) {
                 const errorMessages = error.errors
                     .map((err) => err.message)
-                    .join(', ')
+                    .join(', ');
                 toast.push(
                     <Notification title="Error">{errorMessages}</Notification>,
-                )
+                );
             } else {
-                console.error('Error creando plan:', error)
+                console.error('Error creando plan:', error);
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el plan.
                     </Notification>,
-                )
+                );
             }
         }
-    }
+    };
+    
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -302,9 +305,16 @@ const Plans = () => {
         setDrawerIsOpen(false)
         setDrawerCreateIsOpen(false)
         setSelectedPerson(null) // Limpiar la selección
-        setNewPlan({ nombre: '', descripcion: '', cantidad_servicios: '', monto: '', vigencia: '', id: '', uid: '', }) // Limpiar inputs
+        setNewPlan({
+            nombre: '',
+            descripcion: '',
+            cantidad_servicios: '',
+            monto: '',
+            vigencia: '',
+            id: '',
+            uid: '',
+        }) // Limpiar inputs
     }
-    
 
     const handleDelete = async () => {
         if (selectedPerson) {
@@ -544,7 +554,7 @@ const Plans = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
                         />
                     </label>
-                    {/* Campo para cedula */}
+                    {/* Campo para Cantidad de Servicios */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Cantidad de Servicios:
@@ -556,7 +566,7 @@ const Plans = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
                         />
                     </label>
-                    {/* Campo para Teléfono */}
+                    {/* Campo para Monto */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Monto:
@@ -593,114 +603,137 @@ const Plans = () => {
             </Drawer>
             <Drawer
                 isOpen={drawerCreateIsOpen}
-                onClose={handleDrawerClose}
+                onClose={() => setDrawerCreateIsOpen(false)}
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Plan</h2>
-                <div className="flex flex-col space-y-6">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre:
-                        </span>
-                        <input
-                            type="text"
-                            value={newPlan?.nombre || ''}
-                            onChange={(e) =>
-                                setNewPlan((prev: any) => ({
-                                    ...prev, // Esto preserva los valores existentes
-                                    nombre: e.target.value, // Solo actualiza el campo necesario
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Descripcion:
-                        </span>
-                        <textarea
-                            value={newPlan?.descripcion || ''}
-                            onChange={(e) => {
-                                setNewPlan((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    descripcion: e.target.value,
-                                }));
-                                e.target.style.height = 'auto'; // Resetea la altura
-                                e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
-                            }}
-                            rows={1} // Altura inicial
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                            style={{
-                                maxHeight: '150px', // Límite máximo de altura
-                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                            }} 
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Cantidad de Servicios:
-                        </span>
-                        <input
-                            type="text"
-                            value={newPlan?.cantidad_servicios || ''}
-                            onChange={(e) =>
-                                setNewPlan((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    cantidad_servicios: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Monto:
-                        </span>
-                        <input
-                            type="text"
-                            value={newPlan?.monto || ''}
-                            onChange={(e) =>
-                                setNewPlan((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    monto: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Vigencia:
-                        </span>
-                        <input
-                            type="text"
-                            value={newPlan?.vigencia || ''}
-                            onChange={(e) =>
-                                setNewPlan((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    vigencia: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <div className="text-right mt-6">
-                        <Button
-                            className="ltr:mr-2 rtl:ml-2"
-                            variant="default"
-                            onClick={handleDrawerClose}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="text-white hover:opacity-80"
-                            onClick={handleCreatePlans} // Llamar a la función para crear usuario
-                        >
-                            Guardar
-                        </Button>
-                    </div>
-                </div>
+                <Formik
+                    initialValues={{
+                        nombre: '',
+                        descripcion: '',
+                        cantidad_servicios: '',
+                        monto: '',
+                        vigencia: '',
+                    }}
+                    validationSchema={validationSchema}
+                    onSubmit={(values, { setSubmitting }) => {
+                        handleCreatePlans(values);
+                        setSubmitting(false);
+                    }}
+                >
+                    {({ isSubmitting, values  }) => (
+                        <Form className="flex flex-col space-y-6">
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Nombre:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="nombre"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                />
+                                <ErrorMessage
+                                    name="nombre"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Descripción:
+                                </label>
+                                <Field
+                                    as="textarea"
+                                    name="descripcion"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                                    rows={1} // Altura inicial
+                                    style={{
+                                        maxHeight: '150px', // Límite máximo de altura
+                                        overflowY: 'auto', // Scroll vertical cuando se excede el límite
+                                    }}
+                                    onInput={(e: any) => {
+                                        const target =
+                                            e.target as HTMLTextAreaElement
+                                        target.style.height = 'auto' // Resetea la altura
+                                        target.style.height = `${target.scrollHeight}px` // Ajusta la altura según el contenido
+                                    }}
+                                />
+                                <ErrorMessage
+                                    name="descripcion"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Cantidad de Servicios:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="cantidad_servicios"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                />
+                                <ErrorMessage
+                                    name="cantidad_servicios"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Monto:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="monto"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                />
+                                <ErrorMessage
+                                    name="monto"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Vigencia:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="vigencia"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                />
+                                <ErrorMessage
+                                    name="vigencia"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            <div className="text-right mt-6">
+                                <Button
+                                    variant="default"
+                                    onClick={() => setDrawerCreateIsOpen(false)}
+                                    className="mr-2"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    style={{ backgroundColor: '#000B7E' }}
+                                    className="text-white hover:opacity-80"
+                                    disabled={isSubmitting}
+                                >
+                                    {isSubmitting ? 'Guardando...' : 'Guardar'}
+                                </Button>
+                            </div>
+                        </Form>
+                    )}
+                </Formik>
             </Drawer>
         </>
     )
