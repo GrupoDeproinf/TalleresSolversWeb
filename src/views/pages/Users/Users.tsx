@@ -447,7 +447,7 @@ const Users = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
+            <div className="grid grid-cols-2 mb-6">
                 <h1 className="mb-6 flex justify-start items-center space-x-4">
                     {' '}
                     {/* Espacio entre el título y el botón de refrescar */}
@@ -469,7 +469,6 @@ const Users = () => {
                     </Button>
                 </div>
             </div>
-
             <div>
                 <Table>
                     <THead>
