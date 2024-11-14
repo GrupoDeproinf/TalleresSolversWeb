@@ -370,15 +370,16 @@ const Subscriptions = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Subscripciones </h1>
-                <button className="flex justify-end mt-4 p-4">
-                    <HiOutlineRefresh
-                        onClick={handleRefresh}
-                        className="w-5 h-5 bg-slate-100 hover:bg-slate-300 rounded-md m-1 "
-                    />
+            <div className="flex justify-between items-center mb-6">
+                <h1>Subscripciones</h1>
+                <button
+                    className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                    onClick={handleRefresh}
+                >
+                    <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                 </button>
             </div>
+
             <div>
                 <Table>
                     <THead>
