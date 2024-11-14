@@ -179,21 +179,21 @@ const ProfileGarage = () => {
                 };
             });
 
-            
+
 
             // Obtener detalles de cada servicio basado en los IDs
             const servicesQuery = query(
                 collection(db, 'Servicios'),
                 where('uid_taller', '==', path)
             );
-            
+
             // Obtener los servicios que coinciden con el `uid_taller`
             const querySnapshot = await getDocs(servicesQuery);
-            
+
             // Procesar los resultados y devolver un array con los servicios
             const services = querySnapshot.docs.map((doc) => {
                 const serviceData = doc.data();
-            
+
                 return {
                     uid_servicio: doc.id,
                     nombre_servicio: serviceData?.nombre || '',
@@ -220,9 +220,9 @@ const ProfileGarage = () => {
             setData(dataFinal);
             setServices(services);
             console.log(services)
-            setPlanes(planes); 
-            setSubscription(subscripcionActual); 
-            setSubscriptionHistory(subscripciones); 
+            setPlanes(planes);
+            setSubscription(subscripcionActual);
+            setSubscriptionHistory(subscripciones);
 
             const endDate = subscripcionActual?.fecha_fin;
             console.log("aqui endDate", endDate)
@@ -363,9 +363,9 @@ const ProfileGarage = () => {
         setFormData((prev) => ({ ...prev, [name]: value }))
     }
 
-    
 
-  
+
+
 
     const handleEditSave = async () => {
         try {
@@ -470,10 +470,10 @@ const ProfileGarage = () => {
             accessorKey: 'estatus',
             cell: ({ row }) => {
                 const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false); // Estado local solo para el estatus
-    
+
                 const handleStatusChange = async (val: boolean) => {
                     setEstatus(val); // Actualizamos el estado local del switch
-    
+
                     // Actualizamos el estado global de los servicios
                     const updatedServices = services.map(service =>
                         service.uid_servicio === row.original.uid_servicio
@@ -481,7 +481,7 @@ const ProfileGarage = () => {
                             : service
                     );
                     setServices(updatedServices); // Actualizamos el estado de la lista global
-    
+
                     // También puedes hacer la actualización en la base de datos, como se mencionó antes:
                     try {
                         const docRef = doc(db, 'Servicios', row.original.uid_servicio);
@@ -491,7 +491,7 @@ const ProfileGarage = () => {
                         console.error('Error al actualizar el estado del servicio:', error);
                     }
                 };
-    
+
                 return (
                     <div>
                         <Switcher
@@ -510,7 +510,7 @@ const ProfileGarage = () => {
                 const fullStars = Math.floor(puntuacion);
                 const hasHalfStar = puntuacion % 1 >= 0.5;
                 const stars = [];
-    
+
                 for (let i = 0; i < fullStars; i++) {
                     stars.push(
                         <FaStar key={`full-${i}`} className="text-yellow-500" />
@@ -526,12 +526,12 @@ const ProfileGarage = () => {
                         <FaStar key={`empty-${i}`} className="text-gray-300" />
                     );
                 }
-    
+
                 return <div className="flex">{stars}</div>;
             },
         },
     ];
-    
+
 
     const columns2: ColumnDef<Planes>[] = [
         {
@@ -979,7 +979,7 @@ const ProfileGarage = () => {
                             <div>
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
-                                </h6> 
+                                </h6>
                                 <Table>
                                     <THead>
                                         {table
@@ -1019,7 +1019,7 @@ const ProfileGarage = () => {
                                                                                 sort={header.column.getIsSorted()}
                                                                             />
                                                                             {/* Agregar un buscador para cada columna */}
-                                                                            
+
                                                                         </div>
                                                                     )}
                                                                 </Th>
@@ -1194,205 +1194,209 @@ const ProfileGarage = () => {
                     onCancel={() => setEditModalOpen(false)}
                     onConfirm={handleEditSave}
                 >
-                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10 gap-2">
-                        <div className="text-center">
-                            {!formData.logoUrl ? (
-                                <FaCamera
-                                    className="mx-auto h-12 w-12 text-gray-300"
-                                    aria-hidden="true"
-                                />
-                            ) : (
-                                <div>
-                                    <img
-                                        src={formData.logoUrl}
-                                        alt="Preview Logo"
-                                        className="mx-auto h-32 w-32 object-cover"
+                    <div className="max-h-[450px] overflow-y-auto">
+                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10 gap-2">
+                            <div className="text-center">
+                                {!formData.logoUrl ? (
+                                    <FaCamera
+                                        className="mx-auto h-12 w-12 text-gray-300"
+                                        aria-hidden="true"
                                     />
-                                    {/* Botón para quitar la imagen */}
-                                    <button
-                                        onClick={() =>
-                                            setFormData((prev) => ({
-                                                ...prev,
-                                                logoUrl: '',
-                                            }))
-                                        }
-                                        className="mt-2 text-red-500 hover:text-red-700"
-                                    >
-                                        Quitar Logo
-                                    </button>
-                                </div>
-                            )}
-                            <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                                <label
-                                    htmlFor="logo-upload"
-                                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-                                >
-                                    <span>
-                                        {formData.logoUrl
-                                            ? 'Cambiar Logo'
-                                            : 'Seleccionar Logo'}
-                                    </span>
-                                    <input
-                                        id="logo-upload"
-                                        name="logo-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        className="sr-only"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) {
-                                                const reader = new FileReader()
-                                                reader.onloadend = () => {
-                                                    setFormData(
-                                                        (prev: any) => ({
-                                                            ...prev,
-                                                            logoUrl:
-                                                                reader.result, // Guardar URL del logo en formData
-                                                        }),
-                                                    )
-                                                }
-                                                reader.readAsDataURL(file)
+                                ) : (
+                                    <div>
+                                        <img
+                                            src={formData.logoUrl}
+                                            alt="Preview Logo"
+                                            className="mx-auto h-32 w-32 object-cover"
+                                        />
+                                        {/* Botón para quitar la imagen */}
+                                        <button
+                                            onClick={() =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    logoUrl: '',
+                                                }))
                                             }
-                                        }}
-                                    />
-                                </label>
+                                            className="mt-2 text-red-500 hover:text-red-700"
+                                        >
+                                            Quitar Logo
+                                        </button>
+                                    </div>
+                                )}
+                                <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                    <label
+                                        htmlFor="logo-upload"
+                                        className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                    >
+                                        <span>
+                                            {formData.logoUrl
+                                                ? 'Cambiar Logo'
+                                                : 'Seleccionar Logo'}
+                                        </span>
+                                        <input
+                                            id="logo-upload"
+                                            name="logo-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0]
+                                                if (file) {
+                                                    const reader = new FileReader()
+                                                    reader.onloadend = () => {
+                                                        setFormData(
+                                                            (prev: any) => ({
+                                                                ...prev,
+                                                                logoUrl:
+                                                                    reader.result, // Guardar URL del logo en formData
+                                                            }),
+                                                        )
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Nombre
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder="Nombre"
-                                name="nombre"
-                                value={formData.nombre}
-                                onChange={handleEditChange}
-                            />
-                        </label>
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Correo Electrónico
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder="Correo Electrónico"
-                                name="email"
-                                value={formData.email}
-                                onChange={handleEditChange}
-                            />
-                        </label>
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Teléfono
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder="Teléfono"
-                                name="phone"
-                                value={formData.phone}
-                                onChange={handleEditChange}
-                            />
-                        </label>
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">RIF:</span>
-                            <div className="flex items-center mt-1">
-                                <select
-                                    value={formData.rif?.split('-')[0] || 'J'}
-                                    onChange={(e) =>
-                                        setFormData((prev: any) => ({
-                                            ...prev,
-                                            rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
-                                        }))
-                                    }
-                                    className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                                >
-                                    <option value="J">J-</option>
-                                    <option value="V">V-</option>
-                                    <option value="E">E-</option>
-                                    <option value="C">C-</option>
-                                    <option value="G">G-</option>
-                                    <option value="P">P-</option>
-                                </select>
-                                <input
-                                    type="text"
-                                    value={formData.rif?.split('-')[1] || ''}
-                                    onChange={(e) =>
-                                        setFormData((prev: any) => ({
-                                            ...prev,
-                                            rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
-                                        }))
-                                    }
-                                    className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-                                />
-                            </div>
-                        </label>
 
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Ubicación
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder=""
-                                name="location"
-                                value={formData.location}
-                                onChange={handleEditChange}
-                            />
-                        </label>
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Estatus
-                            </span>
-                            <select
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                name="status"
-                                value={formData.status}
-                                onChange={handleEditChange}
-                            >
-                                <option value="Aprobado">Aprobado</option>
-                                <option value="Pendiente">Pendiente</option>
-                                <option value="Rechazado">Rechazado</option>
-                            </select>
-                        </label>
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Facebook
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder=""
-                                name="nombre"
-                                value={formData.LinkFacebook}
-                                onChange={handleEditChange}
-                            />
-                        </label>
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Instagram
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder=""
-                                name="nombre"
-                                value={formData.LinkInstagram}
-                                onChange={handleEditChange}
-                            />
-                        </label>
-                        <label className="block">
-                            <span className="text-gray-700 font-semibold">
-                                Tik tok
-                            </span>
-                            <input
-                                className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                placeholder=""
-                                name="nombre"
-                                value={formData.LinkTiktok}
-                                onChange={handleEditChange}
-                            />
-                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Nombre
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder="Nombre"
+                                    name="nombre"
+                                    value={formData.nombre}
+                                    onChange={handleEditChange}
+                                />
+                            </label>
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Correo Electrónico
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder="Correo Electrónico"
+                                    disabled
+                                    name="email"
+                                    value={formData.email}
+                                    onChange={handleEditChange}
+                                />
+                            </label>
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Teléfono
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder="Teléfono"
+                                    name="phone"
+                                    value={formData.phone}
+                                    onChange={handleEditChange}
+                                />
+                            </label>
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">RIF:</span>
+                                <div className="flex items-center mt-1">
+                                    <select
+                                        value={formData.rif?.split('-')[0] || 'J'}
+                                        onChange={(e) =>
+                                            setFormData((prev: any) => ({
+                                                ...prev,
+                                                rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
+                                            }))
+                                        }
+                                        className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                    >
+                                        <option value="J">J-</option>
+                                        <option value="V">V-</option>
+                                        <option value="E">E-</option>
+                                        <option value="C">C-</option>
+                                        <option value="G">G-</option>
+                                        <option value="P">P-</option>
+                                    </select>
+                                    <input
+                                        type="text"
+                                        value={formData.rif?.split('-')[1] || ''}
+                                        onChange={(e) =>
+                                            setFormData((prev: any) => ({
+                                                ...prev,
+                                                rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
+                                            }))
+                                        }
+                                        className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
+                                    />
+                                </div>
+                            </label>
+
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Ubicación
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder=""
+                                    name="location"
+                                    value={formData.location}
+                                    onChange={handleEditChange}
+                                />
+                            </label>
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Estatus
+                                </span>
+                                <select
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    name="status"
+                                    value={formData.status}
+                                    onChange={handleEditChange}
+                                >
+                                    <option value="Aprobado">Aprobado</option>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="Rechazado">Rechazado</option>
+                                </select>
+                            </label>
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Facebook
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder=""
+                                    name="nombre"
+                                    value={formData.LinkFacebook}
+                                    onChange={handleEditChange}
+                                />
+                            </label>
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Instagram
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder=""
+                                    name="nombre"
+                                    value={formData.LinkInstagram}
+                                    onChange={handleEditChange}
+                                />
+                            </label>
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Tik tok
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder=""
+                                    name="nombre"
+                                    value={formData.LinkTiktok}
+                                    onChange={handleEditChange}
+                                />
+                            </label>
+                        </div>
                     </div>
                 </ConfirmDialog>
             )}
