@@ -44,6 +44,7 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
 import { Avatar } from '@/components/ui'
+import { HiOutlineRefresh } from 'react-icons/hi'
 
 type Garage = {
     nombre?: string
@@ -88,6 +89,15 @@ const Garages = () => {
     useEffect(() => {
         getData()
     }, [])
+
+    const handleRefresh = async () => {
+        await getData()
+        toast.push(
+            <Notification title="Datos actualizados">
+                La tabla ha sido actualizada con éxito.
+            </Notification>,
+        )
+    }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
     const [newGarage, setNewGarage] = useState<Garage | null>({
@@ -500,7 +510,16 @@ const Garages = () => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Lista de Talleres</h1>
+                <h1 className="mb-6 flex justify-start items-center space-x-4">
+                    {' '}
+                    <span className="text-[#000B7E]">Talleres</span>
+                    <button
+                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        onClick={handleRefresh}
+                    >
+                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                    </button>
+                </h1>
                 <div className="flex justify-end">
                     <Button
                         className="w-40 text-white hover:opacity-80"

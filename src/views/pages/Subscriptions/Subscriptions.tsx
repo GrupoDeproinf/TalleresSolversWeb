@@ -373,8 +373,7 @@ const Subscriptions = () => {
             <div className="flex justify-between items-center mb-6">
                 <h1 className="mb-6 flex justify-start items-center space-x-4">
                     {' '}
-                    {/* Espacio entre el título y el botón de refrescar */}
-                    <span>Subscripciones</span>
+                    <span className="text-[#000B7E]">Subscripciones</span>
                     <button
                         className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
                         onClick={handleRefresh}
