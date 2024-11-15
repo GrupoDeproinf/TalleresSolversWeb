@@ -37,7 +37,7 @@ import { HiOutlineRefresh } from 'react-icons/hi'
 type Plans = {
     nombre?: string
     descripcion?: string
-    cantidad_servicios?: string
+    cantidad_servicios: number
     monto: string
     status?: string
     vigencia?: string
@@ -82,7 +82,7 @@ const Plans = () => {
     const [newPlan, setNewPlan] = useState<Plans | null>({
         nombre: '',
         descripcion: '',
-        cantidad_servicios: '',
+        cantidad_servicios: 0,
         monto: '',
         status: '',
         vigencia: '',
@@ -316,7 +316,7 @@ const Plans = () => {
         setNewPlan({
             nombre: '',
             descripcion: '',
-            cantidad_servicios: '',
+            cantidad_servicios: 0,
             monto: '',
             vigencia: '',
             id: '',
@@ -518,11 +518,11 @@ const Plans = () => {
                         <Switcher
                             defaultChecked={selectedPerson?.status === 'Activo'} // Determina si el Switcher debe estar activado o no
                             onChange={(e) =>
-                                setSelectedPerson((prev) => ({
+                                setSelectedPerson((prev: any) => ({
                                     ...(prev ?? {
                                         descripcion: '',
                                         nombre: '',
-                                        cantidad_servicios: '',
+                                        cantidad_servicios: 0,
                                         monto: '',
                                         uid: '',
                                         vigencia: '',
