@@ -60,27 +60,26 @@ type Service = {
     estatus: boolean
 }
 type Planes = {
-    uid: string
-    nombre: string
-    descripcion: string
-    monto: string
-    status: string
-    vigencia: string
-    cantidad_servicios: string
-}
+    uid: string;
+    nombre: string;
+    descripcion: string;
+    monto: number;
+    status: string;
+    vigencia: string;
+    cantidad_servicios: number;  
+};
 
 type SubscriptionHistory = {
     uid: string;
     nombre: string;
-    monto: string;
+    monto: number;
     vigencia: string;
     status: string;
-    cantidad_servicios: string;
+    cantidad_servicios: number; 
     fecha_fin: Timestamp;
     fecha_inicio: Timestamp;
     taller_uid: string;
-}
-
+};
 
 const ProfileGarage = () => {
     const [data, setData] = useState<DocumentData | null>(null)
@@ -98,12 +97,12 @@ const ProfileGarage = () => {
         fecha_fin: Timestamp,
         fecha_inicio: Timestamp,
         nombre: '',
-        cantidad_servicios: '',
-        monto: '',
+        cantidad_servicios: 0,
+        monto: 0,
         status: '',
         vigencia: '',
         uid: '',
-    }); // Estado para la suscripción actual
+    }); 
     const [subscripcionestable, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
     const [formData, setFormData] = useState({
         logoUrl: '',
@@ -294,7 +293,7 @@ const ProfileGarage = () => {
             const newSubscriptionRef = doc(collection(db, 'Subscripciones'));
 
             await setDoc(newSubscriptionRef, {
-                uid: newSubscriptionRef.id,  // Usa el ID generado como uid
+                uid: newSubscriptionRef.id, 
                 nombre: plan.nombre,
                 monto: plan.monto,
                 vigencia: plan.vigencia,
@@ -461,7 +460,7 @@ const ProfileGarage = () => {
             header: 'Precio',
             accessorKey: 'precio',
             cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio); // Asegúrate de que sea un número
+                const precio = parseFloat(row.original.precio); 
                 return `$${precio.toFixed(2)}`;
             },
         },
@@ -469,20 +468,17 @@ const ProfileGarage = () => {
             header: 'Estatus',
             accessorKey: 'estatus',
             cell: ({ row }) => {
-                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false); // Estado local solo para el estatus
-
+                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false); 
                 const handleStatusChange = async (val: boolean) => {
-                    setEstatus(val); // Actualizamos el estado local del switch
+                    setEstatus(val); 
 
-                    // Actualizamos el estado global de los servicios
                     const updatedServices = services.map(service =>
                         service.uid_servicio === row.original.uid_servicio
                             ? { ...service, estatus: val }
                             : service
                     );
-                    setServices(updatedServices); // Actualizamos el estado de la lista global
+                    setServices(updatedServices); 
 
-                    // También puedes hacer la actualización en la base de datos, como se mencionó antes:
                     try {
                         const docRef = doc(db, 'Servicios', row.original.uid_servicio);
                         await updateDoc(docRef, { estatus: val });
@@ -496,7 +492,7 @@ const ProfileGarage = () => {
                     <div>
                         <Switcher
                             checked={estatus}
-                            onChange={() => handleStatusChange(!estatus)} // Cambiar el estado cuando el switch cambie
+                            onChange={() => handleStatusChange(!estatus)} 
                         />
                     </div>
                 );
@@ -541,10 +537,6 @@ const ProfileGarage = () => {
         {
             header: 'Monto',
             accessorKey: 'monto',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.monto) // Asegúrate de que sea un número
-                return `$${precio.toFixed(2)}`
-            },
         },
         {
             header: 'Descripcion',
@@ -563,10 +555,6 @@ const ProfileGarage = () => {
         {
             header: 'Monto',
             accessorKey: 'monto',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.monto) // Asegúrate de que sea un número
-                return `$${precio.toFixed(2)}`
-            },
         },
         {
             header: 'vigencia',
@@ -602,7 +590,7 @@ const ProfileGarage = () => {
     })
 
     const table2 = useReactTable({
-        data: planes, // Cambiar aquí para usar el estado de servicios
+        data: planes, 
         columns: columns2,
         state: {
             sorting,
@@ -615,7 +603,7 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const table3 = useReactTable({
-        data: subscripcionestable, // Cambiar aquí para usar el estado de servicios
+        data: subscripcionestable, 
         columns: columns3,
         state: {
             sorting,
@@ -628,15 +616,15 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
+    const rowsPerPage = 6 
 
-    // Suponiendo que tienes un array de datos
-    const dataservice = table.getRowModel().rows // O la fuente de datos que estés utilizando
+    
+    const dataservice = table.getRowModel().rows 
     const totalRows = dataservice.length
 
     const onPaginationChange = (page: number) => {
         console.log('onPaginationChange', page)
-        setCurrentPage(page) // Actualiza la página actual
+        setCurrentPage(page) 
     }
 
 
@@ -1018,7 +1006,6 @@ const ProfileGarage = () => {
                                                                             <Sorter
                                                                                 sort={header.column.getIsSorted()}
                                                                             />
-                                                                            {/* Agregar un buscador para cada columna */}
 
                                                                         </div>
                                                                     )}
@@ -1170,7 +1157,7 @@ const ProfileGarage = () => {
                                                     handleSubscribe(
                                                         row.original,
                                                     )
-                                                } // Llama a la función de suscripción
+                                                } 
                                             >
                                                 Suscribirse
                                             </button>
@@ -1183,7 +1170,7 @@ const ProfileGarage = () => {
             </Dialog>
 
 
-            {/* Modal editar */}
+           
             {editModalOpen && (
                 <ConfirmDialog
                     isOpen={editModalOpen}
@@ -1209,7 +1196,7 @@ const ProfileGarage = () => {
                                             alt="Preview Logo"
                                             className="mx-auto h-32 w-32 object-cover"
                                         />
-                                        {/* Botón para quitar la imagen */}
+                                       
                                         <button
                                             onClick={() =>
                                                 setFormData((prev) => ({
@@ -1248,7 +1235,7 @@ const ProfileGarage = () => {
                                                             (prev: any) => ({
                                                                 ...prev,
                                                                 logoUrl:
-                                                                    reader.result, // Guardar URL del logo en formData
+                                                                    reader.result, 
                                                             }),
                                                         )
                                                     }
