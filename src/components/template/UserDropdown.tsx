@@ -8,6 +8,7 @@ import classNames from 'classnames'
 import { HiOutlineUser, HiOutlineCog, HiOutlineLogout } from 'react-icons/hi'
 import { FiActivity } from 'react-icons/fi'
 import type { CommonProps } from '@/@types/common'
+import { FaUserCircle } from 'react-icons/fa'
 
 type DropdownList = {
     label: string
@@ -42,11 +43,8 @@ const _UserDropdown = ({ className }: CommonProps) => {
 
     const UserAvatar = (
         <div className={classNames(className, 'flex items-center gap-2')}>
-            <Avatar size={32} shape="circle" src={avatar} />
+            <FaUserCircle className="w-10 h-10" />
             <div className="hidden md:block">
-                <div className="text-xs capitalize">
-                    {authority?.[0] || 'guest'}
-                </div>
                 <div className="font-bold">{userName}</div>
             </div>
         </div>
@@ -61,7 +59,6 @@ const _UserDropdown = ({ className }: CommonProps) => {
             >
                 <Dropdown.Item variant="header">
                     <div className="py-2 px-3 flex items-center gap-2">
-                        <Avatar shape="circle" src={avatar} />
                         <div>
                             <div className="font-bold text-gray-900 dark:text-gray-100">
                                 {userName}
