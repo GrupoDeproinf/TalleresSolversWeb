@@ -66,7 +66,7 @@ type Planes = {
     monto: number;
     status: string;
     vigencia: string;
-    cantidad_servicios: number;  
+    cantidad_servicios: number;
 };
 
 type SubscriptionHistory = {
@@ -75,7 +75,7 @@ type SubscriptionHistory = {
     monto: number;
     vigencia: string;
     status: string;
-    cantidad_servicios: number; 
+    cantidad_servicios: number;
     fecha_fin: Timestamp;
     fecha_inicio: Timestamp;
     taller_uid: string;
@@ -171,7 +171,7 @@ const ProfileGarage = () => {
                     monto: data.monto || '0',
                     vigencia: data.vigencia || '',
                     status: data.status || '',
-                    cantidad_servicios: data.cantidad_servicios || '0',
+                    cantidad_servicios: data.cantidad_servicios || 0,
                     fecha_fin: data.fecha_fin || "no hay fecha",
                     fecha_inicio: data.fecha_inicio || "no hay fecha",
                     taller_uid: data.taller_uid || '', // UID del taller
@@ -498,34 +498,6 @@ const ProfileGarage = () => {
                 );
             },
         },
-        {
-            header: 'Puntuación',
-            accessorKey: 'puntuacion',
-            cell: ({ row }) => {
-                const puntuacion = parseFloat(row.original.puntuacion);
-                const fullStars = Math.floor(puntuacion);
-                const hasHalfStar = puntuacion % 1 >= 0.5;
-                const stars = [];
-
-                for (let i = 0; i < fullStars; i++) {
-                    stars.push(
-                        <FaStar key={`full-${i}`} className="text-yellow-500" />
-                    );
-                }
-                if (hasHalfStar) {
-                    stars.push(
-                        <FaStarHalfAlt key="half" className="text-yellow-500" />
-                    );
-                }
-                for (let i = fullStars + (hasHalfStar ? 1 : 0); i < 5; i++) {
-                    stars.push(
-                        <FaStar key={`empty-${i}`} className="text-gray-300" />
-                    );
-                }
-
-                return <div className="flex">{stars}</div>;
-            },
-        },
     ];
 
 
@@ -750,8 +722,7 @@ const ProfileGarage = () => {
                             {/* Botón Editar */}
                             <div className="mt-4 flex justify-end">
                                 <Button
-                                    className=""
-                                    variant="solid"
+                                    className="bg-[#1d1e56] rounded-md p-2 hover:bg-[#1E3a8a] text-white"
                                     onClick={onEdit}
                                     icon={<HiPencilAlt />}
                                 >
@@ -813,9 +784,9 @@ const ProfileGarage = () => {
                                                                 <p className="text-sm ml-2 text-gray-600">
                                                                     {diasRestantes ?? '---'} días restantes
                                                                 </p>
-                                                                <p className="text-xs mt-1 text-gray-400">
-                                                                    Próximo pago: <span className="text-gray-600">{formatDate(subscription.fecha_fin)}</span>
-                                                                </p>
+                                                                <span className="text-gray-600">
+                                                                    {subscription.fecha_fin ? formatDate(subscription.fecha_fin) : 'Fecha no disponible'}
+                                                                </span>
                                                             </>
                                                         )}
                                                     </div>
@@ -953,7 +924,7 @@ const ProfileGarage = () => {
                                 <div className="flex justify-end mt-4">
                                     <button
                                         onClick={handleSavePaymentMethods}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none"
+                                        className="px-4 py-2 bg-[#1d1e56] text-white rounded-md hover:bg-blue-900 focus:outline-none"
                                     >
                                         Guardar
                                     </button>
@@ -968,7 +939,7 @@ const ProfileGarage = () => {
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
-                                <Table>
+                                <Table width={600}>
                                     <THead>
                                         {table
                                             .getHeaderGroups()
@@ -1152,7 +1123,7 @@ const ProfileGarage = () => {
                                         ))}
                                         <Td>
                                             <button
-                                                className="bg-blue-500 text-white px-4 py-2 rounded"
+                                                className="bg-[#1d1e56] text-white px-4 py-2 rounded"
                                                 onClick={() =>
                                                     handleSubscribe(
                                                         row.original,

@@ -1,6 +1,4 @@
-import { FaRegUser, FaTools } from 'react-icons/fa'
 import {
-    HiOutlineChartSquareBar,
     HiOutlineUserGroup,
     HiOutlineTrendingUp,
     HiOutlineUserCircle,
@@ -25,17 +23,20 @@ import {
     HiOutlineVariable,
     HiOutlineCode,
 } from 'react-icons/hi'
-import { BiSolidCategoryAlt } from 'react-icons/bi'
-import { GiMechanicGarage } from 'react-icons/gi'
-import { IoCarSportOutline } from 'react-icons/io5'
-import { VscTools } from 'react-icons/vsc'
-import { MdOutlineCategory, MdOutlineSubscriptions } from 'react-icons/md'
+import CustomIcon from '@/components/icons/subscriptionicon'
+import UserListIcon from '@/components/icons/Userlisticon'
+import GarageIcon from '@/components/icons/garageicon'
+import ServicesTemplatesIcon from '@/components/icons/servicestemplate'
+import CategoryIcon from '@/components/icons/categoryicon'
+import ServecesxGarage from '@/components/icons/servicesxgaregeicon'
+import PlansIcon from '@/components/icons/plansicon'
+import AnalyticsUpIcon from '@/components/icons/dashtboardicon'
 
 export type NavigationIcons = Record<string, JSX.Element>
 
 const navigationIcon: NavigationIcons = {
     apps: <HiOutlineViewGridAdd />,
-    project: <HiOutlineChartSquareBar />,
+    project: <AnalyticsUpIcon />,
     crm: <HiOutlineUserGroup />,
     sales: <HiOutlineTrendingUp />,
     crypto: <HiOutlineCurrencyDollar />,
@@ -61,13 +62,13 @@ const navigationIcon: NavigationIcons = {
     sharedComponentDoc: <HiOutlineShare />,
     utilsDoc: <HiOutlineVariable />,
     changeLog: <HiOutlineCode />,
-    user: <FaRegUser />,
-    cars: <IoCarSportOutline />,
-    tools: <VscTools />,
-    category: <MdOutlineCategory />,
-    serviceGarage: <GiMechanicGarage />,
-    plans: <HiOutlineViewGridAdd />,
-    subscriptions: <MdOutlineSubscriptions />,
+    user: <UserListIcon></UserListIcon>,
+    cars: <GarageIcon></GarageIcon>,
+    tools: <ServicesTemplatesIcon />,
+    category: <CategoryIcon />,
+    serviceGarage: <ServecesxGarage />,
+    plans: <PlansIcon />,
+    subscriptions: <CustomIcon></CustomIcon>,
 }
 
 export default navigationIcon
