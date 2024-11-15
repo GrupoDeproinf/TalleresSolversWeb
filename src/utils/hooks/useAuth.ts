@@ -81,14 +81,15 @@ function useAuth() {
                     if (userCredential?.user) {
                         console.log(userCredential?.user?.uid)
                         getDoc(
-                            doc(db, 'u_users', userCredential?.user?.uid),
+                            doc(db, 'Usuarios', userCredential?.user?.uid),
                         ).then((resp) => {
                             const info = resp.data()
-                            localStorage.setItem('userName', info?.name)
+                            console.log(info)
+                            localStorage.setItem('nombre', info?.nombre)
                             dispatch(
                                 setUser({
                                     avatar: '',
-                                    userName: info?.name,
+                                    userName: info?.nombre,
                                     email: info?.email,
                                     key: resp.id,
                                     authority: ['admin', 'user'], // ['user']

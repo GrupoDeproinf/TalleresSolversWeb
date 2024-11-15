@@ -42,8 +42,9 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar } from '@/components/ui'
-import { Formik, Field, Form, ErrorMessage } from 'formik'
 import * as Yup from 'yup'
+import { HiOutlineRefresh } from 'react-icons/hi'
+import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 
 type Garage = {
     nombre?: string
@@ -187,7 +188,16 @@ const ServiceGarages = () => {
 
     useEffect(() => {
         fetchData()
-    }, []) // Se ejecuta solo una vez cuando el componente se monta
+    }, [])
+
+    const handleRefresh = async () => {
+        await fetchData()
+        toast.push(
+            <Notification title="Datos actualizados">
+                La tabla ha sido actualizada con éxito.
+            </Notification>,
+        )
+    }
 
     // Función para manejar el cambio de categoría seleccionada
     const handleCategoryChange = async (categoryId: string) => {
@@ -613,8 +623,17 @@ const ServiceGarages = () => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">
-                    Asignar Servicios a Talleres
+                <h1 className="mb-6 flex justify-start items-center space-x-4">
+                    {' '}
+                    <span className="text-[#000B7E]">
+                        Asignar Servicios a Talleres
+                    </span>
+                    <button
+                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        onClick={handleRefresh}
+                    >
+                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                    </button>
                 </h1>
                 <div className="flex justify-end">
                     <Button

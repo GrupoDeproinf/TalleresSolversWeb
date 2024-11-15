@@ -32,6 +32,7 @@ import type { MouseEvent } from 'react'
 import { Drawer, Switcher } from '@/components/ui'
 import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
+import { HiOutlineRefresh } from 'react-icons/hi'
 
 type Plans = {
     nombre?: string
@@ -68,6 +69,14 @@ const Plans = () => {
     useEffect(() => {
         getData()
     }, [])
+    const handleRefresh = async () => {
+        await getData()
+        toast.push(
+            <Notification title="Datos actualizados">
+                La tabla ha sido actualizada con éxito.
+            </Notification>,
+        )
+    }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
     const [newPlan, setNewPlan] = useState<Plans | null>({
@@ -97,7 +106,7 @@ const Plans = () => {
         descripcion: Yup.string()
             .required('La descripción es obligatoria')
             .min(5, 'La descripción debe tener al menos 5 caracteres'),
-            cantidad_servicios: Yup.number()
+        cantidad_servicios: Yup.number()
             .typeError('Debe ingresar un número en la cantidad de servicios')
             .required('La cantidad de servicios es obligatoria')
             .integer('Debe ser un número entero')
@@ -114,7 +123,7 @@ const Plans = () => {
     const handleCreatePlans = async (values: any) => {
         try {
             // Creación del usuario en la base de datos
-            const userRef = collection(db, 'Planes');
+            const userRef = collection(db, 'Planes')
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
                 descripcion: values.descripcion,
@@ -123,40 +132,39 @@ const Plans = () => {
                 status: 'Activo',
                 vigencia: values.vigencia, // Ahora siempre tiene valor
                 uid: '', // Inicialmente vacío, se actualizará después
-            });
-    
+            })
+
             // Actualización del uid
             await updateDoc(docRef, {
                 uid: docRef.id,
-            });
-    
+            })
+
             toast.push(
                 <Notification title="Éxito">
                     Plan creado con éxito.
                 </Notification>,
-            );
-    
-            setDrawerCreateIsOpen(false); // Cerrar el Drawer
-            getData(); // Refrescar la lista de usuarios
+            )
+
+            setDrawerCreateIsOpen(false) // Cerrar el Drawer
+            getData() // Refrescar la lista de usuarios
         } catch (error) {
             if (error instanceof z.ZodError) {
                 const errorMessages = error.errors
                     .map((err) => err.message)
-                    .join(', ');
+                    .join(', ')
                 toast.push(
                     <Notification title="Error">{errorMessages}</Notification>,
-                );
+                )
             } else {
-                console.error('Error creando plan:', error);
+                console.error('Error creando plan:', error)
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el plan.
                     </Notification>,
-                );
+                )
             }
         }
-    };
-    
+    }
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -385,7 +393,16 @@ const Plans = () => {
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Lista de Planes</h1>
+                <h1 className="mb-6 flex justify-start items-center space-x-4">
+                    {' '}
+                    <span className="text-[#000B7E]">Planes</span>
+                    <button
+                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        onClick={handleRefresh}
+                    >
+                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                    </button>
+                </h1>
                 <div className="flex justify-end">
                     <Button
                         className="w-40 text-white hover:opacity-80"
@@ -617,11 +634,11 @@ const Plans = () => {
                     }}
                     validationSchema={validationSchema}
                     onSubmit={(values, { setSubmitting }) => {
-                        handleCreatePlans(values);
-                        setSubmitting(false);
+                        handleCreatePlans(values)
+                        setSubmitting(false)
                     }}
                 >
-                    {({ isSubmitting, values  }) => (
+                    {({ isSubmitting, values }) => (
                         <Form className="flex flex-col space-y-6">
                             <div className="flex flex-col">
                                 <label className="font-semibold text-gray-700">

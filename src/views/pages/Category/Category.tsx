@@ -47,6 +47,7 @@ import Password from '@/views/account/Settings/components/Password'
 import Description from '@/views/ui-components/navigation/Steps/Description'
 import { Timestamp } from 'firebase/firestore' // Importa Timestamp
 import { px } from 'framer-motion'
+import { HiOutlineRefresh } from 'react-icons/hi'
 
 type Category = {
     nombre?: string
@@ -54,7 +55,7 @@ type Category = {
     fechaCreacion?: Timestamp // Fecha de creación de la categoría
     logoUrl?: string // URL de la imagen que funcione como logo de la categoría
     nombreUser?: string // Nombre del creador
-    estatus?: boolean;
+    estatus?: boolean
 
     uid?: string // ID del usuario que creó la categoría
     id: string // ID único de la categoría
@@ -71,34 +72,50 @@ const Users = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
     const getData = async () => {
-        const q = query(collection(db, 'Categorias'));
-        const querySnapshot = await getDocs(q);
-        const categorias = [];
-    
+        const q = query(collection(db, 'Categorias'))
+        const querySnapshot = await getDocs(q)
+        const categorias = []
+
         for (const doc of querySnapshot.docs) {
-            const userData = doc.data();
+            const userData = doc.data()
             if (userData) {
-                const subcategoriesRef = collection(db, 'Categorias', doc.id, 'Subcategorias');
-                const subcategoriesSnapshot = await getDocs(subcategoriesRef);
-                const subcategoriesData = subcategoriesSnapshot.docs.map(subDoc => ({
-                    ...subDoc.data(),
-                    uid: subDoc.id, // Almacena el ID de la subcategoría
-                }));
-    
+                const subcategoriesRef = collection(
+                    db,
+                    'Categorias',
+                    doc.id,
+                    'Subcategorias',
+                )
+                const subcategoriesSnapshot = await getDocs(subcategoriesRef)
+                const subcategoriesData = subcategoriesSnapshot.docs.map(
+                    (subDoc) => ({
+                        ...subDoc.data(),
+                        uid: subDoc.id, // Almacena el ID de la subcategoría
+                    }),
+                )
+
                 categorias.push({
                     ...userData,
                     id: doc.id,
                     subcategorias: subcategoriesData, // Añade las subcategorías aquí
-                });
+                })
             }
         }
-    
-        setdataCategorys(categorias);
-    };
+
+        setdataCategorys(categorias)
+    }
 
     useEffect(() => {
         getData()
     }, [])
+
+    const handleRefresh = async () => {
+        await getData()
+        toast.push(
+            <Notification title="Datos actualizados">
+                La tabla ha sido actualizada con éxito.
+            </Notification>,
+        )
+    }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
     const [newCategory, setnewCategory] = useState<Category | null>({
@@ -128,80 +145,102 @@ const Users = () => {
     })
 
     type Subcategory = {
-        nombre: string;
-        descripcion: string;
-        estatus: boolean;
-        uid: string;
-    };
-    
-    const [subcategories, setSubcategories] = useState<Subcategory[]>([{ nombre: '', descripcion: '', estatus: true, uid: '' }]);
-    
+        nombre: string
+        descripcion: string
+        estatus: boolean
+        uid: string
+    }
+
+    const [subcategories, setSubcategories] = useState<Subcategory[]>([
+        { nombre: '', descripcion: '', estatus: true, uid: '' },
+    ])
+
     const handleAddSubcategory = () => {
-        setSubcategories([...subcategories, { nombre: '', descripcion: '', estatus: true, uid: '' }]);
-    };
+        setSubcategories([
+            ...subcategories,
+            { nombre: '', descripcion: '', estatus: true, uid: '' },
+        ])
+    }
 
     const handleRemoveSubcategory = (index: any) => {
-        setSubcategories((prevSubcategories) => prevSubcategories.filter((_, i) => i !== index));
-    };
-    
-    
-    const handleSubcategoryChange = (index: number, field: 'nombre' | 'descripcion', value: string) => {
-        setSubcategories(prevSubcategories => {
-            const updatedSubcategories = [...prevSubcategories];
+        setSubcategories((prevSubcategories) =>
+            prevSubcategories.filter((_, i) => i !== index),
+        )
+    }
+
+    const handleSubcategoryChange = (
+        index: number,
+        field: 'nombre' | 'descripcion',
+        value: string,
+    ) => {
+        setSubcategories((prevSubcategories) => {
+            const updatedSubcategories = [...prevSubcategories]
             updatedSubcategories[index] = {
                 ...updatedSubcategories[index],
                 [field]: value,
-            };
-            return updatedSubcategories;
-        });
-    };
-    
-    
+            }
+            return updatedSubcategories
+        })
+    }
+
     const handleCreateUser = async () => {
-        const auth = getAuth();
-        const currentUser = auth.currentUser;
-    
+        const auth = getAuth()
+        const currentUser = auth.currentUser
+
         if (!newCategory || !currentUser) {
             toast.push(
                 <Notification title="Error">
                     {!currentUser
                         ? 'Usuario no autenticado.'
                         : 'Los datos de la categoría son nulos. Por favor, verifica.'}
-                </Notification>
-            );
-            return;
+                </Notification>,
+            )
+            return
         }
-    
+
         try {
-            const userDocRef = doc(db, 'Usuarios', currentUser.uid);
-            const userDoc = await getDoc(userDocRef);
-            const userName = userDoc.exists() && userDoc.data()?.nombre ? userDoc.data().nombre : 'Administrador';
-    
+            const userDocRef = doc(db, 'Usuarios', currentUser.uid)
+            const userDoc = await getDoc(userDocRef)
+            const userName =
+                userDoc.exists() && userDoc.data()?.nombre
+                    ? userDoc.data().nombre
+                    : 'Administrador'
+
             const categoryData = {
                 ...newCategory,
                 nombreUser: userName,
                 uid: currentUser.uid,
                 fechaCreacion: Timestamp.fromDate(new Date()),
-            };
-    
-            const categoryRef = await addDoc(collection(db, 'Categorias'), categoryData);
-    
+            }
+
+            const categoryRef = await addDoc(
+                collection(db, 'Categorias'),
+                categoryData,
+            )
+
             // Crear subcategorías
-            const subcategoriesRef = collection(db, 'Categorias', categoryRef.id, 'Subcategorias');
-            const batch = writeBatch(db);
+            const subcategoriesRef = collection(
+                db,
+                'Categorias',
+                categoryRef.id,
+                'Subcategorias',
+            )
+            const batch = writeBatch(db)
             subcategories.forEach((subcategory) => {
                 if (subcategory.nombre && subcategory.descripcion) {
-                    const subcategoryRef = doc(subcategoriesRef);
-                    batch.set(subcategoryRef, subcategory);
+                    const subcategoryRef = doc(subcategoriesRef)
+                    batch.set(subcategoryRef, subcategory)
                 }
-            });
-    
-            await batch.commit();
-    
+            })
+
+            await batch.commit()
+
             toast.push(
-                <Notification title="Éxito">Categoría y subcategorías creadas con éxito.</Notification>
-            );
-    
+                <Notification title="Éxito">
+                    Categoría y subcategorías creadas con éxito.
+                </Notification>,
+            )
+
             // Limpiar los inputs del Drawer
             setnewCategory({
                 nombre: '',
@@ -212,18 +251,17 @@ const Users = () => {
                 estatus: true,
                 uid: '',
                 id: '',
-            });
-    
+            })
+
             // Limpiar las subcategorías
-            setSubcategories([]);  // Esto asume que tienes `subcategories` como estado
-    
-            setDrawerCreateIsOpen(false);
-            getData();
+            setSubcategories([]) // Esto asume que tienes `subcategories` como estado
+
+            setDrawerCreateIsOpen(false)
+            getData()
         } catch (error) {
             // Manejo de errores aquí
         }
-    };
-    
+    }
 
     const handleFilterChange = (columnId: string, value: string) => {
         setFiltering((prev) => {
@@ -254,7 +292,6 @@ const Users = () => {
                 // Cerrar el drawer
                 setDrawerIsOpen(false)
 
-                
                 getData() // Refrescar datos después de guardar
             } catch (error) {
                 console.error('Error actualizando la categoría:', error)
@@ -268,10 +305,8 @@ const Users = () => {
         } else {
             console.error('selectedCategory o uid no están definidos.')
             console.error()
+        }
     }
-    }
-    
-    
 
     // Obtener iniciales de los nombres
     const getInitials = (nombre: string | undefined): string => {
@@ -288,11 +323,10 @@ const Users = () => {
     }
 
     const handleSelectCategory = (category: any) => {
-        setSelectedCategory(category);
-        setSubcategories(category.subcategorias || []); // Cargar subcategorías
-        setDrawerIsOpen(true);
-    };
-    
+        setSelectedCategory(category)
+        setSubcategories(category.subcategorias || []) // Cargar subcategorías
+        setDrawerIsOpen(true)
+    }
 
     const columns: ColumnDef<Category>[] = [
         {
@@ -337,21 +371,23 @@ const Users = () => {
             header: 'Subcategorías',
             accessorKey: 'subcategorias',
             cell: ({ getValue }) => {
-                const subcategorias = getValue(); // Obtiene las subcategorías
+                const subcategorias = getValue() // Obtiene las subcategorías
                 if (Array.isArray(subcategorias) && subcategorias.length > 0) {
                     return (
                         <ul className="list-disc pl-5">
                             {subcategorias.map((subcategory) => (
-                                <li key={subcategory.uid}>{subcategory.nombre}</li> // Muestra el nombre de cada subcategoría
+                                <li key={subcategory.uid}>
+                                    {subcategory.nombre}
+                                </li> // Muestra el nombre de cada subcategoría
                             ))}
                         </ul>
-                    );
+                    )
                 }
-                return <span>No hay subcategorías</span>; // Mensaje si no hay subcategorías
+                return <span>No hay subcategorías</span> // Mensaje si no hay subcategorías
             },
             filterFn: 'includesString',
             footer: (props) => props.column.id,
-        },        
+        },
         {
             header: 'Creador',
             accessorKey: 'nombreUser',
@@ -392,71 +428,75 @@ const Users = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-    console.log('Drawer cerrado', e);
-    setDrawerCreateIsOpen(false);
-    setnewCategory({
-        nombre: '',
-        descripcion: '',
-        logoUrl: '',
-        uid: '',
-        id: '',
-    }); // Limpia los campos de la categoría
-    setSubcategories([]); // Limpia las subcategorías
-    setSelectedCategory(null); // Limpia la selección
-};
-
+        console.log('Drawer cerrado', e)
+        setDrawerCreateIsOpen(false)
+        setnewCategory({
+            nombre: '',
+            descripcion: '',
+            logoUrl: '',
+            uid: '',
+            id: '',
+        }) // Limpia los campos de la categoría
+        setSubcategories([]) // Limpia las subcategorías
+        setSelectedCategory(null) // Limpia la selección
+    }
 
     const handleDelete = async () => {
         if (selectedCategory) {
-            console.log('Eliminando a:', selectedCategory);
-    
+            console.log('Eliminando a:', selectedCategory)
+
             try {
                 // Usar el id del documento en lugar de uid
-                const userDoc = doc(db, 'Categorias', selectedCategory.id);
-                
+                const userDoc = doc(db, 'Categorias', selectedCategory.id)
+
                 // Obtener la referencia a la colección de subcategorías
-                const subcategoriesRef = collection(db, 'Categorias', selectedCategory.id, 'Subcategorias');
-                const subcategoriesSnapshot = await getDocs(subcategoriesRef);
-    
+                const subcategoriesRef = collection(
+                    db,
+                    'Categorias',
+                    selectedCategory.id,
+                    'Subcategorias',
+                )
+                const subcategoriesSnapshot = await getDocs(subcategoriesRef)
+
                 // Eliminar cada subcategoría
-                const batch = writeBatch(db); // Usar batch para eliminar todas las subcategorías en una sola operación
-                subcategoriesSnapshot.docs.forEach(subDoc => {
-                    const subcategoryDocRef = doc(subcategoriesRef, subDoc.id);
-                    batch.delete(subcategoryDocRef); // Prepara la eliminación de la subcategoría
-                });
-    
+                const batch = writeBatch(db) // Usar batch para eliminar todas las subcategorías en una sola operación
+                subcategoriesSnapshot.docs.forEach((subDoc) => {
+                    const subcategoryDocRef = doc(subcategoriesRef, subDoc.id)
+                    batch.delete(subcategoryDocRef) // Prepara la eliminación de la subcategoría
+                })
+
                 // Ejecutar el batch para eliminar subcategorías
-                await batch.commit(); // Elimina todas las subcategorías
-    
+                await batch.commit() // Elimina todas las subcategorías
+
                 // Ahora eliminar la categoría principal
-                await deleteDoc(userDoc);
-    
+                await deleteDoc(userDoc)
+
                 // Usar toast para mostrar el mensaje de éxito
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Categoría {selectedCategory.nombre} y sus subcategorías eliminadas con éxito.
+                        Categoría {selectedCategory.nombre} y sus subcategorías
+                        eliminadas con éxito.
                     </Notification>
-                );
-                toast.push(toastNotification);
-    
-                getData(); // Refrescar datos después de eliminar
+                )
+                toast.push(toastNotification)
+
+                getData() // Refrescar datos después de eliminar
             } catch (error) {
-                console.error('Error eliminando la categoría:', error);
-    
+                console.error('Error eliminando la categoría:', error)
+
                 // Usar toast para mostrar el mensaje de error
                 const errorNotification = (
                     <Notification title="Error">
                         Hubo un error eliminando la categoría.
                     </Notification>
-                );
-                toast.push(errorNotification);
+                )
+                toast.push(errorNotification)
             } finally {
-                setIsOpen(false); // Cerrar diálogo después de la operación
-                setSelectedCategory(null); // Limpiar selección
+                setIsOpen(false) // Cerrar diálogo después de la operación
+                setSelectedCategory(null) // Limpiar selección
             }
         }
-    };
-    
+    }
 
     const table = useReactTable({
         data: dataCategorys,
@@ -490,16 +530,23 @@ const Users = () => {
     const endIndex = startIndex + rowsPerPage
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e);
-        setDrawerIsOpen(false); // Usar el estado correcto para cerrar el Drawer
+        console.log('Drawer cerrado', e)
+        setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
     }
-
-    
 
     return (
         <>
             <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start">Lista de Categorías</h1>
+                <h1 className="mb-6 flex justify-start items-center space-x-4">
+                    {' '}
+                    <span className="text-[#000B7E]">Lista de Categorias</span>
+                    <button
+                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        onClick={handleRefresh}
+                    >
+                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                    </button>
+                </h1>
                 <div className="flex justify-end">
                     <Button
                         style={{ backgroundColor: '#000B7E' }}
@@ -633,248 +680,310 @@ const Users = () => {
                 </div>
             </Dialog>
             <Drawer
-    isOpen={drawerIsOpen}
-    onClose={handleDrawerCloseEdit}
-    className="rounded-md shadow"
->
-    <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
-    <div className="flex flex-col space-y-6">
-        {/* Campo para Nombre */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Nombre:</span>
-            <input
-                type="text"
-                value={selectedCategory?.nombre || ''}
-                onChange={(e) =>
-                    setSelectedCategory((prev: any) => ({
-                        ...prev,
-                        nombre: e.target.value,
-                    }))
-                }
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-            />
-        </label>
-
-        {/* Campo para Descripción */}
-        <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Descripción:</span>
-            <textarea
-                value={selectedCategory?.descripcion || ''}
-                onChange={(e) => {
-                    setSelectedCategory((prev: any) => ({
-                        ...prev,
-                        descripcion: e.target.value,
-                    }));
-                    e.target.style.height = 'auto'; // Resetea la altura
-                    e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
-                }}
-                rows={1} // altura inicial
-                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                style={{ maxHeight: '150px', overflowY: 'auto' }}
-            />
-        </label>
-
-        {/* Campo para Logo */}
-        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-            <div className="text-center">
-                {!selectedCategory?.logoUrl ? (
-                    <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-                ) : (
-                    <div>
-                        <img
-                            src={selectedCategory.logoUrl}
-                            alt="Preview Logo"
-                            className="mx-auto h-32 w-32 object-cover"
-                        />
-                        <button
-                            onClick={() =>
-                                setSelectedCategory((prev: any) => ({
-                                    ...prev,
-                                    logoUrl: '',
-                                }))
-                            }
-                            className="mt-2 text-red-500 hover:text-red-700"
-                        >
-                            Quitar Logo
-                        </button>
-                    </div>
-                )}
-                <label
-                    htmlFor="logo-upload"
-                    className="relative cursor-pointer bg-white font-semibold text-indigo-600 flex justify-center items-center"
-                >
-                    <span>{selectedCategory?.logoUrl ? 'Cambiar Logo' : 'Seleccionar Logo'}</span>
-                    <input
-                        id="logo-upload"
-                        name="logo-upload"
-                        type="file"
-                        accept="image/*"
-                        className="sr-only"
-                        onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () =>
-                                    setSelectedCategory((prev: any) => ({
-                                        ...prev,
-                                        logoUrl: reader.result,
-                                    }));
-                                reader.readAsDataURL(file);
-                            }
-                        }}
-                    />
-                </label>
-            </div>
-        </div>
-
-    </div>
-
-    <div className="text-right mt-6">
-        <Button variant="default" onClick={handleDrawerCloseEdit} className="mr-2">
-            Cancelar
-        </Button>
-        <Button
-            style={{ backgroundColor: '#000B7E' }}
-            className="text-white hover:opacity-80"
-            onClick={handleSaveChanges}
-        >
-            Guardar Cambios
-        </Button>
-    </div>
-</Drawer>
-            <Drawer
-        isOpen={drawerCreateIsOpen}
-        onClose={handleDrawerClose}
-        className="rounded-md shadow"
-    >
-        <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
-        <div className="flex flex-col space-y-6">
-            
-            {/* Campo para el logo */}
-            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                <div className="text-center">
-                    {!newCategory?.logoUrl ? (
-                        <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
-                    ) : (
-                        <img src={newCategory.logoUrl} alt="Preview Logo" className="mx-auto h-32 w-32 object-cover" />
-                    )}
-                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                        <label htmlFor="logo-upload" className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center">
-                            <span>{newCategory?.logoUrl ? 'Cambiar Logo' : 'Seleccionar Logo'}</span>
-                            <input
-                                id="logo-upload"
-                                name="logo-upload"
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                        const reader = new FileReader();
-                                        reader.onloadend = () => {
-                                            setnewCategory((prev: any) => ({
-                                                ...prev,
-                                                logoUrl: reader.result, // Almacena la URL del logo
-                                            }));
-                                        };
-                                        reader.readAsDataURL(file); // Leer el archivo como una URL de datos
-                                    }
-                                }}
-                            />
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            {/* Campos de la categoría */}
-            <label className="flex flex-col">
-                <span className="font-semibold text-gray-700">Nombre:</span>
-                <input
-                    type="text"
-                    value={newCategory?.nombre || ''}
-                    onChange={(e) =>
-                        setnewCategory((prev: any) => ({
-                            ...prev,
-                            nombre: e.target.value,
-                        }))
-                    }
-                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                />
-            </label>
-            <label className="flex flex-col">
-                <span className="font-semibold text-gray-700">Descripción:</span>
-                <textarea
-                    value={newCategory?.descripcion || ''}
-                    onChange={(e) => {
-                        setnewCategory((prev: any) => ({
-                            ...(prev ?? {}),
-                            descripcion: e.target.value,
-                        }));
-                        e.target.style.height = 'auto'; // Resetea la altura
-                        e.target.style.height = `${e.target.scrollHeight}px`; // Ajusta la altura según el contenido
-                    }}
-                    rows={1} // Altura inicial
-                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                    style={{
-                        maxHeight: '150px', // Límite máximo de altura
-                        overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                    }}
-                />
-            </label>
-
-            {/* Sección de subcategorías */}
-            <h3 className="mt-6 text-lg font-semibold">Subcategorías</h3>
-            {subcategories.map((subcategory, index) => (
-                <div key={index} className="flex flex-col space-y-2">
+                isOpen={drawerIsOpen}
+                onClose={handleDrawerCloseEdit}
+                className="rounded-md shadow"
+            >
+                <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
+                <div className="flex flex-col space-y-6">
+                    {/* Campo para Nombre */}
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">Nombre:</span>
+                        <span className="font-semibold text-gray-700">
+                            Nombre:
+                        </span>
                         <input
                             type="text"
-                            value={subcategory.nombre}
-                            onChange={(e) => handleSubcategoryChange(index, 'nombre', e.target.value)}
+                            value={selectedCategory?.nombre || ''}
+                            onChange={(e) =>
+                                setSelectedCategory((prev: any) => ({
+                                    ...prev,
+                                    nombre: e.target.value,
+                                }))
+                            }
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                        />
+                    </label>
+
+                    {/* Campo para Descripción */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Descripción:
+                        </span>
+                        <textarea
+                            value={selectedCategory?.descripcion || ''}
+                            onChange={(e) => {
+                                setSelectedCategory((prev: any) => ({
+                                    ...prev,
+                                    descripcion: e.target.value,
+                                }))
+                                e.target.style.height = 'auto' // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
+                            }}
+                            rows={1} // altura inicial
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                            style={{ maxHeight: '150px', overflowY: 'auto' }}
+                        />
+                    </label>
+
+                    {/* Campo para Logo */}
+                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                        <div className="text-center">
+                            {!selectedCategory?.logoUrl ? (
+                                <FaCamera
+                                    className="mx-auto h-12 w-12 text-gray-300"
+                                    aria-hidden="true"
+                                />
+                            ) : (
+                                <div>
+                                    <img
+                                        src={selectedCategory.logoUrl}
+                                        alt="Preview Logo"
+                                        className="mx-auto h-32 w-32 object-cover"
+                                    />
+                                    <button
+                                        onClick={() =>
+                                            setSelectedCategory(
+                                                (prev: any) => ({
+                                                    ...prev,
+                                                    logoUrl: '',
+                                                }),
+                                            )
+                                        }
+                                        className="mt-2 text-red-500 hover:text-red-700"
+                                    >
+                                        Quitar Logo
+                                    </button>
+                                </div>
+                            )}
+                            <label
+                                htmlFor="logo-upload"
+                                className="relative cursor-pointer bg-white font-semibold text-indigo-600 flex justify-center items-center"
+                            >
+                                <span>
+                                    {selectedCategory?.logoUrl
+                                        ? 'Cambiar Logo'
+                                        : 'Seleccionar Logo'}
+                                </span>
+                                <input
+                                    id="logo-upload"
+                                    name="logo-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) {
+                                            const reader = new FileReader()
+                                            reader.onloadend = () =>
+                                                setSelectedCategory(
+                                                    (prev: any) => ({
+                                                        ...prev,
+                                                        logoUrl: reader.result,
+                                                    }),
+                                                )
+                                            reader.readAsDataURL(file)
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="text-right mt-6">
+                    <Button
+                        variant="default"
+                        onClick={handleDrawerCloseEdit}
+                        className="mr-2"
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                        onClick={handleSaveChanges}
+                    >
+                        Guardar Cambios
+                    </Button>
+                </div>
+            </Drawer>
+            <Drawer
+                isOpen={drawerCreateIsOpen}
+                onClose={handleDrawerClose}
+                className="rounded-md shadow"
+            >
+                <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
+                <div className="flex flex-col space-y-6">
+                    {/* Campo para el logo */}
+                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                        <div className="text-center">
+                            {!newCategory?.logoUrl ? (
+                                <FaCamera
+                                    className="mx-auto h-12 w-12 text-gray-300"
+                                    aria-hidden="true"
+                                />
+                            ) : (
+                                <img
+                                    src={newCategory.logoUrl}
+                                    alt="Preview Logo"
+                                    className="mx-auto h-32 w-32 object-cover"
+                                />
+                            )}
+                            <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                <label
+                                    htmlFor="logo-upload"
+                                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                >
+                                    <span>
+                                        {newCategory?.logoUrl
+                                            ? 'Cambiar Logo'
+                                            : 'Seleccionar Logo'}
+                                    </span>
+                                    <input
+                                        id="logo-upload"
+                                        name="logo-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) {
+                                                const reader = new FileReader()
+                                                reader.onloadend = () => {
+                                                    setnewCategory(
+                                                        (prev: any) => ({
+                                                            ...prev,
+                                                            logoUrl:
+                                                                reader.result, // Almacena la URL del logo
+                                                        }),
+                                                    )
+                                                }
+                                                reader.readAsDataURL(file) // Leer el archivo como una URL de datos
+                                            }
+                                        }}
+                                    />
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Campos de la categoría */}
+                    <label className="flex flex-col">
+                        <span className="font-semibold text-gray-700">
+                            Nombre:
+                        </span>
+                        <input
+                            type="text"
+                            value={newCategory?.nombre || ''}
+                            onChange={(e) =>
+                                setnewCategory((prev: any) => ({
+                                    ...prev,
+                                    nombre: e.target.value,
+                                }))
+                            }
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
                     <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">Descripción:</span>
+                        <span className="font-semibold text-gray-700">
+                            Descripción:
+                        </span>
                         <textarea
-                            value={subcategory.descripcion}
-                            onChange={(e) => handleSubcategoryChange(index, 'descripcion', e.target.value)}
-                            rows={1}
+                            value={newCategory?.descripcion || ''}
+                            onChange={(e) => {
+                                setnewCategory((prev: any) => ({
+                                    ...(prev ?? {}),
+                                    descripcion: e.target.value,
+                                }))
+                                e.target.style.height = 'auto' // Resetea la altura
+                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
+                            }}
+                            rows={1} // Altura inicial
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
                             style={{
-                                maxHeight: '150px',
-                                overflowY: 'auto',
+                                maxHeight: '150px', // Límite máximo de altura
+                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
                             }}
                         />
                     </label>
-                    {/* Botón para eliminar subcategoría */}
-                    <Button
-                        onClick={() => handleRemoveSubcategory(index)}
-                        className="text-white hover:opacity-80 focus:ring-2 focus:ring-red-500 mt-2"
-                        style={{ backgroundColor: '#B91C1C' }}
-                    >
-                        Eliminar Subcategoría
-                    </Button>
-                </div>
-            ))}
-            <Button onClick={handleAddSubcategory} variant="default">Agregar Subcategoría</Button>
 
-            {/* Botones de acción */}
-            <div className="text-right mt-6">
-                <Button className="ltr:mr-2 rtl:ml-2" 
-                variant="default" 
-                onClick={handleDrawerClose}
-                
-                >
-                    Cancelar
-                </Button>
-                <Button style={{ backgroundColor: '#000B7E' }} className="text-white hover:opacity-80" onClick={handleCreateUser}>
-                    Guardar
-                </Button>
-            </div>
-        </div>
-    </Drawer>
+                    {/* Sección de subcategorías */}
+                    <h3 className="mt-6 text-lg font-semibold">
+                        Subcategorías
+                    </h3>
+                    {subcategories.map((subcategory, index) => (
+                        <div key={index} className="flex flex-col space-y-2">
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Nombre:
+                                </span>
+                                <input
+                                    type="text"
+                                    value={subcategory.nombre}
+                                    onChange={(e) =>
+                                        handleSubcategoryChange(
+                                            index,
+                                            'nombre',
+                                            e.target.value,
+                                        )
+                                    }
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                />
+                            </label>
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Descripción:
+                                </span>
+                                <textarea
+                                    value={subcategory.descripcion}
+                                    onChange={(e) =>
+                                        handleSubcategoryChange(
+                                            index,
+                                            'descripcion',
+                                            e.target.value,
+                                        )
+                                    }
+                                    rows={1}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                                    style={{
+                                        maxHeight: '150px',
+                                        overflowY: 'auto',
+                                    }}
+                                />
+                            </label>
+                            {/* Botón para eliminar subcategoría */}
+                            <Button
+                                onClick={() => handleRemoveSubcategory(index)}
+                                className="text-white hover:opacity-80 focus:ring-2 focus:ring-red-500 mt-2"
+                                style={{ backgroundColor: '#B91C1C' }}
+                            >
+                                Eliminar Subcategoría
+                            </Button>
+                        </div>
+                    ))}
+                    <Button onClick={handleAddSubcategory} variant="default">
+                        Agregar Subcategoría
+                    </Button>
+
+                    {/* Botones de acción */}
+                    <div className="text-right mt-6">
+                        <Button
+                            className="ltr:mr-2 rtl:ml-2"
+                            variant="default"
+                            onClick={handleDrawerClose}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            style={{ backgroundColor: '#000B7E' }}
+                            className="text-white hover:opacity-80"
+                            onClick={handleCreateUser}
+                        >
+                            Guardar
+                        </Button>
+                    </div>
+                </div>
+            </Drawer>
         </>
     )
 }
