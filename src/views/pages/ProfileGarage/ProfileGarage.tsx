@@ -722,8 +722,7 @@ const ProfileGarage = () => {
                             {/* Botón Editar */}
                             <div className="mt-4 flex justify-end">
                                 <Button
-                                    className=""
-                                    variant="solid"
+                                    className="bg-[#1d1e56] rounded-md p-2 hover:bg-[#1E3a8a] text-white"
                                     onClick={onEdit}
                                     icon={<HiPencilAlt />}
                                 >
@@ -925,7 +924,7 @@ const ProfileGarage = () => {
                                 <div className="flex justify-end mt-4">
                                     <button
                                         onClick={handleSavePaymentMethods}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none"
+                                        className="px-4 py-2 bg-[#1d1e56] text-white rounded-md hover:bg-blue-900 focus:outline-none"
                                     >
                                         Guardar
                                     </button>
@@ -1124,7 +1123,7 @@ const ProfileGarage = () => {
                                         ))}
                                         <Td>
                                             <button
-                                                className="bg-blue-500 text-white px-4 py-2 rounded"
+                                                className="bg-[#1d1e56] text-white px-4 py-2 rounded"
                                                 onClick={() =>
                                                     handleSubscribe(
                                                         row.original,
