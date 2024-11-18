@@ -190,7 +190,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
 
     return (
         <>
-            <button onClick={() => setOpenDrawer(true)} className='bg-blue-500 rounded-md p-2 text-white hover:bg-blue-600'>
+            <button onClick={() => setOpenDrawer(true)} className='bg-blue-900 rounded-md p-2 text-white hover:bg-blue-700'>
                 Reportar Pago
             </button>
 
@@ -212,7 +212,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                                         key={metodo.tipo_pago}
                                         type="button"
                                         onClick={() => handleMetodoPagoChange(metodo.tipo_pago)}
-                                        className={`text-sm py-2 px-4 rounded-md ${metodoPago === metodo.tipo_pago ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+                                        className={`text-sm py-2 px-4 rounded-md ${metodoPago === metodo.tipo_pago ? 'bg-[#1d1e56] text-white' : 'bg-gray-200'}`}
                                     >
                                         {metodo.tipo_pago}
                                     </button>
@@ -277,9 +277,9 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                                 </>
                             )}
 
-                            <Button type="submit" variant="solid" className="w-full py-2 mt-4" disabled={cargando}>
-                                {cargando ? 'Registrando...' : 'Registrar Pago'}
-                            </Button>
+                            <button type="submit"  className="w-full py-2 mt-4 bg-blue-900 rounded-md hover:bg-blue-700 text-white">
+                                Registrar Pago
+                            </button>
                         </Form>
                     )}
                 </Formik>

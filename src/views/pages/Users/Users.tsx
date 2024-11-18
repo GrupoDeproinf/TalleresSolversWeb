@@ -480,8 +480,8 @@ const Users = () => {
                     </Button>
                 </div>
             </div>
-            <div>
-                <Table>
+            <div className="p-1 rounded-lg shadow">
+                <Table className="w-full rounded-lg ">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
@@ -534,7 +534,7 @@ const Users = () => {
                                                                 )
                                                             }
                                                             placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
+                                                            className="mt-2 border rounded"
                                                             onClick={(e) =>
                                                                 e.stopPropagation()
                                                             }
@@ -658,9 +658,8 @@ const Users = () => {
                                 onChange={(e) =>
                                     setSelectedPerson((prev: any) => ({
                                         ...prev,
-                                        cedula: `${e.target.value}-${
-                                            prev?.cedula?.split('-')[1] || ''
-                                        }`,
+                                        cedula: `${e.target.value}-${prev?.cedula?.split('-')[1] || ''
+                                            }`,
                                     }))
                                 }
                                 className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -680,9 +679,8 @@ const Users = () => {
                                 onChange={(e) =>
                                     setSelectedPerson((prev: any) => ({
                                         ...prev,
-                                        cedula: `${
-                                            prev?.cedula?.split('-')[0] || 'V'
-                                        }-${e.target.value}`,
+                                        cedula: `${prev?.cedula?.split('-')[0] || 'V'
+                                            }-${e.target.value}`,
                                     }))
                                 }
                                 className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
@@ -817,12 +815,10 @@ const Users = () => {
                                             values.cedula.split('-')[0] || 'V'
                                         }
                                         onChange={(e) => {
-                                            const newCedula = `${
-                                                e.target.value
-                                            }-${
-                                                values.cedula.split('-')[1] ||
+                                            const newCedula = `${e.target.value
+                                                }-${values.cedula.split('-')[1] ||
                                                 ''
-                                            }`
+                                                }`
                                             setFieldValue('cedula', newCedula)
                                         }}
                                         className="mx-2 p-3 border border-gray-300 rounded-l-lg"
@@ -841,10 +837,9 @@ const Users = () => {
                                             values.cedula.split('-')[1] || ''
                                         }
                                         onChange={(e: any) => {
-                                            const newCedula = `${
-                                                values.cedula.split('-')[0] ||
+                                            const newCedula = `${values.cedula.split('-')[0] ||
                                                 'V'
-                                            }-${e.target.value}`
+                                                }-${e.target.value}`
                                             setFieldValue('cedula', newCedula)
                                         }}
                                         className="p-3 border border-gray-300 rounded-r-lg mx-2 w-full"

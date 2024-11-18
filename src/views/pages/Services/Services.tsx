@@ -526,105 +526,107 @@ const Services = () => {
                         </Button>
                     </div>
                 </div>
-                <Table>
-                    <THead>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                            <Tr key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <Th
-                                            key={header.id}
-                                            colSpan={header.colSpan}
-                                        >
-                                            {header.isPlaceholder ? null : (
-                                                <div
-                                                    {...{
-                                                        className:
-                                                            header.column.getCanSort()
-                                                                ? 'cursor-pointer select-none'
-                                                                : '',
-                                                        onClick:
-                                                            header.column.getToggleSortingHandler(),
-                                                    }}
-                                                >
-                                                    {flexRender(
-                                                        header.column.columnDef
-                                                            .header,
-                                                        header.getContext(),
-                                                    )}
-                                                    <Sorter
-                                                        sort={header.column.getIsSorted()}
-                                                    />
-                                                    {/* Agregar un buscador para cada columna */}
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            } // Evita la propagación del evento de clic
+                <div className="p-1 rounded-lg shadow">
+                    <Table className="w-full border border-gray-300 rounded-lg">
+                        <THead>
+                            {table.getHeaderGroups().map((headerGroup) => (
+                                <Tr key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => {
+                                        return (
+                                            <Th
+                                                key={header.id}
+                                                colSpan={header.colSpan}
+                                            >
+                                                {header.isPlaceholder ? null : (
+                                                    <div
+                                                        {...{
+                                                            className:
+                                                                header.column.getCanSort()
+                                                                    ? 'cursor-pointer select-none'
+                                                                    : '',
+                                                            onClick:
+                                                                header.column.getToggleSortingHandler(),
+                                                        }}
+                                                    >
+                                                        {flexRender(
+                                                            header.column.columnDef
+                                                                .header,
+                                                            header.getContext(),
+                                                        )}
+                                                        <Sorter
+                                                            sort={header.column.getIsSorted()}
                                                         />
-                                                    ) : null}
-                                                </div>
-                                            )}
-                                        </Th>
+                                                        {/* Agregar un buscador para cada columna */}
+                                                        {header.column.getCanFilter() ? (
+                                                            <input
+                                                                type="text"
+                                                                value={
+                                                                    filtering
+                                                                        .find(
+                                                                            (
+                                                                                filter,
+                                                                            ) =>
+                                                                                filter.id ===
+                                                                                header.id,
+                                                                        )
+                                                                        ?.value?.toString() ||
+                                                                    ''
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleFilterChange(
+                                                                        header.id,
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                                placeholder={`Buscar`}
+                                                                className="mt-2 p-1 border rounded"
+                                                                onClick={(e) =>
+                                                                    e.stopPropagation()
+                                                                } // Evita la propagación del evento de clic
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                )}
+                                            </Th>
+                                        )
+                                    })}
+                                </Tr>
+                            ))}
+                        </THead>
+                        <TBody>
+                            {table
+                                .getRowModel()
+                                .rows.slice(
+                                    (currentPage - 1) * rowsPerPage,
+                                    currentPage * rowsPerPage,
+                                )
+                                .map((row) => {
+                                    return (
+                                        <Tr key={row.id}>
+                                            {row.getVisibleCells().map((cell) => {
+                                                return (
+                                                    <Td key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef
+                                                                .cell,
+                                                            cell.getContext(),
+                                                        )}
+                                                    </Td>
+                                                )
+                                            })}
+                                        </Tr>
                                     )
                                 })}
-                            </Tr>
-                        ))}
-                    </THead>
-                    <TBody>
-                        {table
-                            .getRowModel()
-                            .rows.slice(
-                                (currentPage - 1) * rowsPerPage,
-                                currentPage * rowsPerPage,
-                            )
-                            .map((row) => {
-                                return (
-                                    <Tr key={row.id}>
-                                        {row.getVisibleCells().map((cell) => {
-                                            return (
-                                                <Td key={cell.id}>
-                                                    {flexRender(
-                                                        cell.column.columnDef
-                                                            .cell,
-                                                        cell.getContext(),
-                                                    )}
-                                                </Td>
-                                            )
-                                        })}
-                                    </Tr>
-                                )
-                            })}
-                    </TBody>
-                </Table>
-                <Pagination
-                    onChange={onPaginationChange}
-                    currentPage={currentPage}
-                    totalRows={totalRows}
-                    rowsPerPage={rowsPerPage}
-                />
+                        </TBody>
+                    </Table>
+                    <Pagination
+                        onChange={onPaginationChange}
+                        currentPage={currentPage}
+                        totalRows={totalRows}
+                        rowsPerPage={rowsPerPage}
+                    />
+                </div>
             </div>
             <Dialog
                 isOpen={dialogIsOpen}
@@ -752,11 +754,11 @@ const Services = () => {
                                     options={
                                         values.uid_categoria
                                             ? dataSubcategories.map(
-                                                  (subcategory) => ({
-                                                      value: subcategory.uid_subcategoria,
-                                                      label: subcategory.nombre,
-                                                  }),
-                                              )
+                                                (subcategory) => ({
+                                                    value: subcategory.uid_subcategoria,
+                                                    label: subcategory.nombre,
+                                                }),
+                                            )
                                             : []
                                     }
                                     value={values.subcategoria.map(
@@ -951,11 +953,11 @@ const Services = () => {
                                     options={
                                         values.uid_categoria
                                             ? dataSubcategories.map(
-                                                  (subcategory) => ({
-                                                      value: subcategory.uid_subcategoria,
-                                                      label: subcategory.nombre,
-                                                  }),
-                                              )
+                                                (subcategory) => ({
+                                                    value: subcategory.uid_subcategoria,
+                                                    label: subcategory.nombre,
+                                                }),
+                                            )
                                             : []
                                     }
                                     value={values.subcategoria.map(

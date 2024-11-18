@@ -44,7 +44,8 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
 import { Avatar } from '@/components/ui'
-import { HiOutlineRefresh } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import { GiMechanicGarage } from 'react-icons/gi'
 
 type Garage = {
     nombre?: string
@@ -65,6 +66,8 @@ const Garages = () => {
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
+    const [searchTerm, setSearchTerm] = useState('')
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
@@ -131,8 +134,6 @@ const Garages = () => {
                 .string()
                 .min(3, 'El nombre debe tener al menos 3 caracteres'),
             email: z.string().email('Ingrese un correo válido'),
-            //cedula: z.string()
-            //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
             phone: z
                 .string()
                 .regex(
@@ -237,16 +238,38 @@ const Garages = () => {
             )
         }
     }
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setSearchTerm(value)
 
-    const handleFilterChange = (columnId: string, value: string) => {
-        setFiltering((prev) => {
-            const newFilters = prev.filter((filter) => filter.id !== columnId)
-            if (value !== '') {
-                newFilters.push({ id: columnId, value })
-            }
-            return newFilters
-        })
+        // Aplica el filtro dinámico según la columna seleccionada
+        const newFilters = [
+            {
+                id: selectedColumn, // Usar la columna seleccionada
+                value,
+            },
+        ]
+        setFiltering(newFilters)
     }
+
+    const handleSelectChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const value = event.target.value
+        setSelectedColumn(value)
+
+        // Aplicar filtro vacío cuando se cambia la columna
+        if (searchTerm !== '') {
+            const newFilters = [
+                {
+                    id: value, // La columna seleccionada
+                    value: searchTerm, // Filtrar por el término de búsqueda actual
+                },
+            ]
+            setFiltering(newFilters)
+        }
+    }
+
     const handleSaveChanges = async () => {
         if (selectedPerson) {
             try {
@@ -328,19 +351,17 @@ const Garages = () => {
                             <img
                                 src={logoUrl}
                                 alt="Logo"
-                                className="h-10 w-10 object-cover rounded-full mr-4" // Espaciado a la derecha del logo
+                                className="h-10 w-10 object-cover rounded-full mr-4"
                             />
                         ) : (
                             <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center mr-2">
-                                <FaFolder
+                                <GiMechanicGarage
                                     className="h-6 w-6 text-gray-400"
                                     aria-hidden="true"
                                 />{' '}
-                                {/* Icono por defecto */}
                             </div>
                         )}
                         {getValue() as string}{' '}
-                        {/* Mostrar el nombre de la categoría */}
                     </div>
                 )
             },
@@ -359,7 +380,7 @@ const Garages = () => {
             header: 'Numero Telefonico',
             accessorKey: 'phone',
             cell: ({ row }) => {
-                const nombre = row.original.nombre // Accede al nombre del cliente
+                const nombre = row.original.nombre
                 return (
                     <div className="flex items-center">
                         <Avatar
@@ -371,7 +392,6 @@ const Garages = () => {
                             </span>
                         </Avatar>
                         {row.original.phone}{' '}
-                        {/* Muestra el número telefónico */}
                     </div>
                 )
             },
@@ -521,17 +541,45 @@ const Garages = () => {
                     </button>
                 </h1>
                 <div className="flex justify-end">
-                    <Button
-                        className="w-40 text-white hover:opacity-80"
-                        style={{ backgroundColor: '#000B7E' }}
-                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
-                    >
-                        Crear Taller
-                    </Button>
+                    <div className="flex items-center">
+                        <div className="relative w-32">
+                            {' '}
+                            <select
+                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={handleSelectChange}
+                                value={selectedColumn} // Se mantiene el valor predeterminado
+                            >
+                                <option value="" disabled>
+                                    Seleccionar columna...
+                                </option>
+                                <option value="nombre">Nombre</option>
+                                <option value="rif">Rif</option>
+                                <option value="email">Email</option>
+                                <option value="status">Estado</option>
+                            </select>
+                        </div>
+                        <div className="relative w-80 ml-4">
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                        <Button
+                            className="w-40 ml-4 text-white hover:opacity-80"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                        >
+                            Crear Taller
+                        </Button>
+                    </div>
                 </div>
             </div>
-            <div>
-                <Table>
+            <div className="p-3 rounded-lg shadow">
+                <Table className="w-full rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
@@ -560,36 +608,6 @@ const Garages = () => {
                                                     <Sorter
                                                         sort={header.column.getIsSorted()}
                                                     />
-                                                    {/* Agregar un buscador para cada columna */}
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                        />
-                                                    ) : null}
                                                 </div>
                                             )}
                                         </Th>

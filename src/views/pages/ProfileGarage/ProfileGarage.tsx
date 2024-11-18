@@ -60,27 +60,26 @@ type Service = {
     estatus: boolean
 }
 type Planes = {
-    uid: string
-    nombre: string
-    descripcion: string
-    monto: string
-    status: string
-    vigencia: string
-    cantidad_servicios: string
-}
+    uid: string;
+    nombre: string;
+    descripcion: string;
+    monto: number;
+    status: string;
+    vigencia: string;
+    cantidad_servicios: number;
+};
 
 type SubscriptionHistory = {
     uid: string;
     nombre: string;
-    monto: string;
+    monto: number;
     vigencia: string;
     status: string;
-    cantidad_servicios: string;
+    cantidad_servicios: number;
     fecha_fin: Timestamp;
     fecha_inicio: Timestamp;
     taller_uid: string;
-}
-
+};
 
 const ProfileGarage = () => {
     const [data, setData] = useState<DocumentData | null>(null)
@@ -98,12 +97,12 @@ const ProfileGarage = () => {
         fecha_fin: Timestamp,
         fecha_inicio: Timestamp,
         nombre: '',
-        cantidad_servicios: '',
-        monto: '',
+        cantidad_servicios: 0,
+        monto: 0,
         status: '',
         vigencia: '',
         uid: '',
-    }); // Estado para la suscripción actual
+    });
     const [subscripcionestable, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
     const [formData, setFormData] = useState({
         logoUrl: '',
@@ -172,7 +171,7 @@ const ProfileGarage = () => {
                     monto: data.monto || '0',
                     vigencia: data.vigencia || '',
                     status: data.status || '',
-                    cantidad_servicios: data.cantidad_servicios || '0',
+                    cantidad_servicios: data.cantidad_servicios || 0,
                     fecha_fin: data.fecha_fin || "no hay fecha",
                     fecha_inicio: data.fecha_inicio || "no hay fecha",
                     taller_uid: data.taller_uid || '', // UID del taller
@@ -294,7 +293,7 @@ const ProfileGarage = () => {
             const newSubscriptionRef = doc(collection(db, 'Subscripciones'));
 
             await setDoc(newSubscriptionRef, {
-                uid: newSubscriptionRef.id,  // Usa el ID generado como uid
+                uid: newSubscriptionRef.id,
                 nombre: plan.nombre,
                 monto: plan.monto,
                 vigencia: plan.vigencia,
@@ -461,7 +460,7 @@ const ProfileGarage = () => {
             header: 'Precio',
             accessorKey: 'precio',
             cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio); // Asegúrate de que sea un número
+                const precio = parseFloat(row.original.precio);
                 return `$${precio.toFixed(2)}`;
             },
         },
@@ -469,20 +468,17 @@ const ProfileGarage = () => {
             header: 'Estatus',
             accessorKey: 'estatus',
             cell: ({ row }) => {
-                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false); // Estado local solo para el estatus
-
+                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false);
                 const handleStatusChange = async (val: boolean) => {
-                    setEstatus(val); // Actualizamos el estado local del switch
+                    setEstatus(val);
 
-                    // Actualizamos el estado global de los servicios
                     const updatedServices = services.map(service =>
                         service.uid_servicio === row.original.uid_servicio
                             ? { ...service, estatus: val }
                             : service
                     );
-                    setServices(updatedServices); // Actualizamos el estado de la lista global
+                    setServices(updatedServices);
 
-                    // También puedes hacer la actualización en la base de datos, como se mencionó antes:
                     try {
                         const docRef = doc(db, 'Servicios', row.original.uid_servicio);
                         await updateDoc(docRef, { estatus: val });
@@ -496,38 +492,10 @@ const ProfileGarage = () => {
                     <div>
                         <Switcher
                             checked={estatus}
-                            onChange={() => handleStatusChange(!estatus)} // Cambiar el estado cuando el switch cambie
+                            onChange={() => handleStatusChange(!estatus)}
                         />
                     </div>
                 );
-            },
-        },
-        {
-            header: 'Puntuación',
-            accessorKey: 'puntuacion',
-            cell: ({ row }) => {
-                const puntuacion = parseFloat(row.original.puntuacion);
-                const fullStars = Math.floor(puntuacion);
-                const hasHalfStar = puntuacion % 1 >= 0.5;
-                const stars = [];
-
-                for (let i = 0; i < fullStars; i++) {
-                    stars.push(
-                        <FaStar key={`full-${i}`} className="text-yellow-500" />
-                    );
-                }
-                if (hasHalfStar) {
-                    stars.push(
-                        <FaStarHalfAlt key="half" className="text-yellow-500" />
-                    );
-                }
-                for (let i = fullStars + (hasHalfStar ? 1 : 0); i < 5; i++) {
-                    stars.push(
-                        <FaStar key={`empty-${i}`} className="text-gray-300" />
-                    );
-                }
-
-                return <div className="flex">{stars}</div>;
             },
         },
     ];
@@ -541,10 +509,6 @@ const ProfileGarage = () => {
         {
             header: 'Monto',
             accessorKey: 'monto',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.monto) // Asegúrate de que sea un número
-                return `$${precio.toFixed(2)}`
-            },
         },
         {
             header: 'Descripcion',
@@ -563,10 +527,6 @@ const ProfileGarage = () => {
         {
             header: 'Monto',
             accessorKey: 'monto',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.monto) // Asegúrate de que sea un número
-                return `$${precio.toFixed(2)}`
-            },
         },
         {
             header: 'vigencia',
@@ -602,7 +562,7 @@ const ProfileGarage = () => {
     })
 
     const table2 = useReactTable({
-        data: planes, // Cambiar aquí para usar el estado de servicios
+        data: planes,
         columns: columns2,
         state: {
             sorting,
@@ -615,7 +575,7 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const table3 = useReactTable({
-        data: subscripcionestable, // Cambiar aquí para usar el estado de servicios
+        data: subscripcionestable,
         columns: columns3,
         state: {
             sorting,
@@ -628,15 +588,15 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
+    const rowsPerPage = 6
 
-    // Suponiendo que tienes un array de datos
-    const dataservice = table.getRowModel().rows // O la fuente de datos que estés utilizando
+
+    const dataservice = table.getRowModel().rows
     const totalRows = dataservice.length
 
     const onPaginationChange = (page: number) => {
         console.log('onPaginationChange', page)
-        setCurrentPage(page) // Actualiza la página actual
+        setCurrentPage(page)
     }
 
 
@@ -762,8 +722,7 @@ const ProfileGarage = () => {
                             {/* Botón Editar */}
                             <div className="mt-4 flex justify-end">
                                 <Button
-                                    className=""
-                                    variant="solid"
+                                    className="bg-[#1d1e56] rounded-md p-2 hover:bg-[#1E3a8a] text-white"
                                     onClick={onEdit}
                                     icon={<HiPencilAlt />}
                                 >
@@ -825,9 +784,9 @@ const ProfileGarage = () => {
                                                                 <p className="text-sm ml-2 text-gray-600">
                                                                     {diasRestantes ?? '---'} días restantes
                                                                 </p>
-                                                                <p className="text-xs mt-1 text-gray-400">
-                                                                    Próximo pago: <span className="text-gray-600">{formatDate(subscription.fecha_fin)}</span>
-                                                                </p>
+                                                                <span className="text-gray-600">
+                                                                    {subscription.fecha_fin ? formatDate(subscription.fecha_fin) : 'Fecha no disponible'}
+                                                                </span>
                                                             </>
                                                         )}
                                                     </div>
@@ -842,11 +801,12 @@ const ProfileGarage = () => {
                                     )}
                                 </Card>
                                 <div>
-                                    <div>
+                                    <div className="p-4 rounded-lg shadow">
+
                                         <h6 className="mb-6 flex justify-start mt-4">
                                             Historial de planes
                                         </h6>
-                                        <Table>
+                                        <Table className="w-full rounded-lg">
                                             <THead>
                                                 {table3
                                                     .getHeaderGroups()
@@ -965,7 +925,7 @@ const ProfileGarage = () => {
                                 <div className="flex justify-end mt-4">
                                     <button
                                         onClick={handleSavePaymentMethods}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none"
+                                        className="px-4 py-2 bg-[#1d1e56] text-white rounded-md hover:bg-blue-900 focus:outline-none"
                                     >
                                         Guardar
                                     </button>
@@ -976,11 +936,12 @@ const ProfileGarage = () => {
                     </div>
                     <TabContent value="tab2">
                         <div>
-                            <div>
+                            <div className="p-1 rounded-lg shadow">
+
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
-                                <Table>
+                                <Table className="w-full rounded-lg" width={600}>
                                     <THead>
                                         {table
                                             .getHeaderGroups()
@@ -1018,7 +979,6 @@ const ProfileGarage = () => {
                                                                             <Sorter
                                                                                 sort={header.column.getIsSorted()}
                                                                             />
-                                                                            {/* Agregar un buscador para cada columna */}
 
                                                                         </div>
                                                                     )}
@@ -1082,108 +1042,110 @@ const ProfileGarage = () => {
             >
                 <div className="table-responsive">
                     <h2 className='mb-4'>Planes de Subscripción</h2>
-                    <Table>
-                        <THead>
-                            {table2.getHeaderGroups().map((headerGroup) => (
-                                <Tr key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => (
-                                        <Th
-                                            key={header.id}
-                                            colSpan={header.colSpan}
-                                        >
-                                            {header.isPlaceholder ? null : (
-                                                <div
-                                                    className={
-                                                        header.column.getCanSort()
-                                                            ? 'cursor-pointer select-none'
-                                                            : ''
-                                                    }
-                                                    onClick={header.column.getToggleSortingHandler()}
-                                                >
-                                                    {flexRender(
-                                                        header.column.columnDef
-                                                            .header,
-                                                        header.getContext(),
-                                                    )}
-                                                    <Sorter
-                                                        sort={header.column.getIsSorted()}
-                                                    />
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder="Buscar"
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                        />
-                                                    ) : null}
-                                                </div>
-                                            )}
-                                        </Th>
-                                    ))}
-                                    <Th>Acción</Th>{' '}
-
-                                </Tr>
-                            ))}
-                        </THead>
-                        <TBody>
-                            {table2
-                                .getRowModel()
-                                .rows.slice(
-                                    (currentPage - 1) * rowsPerPage,
-                                    currentPage * rowsPerPage,
-                                )
-                                .map((row) => (
-                                    <Tr key={row.id}>
-                                        {row.getVisibleCells().map((cell) => (
-                                            <Td key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </Td>
-                                        ))}
-                                        <Td>
-                                            <button
-                                                className="bg-blue-500 text-white px-4 py-2 rounded"
-                                                onClick={() =>
-                                                    handleSubscribe(
-                                                        row.original,
-                                                    )
-                                                } // Llama a la función de suscripción
+                    <div className="p-2 rounded-lg shadow">
+                        <Table className="w-full rounded-lg">
+                            <THead>
+                                {table2.getHeaderGroups().map((headerGroup) => (
+                                    <Tr key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <Th
+                                                key={header.id}
+                                                colSpan={header.colSpan}
                                             >
-                                                Suscribirse
-                                            </button>
-                                        </Td>
+                                                {header.isPlaceholder ? null : (
+                                                    <div
+                                                        className={
+                                                            header.column.getCanSort()
+                                                                ? 'cursor-pointer select-none'
+                                                                : ''
+                                                        }
+                                                        onClick={header.column.getToggleSortingHandler()}
+                                                    >
+                                                        {flexRender(
+                                                            header.column.columnDef
+                                                                .header,
+                                                            header.getContext(),
+                                                        )}
+                                                        <Sorter
+                                                            sort={header.column.getIsSorted()}
+                                                        />
+                                                        {header.column.getCanFilter() ? (
+                                                            <input
+                                                                type="text"
+                                                                value={
+                                                                    filtering
+                                                                        .find(
+                                                                            (
+                                                                                filter,
+                                                                            ) =>
+                                                                                filter.id ===
+                                                                                header.id,
+                                                                        )
+                                                                        ?.value?.toString() ||
+                                                                    ''
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleFilterChange(
+                                                                        header.id,
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                                placeholder="Buscar"
+                                                                className="mt-2 p-1 border rounded"
+                                                                onClick={(e) =>
+                                                                    e.stopPropagation()
+                                                                }
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                )}
+                                            </Th>
+                                        ))}
+                                        <Th>Acción</Th>{' '}
+
                                     </Tr>
                                 ))}
-                        </TBody>
-                    </Table>
+                            </THead>
+                            <TBody>
+                                {table2
+                                    .getRowModel()
+                                    .rows.slice(
+                                        (currentPage - 1) * rowsPerPage,
+                                        currentPage * rowsPerPage,
+                                    )
+                                    .map((row) => (
+                                        <Tr key={row.id}>
+                                            {row.getVisibleCells().map((cell) => (
+                                                <Td key={cell.id}>
+                                                    {flexRender(
+                                                        cell.column.columnDef.cell,
+                                                        cell.getContext(),
+                                                    )}
+                                                </Td>
+                                            ))}
+                                            <Td>
+                                                <button
+                                                    className="bg-[#1d1e56] text-white px-4 py-2 rounded"
+                                                    onClick={() =>
+                                                        handleSubscribe(
+                                                            row.original,
+                                                        )
+                                                    }
+                                                >
+                                                    Suscribirse
+                                                </button>
+                                            </Td>
+                                        </Tr>
+                                    ))}
+                            </TBody>
+                        </Table>
+                    </div>
                 </div>
             </Dialog>
 
 
-            {/* Modal editar */}
+
             {editModalOpen && (
                 <ConfirmDialog
                     isOpen={editModalOpen}
@@ -1209,7 +1171,7 @@ const ProfileGarage = () => {
                                             alt="Preview Logo"
                                             className="mx-auto h-32 w-32 object-cover"
                                         />
-                                        {/* Botón para quitar la imagen */}
+
                                         <button
                                             onClick={() =>
                                                 setFormData((prev) => ({
@@ -1248,7 +1210,7 @@ const ProfileGarage = () => {
                                                             (prev: any) => ({
                                                                 ...prev,
                                                                 logoUrl:
-                                                                    reader.result, // Guardar URL del logo en formData
+                                                                    reader.result,
                                                             }),
                                                         )
                                                     }
