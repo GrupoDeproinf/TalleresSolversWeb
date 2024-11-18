@@ -30,6 +30,7 @@ import {
     deleteDoc,
     updateDoc,
     addDoc,
+    where
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -147,7 +148,45 @@ const Users = () => {
         try {
             // Validación de los valores usando Yup
             await validationSchema.validate(values, { abortEarly: false })
+    
+            // Verificar si ya existe un usuario con la misma cédula, teléfono o correo en Firestore
+            const usersRef = collection(db, 'Usuarios')
+    
+            // Consulta para verificar si ya existe un documento con la misma cédula
+            const cedulaQuery = query(usersRef, where('cedula', '==', values.cedula))
+            const cedulaSnapshot = await getDocs(cedulaQuery)
+    
+            // Consulta para verificar si ya existe un documento con el mismo teléfono
+            const phoneQuery = query(usersRef, where('phone', '==', values.phone))
+            const phoneSnapshot = await getDocs(phoneQuery)
+    
+            // Consulta para verificar si ya existe un documento con el mismo correo electrónico
+            const emailQuery = query(usersRef, where('email', '==', values.email))
+            const emailSnapshot = await getDocs(emailQuery)
+    
+            // Si existe un documento con la misma cédula, teléfono o correo, muestra la notificación correspondiente
+            if (!emailSnapshot.empty) {
+                toast.push(
+                    <Notification title="Error">¡El correo electrónico ya está registrado!</Notification>
+                )
+                return // Detener la ejecución si hay un error
+            }
 
+            if (!cedulaSnapshot.empty) {
+                toast.push(
+                    <Notification title="Error">¡La cédula ya está registrada!</Notification>
+                )
+                return // Detener la ejecución si hay un error
+            }
+    
+            if (!phoneSnapshot.empty) {
+                toast.push(
+                    <Notification title="Error">¡El número de teléfono ya está registrado!</Notification>
+                )
+                return // Detener la ejecución si hay un error
+            }
+
+    
             // Crear y autenticar el usuario en Firebase
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
@@ -155,10 +194,10 @@ const Users = () => {
                 values.password,
             )
             const user = userCredential.user // Usuario autenticado desde Firebase
-
+    
             // Referencia a la colección 'Usuarios' en Firestore
             const userRef = collection(db, 'Usuarios')
-
+    
             // Crear el documento en Firestore con el UID de Firebase
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
@@ -169,22 +208,22 @@ const Users = () => {
                 typeUser: values.typeUser || 'Cliente', // Asumiendo que 'typeUser' puede ser 'Cliente' u otro tipo
                 uid: user.uid, // Usar el UID de Firebase para asociar el usuario
             })
-
+    
             // Actualización del UID en Firestore con el ID del documento recién creado
             await updateDoc(docRef, {
                 uid: docRef.id,
             })
-
+    
             // Notificación de éxito
             toast.push(
                 <Notification title="Éxito">
                     Usuario creado exitosamente.
-                </Notification>,
+                </Notification>
             )
-
+    
             // Cierre del Drawer después de crear el usuario
             setDrawerCreateIsOpen(false)
-
+    
             // Llamada a obtener los datos (si es necesario para actualizar la lista de usuarios)
             getData()
         } catch (error) {
@@ -194,7 +233,7 @@ const Users = () => {
                     toast.push(
                         <Notification title="Error">
                             {validationError.message}
-                        </Notification>,
+                        </Notification>
                     )
                 })
             } else {
@@ -203,11 +242,13 @@ const Users = () => {
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el Usuario.
-                    </Notification>,
+                    </Notification>
                 )
             }
         }
     }
+    
+
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
         setSearchTerm(value)
@@ -243,30 +284,58 @@ const Users = () => {
     const handleSaveChanges = async () => {
         if (selectedPerson) {
             try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
+                // Verificar si ya existe un usuario con la misma cédula, teléfono o correo en Firestore, excepto el usuario actual
+                const usersRef = collection(db, 'Usuarios');
+    
+                // Consulta para verificar si ya existe un documento con la misma cédula
+                const cedulaQuery = query(usersRef, where('cedula', '==', selectedPerson.cedula));
+                const cedulaSnapshot = await getDocs(cedulaQuery);
+    
+                // Consulta para verificar si ya existe un documento con el mismo teléfono
+                const phoneQuery = query(usersRef, where('phone', '==', selectedPerson.phone));
+                const phoneSnapshot = await getDocs(phoneQuery);
+    
+                // Verificar si los resultados de las consultas no están vacíos y si el uid no corresponde al usuario actual
+                if (!cedulaSnapshot.empty && cedulaSnapshot.docs[0].data().uid !== selectedPerson.uid) {
+                    toast.push(
+                        <Notification title="Error">¡La cédula ya está registrada!</Notification>
+                    );
+                    return; // Detener la ejecución si hay un error
+                }
+    
+                if (!phoneSnapshot.empty && phoneSnapshot.docs[0].data().uid !== selectedPerson.uid) {
+                    toast.push(
+                        <Notification title="Error">¡El número de teléfono ya está registrado!</Notification>
+                    );
+                    return; // Detener la ejecución si hay un error
+                }
+    
+                // Si no hay conflictos, proceder a actualizar el documento del usuario
+                const userDoc = doc(db, 'Usuarios', selectedPerson.uid);
                 await updateDoc(userDoc, {
                     nombre: selectedPerson.nombre,
                     email: selectedPerson.email,
                     cedula: selectedPerson.cedula,
                     phone: selectedPerson.phone,
                     typeUser: selectedPerson.typeUser,
-                })
+                });
+    
                 // Mensaje de éxito
                 toast.push(
                     <Notification title="Éxito">
                         Usuario actualizado con éxito.
-                    </Notification>,
-                )
-                setDrawerIsOpen(false)
-                getData() // Refrescar datos después de guardar
+                    </Notification>
+                );
+                setDrawerIsOpen(false);
+                getData(); // Refrescar datos después de guardar
             } catch (error) {
-                console.error('Error actualizando el usuario:', error)
+                console.error('Error actualizando el usuario:', error);
                 // Mensaje de error
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al actualizar el usuario.
-                    </Notification>,
-                )
+                    </Notification>
+                );
             }
         }
     }
