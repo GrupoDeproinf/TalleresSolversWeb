@@ -244,7 +244,6 @@ const ServiceGarages = () => {
 
         estatus: true,
         garantia: '',
-        puntuacion: 0,
     })
 
     // Esquema de validación con Yup
@@ -265,10 +264,10 @@ const ServiceGarages = () => {
             .positive('El precio debe ser un valor positivo.')
             .typeError('El precio debe ser un número.'),
         garantia: Yup.string().required('La garantía es obligatoria.'),
-        puntuacion: Yup.number()
+        /* puntuacion: Yup.number()
             .min(0, 'La puntuación no puede ser menor que 0.')
             .max(5, 'La puntuación no puede ser mayor que 5.')
-            .default(0),
+            .default(0), */
     })
 
     const handleCreateService = async (values: any) => {
@@ -312,7 +311,7 @@ const ServiceGarages = () => {
                 uid_servicio: '', // Inicialmente vacío
                 garantia: values.garantia,
                 estatus: true,
-                puntuacion: values.puntuacion || 0,
+                
             })
 
             // Actualizar el campo uid_servicio con el ID del documento recién creado
@@ -342,7 +341,7 @@ const ServiceGarages = () => {
                 taller: '',
                 garantia: '',
                 estatus: true,
-                puntuacion: 0,
+                
             })
 
             setDrawerCreateIsOpen(false)
@@ -383,7 +382,7 @@ const ServiceGarages = () => {
             precio: '',
             uid_servicio: serviceTemplate.uid_servicio || '',
             garantia: serviceTemplate.garantia || '',
-            puntuacion: 0,
+            
         })
         setDrawerIsOpen(true)
     }
@@ -609,7 +608,7 @@ const ServiceGarages = () => {
             subcategoria: [],
             taller: '',
             precio: '',
-            puntuacion: 0,
+            
             garantia: '',
         })
         setSelectedServiceTemplate(null) // Limpia la selección (si es necesario)
@@ -759,7 +758,7 @@ const ServiceGarages = () => {
                         uid_taller: newService?.uid_taller || '',
                         precio: newService?.precio || '',
                         garantia: newService?.garantia || '',
-                        puntuacion: newService?.puntuacion || 0,
+                        
                         subcategoria: newService?.subcategoria || [],
                     }}
                     validationSchema={validationSchema}
@@ -983,27 +982,6 @@ const ServiceGarages = () => {
                                 />
                                 <ErrorMessage
                                     name="garantia"
-                                    component="div"
-                                    className="text-red-600 text-sm"
-                                />
-                            </label>
-
-                            {/* Puntuación */}
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
-                                    Puntuación:
-                                </span>
-                                <Field
-                                    type="text"
-                                    name="puntuacion"
-                                    value={values.puntuacion}
-                                    onChange={handleChange}
-                                    min="0"
-                                    max="5"
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                                />
-                                <ErrorMessage
-                                    name="puntuacion"
                                     component="div"
                                     className="text-red-600 text-sm"
                                 />

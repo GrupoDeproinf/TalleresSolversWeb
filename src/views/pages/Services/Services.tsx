@@ -423,7 +423,7 @@ const Services = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
+        //console.log('Drawer cerrado', e)
         setDrawerCreateIsOpen(false) // Cierra el Drawer
         setNewServiceTemplate({
             // Limpia los campos de usuario
@@ -847,7 +847,6 @@ const Services = () => {
                                 />
                             </div>
 
-                            {/* Botones */}
                             <div className="text-right mt-6">
                                 <Button
                                     variant="default"
