@@ -428,7 +428,7 @@ const Subscriptions = () => {
                 </div>
             </div>
             <div className="p-1 rounded-lg shadow">
-            <Table className="w-full border border-gray-300 rounded-lg">
+            <Table className="w-full  rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>

@@ -941,7 +941,7 @@ const ProfileGarage = () => {
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
-                                <Table className="w-full border border-gray-300 rounded-lg" width={600}>
+                                <Table className="w-full rounded-lg" width={600}>
                                     <THead>
                                         {table
                                             .getHeaderGroups()
@@ -1042,7 +1042,7 @@ const ProfileGarage = () => {
             >
                 <div className="table-responsive">
                     <h2 className='mb-4'>Planes de Subscripción</h2>
-                    <div className="p-1 rounded-lg shadow">
+                    <div className="p-2 rounded-lg shadow">
                         <Table className="w-full rounded-lg">
                             <THead>
                                 {table2.getHeaderGroups().map((headerGroup) => (

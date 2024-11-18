@@ -645,7 +645,7 @@ const ServiceGarages = () => {
                     </Button>
                 </div>
             </div>
-            <div className="p-1 rounded-lg shadow">
+            <div className="p-3 rounded-lg shadow">
                 <Table className="w-full  rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
