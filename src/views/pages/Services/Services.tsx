@@ -408,7 +408,7 @@ const Services = () => {
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
+        //console.log('Drawer cerrado', e)
         setDrawerCreateIsOpen(false) // Cierra el Drawer
         setNewServiceTemplate({
             // Limpia los campos de usuario
@@ -499,27 +499,6 @@ const Services = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
-    {
-        /* useEffect para cargar subcategories en base a la categoria seleccionada (para editar) */
-    }
-    {
-        /*useEffect(() => {
-        if (selectedServiceTemplate?.uid_categoria) {
-            getSubcategories(selectedServiceTemplate.uid_categoria);
-        }
-    }, [selectedServiceTemplate?.uid_categoria, getSubcategories]);*/
-    }
-
-    {
-        /* useEffect para cargar subcategories en base a la categoria seleccionada (para crear) */
-    }
-    {
-        /*useEffect(() => {
-        if (newServiceTemplate?.uid_categoria) {
-            getSubcategories(newServiceTemplate.uid_categoria);
-        }
-    }, [newServiceTemplate?.uid_categoria, getSubcategories]);*/
-    }
 
     return (
         <>
@@ -850,7 +829,6 @@ const Services = () => {
                                 />
                             </div>
 
-                            {/* Botones */}
                             <div className="text-right mt-6">
                                 <Button
                                     variant="default"

@@ -118,7 +118,9 @@ const Users = () => {
     }
 
     const validationSchema = Yup.object().shape({
-        nombre: Yup.string().required('El nombre es obligatorio'),
+        nombre: Yup.string()
+            .min(3, 'El nombre debe tener al menos 3 caracteres')
+            .required('El nombre es obligatorio'),
         email: Yup.string()
             .email('Debe ser un email válido')
             .required('El correo electrónico es obligatorio'),
@@ -131,16 +133,17 @@ const Users = () => {
         typeUser: Yup.string()
             .oneOf(['Cliente', 'Certificador'], 'Tipo de usuario inválido')
             .required('El tipo de usuario es obligatorio'),
-        password: Yup.string().required('Por favor ingrese una contraseña'),
+        password: Yup.string()
+            .required('Por favor ingrese una contraseña')
+            .min(6, 'La contraseña debe tener al menos 6 caracteres'),
         confirmPassword: Yup.string()
             .oneOf([Yup.ref('password')], 'Las contraseñas no coinciden')
             .required('Por favor confirme su contraseña'),
     })
 
     const handleCreateUser = async (values: any) => {
-        const { resetForm } = useFormikContext() // Aquí obtenemos resetForm
         try {
-            // Verifica que los valores sean válidos a través de Yup
+            // Validación de los valores usando Yup
             await validationSchema.validate(values, { abortEarly: false })
 
             // Crear y autenticar el usuario en Firebase
@@ -151,33 +154,39 @@ const Users = () => {
             )
             const user = userCredential.user // Usuario autenticado desde Firebase
 
-            // Crear el documento en Firestore con el UID de Firebase
+            // Referencia a la colección 'Usuarios' en Firestore
             const userRef = collection(db, 'Usuarios')
+
+            // Crear el documento en Firestore con el UID de Firebase
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
                 email: values.email,
                 cedula: values.cedula,
                 phone: values.phone,
-                Password: values.password,
-                typeUser: values.typeUser || 'Cliente',
+                Password: values.password, // Puedes encriptar la contraseña antes de guardarla
+                typeUser: values.typeUser || 'Cliente', // Asumiendo que 'typeUser' puede ser 'Cliente' u otro tipo
                 uid: user.uid, // Usar el UID de Firebase para asociar el usuario
             })
 
-            // Actualización del UID en Firestore
+            // Actualización del UID en Firestore con el ID del documento recién creado
             await updateDoc(docRef, {
                 uid: docRef.id,
             })
 
+            // Notificación de éxito
             toast.push(
                 <Notification title="Éxito">
                     Usuario creado exitosamente.
                 </Notification>,
             )
 
-            setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
-            resetForm() // Resetea los valores del formulario después de crear el usuario
-            getData() // Llamada a obtener los datos (si es necesario)
+            // Cierre del Drawer después de crear el usuario
+            setDrawerCreateIsOpen(false)
+
+            // Llamada a obtener los datos (si es necesario para actualizar la lista de usuarios)
+            getData()
         } catch (error) {
+            // Manejo de errores de validación de Yup
             if (error instanceof Yup.ValidationError) {
                 error.inner.forEach((validationError) => {
                     toast.push(
@@ -187,6 +196,8 @@ const Users = () => {
                     )
                 })
             } else {
+                // Manejo de errores inesperados
+                console.error('Error creando Usuario:', error)
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el Usuario.
@@ -206,6 +217,7 @@ const Users = () => {
             return newFilters
         })
     }
+
     const handleSaveChanges = async () => {
         if (selectedPerson) {
             try {
@@ -629,9 +641,11 @@ const Users = () => {
                                     email: e.target.value,
                                 }))
                             }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 transition duration-200  cursor-not-allowed"
+                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 transition duration-200 cursor-not-allowed"
                         />
                     </label>
+
+                    {/* Campo para Cédula */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Cédula:
@@ -732,81 +746,70 @@ const Users = () => {
                     </Button>
                 </div>
             </Drawer>
-            <Formik
-                initialValues={{
-                    nombre: '',
-                    email: '',
-                    cedula: '',
-                    phone: '',
-                    typeUser: 'Cliente',
-                    password: '',
-                    confirmPassword: '',
-                }}
-                validationSchema={validationSchema}
-                onSubmit={handleCreateUser}
+
+            <Drawer
+                isOpen={drawerCreateIsOpen}
+                onClose={() => setDrawerCreateIsOpen(false)}
+                className="rounded-md shadow"
             >
-                {({
-                    values,
-                    handleChange,
-                    setFieldValue,
-                    errors,
-                    touched,
-                    resetForm,
-                    setTouched,
-                }) => (
-                    <Drawer
-                        isOpen={drawerCreateIsOpen}
-                        onClose={() => {
-                            setDrawerCreateIsOpen(false) // Cierra el Drawer
-                            resetForm() // Resetea el formulario, lo que limpia los valores
-                            setSelectedPerson(null) // Limpia la selección, si es necesario
-                        }}
-                        className="rounded-md shadow"
-                    >
-                        <h2 className="mb-4 text-xl font-bold">
-                            Crear Usuario
-                        </h2>
+                <h2 className="mb-4 text-xl font-bold">Crear Usuario</h2>
+                <Formik
+                    initialValues={{
+                        nombre: '',
+                        email: '',
+                        cedula: '',
+                        phone: '',
+                        typeUser: 'Cliente',
+                        password: '',
+                        confirmPassword: '',
+                    }}
+                    validationSchema={validationSchema}
+                    onSubmit={(values, { setSubmitting }) => {
+                        handleCreateUser(values)
+                        setSubmitting(false)
+                    }}
+                >
+                    {({ isSubmitting, setFieldValue, values }) => (
                         <Form className="flex flex-col space-y-6">
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
+                            {/* Nombre */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
                                     Nombre:
-                                </span>
+                                </label>
                                 <Field
                                     type="text"
                                     name="nombre"
-                                    value={values.nombre}
-                                    onChange={handleChange}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <ErrorMessage
                                     name="nombre"
                                     component="div"
-                                    className="text-red-500"
+                                    className="text-red-600 text-sm mt-1"
                                 />
-                            </label>
+                            </div>
 
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
+                            {/* Email */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
                                     Email:
-                                </span>
+                                </label>
                                 <Field
                                     type="email"
                                     name="email"
-                                    value={values.email}
-                                    onChange={handleChange}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <ErrorMessage
                                     name="email"
                                     component="div"
-                                    className="text-red-500"
+                                    className="text-red-600 text-sm mt-1"
                                 />
-                            </label>
+                            </div>
 
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
+                            {/* Cédula */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
                                     Cédula:
-                                </span>
+                                </label>
                                 <div className="flex items-center mt-1">
                                     <select
                                         name="cedulaPrefix"
@@ -849,40 +852,38 @@ const Users = () => {
                                     <ErrorMessage
                                         name="cedula"
                                         component="div"
-                                        className="text-red-500"
+                                        className="text-red-600 text-sm mt-1"
                                     />
                                 </div>
-                            </label>
+                            </div>
 
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
+                            {/* Teléfono */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
                                     Teléfono:
-                                </span>
+                                </label>
                                 <Field
                                     type="text"
                                     name="phone"
-                                    placeholder="Ejem (4142611966)"
-                                    value={values.phone}
-                                    onChange={handleChange}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    placeholder="Ejem (04142611966)"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <ErrorMessage
                                     name="phone"
                                     component="div"
-                                    className="text-red-500"
+                                    className="text-red-600 text-sm mt-1"
                                 />
-                            </label>
+                            </div>
 
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
+                            {/* Tipo de Usuario */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
                                     Tipo de Usuario:
-                                </span>
+                                </label>
                                 <Field
                                     as="select"
                                     name="typeUser"
-                                    value={values.typeUser}
-                                    onChange={handleChange}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
                                     <option value="Cliente">Cliente</option>
                                     <option value="Certificador">
@@ -892,19 +893,19 @@ const Users = () => {
                                 <ErrorMessage
                                     name="typeUser"
                                     component="div"
-                                    className="text-red-500"
+                                    className="text-red-600 text-sm mt-1"
                                 />
-                            </label>
-                            <label className="flex flex-col relative">
-                                <span className="font-semibold text-gray-700">
+                            </div>
+
+                            {/* Contraseña */}
+                            <div className="flex flex-col relative">
+                                <label className="font-semibold text-gray-700">
                                     Contraseña:
-                                </span>
+                                </label>
                                 <Field
                                     type={showPassword ? 'text' : 'password'}
                                     name="password"
-                                    value={values.password}
-                                    onChange={handleChange}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <button
                                     type="button"
@@ -918,14 +919,15 @@ const Users = () => {
                                 <ErrorMessage
                                     name="password"
                                     component="div"
-                                    className="text-red-500"
+                                    className="text-red-600 text-sm mt-1"
                                 />
-                            </label>
+                            </div>
 
-                            <label className="flex flex-col relative mt-4">
-                                <span className="font-semibold text-gray-700">
+                            {/* Confirmar Contraseña */}
+                            <div className="flex flex-col relative mt-4">
+                                <label className="font-semibold text-gray-700">
                                     Confirmar Contraseña:
-                                </span>
+                                </label>
                                 <Field
                                     type={
                                         showConfirmPassword
@@ -933,9 +935,7 @@ const Users = () => {
                                             : 'password'
                                     }
                                     name="confirmPassword"
-                                    value={values.confirmPassword}
-                                    onChange={handleChange}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <button
                                     type="button"
@@ -953,22 +953,34 @@ const Users = () => {
                                 <ErrorMessage
                                     name="confirmPassword"
                                     component="div"
-                                    className="text-red-500"
+                                    className="text-red-600 text-sm mt-1"
                                 />
-                            </label>
+                            </div>
+
+                            {/* Botones */}
                             <div className="text-right mt-6">
                                 <Button
+                                    variant="default"
+                                    onClick={() => {
+                                        setDrawerCreateIsOpen(false) // Cierra el drawer
+                                    }}
+                                    className="mr-2"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
                                     style={{ backgroundColor: '#000B7E' }}
                                     className="text-white hover:opacity-80"
-                                    type="submit"
+                                    disabled={isSubmitting}
                                 >
-                                    Crear
+                                    {isSubmitting ? 'Guardando...' : 'Crear'}
                                 </Button>
                             </div>
                         </Form>
-                    </Drawer>
-                )}
-            </Formik>
+                    )}
+                </Formik>
+            </Drawer>
         </>
     )
 }
