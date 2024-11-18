@@ -468,8 +468,8 @@ const Users = () => {
                     </Button>
                 </div>
             </div>
-            <div className="p-3 rounded-lg shadow">
-                <Table className="w-full  rounded-lg">
+            <div className="p-1 rounded-lg shadow">
+                <Table className="w-full rounded-lg ">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
@@ -522,7 +522,7 @@ const Users = () => {
                                                                 )
                                                             }
                                                             placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
+                                                            className="mt-2 border rounded"
                                                             onClick={(e) =>
                                                                 e.stopPropagation()
                                                             }
