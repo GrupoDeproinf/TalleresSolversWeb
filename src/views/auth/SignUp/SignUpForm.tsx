@@ -24,7 +24,7 @@ type SignUpFormSchema = {
     cedulaOrif: string
     phone: string
     typeUser: string
-    status: string // Agregamos el campo status
+    status: string
 }
 
 const validationSchema = Yup.object().shape({
@@ -40,19 +40,23 @@ const validationSchema = Yup.object().shape({
         is: 'Taller',
         then: () =>
             Yup.string()
-                .matches(/^\d{7,10}$/, 'Debe contener de 7 a 10 digitos')
-                .required('Por favor ingrese su RIF'),
+                .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
+                .min(3, 'No puede tener menos de 3 dígitos')
+                .max(10, 'No puede tener más de 10 dígitos')
+                .required('Requerido'),
         otherwise: () =>
             Yup.string()
-                .matches(/^\d{7,10}$/, 'Debe contener 7 a 10 digitos')
-                .required('Por favor ingrese su cédula'),
+                .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
+                .min(3, 'No puede tener menos de 3 dígitos')
+                .max(10, 'No puede tener más de 10 dígitos')
+                .required('Requerido'),
     }),
     phone: Yup.string()
         .matches(/^\d{11}$/, 'Debe contener 11 digitos')
         .required('Por favor ingrese su número teléfonico'),
 })
 
-    const SignUpForm = (props: SignUpFormProps) => {
+const SignUpForm = (props: SignUpFormProps) => {
     const { disableSubmit = false, className, signInUrl = '/sign-in' } = props
     const { signUp } = useAuth()
     const [message, setMessage] = useTimeOutMessage()
@@ -244,7 +248,7 @@ const validationSchema = Yup.object().shape({
                                             <option value="P">P-</option>
                                         </select>
                                         <Field
-                                            type="text"
+                                            type="text" // Cambiado a texto para permitir la validación de Yup
                                             autoComplete="off"
                                             name="cedulaOrif"
                                             placeholder={
@@ -261,8 +265,12 @@ const validationSchema = Yup.object().shape({
                                                 const prefix =
                                                     values.cedulaOrif?.split(
                                                         '-',
-                                                    )[0] || 'V' // Mantén el prefijo actual
-                                                const newSuffix = e.target.value // Usa el valor nuevo del input
+                                                    )[0] || 'V'
+                                                const newSuffix =
+                                                    e.target.value.replace(
+                                                        /\D/g,
+                                                        '',
+                                                    ) // Asegura que solo haya números
                                                 setFieldValue(
                                                     'cedulaOrif',
                                                     `${prefix}-${newSuffix}`,
@@ -292,10 +300,10 @@ const validationSchema = Yup.object().shape({
                                     errorMessage={errors.phone}
                                 >
                                     <Field
-                                        type="text"
+                                        type="number"
                                         autoComplete="off"
                                         name="phone"
-                                        placeholder="Ingrese su teléfono"
+                                        placeholder="Ejem (04142611966)"
                                         component={Input}
                                     />
                                 </FormItem>
