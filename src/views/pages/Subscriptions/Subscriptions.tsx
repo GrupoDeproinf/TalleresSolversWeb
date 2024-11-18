@@ -8,12 +8,7 @@ import {
     getFilteredRowModel,
     useReactTable,
 } from '@tanstack/react-table'
-import type {
-    ColumnDef,
-    ColumnSort,
-    ColumnFiltersState,
-    FilterFn,
-} from '@tanstack/react-table'
+import type { ColumnDef, ColumnFiltersState } from '@tanstack/react-table'
 import {
     FaRegEye,
     FaCheckCircle,
@@ -34,8 +29,8 @@ import Button from '@/components/ui/Button'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
-import { Drawer, Select, Switcher } from '@/components/ui'
-import { HiOutlineRefresh } from 'react-icons/hi'
+import { Drawer, Switcher } from '@/components/ui'
+import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 
 type Subscriptions = {
     nombre?: string
@@ -65,9 +60,10 @@ type Subscriptions = {
 
 const Subscriptions = () => {
     const [dataSubs, setDataSubs] = useState<Subscriptions[]>([])
-    const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre') // Establecer 'nombre' como valor por defecto
+    const [searchTerm, setSearchTerm] = useState('') // Estado para el término de búsqueda
     const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
         null,
     )
@@ -115,14 +111,13 @@ const Subscriptions = () => {
     }
     const openDrawer = (person: Subscriptions) => {
         setSelectedPerson(person)
-        setDrawerIsOpen(true) // Abre el Drawer
+        setDrawerIsOpen(true)
     }
 
     const handleSaveChanges = async () => {
         if (selectedPerson) {
             try {
                 let updateData
-                // Verificar si el estado está cambiando de "Aprobado" a "Por Aprobar"
                 if (selectedPerson.status === 'Por Aprobar') {
                     // Datos para limpiar fechas
                     updateData = {
@@ -133,7 +128,6 @@ const Subscriptions = () => {
                         nombre: selectedPerson.nombre,
                         vigencia: selectedPerson.vigencia,
                     }
-                    // Actualizar documento en Firestore - Subscripciones
                     await updateDoc(
                         doc(db, 'Subscripciones', selectedPerson.uid),
                         updateData,
@@ -153,11 +147,10 @@ const Subscriptions = () => {
                     )
 
                     setDrawerIsOpen(false)
-                    getData() // Refrescar datos después de guardar
-                    return // Salir de la función
+                    getData()
+                    return
                 }
 
-                // Calcular fechas si el estado es "Aprobado"
                 const fechaInicio = new Date()
                 const vigenciaDias = parseInt(selectedPerson.vigencia, 10)
 
@@ -205,7 +198,7 @@ const Subscriptions = () => {
                 )
 
                 setDrawerIsOpen(false)
-                getData() // Refrescar datos después de guardar
+                getData()
             } catch (error) {
                 console.error('Error actualizando la subscripción:', error)
                 toast.push(
@@ -219,10 +212,10 @@ const Subscriptions = () => {
 
     const formatDate = (timestamp: unknown): string => {
         if (timestamp instanceof Timestamp) {
-            const dateObj = timestamp.toDate() // Convierte Timestamp a Date
-            return dateObj.toLocaleDateString('es-ES') // Formatea la fecha en formato 'DD/MM/YYYY'
+            const dateObj = timestamp.toDate()
+            return dateObj.toLocaleDateString('es-ES')
         }
-        return '-' // Si no es un Timestamp, muestra un guión
+        return '-'
     }
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
@@ -256,6 +249,35 @@ const Subscriptions = () => {
         })
     }
 
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setSearchTerm(value)
+
+        const newFilters = [
+            {
+                id: selectedColumn,
+                value,
+            },
+        ]
+        setFiltering(newFilters)
+    }
+    const handleSelectChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const value = event.target.value
+        setSelectedColumn(value)
+
+        if (searchTerm !== '') {
+            const newFilters = [
+                {
+                    id: value,
+                    value: searchTerm,
+                },
+            ]
+            setFiltering(newFilters)
+        }
+    }
+
     const options = [
         { value: 'Aprobado', label: 'Aprobado', color: '#28a745' },
         { value: 'Vencido', label: 'Vencido', color: '#dc3545' },
@@ -266,12 +288,10 @@ const Subscriptions = () => {
         {
             header: 'Plan',
             accessorKey: 'nombre',
-            enableColumnFilter: true, // Mostrar buscador
         },
         {
             header: 'Taller Subscrito',
             accessorKey: 'nombreTaller',
-            enableColumnFilter: true,
         },
         {
             header: 'Cantidad de Servicios',
@@ -300,7 +320,6 @@ const Subscriptions = () => {
         {
             header: 'Estado',
             accessorKey: 'status',
-            enableColumnFilter: true,
             cell: ({ row }) => {
                 const status = row.getValue('status') as string
                 let icon
@@ -358,7 +377,6 @@ const Subscriptions = () => {
         state: {
             columnFilters: filtering, // Usar el array de filtros
         },
-        onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -370,17 +388,44 @@ const Subscriptions = () => {
 
     return (
         <>
-            <div className="flex justify-between items-center mb-6">
+            <div className="grid grid-cols-2">
                 <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    {' '}
                     <span className="text-[#000B7E]">Subscripciones</span>
                     <button
-                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
                         onClick={handleRefresh}
                     >
                         <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                     </button>
                 </h1>
+                <div className="flex justify-end">
+                    <div className="flex items-center">
+                        <div className="relative w-24">
+                            <select
+                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={handleSelectChange}
+                                value={selectedColumn}
+                            >
+                                <option value="" disabled>
+                                    Seleccionar columna...
+                                </option>
+                                <option value="nombre">Plan</option>
+                                <option value="nombreTaller">Taller</option>
+                                <option value="status">Estado</option>
+                            </select>
+                        </div>
+                        <div className="relative w-80 ml-4">
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                    </div>
+                </div>
             </div>
             <div className="p-1 rounded-lg shadow">
             <Table className="w-full border border-gray-300 rounded-lg">
@@ -409,60 +454,6 @@ const Subscriptions = () => {
                                                             .header,
                                                         header.getContext(),
                                                     )}
-                                                    {/* Agregar un buscador para cada columna */}
-                                                    {header.column.getCanFilter() &&
-                                                    header.column.columnDef
-                                                        .enableColumnFilter ? (
-                                                        header.column.id ===
-                                                        'status' ? ( // Verifica si es la columna "Estado"
-                                                            <Select
-                                                                options={
-                                                                    options
-                                                                }
-                                                                onChange={(
-                                                                    option,
-                                                                ) =>
-                                                                    handleFilterChange(
-                                                                        header.id,
-                                                                        option
-                                                                            ? option.value
-                                                                            : '',
-                                                                    )
-                                                                }
-                                                                placeholder="Filtrar estado"
-                                                                isClearable
-                                                                className="mt-2 w-44"
-                                                            />
-                                                        ) : (
-                                                            <input
-                                                                type="text"
-                                                                value={
-                                                                    filtering
-                                                                        .find(
-                                                                            (
-                                                                                filter,
-                                                                            ) =>
-                                                                                filter.id ===
-                                                                                header.id,
-                                                                        )
-                                                                        ?.value?.toString() ||
-                                                                    ''
-                                                                }
-                                                                onChange={(e) =>
-                                                                    handleFilterChange(
-                                                                        header.id,
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                placeholder="Buscar"
-                                                                className="mt-2 p-1 border rounded "
-                                                                onClick={(e) =>
-                                                                    e.stopPropagation()
-                                                                }
-                                                            />
-                                                        )
-                                                    ) : null}
                                                 </div>
                                             )}
                                         </Th>

@@ -47,7 +47,7 @@ import Password from '@/views/account/Settings/components/Password'
 import Description from '@/views/ui-components/navigation/Steps/Description'
 import { Timestamp } from 'firebase/firestore' // Importa Timestamp
 import { px } from 'framer-motion'
-import { HiOutlineRefresh } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 
 type Category = {
     nombre?: string
@@ -66,6 +66,8 @@ const Users = () => {
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
+    const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(
         null,
     )
@@ -263,15 +265,36 @@ const Users = () => {
         }
     }
 
-    const handleFilterChange = (columnId: string, value: string) => {
-        setFiltering((prev) => {
-            // Actualizar el filtro correspondiente a la columna
-            const newFilters = prev.filter((filter) => filter.id !== columnId)
-            if (value !== '') {
-                newFilters.push({ id: columnId, value })
-            }
-            return newFilters
-        })
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setSearchTerm(value)
+
+        // Aplica el filtro dinámico según la columna seleccionada
+        const newFilters = [
+            {
+                id: selectedColumn, // Usar la columna seleccionada
+                value,
+            },
+        ]
+        setFiltering(newFilters)
+    }
+
+    const handleSelectChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const value = event.target.value
+        setSelectedColumn(value)
+
+        // Aplicar filtro vacío cuando se cambia la columna
+        if (searchTerm !== '') {
+            const newFilters = [
+                {
+                    id: value, // La columna seleccionada
+                    value: searchTerm, // Filtrar por el término de búsqueda actual
+                },
+            ]
+            setFiltering(newFilters)
+        }
     }
 
     const handleSaveChanges = async () => {
@@ -548,13 +571,39 @@ const Users = () => {
                     </button>
                 </h1>
                 <div className="flex justify-end">
-                    <Button
-                        style={{ backgroundColor: '#000B7E' }}
-                        className="text-white hover:opacity-80"
-                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
-                    >
-                        Crear Categoría
-                    </Button>
+                    <div className="flex items-center">
+                        <div className="relative w-32">
+                            {' '}
+                            <select
+                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={handleSelectChange}
+                                value={selectedColumn} // Se mantiene el valor predeterminado
+                            >
+                                <option value="" disabled>
+                                    Seleccionar columna...
+                                </option>
+                                <option value="nombre">Nombre</option>
+                                <option value="descripcion">Descripcion</option>
+                            </select>
+                        </div>
+                        <div className="relative w-80 ml-4">
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                        <Button
+                            style={{ backgroundColor: '#000B7E' }}
+                            className="w-40 ml-4 text-white hover:opacity-80"
+                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                        >
+                            Crear Categoría
+                        </Button>
+                    </div>
                 </div>
             </div>
             <div className="p-1 rounded-lg shadow">
@@ -587,36 +636,6 @@ const Users = () => {
                                                     <Sorter
                                                         sort={header.column.getIsSorted()}
                                                     />
-                                                    {/* Agregar un buscador para cada columna */}
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                        />
-                                                    ) : null}
                                                 </div>
                                             )}
                                         </Th>
