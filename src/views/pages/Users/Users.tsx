@@ -40,7 +40,7 @@ import type { MouseEvent } from 'react'
 import { Avatar, Drawer } from '@/components/ui'
 import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
-import { HiOutlineRefresh } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 
 type Person = {
@@ -60,6 +60,8 @@ const Users = () => {
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
+    const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
@@ -189,7 +191,37 @@ const Users = () => {
             }
         }
     }
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setSearchTerm(value)
 
+        // Aplica el filtro dinámico según la columna seleccionada
+        const newFilters = [
+            {
+                id: selectedColumn, // Usar la columna seleccionada
+                value,
+            },
+        ]
+        setFiltering(newFilters)
+    }
+
+    const handleSelectChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const value = event.target.value
+        setSelectedColumn(value)
+
+        // Aplicar filtro vacío cuando se cambia la columna
+        if (searchTerm !== '') {
+            const newFilters = [
+                {
+                    id: value, // La columna seleccionada
+                    value: searchTerm, // Filtrar por el término de búsqueda actual
+                },
+            ]
+            setFiltering(newFilters)
+        }
+    }
     const handleSaveChanges = async () => {
         if (selectedPerson) {
             try {
@@ -416,10 +448,10 @@ const Users = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2 mb-6">
+            <div className="grid grid-cols-2">
                 <h1 className="mb-6 flex justify-start items-center space-x-4">
                     {' '}
-                    <span className="text-[#000B7E]">Lista de Usuarios</span>
+                    <span className="text-[#000B7E]">Usuarios</span>
                     <button
                         className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
                         onClick={handleRefresh}
@@ -428,13 +460,43 @@ const Users = () => {
                     </button>
                 </h1>
                 <div className="flex justify-end">
-                    <Button
-                        className="w-40 text-white hover:opacity-80"
-                        style={{ backgroundColor: '#000B7E' }}
-                        onClick={() => setDrawerCreateIsOpen(true)}
-                    >
-                        Crear Usuario
-                    </Button>
+                    <div className="flex items-center">
+                        <div className="relative w-32">
+                            {' '}
+                            <select
+                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={handleSelectChange}
+                                value={selectedColumn} // Se mantiene el valor predeterminado
+                            >
+                                <option value="" disabled>
+                                    Seleccionar columna...
+                                </option>
+                                <option value="nombre">Nombre</option>
+                                <option value="cedula">Cedula</option>
+                                <option value="email">Email</option>
+                                <option value="typeUser">
+                                    Tipo de Usuario
+                                </option>
+                            </select>
+                        </div>
+                        <div className="relative w-80 ml-4">
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                        <Button
+                            className="w-40 ml-4 text-white hover:opacity-80"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                        >
+                            Crear Usuario
+                        </Button>
+                    </div>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">
