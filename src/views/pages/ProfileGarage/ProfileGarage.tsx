@@ -295,6 +295,7 @@ const ProfileGarage = () => {
             await setDoc(newSubscriptionRef, {
                 uid: newSubscriptionRef.id,
                 nombre: plan.nombre,
+                nombre_taller: data?.nombre,
                 monto: plan.monto,
                 vigencia: plan.vigencia,
                 cantidad_servicios: plan.cantidad_servicios,
@@ -368,24 +369,45 @@ const ProfileGarage = () => {
 
     const handleEditSave = async () => {
         try {
-            const docRef = doc(db, 'Usuarios', path)
-            await updateDoc(docRef, formData)
-            setData(formData)
-            setEditModalOpen(false)
+            // Verifica si el RIF ya está registrado
+            const usuariosRef = collection(db, 'Usuarios');
+            const querySnapshot = await getDocs(usuariosRef);
+            
+            const rifExiste = querySnapshot.docs.some(
+                doc => doc.data().rif === formData.rif && doc.id !== path // Excluye el documento actual
+            );
+    
+            if (rifExiste) {
+                toast.push(
+                    <Notification title="Error">
+                        El RIF ya está registrado. Por favor, verifica e intenta con otro.
+                    </Notification>
+                );
+                return; // Sal de la función si el RIF ya existe
+            }
+    
+            // Actualiza los datos si el RIF no está registrado
+            const docRef = doc(db, 'Usuarios', path);
+            await updateDoc(docRef, formData);
+    
+            setData(formData);
+            setEditModalOpen(false);
+    
             toast.push(
                 <Notification title="Éxito" type="success">
                     Datos de Usuario actualizados correctamente.
                 </Notification>
             );
         } catch (error) {
-            console.error('Error al actualizar los datos:', error)
+            console.error('Error al actualizar los datos:', error);
             toast.push(
                 <Notification title="Error">
                     Ocurrió un error al actualizar los datos del usuario. Inténtalo nuevamente.
                 </Notification>
             );
         }
-    }
+    };
+    
 
 
     const handleSavePaymentMethods = async () => {
@@ -721,13 +743,12 @@ const ProfileGarage = () => {
 
                             {/* Botón Editar */}
                             <div className="mt-4 flex justify-end">
-                                <Button
+                                <button
                                     className="bg-[#1d1e56] rounded-md p-2 hover:bg-[#1E3a8a] text-white"
                                     onClick={onEdit}
-                                    icon={<HiPencilAlt />}
                                 >
                                     Editar
-                                </Button>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -804,7 +825,7 @@ const ProfileGarage = () => {
                                     <div className="p-4 rounded-lg shadow">
 
                                         <h6 className="mb-6 flex justify-start mt-4">
-                                            Historial de planes
+                                            Historial de Subscripciones
                                         </h6>
                                         <Table className="w-full rounded-lg">
                                             <THead>

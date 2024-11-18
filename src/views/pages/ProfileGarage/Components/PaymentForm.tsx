@@ -51,7 +51,7 @@ const bancos = [
 ];
 
 const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) => {
-    const [metodoPago, setMetodoPago] = useState<MetodoPago | null>(null)
+    const [metodoPago, setMetodoPago] = useState<MetodoPago>('Efectivo')
     const [metodosPago, setMetodosPago] = useState<MetodoPagoInfo[]>([])
     const [cargando, setCargando] = useState(false)
     const [openDrawer, setOpenDrawer] = useState(false)
@@ -136,31 +136,26 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                 fechaPago: fechaPagoTimestamp,
             }
 
-            if (metodoPago === 'Transferencia') {
-                comprobantePago.numReferencia = values.numReferencia
-                comprobantePago.cedula = values.cedula
-                comprobantePago.bancoOrigen = values.bancoOrigen
-                comprobantePago.bancoDestino = values.bancoDestino
-            }
+            // if (metodoPago === 'Transferencia') {
+                comprobantePago.numReferencia = values.numReferencia == undefined ? '' : values.numReferencia
+                comprobantePago.cedula = values.cedula == undefined ? '' : values.cedula
+                comprobantePago.bancoOrigen = values.bancoOrigen == undefined ? '' : values.bancoOrigen
+                comprobantePago.bancoDestino = values.bancoDestino == undefined ? '' : values.bancoDestino
+            // }
 
-            if (metodoPago === 'Pago Móvil') {
+            // if (metodoPago === 'Pago Móvil') {
                 comprobantePago.cedula = values.cedula
                 comprobantePago.telefono = values.telefono
                 comprobantePago.bancoOrigen = values.bancoOrigen
                 comprobantePago.bancoDestino = values.bancoDestino
-            }
+            // }
 
-            if (metodoPago === 'Zelle') {
-                comprobantePago.correo = values.correo
+            // if (metodoPago === 'Zelle') {
+                comprobantePago.correo = values.correo == undefined ? '' : values.correo
                 comprobantePago.numReferencia = values.numReferencia
-            }
+            // }
 
-            Object.keys(comprobantePago).forEach(key => {
-                if (comprobantePago[key] === null || comprobantePago[key] === '') {
-                    delete comprobantePago[key]
-                }
-            })
-
+           console.log(comprobantePago)
             const subscriptionRef = doc(db, 'Subscripciones', subscriptionId)
             await updateDoc(subscriptionRef, {
                 comprobante_pago: comprobantePago,
