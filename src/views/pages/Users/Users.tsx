@@ -106,8 +106,8 @@ const Users = () => {
         phone: '',
         typeUser: 'Cliente',
         password: '',
-        uid: '',
-        id: '',
+        uid: '', // Asignar valor vacío si no quieres que sea undefined
+        id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
     const openDialog = (person: Person) => {
@@ -116,7 +116,7 @@ const Users = () => {
     }
     const openDrawer = (person: Person) => {
         setSelectedPerson(person)
-        setDrawerIsOpen(true)
+        setDrawerIsOpen(true) // Abre el Drawer
     }
 
     const validationSchema = Yup.object().shape({
@@ -140,15 +140,20 @@ const Users = () => {
     })
 
     const handleCreateUser = async (values: any) => {
-        const { resetForm } = useFormikContext()
+        const { resetForm } = useFormikContext() // Aquí obtenemos resetForm
         try {
+            // Verifica que los valores sean válidos a través de Yup
             await validationSchema.validate(values, { abortEarly: false })
+
+            // Crear y autenticar el usuario en Firebase
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
                 values.email,
                 values.password,
             )
-            const user = userCredential.user
+            const user = userCredential.user // Usuario autenticado desde Firebase
+
+            // Crear el documento en Firestore con el UID de Firebase
             const userRef = collection(db, 'Usuarios')
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
@@ -157,9 +162,10 @@ const Users = () => {
                 phone: values.phone,
                 Password: values.password,
                 typeUser: values.typeUser || 'Cliente',
-                uid: user.uid,
+                uid: user.uid, // Usar el UID de Firebase para asociar el usuario
             })
 
+            // Actualización del UID en Firestore
             await updateDoc(docRef, {
                 uid: docRef.id,
             })
@@ -170,9 +176,9 @@ const Users = () => {
                 </Notification>,
             )
 
-            setDrawerCreateIsOpen(false)
-            resetForm()
-            getData()
+            setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
+            resetForm() // Resetea los valores del formulario después de crear el usuario
+            getData() // Llamada a obtener los datos (si es necesario)
         } catch (error) {
             if (error instanceof Yup.ValidationError) {
                 error.inner.forEach((validationError) => {
@@ -271,26 +277,30 @@ const Users = () => {
             header: 'Nombre',
             accessorKey: 'nombre',
             cell: ({ getValue }) => getValue(),
+            filterFn: 'includesString',
             footer: (props) => props.column.id,
         },
         {
             header: 'Cedula',
             accessorKey: 'cedula',
+            filterFn: 'includesString',
         },
         {
             header: 'Email',
             accessorKey: 'email',
+            filterFn: 'includesString',
         },
 
         {
             header: 'Numero Telefonico',
             accessorKey: 'phone',
+            filterFn: 'includesString',
             cell: ({ row }) => {
-                const nombre = row.original.nombre
+                const nombre = row.original.nombre // Accede al nombre del cliente
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            style={{ backgroundColor: '#887677' }}
+                            style={{ backgroundColor: '#887677' }} // Establecer el color directamente
                             className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
@@ -298,6 +308,7 @@ const Users = () => {
                             </span>
                         </Avatar>
                         {row.original.phone}{' '}
+                        {/* Muestra el número telefónico */}
                     </div>
                 )
             },
@@ -368,6 +379,7 @@ const Users = () => {
     const handleDrawerClose = (e: MouseEvent) => {
         // Cierra el Drawer
         setDrawerCreateIsOpen(false)
+        // Limpia otros estados si es necesario (como el estado de newUser)
         setNewUser({
             nombre: '',
             email: '',
@@ -380,15 +392,19 @@ const Users = () => {
             uid: '',
         })
 
-        setSelectedPerson(null)
+        setSelectedPerson(null) // Limpia la selección (si es necesario)
     }
 
     const handleDelete = async () => {
         if (selectedPerson) {
+            console.log('Eliminando a:', selectedPerson)
+
             try {
+                // Usa el id del documento en lugar de uid
                 const userDoc = doc(db, 'Usuarios', selectedPerson.id)
                 await deleteDoc(userDoc)
 
+                // Usar toast para mostrar el mensaje de éxito
                 const toastNotification = (
                     <Notification title="Éxito">
                         Usuario {selectedPerson.nombre} eliminado con éxito.
@@ -396,8 +412,11 @@ const Users = () => {
                 )
                 toast.push(toastNotification)
 
-                getData()
+                getData() // Refrescar datos después de eliminar
             } catch (error) {
+                console.error('Error eliminando el usuario:', error)
+
+                // Usar toast para mostrar el mensaje de error
                 const errorNotification = (
                     <Notification title="Error">
                         Hubo un error eliminando el usuario.
@@ -405,8 +424,8 @@ const Users = () => {
                 )
                 toast.push(errorNotification)
             } finally {
-                setIsOpen(false)
-                setSelectedPerson(null)
+                setIsOpen(false) // Cerrar diálogo después de la operación
+                setSelectedPerson(null) // Limpiar selección
             }
         }
     }
@@ -416,7 +435,7 @@ const Users = () => {
         columns,
         state: {
             sorting,
-            columnFilters: filtering,
+            columnFilters: filtering, // Usar el array de filtros
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
@@ -426,24 +445,26 @@ const Users = () => {
     })
 
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6
+    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
 
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-    const data = table.getRowModel().rows
+    // Suponiendo que tienes un array de datos
+    const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
     const totalRows = data.length
 
     const onPaginationChange = (page: number) => {
         console.log('onPaginationChange', page)
-        setCurrentPage(page)
+        setCurrentPage(page) // Actualiza la página actual
     }
 
+    // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false)
+        setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
     }
 
     return (
@@ -499,8 +520,8 @@ const Users = () => {
                     </div>
                 </div>
             </div>
-            <div className="p-3 rounded-lg shadow">
-                <Table className="w-full  rounded-lg">
+            <div className="p-1 rounded-lg shadow">
+                <Table className="w-full rounded-lg ">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
@@ -597,6 +618,7 @@ const Users = () => {
             >
                 <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
                 <div className="flex flex-col space-y-6">
+                    {/* Campo para Nombre */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Nombre:
@@ -613,6 +635,8 @@ const Users = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
+
+                    {/* Campo para Email */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Email:
