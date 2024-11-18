@@ -32,7 +32,7 @@ import type { MouseEvent } from 'react'
 import { Drawer, Switcher } from '@/components/ui'
 import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
-import { HiOutlineRefresh } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 
 type Plans = {
     nombre?: string
@@ -50,6 +50,8 @@ const Plans = () => {
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
     const [dialogIsOpen, setIsOpen] = useState(false)
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
+    const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Plans | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
@@ -166,15 +168,36 @@ const Plans = () => {
         }
     }
 
-    const handleFilterChange = (columnId: string, value: string) => {
-        setFiltering((prev) => {
-            // Actualizar el filtro correspondiente a la columna
-            const newFilters = prev.filter((filter) => filter.id !== columnId)
-            if (value !== '') {
-                newFilters.push({ id: columnId, value })
-            }
-            return newFilters
-        })
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setSearchTerm(value)
+
+        // Aplica el filtro dinámico según la columna seleccionada
+        const newFilters = [
+            {
+                id: selectedColumn, // Usar la columna seleccionada
+                value,
+            },
+        ]
+        setFiltering(newFilters)
+    }
+
+    const handleSelectChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const value = event.target.value
+        setSelectedColumn(value)
+
+        // Aplicar filtro vacío cuando se cambia la columna
+        if (searchTerm !== '') {
+            const newFilters = [
+                {
+                    id: value, // La columna seleccionada
+                    value: searchTerm, // Filtrar por el término de búsqueda actual
+                },
+            ]
+            setFiltering(newFilters)
+        }
     }
     const handleSaveChanges = async () => {
         if (selectedPerson) {
@@ -404,13 +427,38 @@ const Plans = () => {
                     </button>
                 </h1>
                 <div className="flex justify-end">
-                    <Button
-                        className="w-40 text-white hover:opacity-80"
-                        style={{ backgroundColor: '#000B7E' }}
-                        onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
-                    >
-                        Crear Plan
-                    </Button>
+                    <div className="flex items-center">
+                        <div className="relative w-32">
+                            {' '}
+                            <select
+                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={handleSelectChange}
+                                value={selectedColumn} // Se mantiene el valor predeterminado
+                            >
+                                <option value="" disabled>
+                                    Seleccionar columna...
+                                </option>
+                                <option value="nombre">Nombre</option>
+                            </select>
+                        </div>
+                        <div className="relative w-80 ml-4">
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                        <Button
+                            className="w-40 ml-4 text-white hover:opacity-80"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                        >
+                            Crear Plan
+                        </Button>
+                    </div>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">
@@ -443,36 +491,6 @@ const Plans = () => {
                                                     <Sorter
                                                         sort={header.column.getIsSorted()}
                                                     />
-                                                    {/* Agregar un buscador para cada columna */}
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                        />
-                                                    ) : null}
                                                 </div>
                                             )}
                                         </Th>
