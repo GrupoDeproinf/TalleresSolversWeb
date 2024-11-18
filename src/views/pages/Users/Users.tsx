@@ -104,8 +104,8 @@ const Users = () => {
         phone: '',
         typeUser: 'Cliente',
         password: '',
-        uid: '', // Asignar valor vacío si no quieres que sea undefined
-        id: '', // También puedes asignar un valor vacío si no quieres undefined
+        uid: '',
+        id: '',
     })
 
     const openDialog = (person: Person) => {
@@ -114,7 +114,7 @@ const Users = () => {
     }
     const openDrawer = (person: Person) => {
         setSelectedPerson(person)
-        setDrawerIsOpen(true) // Abre el Drawer
+        setDrawerIsOpen(true)
     }
 
     const validationSchema = Yup.object().shape({
@@ -138,20 +138,15 @@ const Users = () => {
     })
 
     const handleCreateUser = async (values: any) => {
-        const { resetForm } = useFormikContext() // Aquí obtenemos resetForm
+        const { resetForm } = useFormikContext()
         try {
-            // Verifica que los valores sean válidos a través de Yup
             await validationSchema.validate(values, { abortEarly: false })
-
-            // Crear y autenticar el usuario en Firebase
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
                 values.email,
                 values.password,
             )
-            const user = userCredential.user // Usuario autenticado desde Firebase
-
-            // Crear el documento en Firestore con el UID de Firebase
+            const user = userCredential.user
             const userRef = collection(db, 'Usuarios')
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
@@ -160,10 +155,9 @@ const Users = () => {
                 phone: values.phone,
                 Password: values.password,
                 typeUser: values.typeUser || 'Cliente',
-                uid: user.uid, // Usar el UID de Firebase para asociar el usuario
+                uid: user.uid,
             })
 
-            // Actualización del UID en Firestore
             await updateDoc(docRef, {
                 uid: docRef.id,
             })
@@ -174,9 +168,9 @@ const Users = () => {
                 </Notification>,
             )
 
-            setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el usuario
-            resetForm() // Resetea los valores del formulario después de crear el usuario
-            getData() // Llamada a obtener los datos (si es necesario)
+            setDrawerCreateIsOpen(false)
+            resetForm()
+            getData()
         } catch (error) {
             if (error instanceof Yup.ValidationError) {
                 error.inner.forEach((validationError) => {
@@ -196,16 +190,6 @@ const Users = () => {
         }
     }
 
-    const handleFilterChange = (columnId: string, value: string) => {
-        setFiltering((prev) => {
-            // Actualizar el filtro correspondiente a la columna
-            const newFilters = prev.filter((filter) => filter.id !== columnId)
-            if (value !== '') {
-                newFilters.push({ id: columnId, value })
-            }
-            return newFilters
-        })
-    }
     const handleSaveChanges = async () => {
         if (selectedPerson) {
             try {
@@ -255,30 +239,26 @@ const Users = () => {
             header: 'Nombre',
             accessorKey: 'nombre',
             cell: ({ getValue }) => getValue(),
-            filterFn: 'includesString',
             footer: (props) => props.column.id,
         },
         {
             header: 'Cedula',
             accessorKey: 'cedula',
-            filterFn: 'includesString',
         },
         {
             header: 'Email',
             accessorKey: 'email',
-            filterFn: 'includesString',
         },
 
         {
             header: 'Numero Telefonico',
             accessorKey: 'phone',
-            filterFn: 'includesString',
             cell: ({ row }) => {
-                const nombre = row.original.nombre // Accede al nombre del cliente
+                const nombre = row.original.nombre
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            style={{ backgroundColor: '#887677' }} // Establecer el color directamente
+                            style={{ backgroundColor: '#887677' }}
                             className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
@@ -286,7 +266,6 @@ const Users = () => {
                             </span>
                         </Avatar>
                         {row.original.phone}{' '}
-                        {/* Muestra el número telefónico */}
                     </div>
                 )
             },
@@ -357,7 +336,6 @@ const Users = () => {
     const handleDrawerClose = (e: MouseEvent) => {
         // Cierra el Drawer
         setDrawerCreateIsOpen(false)
-        // Limpia otros estados si es necesario (como el estado de newUser)
         setNewUser({
             nombre: '',
             email: '',
@@ -370,19 +348,15 @@ const Users = () => {
             uid: '',
         })
 
-        setSelectedPerson(null) // Limpia la selección (si es necesario)
+        setSelectedPerson(null)
     }
 
     const handleDelete = async () => {
         if (selectedPerson) {
-            console.log('Eliminando a:', selectedPerson)
-
             try {
-                // Usa el id del documento en lugar de uid
                 const userDoc = doc(db, 'Usuarios', selectedPerson.id)
                 await deleteDoc(userDoc)
 
-                // Usar toast para mostrar el mensaje de éxito
                 const toastNotification = (
                     <Notification title="Éxito">
                         Usuario {selectedPerson.nombre} eliminado con éxito.
@@ -390,11 +364,8 @@ const Users = () => {
                 )
                 toast.push(toastNotification)
 
-                getData() // Refrescar datos después de eliminar
+                getData()
             } catch (error) {
-                console.error('Error eliminando el usuario:', error)
-
-                // Usar toast para mostrar el mensaje de error
                 const errorNotification = (
                     <Notification title="Error">
                         Hubo un error eliminando el usuario.
@@ -402,8 +373,8 @@ const Users = () => {
                 )
                 toast.push(errorNotification)
             } finally {
-                setIsOpen(false) // Cerrar diálogo después de la operación
-                setSelectedPerson(null) // Limpiar selección
+                setIsOpen(false)
+                setSelectedPerson(null)
             }
         }
     }
@@ -413,7 +384,7 @@ const Users = () => {
         columns,
         state: {
             sorting,
-            columnFilters: filtering, // Usar el array de filtros
+            columnFilters: filtering,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
@@ -423,26 +394,24 @@ const Users = () => {
     })
 
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
+    const rowsPerPage = 6
 
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-    // Suponiendo que tienes un array de datos
-    const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
+    const data = table.getRowModel().rows
     const totalRows = data.length
 
     const onPaginationChange = (page: number) => {
         console.log('onPaginationChange', page)
-        setCurrentPage(page) // Actualiza la página actual
+        setCurrentPage(page)
     }
 
-    // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
+        setDrawerIsOpen(false)
     }
 
     return (
@@ -498,36 +467,6 @@ const Users = () => {
                                                     <Sorter
                                                         sort={header.column.getIsSorted()}
                                                     />
-                                                    {/* Agregar un buscador para cada columna */}
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                        />
-                                                    ) : null}
                                                 </div>
                                             )}
                                         </Th>
@@ -596,7 +535,6 @@ const Users = () => {
             >
                 <h2 className="mb-4 text-xl font-bold">Editar Usuario</h2>
                 <div className="flex flex-col space-y-6">
-                    {/* Campo para Nombre */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Nombre:
@@ -613,8 +551,6 @@ const Users = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
-
-                    {/* Campo para Email */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Email:
@@ -644,8 +580,9 @@ const Users = () => {
                                 onChange={(e) =>
                                     setSelectedPerson((prev: any) => ({
                                         ...prev,
-                                        cedula: `${e.target.value}-${prev?.cedula?.split('-')[1] || ''
-                                            }`,
+                                        cedula: `${e.target.value}-${
+                                            prev?.cedula?.split('-')[1] || ''
+                                        }`,
                                     }))
                                 }
                                 className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -665,8 +602,9 @@ const Users = () => {
                                 onChange={(e) =>
                                     setSelectedPerson((prev: any) => ({
                                         ...prev,
-                                        cedula: `${prev?.cedula?.split('-')[0] || 'V'
-                                            }-${e.target.value}`,
+                                        cedula: `${
+                                            prev?.cedula?.split('-')[0] || 'V'
+                                        }-${e.target.value}`,
                                     }))
                                 }
                                 className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
@@ -812,10 +750,12 @@ const Users = () => {
                                             values.cedula.split('-')[0] || 'V'
                                         }
                                         onChange={(e) => {
-                                            const newCedula = `${e.target.value
-                                                }-${values.cedula.split('-')[1] ||
+                                            const newCedula = `${
+                                                e.target.value
+                                            }-${
+                                                values.cedula.split('-')[1] ||
                                                 ''
-                                                }`
+                                            }`
                                             setFieldValue('cedula', newCedula)
                                         }}
                                         className="mx-2 p-3 border border-gray-300 rounded-l-lg"
@@ -834,9 +774,10 @@ const Users = () => {
                                             values.cedula.split('-')[1] || ''
                                         }
                                         onChange={(e: any) => {
-                                            const newCedula = `${values.cedula.split('-')[0] ||
+                                            const newCedula = `${
+                                                values.cedula.split('-')[0] ||
                                                 'V'
-                                                }-${e.target.value}`
+                                            }-${e.target.value}`
                                             setFieldValue('cedula', newCedula)
                                         }}
                                         className="p-3 border border-gray-300 rounded-r-lg mx-2 w-full"

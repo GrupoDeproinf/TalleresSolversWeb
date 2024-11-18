@@ -134,8 +134,6 @@ const Garages = () => {
                 .string()
                 .min(3, 'El nombre debe tener al menos 3 caracteres'),
             email: z.string().email('Ingrese un correo válido'),
-            //cedula: z.string()
-            //    .regex(/^\d{7,8}$/, "La cédula debe tener entre 7 y 8 caracteres y contener solo números"), // Solo números y longitud de 7 o 8
             phone: z
                 .string()
                 .regex(
@@ -799,8 +797,9 @@ const Garages = () => {
                                 onChange={(e) =>
                                     setNewGarage((prev: any) => ({
                                         ...(prev ?? {}),
-                                        rif: `${e.target.value}-${prev?.rif?.split('-')[1] || ''
-                                            }`,
+                                        rif: `${e.target.value}-${
+                                            prev?.rif?.split('-')[1] || ''
+                                        }`,
                                     }))
                                 }
                                 className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -818,8 +817,9 @@ const Garages = () => {
                                 onChange={(e) =>
                                     setNewGarage((prev: any) => ({
                                         ...(prev ?? {}),
-                                        rif: `${prev?.rif?.split('-')[0] || 'J'
-                                            }-${e.target.value}`,
+                                        rif: `${
+                                            prev?.rif?.split('-')[0] || 'J'
+                                        }-${e.target.value}`,
                                     }))
                                 }
                                 className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
