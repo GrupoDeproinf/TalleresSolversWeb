@@ -557,8 +557,8 @@ const Users = () => {
                     </Button>
                 </div>
             </div>
-            <div>
-                <Table>
+            <div className="p-1 rounded-lg shadow">
+                <Table className="w-full rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>

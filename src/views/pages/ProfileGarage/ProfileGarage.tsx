@@ -102,7 +102,7 @@ const ProfileGarage = () => {
         status: '',
         vigencia: '',
         uid: '',
-    }); 
+    });
     const [subscripcionestable, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
     const [formData, setFormData] = useState({
         logoUrl: '',
@@ -293,7 +293,7 @@ const ProfileGarage = () => {
             const newSubscriptionRef = doc(collection(db, 'Subscripciones'));
 
             await setDoc(newSubscriptionRef, {
-                uid: newSubscriptionRef.id, 
+                uid: newSubscriptionRef.id,
                 nombre: plan.nombre,
                 monto: plan.monto,
                 vigencia: plan.vigencia,
@@ -460,7 +460,7 @@ const ProfileGarage = () => {
             header: 'Precio',
             accessorKey: 'precio',
             cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio); 
+                const precio = parseFloat(row.original.precio);
                 return `$${precio.toFixed(2)}`;
             },
         },
@@ -468,16 +468,16 @@ const ProfileGarage = () => {
             header: 'Estatus',
             accessorKey: 'estatus',
             cell: ({ row }) => {
-                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false); 
+                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false);
                 const handleStatusChange = async (val: boolean) => {
-                    setEstatus(val); 
+                    setEstatus(val);
 
                     const updatedServices = services.map(service =>
                         service.uid_servicio === row.original.uid_servicio
                             ? { ...service, estatus: val }
                             : service
                     );
-                    setServices(updatedServices); 
+                    setServices(updatedServices);
 
                     try {
                         const docRef = doc(db, 'Servicios', row.original.uid_servicio);
@@ -492,7 +492,7 @@ const ProfileGarage = () => {
                     <div>
                         <Switcher
                             checked={estatus}
-                            onChange={() => handleStatusChange(!estatus)} 
+                            onChange={() => handleStatusChange(!estatus)}
                         />
                     </div>
                 );
@@ -562,7 +562,7 @@ const ProfileGarage = () => {
     })
 
     const table2 = useReactTable({
-        data: planes, 
+        data: planes,
         columns: columns2,
         state: {
             sorting,
@@ -575,7 +575,7 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const table3 = useReactTable({
-        data: subscripcionestable, 
+        data: subscripcionestable,
         columns: columns3,
         state: {
             sorting,
@@ -588,15 +588,15 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6 
+    const rowsPerPage = 6
 
-    
-    const dataservice = table.getRowModel().rows 
+
+    const dataservice = table.getRowModel().rows
     const totalRows = dataservice.length
 
     const onPaginationChange = (page: number) => {
         console.log('onPaginationChange', page)
-        setCurrentPage(page) 
+        setCurrentPage(page)
     }
 
 
@@ -801,11 +801,12 @@ const ProfileGarage = () => {
                                     )}
                                 </Card>
                                 <div>
-                                    <div>
+                                    <div className="p-4 rounded-lg shadow">
+
                                         <h6 className="mb-6 flex justify-start mt-4">
                                             Historial de planes
                                         </h6>
-                                        <Table>
+                                        <Table className="w-full rounded-lg">
                                             <THead>
                                                 {table3
                                                     .getHeaderGroups()
@@ -935,11 +936,12 @@ const ProfileGarage = () => {
                     </div>
                     <TabContent value="tab2">
                         <div>
-                            <div>
+                            <div className="p-1 rounded-lg shadow">
+
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
-                                <Table width={600}>
+                                <Table className="w-full border border-gray-300 rounded-lg" width={600}>
                                     <THead>
                                         {table
                                             .getHeaderGroups()
@@ -1040,108 +1042,110 @@ const ProfileGarage = () => {
             >
                 <div className="table-responsive">
                     <h2 className='mb-4'>Planes de Subscripción</h2>
-                    <Table>
-                        <THead>
-                            {table2.getHeaderGroups().map((headerGroup) => (
-                                <Tr key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => (
-                                        <Th
-                                            key={header.id}
-                                            colSpan={header.colSpan}
-                                        >
-                                            {header.isPlaceholder ? null : (
-                                                <div
-                                                    className={
-                                                        header.column.getCanSort()
-                                                            ? 'cursor-pointer select-none'
-                                                            : ''
-                                                    }
-                                                    onClick={header.column.getToggleSortingHandler()}
-                                                >
-                                                    {flexRender(
-                                                        header.column.columnDef
-                                                            .header,
-                                                        header.getContext(),
-                                                    )}
-                                                    <Sorter
-                                                        sort={header.column.getIsSorted()}
-                                                    />
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder="Buscar"
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                        />
-                                                    ) : null}
-                                                </div>
-                                            )}
-                                        </Th>
-                                    ))}
-                                    <Th>Acción</Th>{' '}
-
-                                </Tr>
-                            ))}
-                        </THead>
-                        <TBody>
-                            {table2
-                                .getRowModel()
-                                .rows.slice(
-                                    (currentPage - 1) * rowsPerPage,
-                                    currentPage * rowsPerPage,
-                                )
-                                .map((row) => (
-                                    <Tr key={row.id}>
-                                        {row.getVisibleCells().map((cell) => (
-                                            <Td key={cell.id}>
-                                                {flexRender(
-                                                    cell.column.columnDef.cell,
-                                                    cell.getContext(),
-                                                )}
-                                            </Td>
-                                        ))}
-                                        <Td>
-                                            <button
-                                                className="bg-[#1d1e56] text-white px-4 py-2 rounded"
-                                                onClick={() =>
-                                                    handleSubscribe(
-                                                        row.original,
-                                                    )
-                                                } 
+                    <div className="p-1 rounded-lg shadow">
+                        <Table className="w-full rounded-lg">
+                            <THead>
+                                {table2.getHeaderGroups().map((headerGroup) => (
+                                    <Tr key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <Th
+                                                key={header.id}
+                                                colSpan={header.colSpan}
                                             >
-                                                Suscribirse
-                                            </button>
-                                        </Td>
+                                                {header.isPlaceholder ? null : (
+                                                    <div
+                                                        className={
+                                                            header.column.getCanSort()
+                                                                ? 'cursor-pointer select-none'
+                                                                : ''
+                                                        }
+                                                        onClick={header.column.getToggleSortingHandler()}
+                                                    >
+                                                        {flexRender(
+                                                            header.column.columnDef
+                                                                .header,
+                                                            header.getContext(),
+                                                        )}
+                                                        <Sorter
+                                                            sort={header.column.getIsSorted()}
+                                                        />
+                                                        {header.column.getCanFilter() ? (
+                                                            <input
+                                                                type="text"
+                                                                value={
+                                                                    filtering
+                                                                        .find(
+                                                                            (
+                                                                                filter,
+                                                                            ) =>
+                                                                                filter.id ===
+                                                                                header.id,
+                                                                        )
+                                                                        ?.value?.toString() ||
+                                                                    ''
+                                                                }
+                                                                onChange={(e) =>
+                                                                    handleFilterChange(
+                                                                        header.id,
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                                placeholder="Buscar"
+                                                                className="mt-2 p-1 border rounded"
+                                                                onClick={(e) =>
+                                                                    e.stopPropagation()
+                                                                }
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                )}
+                                            </Th>
+                                        ))}
+                                        <Th>Acción</Th>{' '}
+
                                     </Tr>
                                 ))}
-                        </TBody>
-                    </Table>
+                            </THead>
+                            <TBody>
+                                {table2
+                                    .getRowModel()
+                                    .rows.slice(
+                                        (currentPage - 1) * rowsPerPage,
+                                        currentPage * rowsPerPage,
+                                    )
+                                    .map((row) => (
+                                        <Tr key={row.id}>
+                                            {row.getVisibleCells().map((cell) => (
+                                                <Td key={cell.id}>
+                                                    {flexRender(
+                                                        cell.column.columnDef.cell,
+                                                        cell.getContext(),
+                                                    )}
+                                                </Td>
+                                            ))}
+                                            <Td>
+                                                <button
+                                                    className="bg-[#1d1e56] text-white px-4 py-2 rounded"
+                                                    onClick={() =>
+                                                        handleSubscribe(
+                                                            row.original,
+                                                        )
+                                                    }
+                                                >
+                                                    Suscribirse
+                                                </button>
+                                            </Td>
+                                        </Tr>
+                                    ))}
+                            </TBody>
+                        </Table>
+                    </div>
                 </div>
             </Dialog>
 
 
-           
+
             {editModalOpen && (
                 <ConfirmDialog
                     isOpen={editModalOpen}
@@ -1167,7 +1171,7 @@ const ProfileGarage = () => {
                                             alt="Preview Logo"
                                             className="mx-auto h-32 w-32 object-cover"
                                         />
-                                       
+
                                         <button
                                             onClick={() =>
                                                 setFormData((prev) => ({
@@ -1206,7 +1210,7 @@ const ProfileGarage = () => {
                                                             (prev: any) => ({
                                                                 ...prev,
                                                                 logoUrl:
-                                                                    reader.result, 
+                                                                    reader.result,
                                                             }),
                                                         )
                                                     }

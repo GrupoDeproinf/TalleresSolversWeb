@@ -276,19 +276,19 @@ const ServiceGarages = () => {
             // Obtener los datos del taller seleccionado
             const tallerRef = doc(db, 'Usuarios', values.uid_taller) // Obtener referencia al taller
             const tallerSnapshot = await getDoc(tallerRef)
-    
+
             if (!tallerSnapshot.exists()) {
                 toast.push(
                     <Notification title="Error">El taller seleccionado no existe.</Notification>
                 )
                 return
             }
-    
+
             const tallerData = tallerSnapshot.data()
-    
+
             // Verificar si la cantidad de servicios disponibles es mayor que 0
             const cantidadServicios = tallerData.subscripcion_actual?.cantidad_servicios
-    
+
             if (cantidadServicios <= 0) {
                 toast.push(
                     <Notification title="Error">
@@ -297,7 +297,7 @@ const ServiceGarages = () => {
                 )
                 return
             }
-    
+
             // Crear el servicio en la colección "Servicios"
             const userRef = collection(db, 'Servicios')
             const docRef = await addDoc(userRef, {
@@ -314,21 +314,21 @@ const ServiceGarages = () => {
                 estatus: true,
                 puntuacion: values.puntuacion || 0,
             })
-    
+
             // Actualizar el campo uid_servicio con el ID del documento recién creado
             await updateDoc(docRef, {
                 uid_servicio: docRef.id,
             })
-    
+
             // Reducir la cantidad de servicios en la subscripción del taller
             await updateDoc(tallerRef, {
                 'subscripcion_actual.cantidad_servicios': cantidadServicios - 1,
             })
-    
+
             toast.push(
                 <Notification title="Éxito">Servicio creado con éxito.</Notification>
             )
-    
+
             // Resetear el formulario después de crear el servicio
             setNewService({
                 nombre: '',
@@ -344,7 +344,7 @@ const ServiceGarages = () => {
                 estatus: true,
                 puntuacion: 0,
             })
-    
+
             setDrawerCreateIsOpen(false)
             setDrawerIsOpen(false)
             fetchData() // Llamada a fetchData para refrescar los servicios
@@ -355,7 +355,7 @@ const ServiceGarages = () => {
             )
         }
     }
-    
+
 
     const openCreateDrawer = () => {
         setSelectedServiceTemplate(null) // No selecciona ningún template
@@ -645,8 +645,8 @@ const ServiceGarages = () => {
                     </Button>
                 </div>
             </div>
-            <div>
-                <Table>
+            <div className="p-1 rounded-lg shadow">
+                <Table className="w-full  rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
@@ -897,11 +897,11 @@ const ServiceGarages = () => {
                                 options={
                                     values.uid_categoria
                                         ? dataSubcategories.map(
-                                              (subcategory) => ({
-                                                  value: subcategory.uid_subcategoria,
-                                                  label: subcategory.nombre,
-                                              }),
-                                          )
+                                            (subcategory) => ({
+                                                value: subcategory.uid_subcategoria,
+                                                label: subcategory.nombre,
+                                            }),
+                                        )
                                         : []
                                 }
                                 value={values.subcategoria.map(

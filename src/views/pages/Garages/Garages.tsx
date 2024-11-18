@@ -530,8 +530,8 @@ const Garages = () => {
                     </Button>
                 </div>
             </div>
-            <div>
-                <Table>
+            <div className="p-1 rounded-lg shadow">
+                <Table className="w-full rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
@@ -779,9 +779,8 @@ const Garages = () => {
                                 onChange={(e) =>
                                     setNewGarage((prev: any) => ({
                                         ...(prev ?? {}),
-                                        rif: `${e.target.value}-${
-                                            prev?.rif?.split('-')[1] || ''
-                                        }`,
+                                        rif: `${e.target.value}-${prev?.rif?.split('-')[1] || ''
+                                            }`,
                                     }))
                                 }
                                 className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -799,9 +798,8 @@ const Garages = () => {
                                 onChange={(e) =>
                                     setNewGarage((prev: any) => ({
                                         ...(prev ?? {}),
-                                        rif: `${
-                                            prev?.rif?.split('-')[0] || 'J'
-                                        }-${e.target.value}`,
+                                        rif: `${prev?.rif?.split('-')[0] || 'J'
+                                            }-${e.target.value}`,
                                     }))
                                 }
                                 className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"

@@ -190,7 +190,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
 
     return (
         <>
-            <button onClick={() => setOpenDrawer(true)} className='bg-[#1d1e56] rounded-md p-2 text-white hover:bg-blue-900'>
+            <button onClick={() => setOpenDrawer(true)} className='bg-blue-800 rounded-md p-2 text-white hover:bg-blue-900'>
                 Reportar Pago
             </button>
 
