@@ -43,7 +43,7 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Avatar } from '@/components/ui'
 import * as Yup from 'yup'
-import { HiOutlineRefresh } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 
 type Garage = {
@@ -122,6 +122,8 @@ const ServiceGarages = () => {
     const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>(
         [],
     )
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
+    const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
         null,
     ) // Estado para la categoría seleccionada
@@ -278,7 +280,9 @@ const ServiceGarages = () => {
 
             if (!tallerSnapshot.exists()) {
                 toast.push(
-                    <Notification title="Error">El taller seleccionado no existe.</Notification>
+                    <Notification title="Error">
+                        El taller seleccionado no existe.
+                    </Notification>,
                 )
                 return
             }
@@ -286,13 +290,15 @@ const ServiceGarages = () => {
             const tallerData = tallerSnapshot.data()
 
             // Verificar si la cantidad de servicios disponibles es mayor que 0
-            const cantidadServicios = tallerData.subscripcion_actual?.cantidad_servicios
+            const cantidadServicios =
+                tallerData.subscripcion_actual?.cantidad_servicios
 
             if (cantidadServicios <= 0) {
                 toast.push(
                     <Notification title="Error">
-                        Este taller no tiene más servicios disponibles para crear.
-                    </Notification>
+                        Este taller no tiene más servicios disponibles para
+                        crear.
+                    </Notification>,
                 )
                 return
             }
@@ -311,7 +317,6 @@ const ServiceGarages = () => {
                 uid_servicio: '', // Inicialmente vacío
                 garantia: values.garantia,
                 estatus: true,
-                
             })
 
             // Actualizar el campo uid_servicio con el ID del documento recién creado
@@ -325,7 +330,9 @@ const ServiceGarages = () => {
             })
 
             toast.push(
-                <Notification title="Éxito">Servicio creado con éxito.</Notification>
+                <Notification title="Éxito">
+                    Servicio creado con éxito.
+                </Notification>,
             )
 
             // Resetear el formulario después de crear el servicio
@@ -341,7 +348,6 @@ const ServiceGarages = () => {
                 taller: '',
                 garantia: '',
                 estatus: true,
-                
             })
 
             setDrawerCreateIsOpen(false)
@@ -350,11 +356,12 @@ const ServiceGarages = () => {
         } catch (error) {
             console.error('Error creando Servicio:', error)
             toast.push(
-                <Notification title="Error">Hubo un error al crear el Servicio.</Notification>
+                <Notification title="Error">
+                    Hubo un error al crear el Servicio.
+                </Notification>,
             )
         }
     }
-
 
     const openCreateDrawer = () => {
         setSelectedServiceTemplate(null) // No selecciona ningún template
@@ -382,21 +389,42 @@ const ServiceGarages = () => {
             precio: '',
             uid_servicio: serviceTemplate.uid_servicio || '',
             garantia: serviceTemplate.garantia || '',
-            
         })
         setDrawerIsOpen(true)
     }
 
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
 
-    const handleFilterChange = (columnId: string, value: string) => {
-        setFiltering((prev) => {
-            const newFilters = prev.filter((filter) => filter.id !== columnId)
-            if (value !== '') {
-                newFilters.push({ id: columnId, value })
-            }
-            return newFilters
-        })
+    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setSearchTerm(value)
+
+        // Aplica el filtro dinámico según la columna seleccionada
+        const newFilters = [
+            {
+                id: selectedColumn, // Usar la columna seleccionada
+                value,
+            },
+        ]
+        setFiltering(newFilters)
+    }
+
+    const handleSelectChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const value = event.target.value
+        setSelectedColumn(value)
+
+        // Aplicar filtro vacío cuando se cambia la columna
+        if (searchTerm !== '') {
+            const newFilters = [
+                {
+                    id: value, // La columna seleccionada
+                    value: searchTerm, // Filtrar por el término de búsqueda actual
+                },
+            ]
+            setFiltering(newFilters)
+        }
     }
 
     const columns: ColumnDef<ServiceTemplate>[] = [
@@ -462,102 +490,6 @@ const ServiceGarages = () => {
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    /*const [maxServices, setMaxServices] = useState(0); // Límite de servicios del taller
-    const [assignedServices, setAssignedServices] = useState<string[]>([]); // Servicios ya asignados
-    const [remainingServices, setRemainingServices] = useState(0); // Servicios restantes
-
-     // Carga el límite de servicios y servicios actuales cuando se selecciona el taller
-    useEffect(() => {
-        const loadServiceLimits = async () => {
-            if (selectedPerson) {
-                const personRef = doc(db, 'Usuarios', selectedPerson.uid);
-                const docSnap = await getDoc(personRef);
-                const personData = docSnap.data() as Garage;
-
-                const fetchedMaxServices = Number(personData.subscripcion_actual?.cantidad_servicios) || 0;
-                const currentServices = personData.servicios || [];
-
-                setMaxServices(fetchedMaxServices);
-                setAssignedServices(currentServices);
-                setRemainingServices(fetchedMaxServices - currentServices.length);
-            }
-        };
-
-        loadServiceLimits();
-    }, [selectedPerson]);
-
-    const handleAssignServices = async () => {
-        if (!selectedPerson) {
-            const warningNotification = (
-                <Notification title="Advertencia">
-                    Selecciona un taller antes de asignar servicios.
-                </Notification>
-            );
-            toast.push(warningNotification);
-            return;
-        }
-
-        if (selectedServiceIds.length > maxServices) {
-            const warningNotification = (
-                <Notification title="Advertencia">
-                    Has seleccionado más servicios de los permitidos por la suscripción actual
-                    (Máximo: {maxServices} servicios).
-                </Notification>
-            );
-            toast.push(warningNotification);
-            return;
-        }
-
-        const personRef = doc(db, 'Usuarios', selectedPerson.uid);
-
-        try {
-            await updateDoc(personRef, {
-                servicios: selectedServiceIds,
-            });
-
-            setDrawerIsOpen(false);
-
-            const toastNotification = (
-                <Notification title="Éxito">
-                    Servicios asignados correctamente al taller {selectedPerson.nombre}.
-                </Notification>
-            );
-            toast.push(toastNotification);
-
-            setTimeout(() => {
-                window.location.reload();
-            }, 3000);
-        } catch (error) {
-            console.error('Error al asignar servicios:', error);
-
-            const errorNotification = (
-                <Notification title="Error">
-                    Hubo un error asignando los servicios.
-                </Notification>
-            );
-            toast.push(errorNotification);
-        }
-    };
-
-    // Actualizar remainingServices al seleccionar o deseleccionar servicios
-    useEffect(() => {
-        setRemainingServices(Math.max(0, maxServices - selectedServiceIds.length));
-    }, [selectedServiceIds, maxServices]);
-
-
-
-    const handleServiceSelection = (serviceId: string) => {
-        setSelectedServiceIds((prevSelectedIds) => {
-            if (prevSelectedIds.includes(serviceId)) {
-                // Si el servicio ya está seleccionado, lo deselecciona
-                return prevSelectedIds.filter((id) => id !== serviceId)
-            } else {
-                // Si no está seleccionado, lo agrega
-                return [...prevSelectedIds, serviceId]
-            }
-        })
-    } */
-
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const table = useReactTable({
         data: dataServicesTemplate,
@@ -595,7 +527,6 @@ const ServiceGarages = () => {
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
 
     const handleDrawerClose = (e: MouseEvent) => {
-        // console.log('Drawer cerrado', e);
         setDrawerCreateIsOpen(false) // Cierra el Drawer
         setNewService({
             // Limpia los campos de usuario
@@ -608,7 +539,7 @@ const ServiceGarages = () => {
             subcategoria: [],
             taller: '',
             precio: '',
-            
+
             garantia: '',
         })
         setSelectedServiceTemplate(null) // Limpia la selección (si es necesario)
@@ -635,13 +566,41 @@ const ServiceGarages = () => {
                     </button>
                 </h1>
                 <div className="flex justify-end">
-                    <Button
-                        style={{ backgroundColor: '#000B7E' }}
-                        className="text-white hover:opacity-80"
-                        onClick={openCreateDrawer} // Abre el Drawer de creación
-                    >
-                        Crear Servicio
-                    </Button>
+                    <div className="flex items-center">
+                        <div className="relative w-32">
+                            {' '}
+                            <select
+                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                onChange={handleSelectChange}
+                                value={selectedColumn} // Se mantiene el valor predeterminado
+                            >
+                                <option value="" disabled>
+                                    Seleccionar columna...
+                                </option>
+                                <option value="nombre">Nombre</option>
+                                <option value="nombre_categoria">
+                                    Categoria
+                                </option>
+                            </select>
+                        </div>
+                        <div className="relative w-80 ml-4">
+                            <input
+                                type="text"
+                                placeholder="Buscar..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                        <Button
+                            style={{ backgroundColor: '#000B7E' }}
+                            className="w-40 ml-4 text-white hover:opacity-80"
+                            onClick={openCreateDrawer} // Abre el Drawer de creación
+                        >
+                            Crear Servicio
+                        </Button>
+                    </div>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">
@@ -674,36 +633,6 @@ const ServiceGarages = () => {
                                                     <Sorter
                                                         sort={header.column.getIsSorted()}
                                                     />
-                                                    {/* Agregar un buscador para cada columna */}
-                                                    {header.column.getCanFilter() ? (
-                                                        <input
-                                                            type="text"
-                                                            value={
-                                                                filtering
-                                                                    .find(
-                                                                        (
-                                                                            filter,
-                                                                        ) =>
-                                                                            filter.id ===
-                                                                            header.id,
-                                                                    )
-                                                                    ?.value?.toString() ||
-                                                                ''
-                                                            }
-                                                            onChange={(e) =>
-                                                                handleFilterChange(
-                                                                    header.id,
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                            placeholder={`Buscar`}
-                                                            className="mt-2 p-1 border rounded"
-                                                            onClick={(e) =>
-                                                                e.stopPropagation()
-                                                            }
-                                                        />
-                                                    ) : null}
                                                 </div>
                                             )}
                                         </Th>
@@ -758,7 +687,7 @@ const ServiceGarages = () => {
                         uid_taller: newService?.uid_taller || '',
                         precio: newService?.precio || '',
                         garantia: newService?.garantia || '',
-                        
+
                         subcategoria: newService?.subcategoria || [],
                     }}
                     validationSchema={validationSchema}
@@ -896,11 +825,11 @@ const ServiceGarages = () => {
                                 options={
                                     values.uid_categoria
                                         ? dataSubcategories.map(
-                                            (subcategory) => ({
-                                                value: subcategory.uid_subcategoria,
-                                                label: subcategory.nombre,
-                                            }),
-                                        )
+                                              (subcategory) => ({
+                                                  value: subcategory.uid_subcategoria,
+                                                  label: subcategory.nombre,
+                                              }),
+                                          )
                                         : []
                                 }
                                 value={values.subcategoria.map(
