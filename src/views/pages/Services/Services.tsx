@@ -182,31 +182,17 @@ const Services = () => {
             garantia: '',
         })
 
-    const validationSchema = Yup.object().shape({
-        nombre: Yup.string()
-            .required('El nombre del servicio es obligatorio')
-            .min(3, 'El nombre debe tener al menos 3 caracteres'),
-        descripcion: Yup.string()
-            .required('La descripción es obligatoria')
-            .min(5, 'La descripción debe tener al menos 5 caracteres'),
-        nombre_categoria: Yup.string().required('La categoría es obligatoria'),
-        uid_categoria: Yup.string().required(
-            'Debe seleccionar una categoría válida',
-        ),
-        subcategoria: Yup.array()
-            .min(1, 'Debe seleccionar al menos una subcategoría')
-            .of(
-                Yup.object().shape({
-                    uid_subcategoria: Yup.string().required(
-                        'ID de subcategoría es obligatorio',
-                    ),
-                    nombre_subcategoria: Yup.string().required(
-                        'Nombre de subcategoría es obligatorio',
-                    ),
-                }),
-            ),
-        garantia: Yup.string().required('La categoría es obligatoria'),
-    })
+        const validationSchema = Yup.object().shape({
+            nombre: Yup.string()
+                .required('El nombre del servicio es obligatorio')
+                .min(3, 'El nombre debe tener al menos 3 caracteres'),
+            descripcion: Yup.string()
+                .required('La descripción es obligatoria')
+                .min(5, 'La descripción debe tener al menos 5 caracteres'),
+            uid_categoria: Yup.string().required('Debe seleccionar una categoría válida'),
+            garantia: Yup.string().required('La garantía es obligatoria'),
+        });
+        
 
     const handleCreateServiceTemplate = async (values: any) => {
         try {
@@ -304,44 +290,41 @@ const Services = () => {
     const handleSaveChanges = async (values: any) => {
         if (selectedServiceTemplate) {
             try {
-                // Obtiene el documento del servicio para actualizar
                 const userDoc = doc(
                     db,
                     'ServiciosTemplate',
-                    selectedServiceTemplate?.uid_servicio, // Utiliza el uid_servicio de la plantilla seleccionada
-                )
-
-                // Actualiza el servicio con los nuevos datos, incluyendo la categoría y subcategorías
+                    selectedServiceTemplate?.uid_servicio,
+                );
+    
                 await updateDoc(userDoc, {
                     nombre: values.nombre,
                     descripcion: values.descripcion,
                     uid_categoria: values.uid_categoria,
                     nombre_categoria: values.nombre_categoria,
-                    subcategoria: values.subcategoria || [],
+                    subcategoria: values.subcategoria || [], // Array vacío si no hay subcategorías
                     garantia: values.garantia,
-                })
-
-                // Notificación de éxito
+                });
+    
                 toast.push(
                     <Notification title="Éxito">
                         Servicio actualizado con éxito.
                     </Notification>,
-                )
-
-                setDrawerIsOpen(false) // Cierra el Drawer
-                getAllData() // Refresca los datos
+                );
+    
+                setDrawerIsOpen(false);
+                getAllData();
             } catch (error) {
-                console.error('Error actualizando el servicio:', error)
-
-                // Notificación de error
+                console.error('Error actualizando el servicio:', error);
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al actualizar el servicio.
                     </Notification>,
-                )
+                );
             }
         }
-    }
+    };
+    
+    
 
     const columns: ColumnDef<ServiceTemplate>[] = [
         {
@@ -681,6 +664,7 @@ const Services = () => {
                     initialValues={{
                         nombre: selectedServiceTemplate?.nombre || '',
                         descripcion: selectedServiceTemplate?.descripcion || '',
+                        nombre_categoria: selectedServiceTemplate?.nombre_categoria || '',
                         uid_categoria:
                             selectedServiceTemplate?.uid_categoria || '',
                         subcategoria:
@@ -688,10 +672,16 @@ const Services = () => {
                         garantia: selectedServiceTemplate?.garantia || '',
                     }}
                     validationSchema={validationSchema}
-                    onSubmit={handleSaveChanges}
+                    onSubmit={(values) => {
+                        console.log('Valores enviados:', values);
+                        handleSaveChanges(values);
+                    }}
                 >
                     {({ isSubmitting, setFieldValue, values }) => (
-                        <Form className="flex flex-col space-y-6">
+                            <Form
+                            className="flex flex-col space-y-6"
+                                
+                            >
                             {/* Nombre */}
                             <div className="flex flex-col">
                                 <label className="font-semibold text-gray-700">
@@ -730,7 +720,7 @@ const Services = () => {
                                         )
                                         setFieldValue(
                                             'nombre_categoria',
-                                            selectedCat?.nombre || '',
+                                            selectedCat?.nombre,
                                         )
                                         setFieldValue('subcategoria', []) // Reset subcategorías
                                         handleCategoryChange(selectedId)

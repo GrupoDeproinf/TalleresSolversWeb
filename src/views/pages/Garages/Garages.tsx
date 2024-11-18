@@ -3,7 +3,6 @@ import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
-import { z } from 'zod'
 import {
     flexRender,
     getCoreRowModel,
@@ -35,6 +34,8 @@ import {
     deleteDoc,
     updateDoc,
     addDoc,
+    where,
+    setDoc
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -46,6 +47,8 @@ import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea c
 import { Avatar } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
+import * as Yup from 'yup'
+import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 
 type Garage = {
     nombre?: string
@@ -127,117 +130,124 @@ const Garages = () => {
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
-    // Define el esquema de validación
-    const createUserSchema = z
-        .object({
-            nombre: z
-                .string()
-                .min(3, 'El nombre debe tener al menos 3 caracteres'),
-            email: z.string().email('Ingrese un correo válido'),
-            phone: z
-                .string()
-                .regex(
-                    /^\d{9,10}$/,
-                    'El teléfono debe tener entre 9 y 10 caracteres y contener solo números',
-                ),
-            //typeUser
-            password: z
-                .string()
-                .min(6, 'La contraseña debe tener al menos 6 caracteres'),
-            confirmPassword: z.string().min(6, 'Confirmar contraseñas'),
-        })
-        .refine((data: any) => data.password === data.confirmPassword, {
-            path: ['confirmPassword'],
-            message: 'Las contraseñas no coinciden',
-        })
+    const validationSchema = Yup.object().shape({
+        nombre: Yup.string()
+            .min(3, 'El nombre debe tener al menos 3 caracteres')
+            .required('El nombre es obligatorio'),
+        email: Yup.string()
+            .email('Debe ser un email válido')
+            .required('El correo electrónico es obligatorio'),
+        rif: Yup.string()
+            .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
+            .required('El rif es obligatoria'),
+        phone: Yup.string()
+            .matches(/^\d{11}$/, 'El teléfono debe tener 11 dígitos')
+            .required('El teléfono es obligatorio'),
+        direccion: Yup.string()
+            .required('La Dirección es obligatoria')
+            .min(5, 'La Dirección debe tener al menos 5 caracteres'),
+        password: Yup.string()
+            .required('Por favor ingrese una contraseña')
+            .min(6, 'La contraseña debe tener al menos 6 caracteres'),
+        confirmPassword: Yup.string()
+            .oneOf([Yup.ref('password')], 'Las contraseñas no coinciden')
+            .required('Por favor confirme su contraseña'),
+    })
 
     const [showPassword, setShowPassword] = useState(false)
 
-    const handleCreateGarage = async () => {
-        if (
-            newGarage &&
-            newGarage.email &&
-            newGarage.password &&
-            newGarage.nombre
-        ) {
-            try {
-                // Validación de Zod
-                createUserSchema.parse(newGarage)
-
-                // Validación de contraseñas
-                if (newGarage.password !== newGarage.confirmPassword) {
-                    toast.push(
-                        <Notification title="Error">
-                            Las contraseñas no coinciden. Por favor, verifica
-                            los campos.
-                        </Notification>,
-                    )
-                    return
-                }
-
-                // Crear y autenticar el usuario en Firebase (taller)
-                const userCredential = await createUserWithEmailAndPassword(
-                    auth,
-                    newGarage.email,
-                    newGarage.password,
-                )
-                const user = userCredential.user // Usuario autenticado desde Firebase
-
-                // Crear el documento en Firestore con el UID de Firebase
-                const userRef = collection(db, 'Usuarios')
-                const docRef = await addDoc(userRef, {
-                    nombre: newGarage.nombre,
-                    email: newGarage.email,
-                    rif: newGarage.rif,
-                    phone: newGarage.phone,
-                    typeUser: newGarage.typeUser || 'Taller', // Tipo de usuario (Taller)
-                    logoUrl: newGarage.logoUrl,
-                    status: newGarage.status || 'Activo', // Por defecto, puede ser 'Activo'
-                    direccion: newGarage.direccion,
-                    uid: user.uid, // Usar el UID de Firebase para asociar el taller
-                })
-
-                // Actualización del UID en Firestore con el ID de Firebase
-                await updateDoc(docRef, {
-                    uid: user.uid, // Establecer el UID de Firebase
-                })
-
-                toast.push(
-                    <Notification title="Éxito">
-                        Taller creado y autenticado con éxito.
-                    </Notification>,
-                )
-
-                setDrawerCreateIsOpen(false) // Cerrar el Drawer después de crear el taller
-                getData() // Refrescar la lista de talleres
-            } catch (error) {
-                if (error instanceof z.ZodError) {
-                    const errorMessages = error.errors
-                        .map((err) => err.message)
-                        .join(', ')
-                    toast.push(
-                        <Notification title="Error">
-                            {errorMessages}
-                        </Notification>,
-                    )
-                } else {
-                    console.error('Error creando el taller:', error)
-                    toast.push(
-                        <Notification title="Error">
-                            Hubo un error al crear el Taller.
-                        </Notification>,
-                    )
-                }
-            }
-        } else {
+    const handleCreateGarage = async (values: any) => {
+        if (values.password !== values.confirmPassword) {
             toast.push(
                 <Notification title="Error">
-                    Por favor, asegúrate de que todos los campos necesarios
-                    estén completos.
-                </Notification>,
-            )
+                    Las contraseñas no coinciden. Por favor, verifica los campos.
+                </Notification>
+            );
+            return;
         }
-    }
+    
+        try {
+            const userRef = collection(db, 'Usuarios');
+    
+            // Verificar si ya existe un documento con el mismo correo electrónico
+            const emailQuery = query(userRef, where('email', '==', values.email));
+            const emailSnapshot = await getDocs(emailQuery);
+    
+            if (!emailSnapshot.empty) {
+                toast.push(
+                    <Notification title="Error">
+                        ¡El correo electrónico ya está registrado!
+                    </Notification>
+                );
+                return;
+            }
+            
+            // Verificar si ya existe un documento con el mismo RIF
+            const rifQuery = query(userRef, where('rif', '==', values.rif));
+            const rifSnapshot = await getDocs(rifQuery);
+    
+            if (!rifSnapshot.empty) {
+                toast.push(
+                    <Notification title="Error">
+                        ¡El RIF ya está registrado!
+                    </Notification>
+                );
+                return;
+            }
+    
+            // Verificar si ya existe un documento con el mismo número de teléfono
+            const phoneQuery = query(userRef, where('phone', '==', values.phone));
+            const phoneSnapshot = await getDocs(phoneQuery);
+    
+            if (!phoneSnapshot.empty) {
+                toast.push(
+                    <Notification title="Error">
+                        ¡El número de teléfono ya está registrado!
+                    </Notification>
+                );
+                return;
+            }
+    
+            // Crear usuario en Firebase Auth
+            const userCredential = await createUserWithEmailAndPassword(
+                auth,
+                values.email,
+                values.password
+            );
+            const user = userCredential.user;
+    
+            // Crear el documento en Firestore con el UID del usuario como ID
+            const docRef = doc(userRef, user.uid); // El UID será el ID del documento
+            await setDoc(docRef, {
+                uid: user.uid,
+                nombre: values.nombre,
+                email: values.email,
+                rif: values.rif,
+                phone: values.phone,
+                typeUser: 'Taller',
+                logoUrl: values.logoUrl,
+                status: 'Aprobado',
+                direccion: values.direccion,
+            });
+    
+            toast.push(
+                <Notification title="Éxito">
+                    Taller creado y autenticado con éxito.
+                </Notification>
+            );
+    
+            setDrawerCreateIsOpen(false);
+            getData(); // Refrescar la lista de talleres
+        } catch (error) {
+            console.error('Error creando el taller:', error);
+            toast.push(
+                <Notification title="Error">
+                    Hubo un error al crear el Taller.
+                </Notification>
+            );
+        }
+    };    
+
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
         setSearchTerm(value)
@@ -753,234 +763,245 @@ const Garages = () => {
                 onClose={handleDrawerClose}
                 className="rounded-md shadow"
             >
-                <h2 className="mb-4 text-xl font-bold">Crear Taller</h2>
-                <div className="flex flex-col space-y-6">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre Taller:
-                        </span>
-                        <input
-                            type="text"
-                            value={newGarage?.nombre || ''}
-                            onChange={(e) =>
-                                setNewGarage((prev: any) => ({
-                                    ...prev, // Esto preserva los valores existentes
-                                    nombre: e.target.value, // Solo actualiza el campo necesario
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <input
-                            type="email"
-                            value={newGarage?.email || ''}
-                            onChange={(e) =>
-                                setNewGarage((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    email: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            RIF:
-                        </span>
-                        <div className="flex items-center mt-1">
-                            <select
-                                value={newGarage?.rif?.split('-')[0] || 'J'}
-                                onChange={(e) =>
-                                    setNewGarage((prev: any) => ({
-                                        ...(prev ?? {}),
-                                        rif: `${e.target.value}-${
-                                            prev?.rif?.split('-')[1] || ''
-                                        }`,
-                                    }))
-                                }
-                                className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                            >
-                                <option value="J">J-</option>
-                                <option value="V">V-</option>
-                                <option value="E">E-</option>
-                                <option value="C">C-</option>
-                                <option value="G">G-</option>
-                                <option value="P">P-</option>
-                            </select>
-                            <input
-                                type="text"
-                                value={newGarage?.rif?.split('-')[1] || ''}
-                                onChange={(e) =>
-                                    setNewGarage((prev: any) => ({
-                                        ...(prev ?? {}),
-                                        rif: `${
-                                            prev?.rif?.split('-')[0] || 'J'
-                                        }-${e.target.value}`,
-                                    }))
-                                }
-                                className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
-                            />
-                        </div>
-                    </label>
-
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <input
-                            type="text"
-                            value={newGarage?.phone || ''}
-                            onChange={(e) =>
-                                setNewGarage((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    phone: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Dirección:
-                        </span>
-                        <textarea
-                            value={newGarage?.direccion || ''}
-                            onChange={(e) => {
-                                setNewGarage((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    direccion: e.target.value,
-                                }))
-                                e.target.style.height = 'auto' // Resetea la altura
-                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
-                            }}
-                            rows={1} // Altura inicial
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                            style={{
-                                maxHeight: '150px', // Límite máximo de altura
-                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                            }}
-                        />
-                    </label>
-                    <label className="flex flex-col relative">
-                        <span className="font-semibold text-gray-700">
-                            Contraseña:
-                        </span>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={newGarage?.password || ''}
-                            onChange={(e) =>
-                                setNewGarage((prev: any) => ({
-                                    ...prev,
-                                    password: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            className="absolute right-3 top-10 text-gray-600"
-                        >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                        </button>
-                    </label>
-
-                    <label className="flex flex-col relative mt-4">
-                        <span className="font-semibold text-gray-700">
-                            Confirmar Contraseña:
-                        </span>
-                        <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={newGarage?.confirmPassword || ''}
-                            onChange={(e) =>
-                                setNewGarage((prev: any) => ({
-                                    ...prev,
-                                    confirmPassword: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword((prev) => !prev)}
-                            className="absolute right-3 top-10 text-gray-600"
-                        >
-                            {showPassword ? <FaEyeSlash /> : <FaEye />}
-                        </button>
-                    </label>
-                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                        <div className="text-center">
-                            {!newGarage?.logoUrl ? (
-                                <FaCamera
-                                    className="mx-auto h-12 w-12 text-gray-300"
-                                    aria-hidden="true"
-                                />
-                            ) : (
-                                <img
-                                    src={newGarage.logoUrl}
-                                    alt="Preview Logo"
-                                    className="mx-auto h-32 w-32 object-cover"
-                                />
-                            )}
-                            <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                                <label
-                                    htmlFor="logo-upload"
-                                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-                                >
-                                    <span>
-                                        {newGarage?.logoUrl
-                                            ? 'Cambiar Logo'
-                                            : 'Seleccionar Logo'}
+                <h2 className="mb-4 text-xl font-bold">
+                    Crear Taller
+                </h2>
+            <Formik
+                initialValues={{
+                    nombre: '',
+                    email: '',
+                    rif: 'J-',
+                    phone: '',
+                    direccion: '',
+                    password: '',
+                    confirmPassword: '',
+                    logoUrl: '',
+                }}
+                validationSchema={validationSchema}
+                onSubmit={(values, { setSubmitting }) => {
+                    handleCreateGarage(values)
+                    setSubmitting(false)
+                }}
+            >
+                {({ values, setFieldValue, isSubmitting }) => (
+                    <Form>
+                            <div className="flex flex-col space-y-6">
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Nombre Taller:
                                     </span>
+                                    <Field
+                                        type="text"
+                                        name="nombre"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    />
+                                    <ErrorMessage
+                                        name="nombre"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Email:
+                                    </span>
+                                    <Field
+                                        type="email"
+                                        name="email"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    />
+                                    <ErrorMessage
+                                        name="email"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+
+                                {/* RIF */}
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        RIF:
+                                    </span>
+                                    <div className="flex items-center mt-1">
+                                    <select
+                                        name="rifPrefix"
+                                        value={
+                                            values.rif.split('-')[0] || 'J'
+                                        }
+                                        onChange={(e) => {
+                                            const newCedula = `${
+                                                e.target.value
+                                            }-${
+                                                values.rif.split('-')[1] ||
+                                                ''
+                                            }`
+                                            setFieldValue('rif', newCedula)
+                                        }}
+                                        className="mx-2 p-3 border border-gray-300 rounded-l-lg"
+                                    >
+                                        <option value="V">V-</option>
+                                        <option value="E">E-</option>
+                                        <option value="C">C-</option>
+                                        <option value="G">G-</option>
+                                        <option value="J">J-</option>
+                                        <option value="P">P-</option>
+                                    </select>
+                                        <Field
+                                            type="text"
+                                            name="rif"
+                                            value={
+                                                values.rif.split('-')[1] || ''
+                                            }
+                                            onChange={(e: any) => {
+                                                const newCedula = `${
+                                                    values.rif.split('-')[0] ||
+                                                    'J'
+                                                }-${e.target.value}`
+                                                setFieldValue('rif', newCedula)
+                                            }}
+                                            className="mx-2 p-3 border border-gray-300 rounded-l-lg"
+                                        />
+                                    </div>
+                                    <ErrorMessage
+                                        name="rif"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+
+                                {/* Teléfono */}
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Teléfono:
+                                    </span>
+                                    <Field
+                                        type="text"
+                                        name="phone"
+                                        placeholder="Ejem (04142611966)"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    />
+                                    <ErrorMessage
+                                        name="phone"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+
+                                {/* Dirección */}
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Dirección:
+                                    </span>
+                                    <Field
+                                        as="textarea"
+                                        name="direccion"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg  focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                        rows={1}
+                                        style={{
+                                            maxHeight: '150px',
+                                            overflowY: 'auto',
+                                        }}
+                                        onInput={(e: any) => {
+                                            e.target.style.height = 'auto'
+                                            e.target.style.height = `${e.target.scrollHeight}px`
+                                        }}
+                                    />
+                                    <ErrorMessage
+                                        name="direccion"
+                                        component="div"
+                                        className="text-red-500  text-sm mt-1"
+                                    />
+                                </label>
+
+                                {/* Contraseña */}
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Contraseña:
+                                    </span>
+                                    <Field
+                                        type="password"
+                                        name="password"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    />
+                                    <ErrorMessage
+                                        name="password"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+
+                                {/* Confirmar Contraseña */}
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Confirmar Contraseña:
+                                    </span>
+                                    <Field
+                                        type="password"
+                                        name="confirmPassword"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    />
+                                    <ErrorMessage
+                                        name="confirmPassword"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+
+                                {/* Logo */}
+                                <div className="mt-2 flex justify-center rounded-lg">
+                                    {!values.logoUrl ? (
+                                        <FaCamera className="mx-auto h-12 w-12 text-gray-300" />
+                                    ) : (
+                                        <img
+                                            src={values.logoUrl}
+                                            alt="Preview Logo"
+                                            className="mx-auto h-32 w-32 object-cover"
+                                        />
+                                    )}
                                     <input
-                                        id="logo-upload"
-                                        name="logo-upload"
                                         type="file"
                                         accept="image/*"
-                                        className="sr-only"
                                         onChange={(e) => {
                                             const file = e.target.files?.[0]
                                             if (file) {
                                                 const reader = new FileReader()
                                                 reader.onloadend = () => {
-                                                    setNewGarage(
-                                                        (prev: any) => ({
-                                                            ...prev,
-                                                            logoUrl:
-                                                                reader.result, // Almacena la URL del logo
-                                                        }),
+                                                    setFieldValue(
+                                                        'logoUrl',
+                                                        reader.result,
                                                     )
                                                 }
-                                                reader.readAsDataURL(file) // Leer el archivo como una URL de datos
+                                                reader.readAsDataURL(file)
                                             }
                                         }}
+                                        className="mt-2"
                                     />
-                                </label>
+                                </div>
+
+                                <div className="text-right mt-6">
+                                    <Button
+                                        variant="default"
+                                        onClick={() => {
+                                            setDrawerCreateIsOpen(false) // Cierra el drawer
+                                        }}
+                                        className="mr-2"
+                                    >
+                                        Cancelar
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        style={{ backgroundColor: '#000B7E' }}
+                                        className="text-white hover:opacity-80"
+                                    >
+                                        Crear Taller
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <div className="text-right mt-6">
-                        <Button
-                            className="ltr:mr-2 rtl:ml-2"
-                            variant="default"
-                            onClick={handleDrawerClose}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="text-white hover:opacity-80"
-                            onClick={handleCreateGarage} // Llamar a la función para crear usuario
-                        >
-                            Guardar
-                        </Button>
-                    </div>
-                </div>
-            </Drawer>
+                    </Form>
+                )}
+            </Formik>
+        </Drawer>
         </>
     )
 }
