@@ -43,14 +43,15 @@ type Subscriptions = {
     monto?: string
     uid: string
     id: string
+    nombre_taller: string
     comprobante_pago: {
         monto?: string
         metodo?: string
         banco?: string
-        cedula?: string
+        cedula?: number
         receiptFile?: string
         numReferencia?: string
-        telefono?: string
+        telefono?: number
         fechaPago?: Timestamp
         correo?: string
         bancoOrigen?: string
@@ -76,17 +77,8 @@ const Subscriptions = () => {
 
         const promises = querySnapshot.docs.map(async (docSnap) => {
             const subsData = docSnap.data() as Subscriptions
-            const tallerUid = subsData.taller_uid
 
-            let nombreTaller = ''
-            if (tallerUid) {
-                const usuarioDoc = await getDoc(doc(db, 'Usuarios', tallerUid))
-                if (usuarioDoc.exists()) {
-                    nombreTaller = usuarioDoc.data().nombre
-                }
-            }
-
-            return { ...subsData, uid: docSnap.id, nombreTaller }
+            return { ...subsData, uid: docSnap.id }
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
@@ -291,7 +283,7 @@ const Subscriptions = () => {
         },
         {
             header: 'Taller Subscrito',
-            accessorKey: 'nombreTaller',
+            accessorKey: 'nombre_taller',
         },
         {
             header: 'Cantidad de Servicios',
@@ -428,7 +420,7 @@ const Subscriptions = () => {
                 </div>
             </div>
             <div className="p-1 rounded-lg shadow">
-            <Table className="w-full  rounded-lg">
+                <Table className="w-full  rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <Tr key={headerGroup.id}>
@@ -525,7 +517,6 @@ const Subscriptions = () => {
                         <span className="ml-2 text-gray-700">
                             {selectedPerson?.status}
                         </span>{' '}
-                        {/* Muestra el estado actual */}
                     </div>
                 </div>
                 <div className="flex flex-col space-y-6">
@@ -606,7 +597,7 @@ const Subscriptions = () => {
                             />
                         </label>
                     )}
-                    {selectedPerson?.comprobante_pago.cedula && (
+                    {selectedPerson?.comprobante_pago.cedula !== undefined && (
                         <label className="flex flex-col">
                             <span className="font-semibold text-gray-700">
                                 Cedula:
@@ -619,7 +610,8 @@ const Subscriptions = () => {
                             />
                         </label>
                     )}
-                    {selectedPerson?.comprobante_pago.telefono && (
+                    {selectedPerson?.comprobante_pago.telefono !==
+                        undefined && (
                         <label className="flex flex-col">
                             <span className="font-semibold text-gray-700">
                                 Telefono:

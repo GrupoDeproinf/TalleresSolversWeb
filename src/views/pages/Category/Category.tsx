@@ -185,7 +185,7 @@ const Users = () => {
         })
     }
 
-    const handleCreateUser = async () => {
+    const handleCreateCategory = async () => {
         const auth = getAuth()
         const currentUser = auth.currentUser
 
@@ -996,7 +996,7 @@ const Users = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={handleCreateUser}
+                            onClick={handleCreateCategory}
                         >
                             Guardar
                         </Button>
