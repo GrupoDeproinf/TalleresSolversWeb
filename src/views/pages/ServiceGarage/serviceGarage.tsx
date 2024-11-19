@@ -71,7 +71,7 @@ type subscricion = {
 }
 
 type Service = {
-    nombre?: string
+    nombre_servicio?: string
     descripcion?: string
     precio?: string
     uid_taller?: string
@@ -89,7 +89,7 @@ type Service = {
 }
 
 type ServiceTemplate = {
-    nombre?: string
+    nombre_servicio?: string
     descripcion?: string
     uid_servicio?: string
 
@@ -236,7 +236,7 @@ const ServiceGarages = () => {
         useState<ServiceTemplate | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
     const [newService, setNewService] = useState<Service | null>({
-        nombre: '',
+        nombre_servicio: '',
         descripcion: '',
         uid_categoria: '',
         nombre_categoria: '',
@@ -250,7 +250,7 @@ const ServiceGarages = () => {
 
     // Esquema de validación con Yup
     const validationSchema = Yup.object({
-        nombre: Yup.string()
+        nombre_servicio: Yup.string()
             .required('El nombre del servicio es obligatorio.')
             .min(3, 'El nombre del servicio debe tener al menos 3 caracteres.'),
         descripcion: Yup.string()
@@ -266,10 +266,6 @@ const ServiceGarages = () => {
             .positive('El precio debe ser un valor positivo.')
             .typeError('El precio debe ser un número.'),
         garantia: Yup.string().required('La garantía es obligatoria.'),
-        /* puntuacion: Yup.number()
-            .min(0, 'La puntuación no puede ser menor que 0.')
-            .max(5, 'La puntuación no puede ser mayor que 5.')
-            .default(0), */
     })
 
     const handleCreateService = async (values: any) => {
@@ -288,6 +284,7 @@ const ServiceGarages = () => {
             }
 
             const tallerData = tallerSnapshot.data()
+            console.log('Datos a guardar: ', values);
 
             // Verificar si la cantidad de servicios disponibles es mayor que 0
             const cantidadServicios =
@@ -306,7 +303,7 @@ const ServiceGarages = () => {
             // Crear el servicio en la colección "Servicios"
             const userRef = collection(db, 'Servicios')
             const docRef = await addDoc(userRef, {
-                nombre: values.nombre,
+                nombre_servicio: values.nombre_servicio,
                 descripcion: values.descripcion,
                 nombre_categoria: values.nombre_categoria,
                 uid_categoria: values.uid_categoria,
@@ -337,7 +334,7 @@ const ServiceGarages = () => {
 
             // Resetear el formulario después de crear el servicio
             setNewService({
-                nombre: '',
+                nombre_servicio: '',
                 descripcion: '',
                 uid_servicio: '',
                 uid_categoria: '',
@@ -366,7 +363,7 @@ const ServiceGarages = () => {
     const openCreateDrawer = () => {
         setSelectedServiceTemplate(null) // No selecciona ningún template
         setNewService({
-            nombre: '',
+            nombre_servicio: '',
             descripcion: '',
             uid_categoria: '',
             nombre_categoria: '',
@@ -381,7 +378,7 @@ const ServiceGarages = () => {
     const openEditDrawer = (serviceTemplate: ServiceTemplate) => {
         setSelectedServiceTemplate(serviceTemplate)
         setNewService({
-            nombre: serviceTemplate.nombre || '',
+            nombre_servicio: serviceTemplate.nombre_servicio || '',
             descripcion: serviceTemplate.descripcion || '',
             uid_categoria: serviceTemplate.uid_categoria || '',
             nombre_categoria: serviceTemplate.nombre_categoria || '',
@@ -430,7 +427,7 @@ const ServiceGarages = () => {
     const columns: ColumnDef<ServiceTemplate>[] = [
         {
             header: 'Nombre del Servicio',
-            accessorKey: 'nombre',
+            accessorKey: 'nombre_servicio',
         },
         {
             header: 'Descripción',
@@ -530,7 +527,7 @@ const ServiceGarages = () => {
         setDrawerCreateIsOpen(false) // Cierra el Drawer
         setNewService({
             // Limpia los campos de usuario
-            nombre: '',
+            nombre_servicio: '',
             descripcion: '',
             id: '',
             uid_servicio: '',
@@ -577,7 +574,7 @@ const ServiceGarages = () => {
                                 <option value="" disabled>
                                     Seleccionar columna...
                                 </option>
-                                <option value="nombre">Nombre</option>
+                                <option value="nombre_servicio">Nombre</option>
                                 <option value="nombre_categoria">
                                     Categoria
                                 </option>
@@ -681,9 +678,10 @@ const ServiceGarages = () => {
                 <h2 className="mb-4 text-xl font-bold">Crear Servicio</h2>
                 <Formik
                     initialValues={{
-                        nombre: newService?.nombre || '',
+                        nombre_servicio: newService?.nombre_servicio || '',
                         descripcion: newService?.descripcion || '',
                         uid_categoria: newService?.uid_categoria || '',
+                        nombre_categoria: newService?.nombre_categoria || '',
                         uid_taller: newService?.uid_taller || '',
                         precio: newService?.precio || '',
                         garantia: newService?.garantia || '',
@@ -708,13 +706,13 @@ const ServiceGarages = () => {
                                 </span>
                                 <Field
                                     type="text"
-                                    name="nombre"
-                                    value={values.nombre}
+                                    name="nombre_servicio"
+                                    value={values.nombre_servicio}
                                     onChange={handleChange}
                                     className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                                 />
                                 <ErrorMessage
-                                    name="nombre"
+                                    name="nombre_servicio"
                                     component="div"
                                     className="text-red-600 text-sm"
                                 />
