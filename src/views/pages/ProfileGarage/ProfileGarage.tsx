@@ -195,7 +195,7 @@ const ProfileGarage = () => {
 
                 return {
                     uid_servicio: doc.id,
-                    nombre_servicio: serviceData?.nombre || '',
+                    nombre_servicio: serviceData?.nombre_servicio || '',
                     descripcion: serviceData?.descripcion || '',
                     precio: serviceData?.precio || '0',
                     estatus: serviceData?.estatus,
