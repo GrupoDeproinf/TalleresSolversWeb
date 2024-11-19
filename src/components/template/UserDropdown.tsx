@@ -35,9 +35,7 @@ const dropdownItemList: DropdownList[] = [
 ]
 
 const _UserDropdown = ({ className }: CommonProps) => {
-    const { avatar, userName, authority, email } = useAppSelector(
-        (state) => state.auth.user,
-    )
+    const { userName, email } = useAppSelector((state) => state.auth.user)
 
     const { signOut } = useAuth()
 

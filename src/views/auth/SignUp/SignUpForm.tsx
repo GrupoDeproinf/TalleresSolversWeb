@@ -238,7 +238,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                                     `${e.target.value}-${suffix}`,
                                                 )
                                             }}
-                                            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                            className=" p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                                         >
                                             <option value="V">V-</option>
                                             <option value="E">E-</option>
