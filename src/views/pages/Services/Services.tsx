@@ -38,7 +38,7 @@ import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 
 type ServiceTemplate = {
-    nombre?: string
+    nombre_servicio?: string
     descripcion?: string
     uid_servicio: string
 
@@ -172,7 +172,7 @@ const Services = () => {
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
     const [newServiceTemplate, setNewServiceTemplate] =
         useState<ServiceTemplate>({
-            nombre: '',
+            nombre_servicio: '',
             descripcion: '',
             uid_servicio: '',
             uid_categoria: '',
@@ -183,7 +183,7 @@ const Services = () => {
         })
 
         const validationSchema = Yup.object().shape({
-            nombre: Yup.string()
+            nombre_servicio: Yup.string()
                 .required('El nombre del servicio es obligatorio')
                 .min(3, 'El nombre debe tener al menos 3 caracteres'),
             descripcion: Yup.string()
@@ -204,7 +204,7 @@ const Services = () => {
 
             // Creación del documento con los datos proporcionados
             const docRef = await addDoc(serviceRef, {
-                nombre: values.nombre,
+                nombre_servicio: values.nombre_servicio,
                 descripcion: values.descripcion,
                 nombre_categoria: values.nombre_categoria,
                 uid_categoria: values.uid_categoria,
@@ -225,7 +225,7 @@ const Services = () => {
 
             // Reseteo del formulario a su estado inicial
             setNewServiceTemplate({
-                nombre: '',
+                nombre_servicio: '',
                 descripcion: '',
                 uid_servicio: '',
                 uid_categoria: '',
@@ -297,7 +297,7 @@ const Services = () => {
                 );
     
                 await updateDoc(userDoc, {
-                    nombre: values.nombre,
+                    nombre_servicio: values.nombre_servicio,
                     descripcion: values.descripcion,
                     uid_categoria: values.uid_categoria,
                     nombre_categoria: values.nombre_categoria,
@@ -329,7 +329,7 @@ const Services = () => {
     const columns: ColumnDef<ServiceTemplate>[] = [
         {
             header: 'Nombre del Servicio',
-            accessorKey: 'nombre',
+            accessorKey: 'nombre_servicio',
         },
         {
             header: 'Descripción',
@@ -410,7 +410,7 @@ const Services = () => {
         setDrawerCreateIsOpen(false) // Cierra el Drawer
         setNewServiceTemplate({
             // Limpia los campos de usuario
-            nombre: '',
+            nombre_servicio: '',
             descripcion: '',
             id: '',
             uid_servicio: '',
@@ -442,7 +442,7 @@ const Services = () => {
 
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Servicio {selectedServiceTemplate.nombre} eliminado con
+                        Servicio {selectedServiceTemplate.nombre_servicio} eliminado con
                         éxito.
                     </Notification>
                 )
@@ -525,7 +525,7 @@ const Services = () => {
                                     <option value="" disabled>
                                         Seleccionar columna...
                                     </option>
-                                    <option value="nombre">Nombre</option>
+                                    <option value="nombre_servicio">Nombre</option>
                                     <option value="nombre_categoria">
                                         Categoria
                                     </option>
@@ -552,7 +552,7 @@ const Services = () => {
                     </div>
                 </div>
                 <div className="p-1 rounded-lg shadow">
-                    <Table className="w-full border border-gray-300 rounded-lg">
+                    <Table className="w-full rounded-lg">
                         <THead>
                             {table.getHeaderGroups().map((headerGroup) => (
                                 <Tr key={headerGroup.id}>
@@ -635,7 +635,7 @@ const Services = () => {
                 <h5 className="mb-4">Confirmar Eliminación</h5>
                 <p>
                     ¿Estás seguro de que deseas eliminar el servicio{' '}
-                    {selectedServiceTemplate?.nombre}?
+                    {selectedServiceTemplate?.nombre_servicio}?
                 </p>
                 <div className="text-right mt-6">
                     <Button
@@ -662,7 +662,7 @@ const Services = () => {
                 <h2 className="mb-4 text-xl font-bold">Editar Plantilla</h2>
                 <Formik
                     initialValues={{
-                        nombre: selectedServiceTemplate?.nombre || '',
+                        nombre_servicio: selectedServiceTemplate?.nombre_servicio || '',
                         descripcion: selectedServiceTemplate?.descripcion || '',
                         nombre_categoria: selectedServiceTemplate?.nombre_categoria || '',
                         uid_categoria:
@@ -689,11 +689,11 @@ const Services = () => {
                                 </label>
                                 <Field
                                     type="text"
-                                    name="nombre"
+                                    name="nombre_servicio"
                                     className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <ErrorMessage
-                                    name="nombre"
+                                    name="nombre_servicio"
                                     component="div"
                                     className="text-red-600 text-sm mt-1"
                                 />
@@ -867,7 +867,7 @@ const Services = () => {
                 <h2 className="mb-4 text-xl font-bold">Crear Plantilla</h2>
                 <Formik
                     initialValues={{
-                        nombre: '',
+                        nombre_servicio: '',
                         descripcion: '',
                         uid_categoria: '',
                         subcategoria: [],
@@ -888,11 +888,11 @@ const Services = () => {
                                 </label>
                                 <Field
                                     type="text"
-                                    name="nombre"
+                                    name="nombre_servicio"
                                     className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                                 <ErrorMessage
-                                    name="nombre"
+                                    name="nombre_servicio"
                                     component="div"
                                     className="text-red-600 text-sm mt-1"
                                 />

@@ -74,35 +74,35 @@ const Users = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
     const getData = async () => {
-        const q = query(collection(db, 'Categorias'))
-        const querySnapshot = await getDocs(q)
+        const categoriasRef = collection(db, 'Categorias')
+        const querySnapshot = await getDocs(categoriasRef)
         const categorias = []
 
-        for (const doc of querySnapshot.docs) {
-            const userData = doc.data()
-            if (userData) {
-                const subcategoriesRef = collection(
-                    db,
-                    'Categorias',
-                    doc.id,
-                    'Subcategorias',
-                )
-                const subcategoriesSnapshot = await getDocs(subcategoriesRef)
-                const subcategoriesData = subcategoriesSnapshot.docs.map(
-                    (subDoc) => ({
-                        ...subDoc.data(),
-                        uid: subDoc.id, // Almacena el ID de la subcategoría
-                    }),
-                )
-
-                categorias.push({
-                    ...userData,
-                    id: doc.id,
-                    subcategorias: subcategoriesData, // Añade las subcategorías aquí
-                })
+        // Carga las categorías y subcategorías de manera más eficiente
+        const allPromises = querySnapshot.docs.map(async (doc) => {
+            const categoriaData = doc.data()
+            const subcategoriesRef = collection(
+                db,
+                'Categorias',
+                doc.id,
+                'Subcategorias',
+            )
+            const subcategoriesSnapshot = await getDocs(subcategoriesRef)
+            const subcategoriesData = subcategoriesSnapshot.docs.map(
+                (subDoc) => ({
+                    ...subDoc.data(),
+                    uid: subDoc.id, // ID único de subcategoría
+                }),
+            )
+            return {
+                ...categoriaData,
+                id: doc.id,
+                subcategorias: subcategoriesData,
             }
-        }
+        })
 
+        const resolvedCategorias = await Promise.all(allPromises)
+        categorias.push(...resolvedCategorias)
         setdataCategorys(categorias)
     }
 
@@ -120,6 +120,7 @@ const Users = () => {
     }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
+    
     const [newCategory, setnewCategory] = useState<Category | null>({
         nombre: '',
         descripcion: '',
@@ -138,6 +139,39 @@ const Users = () => {
     const openDrawer = (Category: Category) => {
         setSelectedCategory(Category)
         setDrawerIsOpen(true) // Abre el Drawer
+    }
+
+    const handleEditCategory = async (categoryId: string) => {
+        try {
+            const subcategoriesRef = collection(
+                db,
+                'Categorias',
+                categoryId,
+                'Subcategorias',
+            )
+            const snapshot = await getDocs(subcategoriesRef)
+            const loadedSubcategories: Subcategory[] = snapshot.docs.map(
+                (doc) => ({
+                    ...doc.data(),
+                    uid: doc.id,
+                }),
+            ) as Subcategory[]
+
+            setSubcategories(
+                loadedSubcategories.length > 0
+                    ? loadedSubcategories
+                    : [{ nombre: '', descripcion: '', estatus: true, uid: '' }],
+            )
+            setDrawerIsOpen(true)
+        } catch (error) {
+            console.error('Error al cargar las subcategorías:', error)
+        }
+    }
+
+    const handleDrawerOpenEdit = (category: any) => {
+        setSelectedCategory(category)
+        setSubcategories(category.subcategorias || [])
+        setDrawerIsOpen(true)
     }
 
     // Define el esquema de validación
@@ -185,7 +219,7 @@ const Users = () => {
         })
     }
 
-    const handleCreateUser = async () => {
+    const handleCreateCategory = async () => {
         const auth = getAuth()
         const currentUser = auth.currentUser
 
@@ -298,36 +332,53 @@ const Users = () => {
     }
 
     const handleSaveChanges = async () => {
-        if (selectedCategory && selectedCategory.id) {
-            try {
-                const userDoc = doc(db, 'Categorias', selectedCategory.id)
-                await updateDoc(userDoc, {
-                    nombre: selectedCategory.nombre || '',
-                    descripcion: selectedCategory.descripcion || '',
-                    logoUrl: selectedCategory.logoUrl || '',
-                })
-                // Mensaje de éxito
-                toast.push(
-                    <Notification title="Éxito">
-                        Categoría actualizada con éxito.
-                    </Notification>,
-                )
-                // Cerrar el drawer
-                setDrawerIsOpen(false)
+        if (!selectedCategory) return
 
-                getData() // Refrescar datos después de guardar
-            } catch (error) {
-                console.error('Error actualizando la categoría:', error)
-                // Mensaje de error
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al actualizar la Categoría.
-                    </Notification>,
-                )
-            }
-        } else {
-            console.error('selectedCategory o uid no están definidos.')
-            console.error()
+        try {
+            const categoryRef = doc(db, 'Categorias', selectedCategory.id)
+
+            // Actualiza la categoría
+            await updateDoc(categoryRef, {
+                nombre: selectedCategory.nombre || '',
+                descripcion: selectedCategory.descripcion || '',
+                logoUrl: selectedCategory.logoUrl || '',
+            })
+
+            // Actualiza las subcategorías
+            const subcategoriesCollection = collection(
+                db,
+                `Categorias/${selectedCategory.id}/Subcategorias`,
+            )
+            const batch = writeBatch(db)
+
+            subcategories.forEach((sub) => {
+                if (sub.uid) {
+                    // Actualiza una subcategoría existente
+                    const subRef = doc(subcategoriesCollection, sub.uid)
+                    batch.set(subRef, sub, { merge: true })
+                } else {
+                    // Crea una nueva subcategoría
+                    const newSubRef = doc(subcategoriesCollection)
+                    batch.set(newSubRef, sub)
+                }
+            })
+
+            await batch.commit()
+
+            toast.push(
+                <Notification title="Éxito">
+                    Categoría y subcategorías actualizadas con éxito.
+                </Notification>,
+            )
+            setDrawerIsOpen(false)
+            getData() // Refrescar datos
+        } catch (error) {
+            console.error('Error al guardar los cambios:', error)
+            toast.push(
+                <Notification title="Error">
+                    Ocurrió un error al guardar los cambios.
+                </Notification>,
+            )
         }
     }
 
@@ -425,7 +476,7 @@ const Users = () => {
                 return (
                     <div className="flex gap-2">
                         <button
-                            onClick={() => openDrawer(person)} // Cambiar aquí
+                            onClick={() => handleDrawerOpenEdit(person)} // Cambiar aquí
                             className="text-blue-900"
                         >
                             <FaEdit />
@@ -517,6 +568,54 @@ const Users = () => {
             } finally {
                 setIsOpen(false) // Cerrar diálogo después de la operación
                 setSelectedCategory(null) // Limpiar selección
+            }
+        }
+    }
+
+    const handleDeleteSubcategory = async (subcategoryId: string) => {
+        if (selectedCategory) {
+            console.log('Eliminando subcategoría con ID:', subcategoryId)
+
+            try {
+                // Usar el id de la subcategoría en lugar de uid
+                const subcategoryDocRef = doc(
+                    db,
+                    'Categorias',
+                    selectedCategory.id,
+                    'Subcategorias',
+                    subcategoryId,
+                )
+
+                // Eliminar la subcategoría de la base de datos
+                await deleteDoc(subcategoryDocRef)
+
+                // Eliminar visualmente la subcategoría en el estado
+                setSubcategories((prevSubcategories) =>
+                    prevSubcategories.filter(
+                        (subcategory) => subcategory.uid !== subcategoryId,
+                    ),
+                )
+
+                // Usar toast para mostrar el mensaje de éxito
+                const toastNotification = (
+                    <Notification title="Éxito">
+                        Subcategoría eliminada con éxito.
+                    </Notification>
+                )
+                toast.push(toastNotification)
+
+                // Llamar a tu función para obtener los datos actualizados si es necesario
+                getData() // Refrescar datos después de eliminar
+            } catch (error) {
+                console.error('Error eliminando la subcategoría:', error)
+
+                // Usar toast para mostrar el mensaje de error
+                const errorNotification = (
+                    <Notification title="Error">
+                        Hubo un error eliminando la subcategoría.
+                    </Notification>
+                )
+                toast.push(errorNotification)
             }
         }
     }
@@ -807,6 +906,77 @@ const Users = () => {
                             </label>
                         </div>
                     </div>
+                    {/* Subcategorías */}
+                    <h3 className="mt-6 text-lg font-semibold">
+                        Subcategorías
+                    </h3>
+                    {subcategories.map((sub, index) => (
+                        <div
+                            key={sub.uid || index}
+                            className="flex flex-col space-y-2"
+                        >
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Nombre:
+                                </span>
+                                <input
+                                    type="text"
+                                    value={sub.nombre}
+                                    onChange={(e) =>
+                                        setSubcategories((prev) =>
+                                            prev.map((s, i) =>
+                                                i === index
+                                                    ? {
+                                                          ...s,
+                                                          nombre: e.target
+                                                              .value,
+                                                      }
+                                                    : s,
+                                            ),
+                                        )
+                                    }
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                />
+                            </label>
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Descripción:
+                                </span>
+                                <textarea
+                                    value={sub.descripcion}
+                                    onChange={(e) =>
+                                        setSubcategories((prev) =>
+                                            prev.map((s, i) =>
+                                                i === index
+                                                    ? {
+                                                          ...s,
+                                                          descripcion:
+                                                              e.target.value,
+                                                      }
+                                                    : s,
+                                            ),
+                                        )
+                                    }
+                                    rows={1}
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
+                                />
+                            </label>
+                            <Button
+                                onClick={() => handleDeleteSubcategory(sub.uid)}
+                                className="text-white hover:opacity-80 focus:ring-2 focus:ring-red-500 mt-2"
+                                style={{ backgroundColor: '#B91C1C' }}
+                            >
+                                Eliminar Subcategoría
+                            </Button>
+                        </div>
+                    ))}
+                    <Button
+                        onClick={handleAddSubcategory}
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                    >
+                        Agregar Subcategoría
+                    </Button>
                 </div>
 
                 <div className="text-right mt-6">
@@ -980,7 +1150,11 @@ const Users = () => {
                             </Button>
                         </div>
                     ))}
-                    <Button onClick={handleAddSubcategory} variant="default">
+                    <Button
+                        onClick={handleAddSubcategory}
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                    >
                         Agregar Subcategoría
                     </Button>
 
@@ -996,7 +1170,7 @@ const Users = () => {
                         <Button
                             style={{ backgroundColor: '#000B7E' }}
                             className="text-white hover:opacity-80"
-                            onClick={handleCreateUser}
+                            onClick={handleCreateCategory}
                         >
                             Guardar
                         </Button>
