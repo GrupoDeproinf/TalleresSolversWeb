@@ -195,7 +195,7 @@ const ProfileGarage = () => {
 
                 return {
                     uid_servicio: doc.id,
-                    nombre_servicio: serviceData?.nombre || '',
+                    nombre_servicio: serviceData?.nombre_servicio || '',
                     descripcion: serviceData?.descripcion || '',
                     precio: serviceData?.precio || '0',
                     estatus: serviceData?.estatus,
@@ -363,20 +363,101 @@ const ProfileGarage = () => {
         setFormData((prev) => ({ ...prev, [name]: value }))
     }
 
+    const [urlErrors, setUrlErrors] = useState({
+        facebook: '',
+        instagram: '',
+        tiktok: '',
+    });
 
+    const validateUrl = (url: string, platform: string): string => {
+        const regexMap: Record<string, RegExp> = {
+            facebook: /^(https?:\/\/)?(www\.)?facebook\.com\/.+$/,
+            instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/.+$/,
+            tiktok: /^(https?:\/\/)?(www\.)?tiktok\.com\/.+$/,
+        };
+
+        if (!regexMap[platform].test(url)) {
+            return `La URL ingresada no es válida para ${platform}.`;
+        }
+        return '';
+    };
+
+    const handleUrlChange = (
+        e: React.ChangeEvent<HTMLInputElement>,
+        platform: string
+    ) => {
+        const { value } = e.target;
+
+        setFormData((prev) => ({
+            ...prev,
+            [`Link${platform.charAt(0).toUpperCase() + platform.slice(1)}`]: value,
+        }));
+
+        const error = validateUrl(value, platform);
+        setUrlErrors((prev) => ({
+            ...prev,
+            [platform]: error,
+        }));
+    };
 
 
 
     const handleEditSave = async () => {
+        // Validaciones antes de proceder con la actualización
+        if (!formData.nombre || formData.nombre.trim() === '') {
+            toast.push(
+                <Notification title="Error">
+                    El nombre no puede estar vacío.
+                </Notification>
+            );
+            return;
+        }
+
+        if (!formData.phone || !/^\d+$/.test(formData.phone)) {
+            toast.push(
+                <Notification title="Error">
+                    El teléfono debe contener solo números.
+                </Notification>
+            );
+            return;
+        }
+
+        if (!formData.rif || !/^[JVEGCP]-\d+$/.test(formData.rif)) {
+            toast.push(
+                <Notification title="Error">
+                    El RIF debe estar en un formato válido (Ejemplo: J-12345678).
+                </Notification>
+            );
+            return;
+        }
+
+        if (!formData.location || formData.location.trim() === '') {
+            toast.push(
+                <Notification title="Error">
+                    La ubicación no puede estar vacía.
+                </Notification>
+            );
+            return;
+        }
+
+        if (!formData.status) {
+            toast.push(
+                <Notification title="Error">
+                    Debes seleccionar un estatus.
+                </Notification>
+            );
+            return;
+        }
+
         try {
             // Verifica si el RIF ya está registrado
             const usuariosRef = collection(db, 'Usuarios');
             const querySnapshot = await getDocs(usuariosRef);
-            
+
             const rifExiste = querySnapshot.docs.some(
-                doc => doc.data().rif === formData.rif && doc.id !== path // Excluye el documento actual
+                (doc) => doc.data().rif === formData.rif && doc.id !== path // Excluye el documento actual
             );
-    
+
             if (rifExiste) {
                 toast.push(
                     <Notification title="Error">
@@ -385,14 +466,14 @@ const ProfileGarage = () => {
                 );
                 return; // Sal de la función si el RIF ya existe
             }
-    
+
             // Actualiza los datos si el RIF no está registrado
             const docRef = doc(db, 'Usuarios', path);
             await updateDoc(docRef, formData);
-    
+
             setData(formData);
             setEditModalOpen(false);
-    
+
             toast.push(
                 <Notification title="Éxito" type="success">
                     Datos de Usuario actualizados correctamente.
@@ -407,7 +488,7 @@ const ProfileGarage = () => {
             );
         }
     };
-    
+
 
 
     const handleSavePaymentMethods = async () => {
@@ -956,13 +1037,13 @@ const ProfileGarage = () => {
                         </TabContent>
                     </div>
                     <TabContent value="tab2">
-                        <div>
-                            <div className="p-1 rounded-lg shadow">
+                        <div className='w-[50vw]'>
+                            <div className="p-1 rounded-lg">
 
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
-                                <Table className="w-full rounded-lg" width={600}>
+                                <Table className="w-full  rounded-lg" width={700}>
                                     <THead>
                                         {table
                                             .getHeaderGroups()
@@ -1343,41 +1424,55 @@ const ProfileGarage = () => {
                                     <option value="Rechazado">Rechazado</option>
                                 </select>
                             </label>
+                            {/* URL de Facebook */}
                             <label className="block">
-                                <span className="text-gray-700 font-semibold">
-                                    Facebook
-                                </span>
+                                <span className="text-gray-700 font-semibold">Facebook</span>
                                 <input
                                     className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                    placeholder=""
-                                    name="nombre"
+                                    placeholder="URL de Facebook"
+                                    name="LinkFacebook"
                                     value={formData.LinkFacebook}
-                                    onChange={handleEditChange}
+                                    onChange={(e) => handleUrlChange(e, 'facebook')}
                                 />
+                                {urlErrors.facebook && (
+                                    <span className="text-red-500 text-sm">
+                                        {urlErrors.facebook}
+                                    </span>
+                                )}
                             </label>
+
+                            {/* URL de Instagram */}
                             <label className="block">
-                                <span className="text-gray-700 font-semibold">
-                                    Instagram
-                                </span>
+                                <span className="text-gray-700 font-semibold">Instagram</span>
                                 <input
                                     className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                    placeholder=""
-                                    name="nombre"
+                                    placeholder="URL de Instagram"
+                                    name="LinkInstagram"
                                     value={formData.LinkInstagram}
-                                    onChange={handleEditChange}
+                                    onChange={(e) => handleUrlChange(e, 'instagram')}
                                 />
+                                {urlErrors.instagram && (
+                                    <span className="text-red-500 text-sm">
+                                        {urlErrors.instagram}
+                                    </span>
+                                )}
                             </label>
+
+                            {/* URL de TikTok */}
                             <label className="block">
-                                <span className="text-gray-700 font-semibold">
-                                    Tik tok
-                                </span>
+                                <span className="text-gray-700 font-semibold">TikTok</span>
                                 <input
                                     className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                    placeholder=""
-                                    name="nombre"
+                                    placeholder="URL de TikTok"
+                                    name="LinkTiktok"
                                     value={formData.LinkTiktok}
-                                    onChange={handleEditChange}
+                                    onChange={(e) => handleUrlChange(e, 'tiktok')}
                                 />
+                                {urlErrors.tiktok && (
+                                    <span className="text-red-500 text-sm">
+                                        {urlErrors.tiktok}
+                                    </span>
+                                )}
                             </label>
                         </div>
                     </div>
