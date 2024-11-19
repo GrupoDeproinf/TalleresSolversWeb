@@ -1037,13 +1037,13 @@ const ProfileGarage = () => {
                         </TabContent>
                     </div>
                     <TabContent value="tab2">
-                        <div>
-                            <div className="p-1 rounded-lg shadow">
+                        <div className='w-[50vw]'>
+                            <div className="p-1 rounded-lg">
 
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
-                                <Table className="w-full rounded-lg" width={600}>
+                                <Table className="w-full  rounded-lg" width={700}>
                                     <THead>
                                         {table
                                             .getHeaderGroups()
