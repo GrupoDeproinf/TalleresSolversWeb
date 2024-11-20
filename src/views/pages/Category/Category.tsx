@@ -48,6 +48,8 @@ import Description from '@/views/ui-components/navigation/Steps/Description'
 import { Timestamp } from 'firebase/firestore' // Importa Timestamp
 import { px } from 'framer-motion'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import * as Yup from 'yup'
+import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 
 type Category = {
     nombre?: string
@@ -59,6 +61,7 @@ type Category = {
 
     uid?: string // ID del usuario que creó la categoría
     id: string // ID único de la categoría
+    subcategorias?: any[]
 }
 
 const Users = () => {
@@ -120,7 +123,7 @@ const Users = () => {
     }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
-    
+
     const [newCategory, setnewCategory] = useState<Category | null>({
         nombre: '',
         descripcion: '',
@@ -198,12 +201,6 @@ const Users = () => {
         ])
     }
 
-    const handleRemoveSubcategory = (index: any) => {
-        setSubcategories((prevSubcategories) =>
-            prevSubcategories.filter((_, i) => i !== index),
-        )
-    }
-
     const handleSubcategoryChange = (
         index: number,
         field: 'nombre' | 'descripcion',
@@ -219,22 +216,50 @@ const Users = () => {
         })
     }
 
-    const handleCreateCategory = async () => {
+    // Esquema de validación
+    const validationSchema = Yup.object().shape({
+        nombre: Yup.string()
+            .required('El nombre es obligatorio.')
+            .min(3, 'El nombre debe tener al menos 3 caracteres.'),
+        descripcion: Yup.string()
+            .required('La descripción es obligatoria.')
+            .min(10, 'La descripción debe tener al menos 10 caracteres.'),
+        subcategorias: Yup.array()
+            .of(
+                Yup.object().shape({
+                    nombre: Yup.string()
+                        .required(
+                            'El nombre de la subcategoría es obligatorio.',
+                        )
+                        .min(3, 'El nombre debe tener al menos 3 caracteres.'),
+                    descripcion: Yup.string()
+                        .required('La descripción es obligatoria.')
+                        .min(
+                            10,
+                            'La descripción debe tener al menos 10 caracteres.',
+                        ),
+                }),
+            )
+            .min(1, 'Debe agregar al menos una subcategoría.'),
+    })
+
+    const handleCreateCategory = async (values: any) => {
         const auth = getAuth()
         const currentUser = auth.currentUser
 
-        if (!newCategory || !currentUser) {
+        if (!values || !currentUser) {
             toast.push(
                 <Notification title="Error">
                     {!currentUser
                         ? 'Usuario no autenticado.'
-                        : 'Los datos de la categoría son nulos. Por favor, verifica.'}
+                        : 'Los datos de la categoría son inválidos. Por favor, verifica.'}
                 </Notification>,
             )
             return
         }
 
         try {
+            // Obtener información del usuario actual
             const userDocRef = doc(db, 'Usuarios', currentUser.uid)
             const userDoc = await getDoc(userDocRef)
             const userName =
@@ -242,60 +267,60 @@ const Users = () => {
                     ? userDoc.data().nombre
                     : 'Administrador'
 
-            const categoryData = {
-                ...newCategory,
+            // Preparar datos de la categoría
+            const categoryPayload = {
+                ...values,
                 nombreUser: userName,
                 uid: currentUser.uid,
                 fechaCreacion: Timestamp.fromDate(new Date()),
             }
 
+            // Guardar categoría principal
             const categoryRef = await addDoc(
                 collection(db, 'Categorias'),
-                categoryData,
+                categoryPayload,
             )
 
-            // Crear subcategorías
-            const subcategoriesRef = collection(
-                db,
-                'Categorias',
-                categoryRef.id,
-                'Subcategorias',
-            )
-            const batch = writeBatch(db)
-            subcategories.forEach((subcategory) => {
-                if (subcategory.nombre && subcategory.descripcion) {
-                    const subcategoryRef = doc(subcategoriesRef)
-                    batch.set(subcategoryRef, subcategory)
-                }
-            })
+            // Crear subcategorías si existen
+            const { subcategorias } = values
+            if (subcategorias && subcategorias.length > 0) {
+                const subcategoriesRef = collection(
+                    db,
+                    'Categorias',
+                    categoryRef.id,
+                    'Subcategorias',
+                )
 
-            await batch.commit()
+                const batch = writeBatch(db)
 
+                subcategorias.forEach((subcategory: any) => {
+                    if (subcategory.nombre && subcategory.descripcion) {
+                        const subcategoryRef = doc(subcategoriesRef)
+                        batch.set(subcategoryRef, subcategory)
+                    }
+                })
+
+                await batch.commit()
+            }
+
+            // Notificar éxito
             toast.push(
                 <Notification title="Éxito">
                     Categoría y subcategorías creadas con éxito.
                 </Notification>,
             )
 
-            // Limpiar los inputs del Drawer
-            setnewCategory({
-                nombre: '',
-                descripcion: '',
-                fechaCreacion: Timestamp.fromDate(new Date()),
-                logoUrl: '',
-                nombreUser: '',
-                estatus: true,
-                uid: '',
-                id: '',
-            })
-
-            // Limpiar las subcategorías
-            setSubcategories([]) // Esto asume que tienes `subcategories` como estado
-
+            // Limpiar estados o datos
             setDrawerCreateIsOpen(false)
-            getData()
+            getData() // Refrescar datos si es necesario
         } catch (error) {
-            // Manejo de errores aquí
+            console.error('Error al crear categoría:', error)
+            toast.push(
+                <Notification title="Error">
+                    Ocurrió un error al crear la categoría. Inténtalo
+                    nuevamente.
+                </Notification>,
+            )
         }
     }
 
@@ -331,45 +356,56 @@ const Users = () => {
         }
     }
 
-    const handleSaveChanges = async () => {
-        if (!selectedCategory) return
+    const handleSaveChanges = async (values: any) => {
+        if (!values) return
 
+        if (!selectedCategory) {
+            console.error('selectedCategory es null o undefined')
+            return
+        }
         try {
+            // Referencia a la categoría seleccionada
             const categoryRef = doc(db, 'Categorias', selectedCategory.id)
 
             // Actualiza la categoría
             await updateDoc(categoryRef, {
-                nombre: selectedCategory.nombre || '',
-                descripcion: selectedCategory.descripcion || '',
-                logoUrl: selectedCategory.logoUrl || '',
+                nombre: values.nombre,
+                descripcion: values.descripcion,
+                logoUrl: values.logoUrl || '', // Dejar el logo vacío si no se proporciona
             })
 
             // Actualiza las subcategorías
             const subcategoriesCollection = collection(
                 db,
-                `Categorias/${selectedCategory.id}/Subcategorias`,
+                `Categorias/${selectedCategory?.id}/Subcategorias`,
             )
+
             const batch = writeBatch(db)
 
-            subcategories.forEach((sub) => {
+            // Recorre las subcategorías y actualiza o crea nuevas
+            values.subcategorias.forEach((sub: any) => {
                 if (sub.uid) {
-                    // Actualiza una subcategoría existente
+                    // Si tiene un `uid`, actualizamos una subcategoría existente
                     const subRef = doc(subcategoriesCollection, sub.uid)
-                    batch.set(subRef, sub, { merge: true })
+                    batch.set(subRef, sub, { merge: true }) // Usamos `merge: true` para evitar sobrescribir los campos no especificados
                 } else {
-                    // Crea una nueva subcategoría
+                    // Si no tiene `uid`, creamos una nueva subcategoría
                     const newSubRef = doc(subcategoriesCollection)
                     batch.set(newSubRef, sub)
                 }
             })
 
+            // Ejecutar la operación en batch (tanto actualización como creación de subcategorías)
             await batch.commit()
 
+            // Notificación de éxito
             toast.push(
                 <Notification title="Éxito">
                     Categoría y subcategorías actualizadas con éxito.
                 </Notification>,
             )
+
+            // Cerrar el drawer y refrescar los datos
             setDrawerIsOpen(false)
             getData() // Refrescar datos
         } catch (error) {
@@ -572,51 +608,73 @@ const Users = () => {
         }
     }
 
-    const handleDeleteSubcategory = async (subcategoryId: string) => {
-        if (selectedCategory) {
+    const handleRemoveSubcategory = (
+        index: number,
+        values: any,
+        setFieldValue: any,
+    ) => {
+        // Actualizar el estado de Formik eliminando la subcategoría en el índice dado
+        setFieldValue(
+            'subcategorias',
+            values.subcategorias.filter((_: any, i: number) => i !== index),
+        )
+    }
+
+    const handleDeleteSubcategory = async (
+        index: number,
+        values: any,
+        setFieldValue: any,
+    ) => {
+        // Eliminar subcategoría del estado de Formik
+        setFieldValue(
+            'subcategorias',
+            values.subcategorias.filter((_: any, i: any) => i !== index),
+        )
+
+        try {
+            // Si la subcategoría tiene un ID (o UID), la eliminamos de la base de datos
+            const subcategoryId = values.subcategorias[index].uid
+            if (!subcategoryId) return // Si no hay UID, no hace falta eliminar de la base de datos
+
             console.log('Eliminando subcategoría con ID:', subcategoryId)
 
-            try {
-                // Usar el id de la subcategoría en lugar de uid
-                const subcategoryDocRef = doc(
-                    db,
-                    'Categorias',
-                    selectedCategory.id,
-                    'Subcategorias',
-                    subcategoryId,
-                )
-
-                // Eliminar la subcategoría de la base de datos
-                await deleteDoc(subcategoryDocRef)
-
-                // Eliminar visualmente la subcategoría en el estado
-                setSubcategories((prevSubcategories) =>
-                    prevSubcategories.filter(
-                        (subcategory) => subcategory.uid !== subcategoryId,
-                    ),
-                )
-
-                // Usar toast para mostrar el mensaje de éxito
-                const toastNotification = (
-                    <Notification title="Éxito">
-                        Subcategoría eliminada con éxito.
-                    </Notification>
-                )
-                toast.push(toastNotification)
-
-                // Llamar a tu función para obtener los datos actualizados si es necesario
-                getData() // Refrescar datos después de eliminar
-            } catch (error) {
-                console.error('Error eliminando la subcategoría:', error)
-
-                // Usar toast para mostrar el mensaje de error
-                const errorNotification = (
-                    <Notification title="Error">
-                        Hubo un error eliminando la subcategoría.
-                    </Notification>
-                )
-                toast.push(errorNotification)
+            // Verificar que selectedCategory no es null
+            if (!selectedCategory) {
+                console.error('No se ha seleccionado una categoría')
+                return
             }
+
+            const subcategoryDocRef = doc(
+                db,
+                'Categorias',
+                selectedCategory.id,
+                'Subcategorias',
+                subcategoryId,
+            )
+
+            // Eliminar la subcategoría de la base de datos
+            await deleteDoc(subcategoryDocRef)
+
+            // Usar toast para mostrar el mensaje de éxito
+            const toastNotification = (
+                <Notification title="Éxito">
+                    Subcategoría eliminada con éxito.
+                </Notification>
+            )
+            toast.push(toastNotification)
+
+            // Llamar a tu función para obtener los datos actualizados si es necesario
+            //getData() // Refrescar datos después de eliminar
+        } catch (error) {
+            console.error('Error eliminando la subcategoría:', error)
+
+            // Usar toast para mostrar el mensaje de error
+            const errorNotification = (
+                <Notification title="Error">
+                    Hubo un error eliminando la subcategoría.
+                </Notification>
+            )
+            toast.push(errorNotification)
         }
     }
 
@@ -653,7 +711,13 @@ const Users = () => {
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
+        setDrawerIsOpen(false) // Cierra el Drawer
+
+        // Reiniciar los inputs (por ejemplo, estableciendo el estado de subcategorías a los valores iniciales)
+        setSubcategories([
+            { nombre: '', descripcion: '', estatus: true, uid: '' },
+        ])
+        setSelectedCategory(null) // Si tienes un estado de categoría seleccionada, también puedes limpiarlo
     }
 
     return (
@@ -803,198 +867,233 @@ const Users = () => {
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
-                <div className="flex flex-col space-y-6">
-                    {/* Campo para Nombre */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedCategory?.nombre || ''}
-                            onChange={(e) =>
-                                setSelectedCategory((prev: any) => ({
-                                    ...prev,
-                                    nombre: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-
-                    {/* Campo para Descripción */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Descripción:
-                        </span>
-                        <textarea
-                            value={selectedCategory?.descripcion || ''}
-                            onChange={(e) => {
-                                setSelectedCategory((prev: any) => ({
-                                    ...prev,
-                                    descripcion: e.target.value,
-                                }))
-                                e.target.style.height = 'auto' // Resetea la altura
-                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
-                            }}
-                            rows={1} // altura inicial
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                            style={{ maxHeight: '150px', overflowY: 'auto' }}
-                        />
-                    </label>
-
-                    {/* Campo para Logo */}
-                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                        <div className="text-center">
-                            {!selectedCategory?.logoUrl ? (
-                                <FaCamera
-                                    className="mx-auto h-12 w-12 text-gray-300"
-                                    aria-hidden="true"
-                                />
-                            ) : (
-                                <div>
-                                    <img
-                                        src={selectedCategory.logoUrl}
-                                        alt="Preview Logo"
-                                        className="mx-auto h-32 w-32 object-cover"
-                                    />
-                                    <button
-                                        onClick={() =>
-                                            setSelectedCategory(
-                                                (prev: any) => ({
-                                                    ...prev,
-                                                    logoUrl: '',
-                                                }),
-                                            )
-                                        }
-                                        className="mt-2 text-red-500 hover:text-red-700"
+                <Formik
+                    initialValues={{
+                        nombre: selectedCategory?.nombre || '',
+                        descripcion: selectedCategory?.descripcion || '',
+                        subcategorias: selectedCategory?.subcategorias || [],
+                        logoUrl: selectedCategory?.logoUrl || '',
+                    }}
+                    validationSchema={validationSchema}
+                    onSubmit={(values) => {
+                        console.log('Valores enviados:', values)
+                        handleSaveChanges(values) // Llamar la función para guardar los cambios
+                    }}
+                >
+                    {({ isSubmitting, setFieldValue, values }) => (
+                        <Form className="flex flex-col space-y-6">
+                            {/* Logo */}
+                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                                <div className="text-center">
+                                    {!selectedCategory?.logoUrl ? (
+                                        <FaCamera className="mx-auto h-12 w-12 text-gray-300" />
+                                    ) : (
+                                        <div>
+                                            <img
+                                                src={selectedCategory.logoUrl}
+                                                alt="Preview Logo"
+                                                className="mx-auto h-32 w-32 object-cover"
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    setFieldValue('logoUrl', '') // Limpiar logo
+                                                }}
+                                                className="mt-2 text-red-500 hover:text-red-700"
+                                            >
+                                                Quitar Logo
+                                            </button>
+                                        </div>
+                                    )}
+                                    <label
+                                        htmlFor="logo-upload"
+                                        className="relative cursor-pointer bg-white font-semibold text-indigo-600 flex justify-center items-center"
                                     >
-                                        Quitar Logo
-                                    </button>
+                                        <span>
+                                            {selectedCategory?.logoUrl
+                                                ? 'Cambiar Logo'
+                                                : 'Seleccionar Logo'}
+                                        </span>
+                                        <input
+                                            id="logo-upload"
+                                            name="logo-upload"
+                                            type="file"
+                                            accept="image/*"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0]
+                                                if (file) {
+                                                    const reader =
+                                                        new FileReader()
+                                                    reader.onloadend = () => {
+                                                        setFieldValue(
+                                                            'logoUrl',
+                                                            reader.result,
+                                                        )
+                                                    }
+                                                    reader.readAsDataURL(file)
+                                                }
+                                            }}
+                                        />
+                                    </label>
                                 </div>
-                            )}
-                            <label
-                                htmlFor="logo-upload"
-                                className="relative cursor-pointer bg-white font-semibold text-indigo-600 flex justify-center items-center"
-                            >
-                                <span>
-                                    {selectedCategory?.logoUrl
-                                        ? 'Cambiar Logo'
-                                        : 'Seleccionar Logo'}
-                                </span>
-                                <input
-                                    id="logo-upload"
-                                    name="logo-upload"
-                                    type="file"
-                                    accept="image/*"
-                                    className="sr-only"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0]
-                                        if (file) {
-                                            const reader = new FileReader()
-                                            reader.onloadend = () =>
-                                                setSelectedCategory(
-                                                    (prev: any) => ({
-                                                        ...prev,
-                                                        logoUrl: reader.result,
-                                                    }),
-                                                )
-                                            reader.readAsDataURL(file)
-                                        }
+                            </div>
+
+                            {/* Nombre */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Nombre:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="nombre"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <ErrorMessage
+                                    name="nombre"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            {/* Descripción */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Descripción:
+                                </label>
+                                <Field
+                                    as="textarea"
+                                    name="descripcion"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                    rows={1}
+                                    style={{
+                                        maxHeight: '150px',
+                                        overflowY: 'auto',
+                                    }}
+                                    onInput={(e: any) => {
+                                        e.target.style.height = 'auto'
+                                        e.target.style.height = `${e.target.scrollHeight}px`
                                     }}
                                 />
-                            </label>
-                        </div>
-                    </div>
-                    {/* Subcategorías */}
-                    <h3 className="mt-6 text-lg font-semibold">
-                        Subcategorías
-                    </h3>
-                    {subcategories.map((sub, index) => (
-                        <div
-                            key={sub.uid || index}
-                            className="flex flex-col space-y-2"
-                        >
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
-                                    Nombre:
-                                </span>
-                                <input
-                                    type="text"
-                                    value={sub.nombre}
-                                    onChange={(e) =>
-                                        setSubcategories((prev) =>
-                                            prev.map((s, i) =>
-                                                i === index
-                                                    ? {
-                                                          ...s,
-                                                          nombre: e.target
-                                                              .value,
-                                                      }
-                                                    : s,
-                                            ),
-                                        )
-                                    }
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                <ErrorMessage
+                                    name="descripcion"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
                                 />
-                            </label>
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
-                                    Descripción:
-                                </span>
-                                <textarea
-                                    value={sub.descripcion}
-                                    onChange={(e) =>
-                                        setSubcategories((prev) =>
-                                            prev.map((s, i) =>
-                                                i === index
-                                                    ? {
-                                                          ...s,
-                                                          descripcion:
-                                                              e.target.value,
-                                                      }
-                                                    : s,
-                                            ),
-                                        )
-                                    }
-                                    rows={1}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                                />
-                            </label>
-                            <Button
-                                onClick={() => handleDeleteSubcategory(sub.uid)}
-                                className="text-white hover:opacity-80 focus:ring-2 focus:ring-red-500 mt-2"
-                                style={{ backgroundColor: '#B91C1C' }}
-                            >
-                                Eliminar Subcategoría
-                            </Button>
-                        </div>
-                    ))}
-                    <Button
-                        onClick={handleAddSubcategory}
-                        style={{ backgroundColor: '#000B7E' }}
-                        className="text-white hover:opacity-80"
-                    >
-                        Agregar Subcategoría
-                    </Button>
-                </div>
+                            </div>
 
-                <div className="text-right mt-6">
-                    <Button
-                        variant="default"
-                        onClick={handleDrawerCloseEdit}
-                        className="mr-2"
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        style={{ backgroundColor: '#000B7E' }}
-                        className="text-white hover:opacity-80"
-                        onClick={handleSaveChanges}
-                    >
-                        Guardar Cambios
-                    </Button>
-                </div>
+                            {/* Subcategorías */}
+                            <h3 className="mt-6 text-lg font-semibold">
+                                Subcategorías
+                            </h3>
+                            {values.subcategorias.map(
+                                (sub: any, index: any) => (
+                                    <div
+                                        key={sub.uid || index}
+                                        className="flex flex-col space-y-2"
+                                    >
+                                        <label className="flex flex-col">
+                                            <span className="font-semibold text-gray-700">
+                                                Nombre:
+                                            </span>
+                                            <Field
+                                                type="text"
+                                                name={`subcategorias[${index}].nombre`}
+                                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            />
+                                            <ErrorMessage
+                                                name={`subcategorias[${index}].nombre`}
+                                                component="div"
+                                                className="text-red-600 text-sm mt-1"
+                                            />
+                                        </label>
+
+                                        <label className="flex flex-col">
+                                            <span className="font-semibold text-gray-700">
+                                                Descripción:
+                                            </span>
+                                            <Field
+                                                as="textarea"
+                                                name={`subcategorias[${index}].descripcion`}
+                                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                                                rows={1}
+                                                style={{
+                                                    maxHeight: '150px',
+                                                    overflowY: 'auto',
+                                                }}
+                                                onInput={(e: any) => {
+                                                    e.target.style.height =
+                                                        'auto'
+                                                    e.target.style.height = `${e.target.scrollHeight}px`
+                                                }}
+                                            />
+                                            <ErrorMessage
+                                                name={`subcategorias[${index}].descripcion`}
+                                                component="div"
+                                                className="text-red-600 text-sm mt-1"
+                                            />
+                                        </label>
+                                        {/* Botón para eliminar subcategoría (Deshabilitado si es la primera subcategoría) */}
+                                            <Button
+                                                type="button"
+                                                onClick={() =>
+                                                    handleDeleteSubcategory(
+                                                        index,
+                                                        values,
+                                                        setFieldValue,
+                                                    )
+                                                } // Pasar el índice a la función de eliminación
+                                                className={`text-white hover:opacity-80 focus:ring-2 mt-2 ${
+                                                    values.subcategorias.length === 1
+                                                        ? "opacity-50 cursor-not-allowed"
+                                                        : "focus:ring-red-500"
+                                                }`}
+                                                style={{
+                                                    backgroundColor: values.subcategorias.length === 1 ? '#A0A0A0' : '#B91C1C',
+                                                }}
+                                                disabled={values.subcategorias.length === 1}
+                                            >
+                                                Eliminar Subcategoría
+                                            </Button>
+                                    </div>
+                                ),
+                            )}
+                            <Button
+                                onClick={() => {
+                                    const newSubcategory = {
+                                        nombre: '',
+                                        descripcion: '',
+                                    }
+                                    setFieldValue('subcategorias', [
+                                        ...values.subcategorias,
+                                        newSubcategory,
+                                    ])
+                                }}
+                                style={{ backgroundColor: '#000B7E' }}
+                                className="text-white hover:opacity-80"
+                            >
+                                Agregar Subcategoría
+                            </Button>
+
+                            <div className="text-right mt-6">
+                                <Button
+                                    variant="default"
+                                    onClick={handleDrawerCloseEdit}
+                                    className="mr-2"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    style={{ backgroundColor: '#000B7E' }}
+                                    className="text-white hover:opacity-80"
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                >
+                                    Guardar Cambios
+                                </Button>
+                            </div>
+                        </Form>
+                    )}
+                </Formik>
             </Drawer>
             <Drawer
                 isOpen={drawerCreateIsOpen}
@@ -1002,180 +1101,236 @@ const Users = () => {
                 className="rounded-md shadow"
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
-                <div className="flex flex-col space-y-6">
-                    {/* Campo para el logo */}
-                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                        <div className="text-center">
-                            {!newCategory?.logoUrl ? (
-                                <FaCamera
-                                    className="mx-auto h-12 w-12 text-gray-300"
-                                    aria-hidden="true"
-                                />
-                            ) : (
-                                <img
-                                    src={newCategory.logoUrl}
-                                    alt="Preview Logo"
-                                    className="mx-auto h-32 w-32 object-cover"
-                                />
-                            )}
-                            <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                                <label
-                                    htmlFor="logo-upload"
-                                    className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-                                >
-                                    <span>
-                                        {newCategory?.logoUrl
-                                            ? 'Cambiar Logo'
-                                            : 'Seleccionar Logo'}
-                                    </span>
-                                    <input
-                                        id="logo-upload"
-                                        name="logo-upload"
-                                        type="file"
-                                        accept="image/*"
-                                        className="sr-only"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) {
-                                                const reader = new FileReader()
-                                                reader.onloadend = () => {
-                                                    setnewCategory(
-                                                        (prev: any) => ({
-                                                            ...prev,
-                                                            logoUrl:
-                                                                reader.result, // Almacena la URL del logo
-                                                        }),
-                                                    )
-                                                }
-                                                reader.readAsDataURL(file) // Leer el archivo como una URL de datos
-                                            }
-                                        }}
-                                    />
-                                </label>
+                <Formik
+                    initialValues={{
+                        uid: '',
+                        nombre: '',
+                        descripcion: '',
+                        logoUrl: '',
+                        nombreUser: '',
+                        estatus: true,
+                        id: '',
+                        subcategorias: [
+                            {
+                                nombre: '',
+                                descripcion: '',
+                                uid: '',
+                                estatus: true,
+                            },
+                        ], // Al menos una subcategoría
+                    }}
+                    validationSchema={validationSchema}
+                    onSubmit={(values, { setSubmitting }) => {
+                        handleCreateCategory(values) // Lógica de creación
+                        setSubmitting(false)
+                    }}
+                >
+                    {({ values, setFieldValue }) => (
+                        <Form className="flex flex-col space-y-6">
+                            {/* Campo para el logo */}
+                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                                <div className="text-center">
+                                    {!newCategory?.logoUrl ? (
+                                        <FaCamera
+                                            className="mx-auto h-12 w-12 text-gray-300"
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={newCategory.logoUrl}
+                                            alt="Preview Logo"
+                                            className="mx-auto h-32 w-32 object-cover"
+                                        />
+                                    )}
+                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                        <label
+                                            htmlFor="logo-upload"
+                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                        >
+                                            <span>
+                                                {newCategory?.logoUrl
+                                                    ? 'Cambiar Logo'
+                                                    : 'Seleccionar Logo'}
+                                            </span>
+                                            <input
+                                                id="logo-upload"
+                                                name="logo-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="sr-only"
+                                                onChange={(e) => {
+                                                    const file =
+                                                        e.target.files?.[0]
+                                                    if (file) {
+                                                        const reader =
+                                                            new FileReader()
+                                                        reader.onloadend =
+                                                            () => {
+                                                                setnewCategory(
+                                                                    (
+                                                                        prev: any,
+                                                                    ) => ({
+                                                                        ...prev,
+                                                                        logoUrl:
+                                                                            reader.result, // Almacena la URL del logo
+                                                                    }),
+                                                                )
+                                                            }
+                                                        reader.readAsDataURL(
+                                                            file,
+                                                        ) // Leer el archivo como una URL de datos
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Campos de la categoría */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre:
-                        </span>
-                        <input
-                            type="text"
-                            value={newCategory?.nombre || ''}
-                            onChange={(e) =>
-                                setnewCategory((prev: any) => ({
-                                    ...prev,
-                                    nombre: e.target.value,
-                                }))
-                            }
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                        />
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Descripción:
-                        </span>
-                        <textarea
-                            value={newCategory?.descripcion || ''}
-                            onChange={(e) => {
-                                setnewCategory((prev: any) => ({
-                                    ...(prev ?? {}),
-                                    descripcion: e.target.value,
-                                }))
-                                e.target.style.height = 'auto' // Resetea la altura
-                                e.target.style.height = `${e.target.scrollHeight}px` // Ajusta la altura según el contenido
-                            }}
-                            rows={1} // Altura inicial
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                            style={{
-                                maxHeight: '150px', // Límite máximo de altura
-                                overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                            }}
-                        />
-                    </label>
-
-                    {/* Sección de subcategorías */}
-                    <h3 className="mt-6 text-lg font-semibold">
-                        Subcategorías
-                    </h3>
-                    {subcategories.map((subcategory, index) => (
-                        <div key={index} className="flex flex-col space-y-2">
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
+                            {/* Campos de Categoría */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
                                     Nombre:
-                                </span>
-                                <input
+                                </label>
+                                <Field
                                     type="text"
-                                    value={subcategory.nombre}
-                                    onChange={(e) =>
-                                        handleSubcategoryChange(
-                                            index,
-                                            'nombre',
-                                            e.target.value,
-                                        )
-                                    }
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                    name="nombre"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
-                            </label>
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
+                                <ErrorMessage
+                                    name="nombre"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
                                     Descripción:
-                                </span>
-                                <textarea
-                                    value={subcategory.descripcion}
-                                    onChange={(e) =>
-                                        handleSubcategoryChange(
-                                            index,
-                                            'descripcion',
-                                            e.target.value,
-                                        )
-                                    }
+                                </label>
+                                <Field
+                                    as="textarea"
+                                    name="descripcion"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                                     rows={1}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
                                     style={{
                                         maxHeight: '150px',
                                         overflowY: 'auto',
                                     }}
+                                    onInput={(e: any) => {
+                                        e.target.style.height = 'auto'
+                                        e.target.style.height = `${e.target.scrollHeight}px`
+                                    }}
                                 />
-                            </label>
-                            {/* Botón para eliminar subcategoría */}
-                            <Button
-                                onClick={() => handleRemoveSubcategory(index)}
-                                className="text-white hover:opacity-80 focus:ring-2 focus:ring-red-500 mt-2"
-                                style={{ backgroundColor: '#B91C1C' }}
-                            >
-                                Eliminar Subcategoría
-                            </Button>
-                        </div>
-                    ))}
-                    <Button
-                        onClick={handleAddSubcategory}
-                        style={{ backgroundColor: '#000B7E' }}
-                        className="text-white hover:opacity-80"
-                    >
-                        Agregar Subcategoría
-                    </Button>
+                                <ErrorMessage
+                                    name="descripcion"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
 
-                    {/* Botones de acción */}
-                    <div className="text-right mt-6">
-                        <Button
-                            className="ltr:mr-2 rtl:ml-2"
-                            variant="default"
-                            onClick={handleDrawerClose}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="text-white hover:opacity-80"
-                            onClick={handleCreateCategory}
-                        >
-                            Guardar
-                        </Button>
-                    </div>
-                </div>
+                            {/* Campos de Subcategorías */}
+                            <h3 className="text-lg font-semibold">
+                                Subcategorías
+                            </h3>
+                            {values.subcategorias.map((_, index) => (
+                                <div key={index} className="space-y-2">
+                                    <div className="flex flex-col">
+                                        <label className="font-semibold text-gray-700">
+                                            Nombre:
+                                        </label>
+                                        <Field
+                                            name={`subcategorias[${index}].nombre`}
+                                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <ErrorMessage
+                                            name={`subcategorias[${index}].nombre`}
+                                            component="div"
+                                            className="text-red-600 text-sm mt-1"
+                                        />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <label className="font-semibold text-gray-700">
+                                            Descripción:
+                                        </label>
+                                        <Field
+                                            as="textarea"
+                                            name={`subcategorias[${index}].descripcion`}
+                                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
+                                            rows={1}
+                                            style={{
+                                                maxHeight: '150px',
+                                                overflowY: 'auto',
+                                            }}
+                                            onInput={(e: any) => {
+                                                e.target.style.height = 'auto'
+                                                e.target.style.height = `${e.target.scrollHeight}px`
+                                            }}
+                                        />
+                                        <ErrorMessage
+                                            name={`subcategorias[${index}].descripcion`}
+                                            component="div"
+                                            className="text-red-600 text-sm mt-1"
+                                        />
+                                    </div>
+                                    {/* Botón para eliminar subcategoría (Deshabilitado si es la primera subcategoría) */}
+                                        <Button
+                                            type="button"
+                                            onClick={() =>
+                                                handleRemoveSubcategory(
+                                                    index,
+                                                    values,
+                                                    setFieldValue,
+                                                )
+                                            } // Pasar el índice a la función de eliminación
+                                            className={`text-white hover:opacity-80 focus:ring-2 mt-2 w-full sm:w-64${
+                                                values.subcategorias.length === 1
+                                                    ? "opacity-50 cursor-not-allowed"
+                                                    : "focus:ring-red-500"
+                                            }`}
+                                            style={{
+                                                backgroundColor: values.subcategorias.length === 1 ? '#A0A0A0' : '#B91C1C',
+                                            }}
+                                            disabled={values.subcategorias.length === 1}
+                                        >
+                                            Eliminar Subcategoría
+                                        </Button>
+                                </div>
+                            ))}
+                            <Button
+                                type="button"
+                                onClick={() =>
+                                    setFieldValue('subcategorias', [
+                                        ...values.subcategorias,
+                                        { nombre: '', descripcion: '' },
+                                    ])
+                                }
+                                className="text-white hover:opacity-80"
+                                style={{ backgroundColor: '#000B7E' }}
+                            >
+                                Agregar Subcategoría
+                            </Button>
+
+                            {/* Botones de acción */}
+                            <div className="text-right mt-6">
+                                <Button
+                                    type="button"
+                                    className="ltr:mr-2 rtl:ml-2"
+                                    variant="default"
+                                    onClick={handleDrawerClose}
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    className="text-white hover:opacity-80"
+                                    style={{ backgroundColor: '#000B7E' }}
+                                >
+                                    Guardar
+                                </Button>
+                            </div>
+                        </Form>
+                    )}
+                </Formik>
             </Drawer>
         </>
     )
