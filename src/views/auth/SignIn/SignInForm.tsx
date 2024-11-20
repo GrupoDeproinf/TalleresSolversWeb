@@ -24,8 +24,8 @@ type SignInFormSchema = {
 }
 
 const validationSchema = Yup.object().shape({
-    userName: Yup.string().required('Please enter your user name'),
-    password: Yup.string().required('Please enter your password'),
+    userName: Yup.string().required('Por favor ingrese su correo'),
+    password: Yup.string().required('Por favor ingrese su contraseña'),
     rememberMe: Yup.bool(),
 })
 
