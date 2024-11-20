@@ -11,6 +11,7 @@ import * as Yup from 'yup'
 import useAuth from '@/utils/hooks/useAuth'
 import type { CommonProps } from '@/@types/common'
 import { Notification, toast } from '@/components/ui'
+import { useNavigate } from 'react-router-dom'
 
 interface SignUpFormProps extends CommonProps {
     disableSubmit?: boolean
@@ -30,12 +31,20 @@ type SignUpFormSchema = {
 const validationSchema = Yup.object().shape({
     nombre: Yup.string().required('Por favor ingrese su nombre'),
     email: Yup.string()
-        .email('email invalido')
-        .required('Por favor ingrese su email'),
-    password: Yup.string().required('Por favor ingrese una contraseña'),
+        .email('Email inválido')
+        .required('Por favor ingrese su email')
+        .test(
+            'termina-en-com',
+            'El email debe terminar en ".com"',
+            (value) => value?.endsWith('.com') ?? false,
+        ),
+    password: Yup.string()
+        .min(6, 'La contraseña debe tener al menos 6 caracteres')
+        .required('Por favor ingrese una contraseña'),
     confirmPassword: Yup.string()
         .oneOf([Yup.ref('password')], 'Las contraseñas no coinciden')
         .required('Por favor confirme su contraseña'),
+
     cedulaOrif: Yup.string().when('typeUser', {
         is: 'Taller',
         then: () =>
@@ -43,13 +52,13 @@ const validationSchema = Yup.object().shape({
                 .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
                 .min(3, 'No puede tener menos de 3 dígitos')
                 .max(12, 'No puede tener más de 10 dígitos')
-                .required('Requerido'),
+                .required('Este campo es obligatorio'),
         otherwise: () =>
             Yup.string()
                 .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
                 .min(3, 'No puede tener menos de 3 dígitos')
                 .max(12, 'No puede tener más de 10 dígitos')
-                .required('Requerido'),
+                .required('Este campo es obligatorio'),
     }),
     phone: Yup.string()
         .matches(/^\d{7,11}$/, 'Debe contener maximo 11 digitos')
@@ -60,6 +69,7 @@ const SignUpForm = (props: SignUpFormProps) => {
     const { disableSubmit = false, className, signInUrl = '/sign-in' } = props
     const { signUp } = useAuth()
     const [message, setMessage] = useTimeOutMessage()
+    const navigate = useNavigate()
 
     const onSignUp = async (
         values: SignUpFormSchema,
@@ -86,24 +96,17 @@ const SignUpForm = (props: SignUpFormProps) => {
             .catch((error) => {
                 console.error(error)
 
-                type AuthErrorCodes =
-                    | 'auth/weak-password'
-                    | 'auth/email-already-in-use'
-                    | 'auth/invalid-email'
+                type AuthErrorCodes = 'auth/email-already-in-use'
 
                 const errorMessages: Record<AuthErrorCodes, string> = {
-                    'auth/weak-password':
-                        'La contraseña debe tener al menos 6 caracteres.',
                     'auth/email-already-in-use':
                         'La dirección de correo electrónico ya está en uso por otra cuenta',
-                    'auth/invalid-email':
-                        'La dirección de correo electrónico no es válida',
                 }
 
                 const message =
                     error.code in errorMessages
                         ? errorMessages[error.code as AuthErrorCodes]
-                        : 'Ocurrió un error inesperado.'
+                        : 'Este correo ya esta registrado.'
 
                 showToast(message)
             })
