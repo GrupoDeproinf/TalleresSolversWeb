@@ -42,17 +42,17 @@ const validationSchema = Yup.object().shape({
             Yup.string()
                 .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
                 .min(3, 'No puede tener menos de 3 dígitos')
-                .max(10, 'No puede tener más de 10 dígitos')
+                .max(12, 'No puede tener más de 10 dígitos')
                 .required('Requerido'),
         otherwise: () =>
             Yup.string()
                 .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
                 .min(3, 'No puede tener menos de 3 dígitos')
-                .max(10, 'No puede tener más de 10 dígitos')
+                .max(12, 'No puede tener más de 10 dígitos')
                 .required('Requerido'),
     }),
     phone: Yup.string()
-        .matches(/^\d{11}$/, 'Debe contener 11 digitos')
+        .matches(/^\d{7,11}$/, 'Debe contener maximo 11 digitos')
         .required('Por favor ingrese su número teléfonico'),
 })
 
@@ -238,7 +238,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                                     `${e.target.value}-${suffix}`,
                                                 )
                                             }}
-                                            className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                            className=" p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                                         >
                                             <option value="V">V-</option>
                                             <option value="E">E-</option>
