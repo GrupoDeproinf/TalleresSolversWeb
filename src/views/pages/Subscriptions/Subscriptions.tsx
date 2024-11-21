@@ -40,12 +40,12 @@ type Subscriptions = {
     fecha_inicio: Timestamp
     fecha_fin: Timestamp
     vigencia: string
-    monto?: string
+    monto?: number
     uid: string
     id: string
     nombre_taller: string
     comprobante_pago: {
-        monto?: string
+        monto?: number
         metodo?: string
         banco?: string
         cedula?: number
@@ -83,7 +83,9 @@ const Subscriptions = () => {
 
         const resolvedSubcripciones = await Promise.all(promises)
         setDataSubs(resolvedSubcripciones)
+        console.log(resolvedSubcripciones)
     }
+
     useEffect(() => {
         getData()
     }, [])
@@ -627,19 +629,22 @@ const Subscriptions = () => {
                             />
                         </label>
                     )}
-                    {selectedPerson?.comprobante_pago.monto && (
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Monto:
-                            </span>
-                            <input
-                                type="text"
-                                value={selectedPerson.comprobante_pago.monto}
-                                readOnly
-                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                            />
-                        </label>
-                    )}
+                    {selectedPerson?.comprobante_pago.monto !== undefined &&
+                        selectedPerson.comprobante_pago.monto !== 0 && (
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Monto:
+                                </span>
+                                <input
+                                    type="text"
+                                    value={
+                                        selectedPerson.comprobante_pago.monto
+                                    }
+                                    readOnly
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                                />
+                            </label>
+                        )}
                     {selectedPerson?.comprobante_pago.numReferencia && (
                         <label className="flex flex-col">
                             <span className="font-semibold text-gray-700">
