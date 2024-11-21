@@ -597,19 +597,22 @@ const Subscriptions = () => {
                             />
                         </label>
                     )}
-                    {selectedPerson?.comprobante_pago.cedula !== undefined && (
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Cedula:
-                            </span>
-                            <input
-                                type="text"
-                                value={selectedPerson.comprobante_pago.cedula}
-                                readOnly
-                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                            />
-                        </label>
-                    )}
+                    {selectedPerson?.comprobante_pago.cedula !== undefined &&
+                        selectedPerson.comprobante_pago.cedula !== 0 && (
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Cédula:
+                                </span>
+                                <input
+                                    type="text"
+                                    value={
+                                        selectedPerson.comprobante_pago.cedula
+                                    }
+                                    readOnly
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                                />
+                            </label>
+                        )}
                     {selectedPerson?.comprobante_pago.telefono !==
                         undefined && (
                         <label className="flex flex-col">
