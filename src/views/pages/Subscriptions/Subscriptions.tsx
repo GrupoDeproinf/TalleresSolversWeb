@@ -615,20 +615,22 @@ const Subscriptions = () => {
                                 />
                             </label>
                         )}
-                    {selectedPerson?.comprobante_pago.telefono !==
-                        undefined && (
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Telefono:
-                            </span>
-                            <input
-                                type="text"
-                                value={selectedPerson.comprobante_pago.telefono}
-                                readOnly
-                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                            />
-                        </label>
-                    )}
+                    {selectedPerson?.comprobante_pago.telefono !== undefined &&
+                        selectedPerson.comprobante_pago.telefono !== 0 && (
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Telefono:
+                                </span>
+                                <input
+                                    type="text"
+                                    value={
+                                        selectedPerson.comprobante_pago.telefono
+                                    }
+                                    readOnly
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                                />
+                            </label>
+                        )}
                     {selectedPerson?.comprobante_pago.monto !== undefined &&
                         selectedPerson.comprobante_pago.monto !== 0 && (
                             <label className="flex flex-col">
