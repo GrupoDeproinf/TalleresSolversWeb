@@ -22,6 +22,7 @@ import {
     FaEye,
     FaEyeSlash,
     FaFolder,
+    FaQuestionCircle,
     FaRegEye,
     FaTimesCircle,
     FaTrash,
@@ -136,7 +137,12 @@ const Garages = () => {
             .required('El nombre es obligatorio'),
         email: Yup.string()
             .email('Debe ser un email válido')
-            .required('El correo electrónico es obligatorio'),
+            .required('El correo electrónico es obligatorio')
+            .test(
+                'termina-en-com',
+                'El email debe terminar en ".com"',
+                (value) => value?.endsWith('.com') ?? false,
+            ),
         rif: Yup.string()
             .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
             .required('El rif es obligatoria'),
@@ -428,6 +434,10 @@ const Garages = () => {
                             <FaExclamationCircle className="text-yellow-500 mr-1" />
                         )
                         color = 'text-yellow-500' // Color para el texto
+                        break
+                        case 'En espera por aprobación':
+                        icon = <FaQuestionCircle className="text-blue-500 mr-1" />
+                        color = 'text-blue-500' // Color para el texto
                         break
                     default:
                         icon = null

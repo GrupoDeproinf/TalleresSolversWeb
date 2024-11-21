@@ -122,7 +122,7 @@ const ServiceGarages = () => {
     const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>(
         [],
     )
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre_servicio')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
         null,
