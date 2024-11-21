@@ -120,8 +120,8 @@ function useAuth() {
                 // }
                 return {
                     status: 'failed',
-                    message:
-                        errors?.response?.data?.message || errors.toString(),
+                    message: 'Su contraseña es invalida',
+                       // errors?.response?.data?.message || errors.toString(),
                 }
             }
         }

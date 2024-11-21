@@ -402,7 +402,7 @@ const Subscriptions = () => {
                                     Seleccionar columna...
                                 </option>
                                 <option value="nombre">Plan</option>
-                                <option value="nombreTaller">Taller</option>
+                                <option value="nombre_taller">Taller</option>
                                 <option value="status">Estado</option>
                             </select>
                         </div>

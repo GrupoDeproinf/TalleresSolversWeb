@@ -71,7 +71,7 @@ const Services = () => {
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [selectedServiceTemplate, setSelectedServiceTemplate] =
         useState<ServiceTemplate | null>(null)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
+    const [selectedColumn, setSelectedColumn] = useState<string>('nombre_servicio')
     const [searchTerm, setSearchTerm] = useState('')
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
 
