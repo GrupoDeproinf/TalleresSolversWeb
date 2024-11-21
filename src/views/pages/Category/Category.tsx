@@ -59,7 +59,7 @@ type Category = {
     nombreUser?: string // Nombre del creador
     estatus?: boolean
 
-    uid?: string // ID del usuario que creó la categoría
+    //uid?: string // ID del usuario que creó la categoría
     id: string // ID único de la categoría
     subcategorias?: any[]
 }
@@ -131,44 +131,13 @@ const Users = () => {
         logoUrl: '',
         nombreUser: '',
         estatus: true,
-        uid: '', // Asignar valor vacío si no quieres que sea undefined
+        //uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
     const openDialog = (Category: Category) => {
         setSelectedCategory(Category)
         setIsOpen(true)
-    }
-    const openDrawer = (Category: Category) => {
-        setSelectedCategory(Category)
-        setDrawerIsOpen(true) // Abre el Drawer
-    }
-
-    const handleEditCategory = async (categoryId: string) => {
-        try {
-            const subcategoriesRef = collection(
-                db,
-                'Categorias',
-                categoryId,
-                'Subcategorias',
-            )
-            const snapshot = await getDocs(subcategoriesRef)
-            const loadedSubcategories: Subcategory[] = snapshot.docs.map(
-                (doc) => ({
-                    ...doc.data(),
-                    uid: doc.id,
-                }),
-            ) as Subcategory[]
-
-            setSubcategories(
-                loadedSubcategories.length > 0
-                    ? loadedSubcategories
-                    : [{ nombre: '', descripcion: '', estatus: true, uid: '' }],
-            )
-            setDrawerIsOpen(true)
-        } catch (error) {
-            console.error('Error al cargar las subcategorías:', error)
-        }
     }
 
     const handleDrawerOpenEdit = (category: any) => {
@@ -194,12 +163,7 @@ const Users = () => {
         { nombre: '', descripcion: '', estatus: true, uid: '' },
     ])
 
-    const handleAddSubcategory = () => {
-        setSubcategories([
-            ...subcategories,
-            { nombre: '', descripcion: '', estatus: true, uid: '' },
-        ])
-    }
+
 
     const handleSubcategoryChange = (
         index: number,
@@ -271,7 +235,7 @@ const Users = () => {
             const categoryPayload = {
                 ...values,
                 nombreUser: userName,
-                uid: currentUser.uid,
+                //uid: currentUser.uid,
                 fechaCreacion: Timestamp.fromDate(new Date()),
             }
 
@@ -544,7 +508,7 @@ const Users = () => {
             nombre: '',
             descripcion: '',
             logoUrl: '',
-            uid: '',
+            //uid: '',
             id: '',
         }) // Limpia los campos de la categoría
         setSubcategories([]) // Limpia las subcategorías
@@ -1103,13 +1067,13 @@ const Users = () => {
                 <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
                 <Formik
                     initialValues={{
-                        uid: '',
+                        //uid: '',
                         nombre: '',
                         descripcion: '',
                         logoUrl: '',
                         nombreUser: '',
                         estatus: true,
-                        id: '',
+                        //id: '',
                         subcategorias: [
                             {
                                 nombre: '',
