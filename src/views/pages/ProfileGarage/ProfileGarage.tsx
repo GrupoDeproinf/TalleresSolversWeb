@@ -840,17 +840,15 @@ const ProfileGarage = () => {
                                             )}
                                             {data.LinkWhatsapp && (
                                                 <a
-                                                    href={data.LinkWhatsapp}
+                                                    href={`https://wa.me/${data.LinkWhatsapp}?text=${encodeURIComponent("Hola, quiero más información sobre el servicio")}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    title={data.LinkWhatsapp} // Tooltip al pasar el mouse
+                                                    title={data.LinkWhatsapp}
                                                 >
                                                     <Button
                                                         shape="circle"
                                                         size="sm"
-                                                        icon={
-                                                            <FaWhatsapp  className="text-[#25d366]" />
-                                                        }
+                                                        icon={<FaWhatsapp className="text-[#25d366]" />}
                                                     />
                                                 </a>
                                             )}
