@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { APP_PREFIX_PATH } from '@/constants/route.constant'
-import Switcher from '@/components/ui/Switcher';
-import { ChangeEvent } from 'react';
+import Switcher from '@/components/ui/Switcher'
+import { ChangeEvent } from 'react'
 import {
     doc,
     getDocs,
@@ -20,7 +20,14 @@ import Card from '@/components/ui/Card'
 import Avatar from '@/components/ui/Avatar'
 import Button from '@/components/ui/Button'
 import ConfirmDialog from '@/components/shared/ConfirmDialog'
-import { FaCamera, FaFacebookF, FaInstagram, FaArrowLeft, FaTiktok } from 'react-icons/fa'
+import {
+    FaCamera,
+    FaFacebookF,
+    FaInstagram,
+    FaArrowLeft,
+    FaTiktok,
+    FaWhatsapp,
+} from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
 import { db } from '@/configs/firebaseAssets.config'
 import { useNavigate } from 'react-router-dom'
@@ -48,7 +55,7 @@ import { MdOutlinePhoneAndroid } from 'react-icons/md'
 import Checkbox from '@/components/ui/Checkbox'
 import { SiZelle } from 'react-icons/si'
 import PaymentDrawer from './Components/PaymentForm'
-
+import { BsWhatsapp } from 'react-icons/bs'
 
 type Service = {
     nombre_servicio: string
@@ -60,26 +67,26 @@ type Service = {
     estatus: boolean
 }
 type Planes = {
-    uid: string;
-    nombre: string;
-    descripcion: string;
-    monto: number;
-    status: string;
-    vigencia: string;
-    cantidad_servicios: number;
-};
+    uid: string
+    nombre: string
+    descripcion: string
+    monto: number
+    status: string
+    vigencia: string
+    cantidad_servicios: number
+}
 
 type SubscriptionHistory = {
-    uid: string;
-    nombre: string;
-    monto: number;
-    vigencia: string;
-    status: string;
-    cantidad_servicios: number;
-    fecha_fin: Timestamp;
-    fecha_inicio: Timestamp;
-    taller_uid: string;
-};
+    uid: string
+    nombre: string
+    monto: number
+    vigencia: string
+    status: string
+    cantidad_servicios: number
+    fecha_fin: Timestamp
+    fecha_inicio: Timestamp
+    taller_uid: string
+}
 
 const ProfileGarage = () => {
     const [data, setData] = useState<DocumentData | null>(null)
@@ -92,7 +99,7 @@ const ProfileGarage = () => {
     const [dialogOpen, setDialogOpen] = useState(false)
     const [dialogOpensub, setDialogOpensub] = useState(false)
     const [editModalOpen, setEditModalOpen] = useState(false)
-    const [diasRestantes, setDiasRestantes] = useState<number | null>(null);
+    const [diasRestantes, setDiasRestantes] = useState<number | null>(null)
     const [subscription, setSubscription] = useState({
         fecha_fin: Timestamp,
         fecha_inicio: Timestamp,
@@ -102,8 +109,10 @@ const ProfileGarage = () => {
         status: '',
         vigencia: '',
         uid: '',
-    });
-    const [subscripcionestable, setSubscriptionHistory] = useState<SubscriptionHistory[]>([]);
+    })
+    const [subscripcionestable, setSubscriptionHistory] = useState<
+        SubscriptionHistory[]
+    >([])
     const [formData, setFormData] = useState({
         logoUrl: '',
         nombre: '',
@@ -115,8 +124,12 @@ const ProfileGarage = () => {
         LinkFacebook: '',
         LinkTiktok: '',
         LinkInstagram: '',
+        estado: '',
+        LinkWhatsapp: '',
     })
-    const [paymentMethodsState, setPaymentMethodsState] = useState<Record<string, boolean>>({
+    const [paymentMethodsState, setPaymentMethodsState] = useState<
+        Record<string, boolean>
+    >({
         pagoMovil: false,
         transferencia: false,
         puntoVenta: false,
@@ -125,45 +138,43 @@ const ProfileGarage = () => {
         zelle: false,
         tarjetaCreditoN: false,
         tarjetaCreditoI: false,
-    });
+    })
 
     const path = location.pathname.substring(
         location.pathname.lastIndexOf('/') + 1,
     )
     const navigate = useNavigate()
 
-
     const getData = async () => {
-        setLoading(true);
+        setLoading(true)
         try {
             // Obtener datos del usuario desde la colección 'Usuarios'
-            const docRef = doc(db, 'Usuarios', path); // `path` es el ID del usuario o taller
-            const resp = await getDoc(docRef);
-            const dataFinal = resp.data() || null;
+            const docRef = doc(db, 'Usuarios', path) // `path` es el ID del usuario o taller
+            const resp = await getDoc(docRef)
+            const dataFinal = resp.data() || null
 
             console.log(dataFinal)
 
-            const paymentMethodsData = dataFinal?.metodos_pago || {};
+            const paymentMethodsData = dataFinal?.metodos_pago || {}
             setPaymentMethodsState((prevState) => ({
                 ...prevState,
                 ...paymentMethodsData,
-            }));
+            }))
 
             // Obtener información de la suscripción actual
-            const subscripcionActual = dataFinal?.subscripcion_actual || null;
-            console.log("aqui el plan", subscripcionActual)
+            const subscripcionActual = dataFinal?.subscripcion_actual || null
+            console.log('aqui el plan', subscripcionActual)
 
             setIsSuscrito(!!subscripcionActual)
 
-
             const subscripcionesQuery = query(
                 collection(db, 'Subscripciones'),
-                where('taller_uid', '==', path)
-            );
+                where('taller_uid', '==', path),
+            )
 
-            const subscripcionesSnapshot = await getDocs(subscripcionesQuery);
+            const subscripcionesSnapshot = await getDocs(subscripcionesQuery)
             const subscripciones = subscripcionesSnapshot.docs.map((doc) => {
-                const data = doc.data();
+                const data = doc.data()
 
                 return {
                     uid: doc.id,
@@ -172,26 +183,24 @@ const ProfileGarage = () => {
                     vigencia: data.vigencia || '',
                     status: data.status || '',
                     cantidad_servicios: data.cantidad_servicios || 0,
-                    fecha_fin: data.fecha_fin || "no hay fecha",
-                    fecha_inicio: data.fecha_inicio || "no hay fecha",
+                    fecha_fin: data.fecha_fin || 'no hay fecha',
+                    fecha_inicio: data.fecha_inicio || 'no hay fecha',
                     taller_uid: data.taller_uid || '', // UID del taller
-                };
-            });
-
-
+                }
+            })
 
             // Obtener detalles de cada servicio basado en los IDs
             const servicesQuery = query(
                 collection(db, 'Servicios'),
-                where('uid_taller', '==', path)
-            );
+                where('uid_taller', '==', path),
+            )
 
             // Obtener los servicios que coinciden con el `uid_taller`
-            const querySnapshot = await getDocs(servicesQuery);
+            const querySnapshot = await getDocs(servicesQuery)
 
             // Procesar los resultados y devolver un array con los servicios
             const services = querySnapshot.docs.map((doc) => {
-                const serviceData = doc.data();
+                const serviceData = doc.data()
 
                 return {
                     uid_servicio: doc.id,
@@ -201,11 +210,11 @@ const ProfileGarage = () => {
                     estatus: serviceData?.estatus,
                     taller: serviceData?.taller || '',
                     puntuacion: serviceData?.puntuacion || '0',
-                };
-            });
+                }
+            })
 
             // Obtener todos los planes desde la colección 'Planes'
-            const planesSnapshot = await getDocs(collection(db, 'Planes'));
+            const planesSnapshot = await getDocs(collection(db, 'Planes'))
             const planes = planesSnapshot.docs.map((doc) => ({
                 uid: doc.id,
                 nombre: doc.data().nombre || '',
@@ -214,23 +223,23 @@ const ProfileGarage = () => {
                 status: doc.data().status || '',
                 vigencia: doc.data().vigencia || '',
                 cantidad_servicios: doc.data().cantidad_servicios || 0,
-            }));
+            }))
 
-            setData(dataFinal);
-            setServices(services);
+            setData(dataFinal)
+            setServices(services)
             console.log(services)
-            setPlanes(planes);
-            setSubscription(subscripcionActual);
-            setSubscriptionHistory(subscripciones);
+            setPlanes(planes)
+            setSubscription(subscripcionActual)
+            setSubscriptionHistory(subscripciones)
 
-            const endDate = subscripcionActual?.fecha_fin;
-            console.log("aqui endDate", endDate)
+            const endDate = subscripcionActual?.fecha_fin
+            console.log('aqui endDate', endDate)
             console.log('data', subscripciones)
 
             if (endDate) {
-                const daysRemaining = calculateDaysRemaining(endDate);
+                const daysRemaining = calculateDaysRemaining(endDate)
                 console.log('aqui la vigencia w', daysRemaining)
-                setDiasRestantes(daysRemaining);
+                setDiasRestantes(daysRemaining)
             }
 
             // Actualizar formData con los datos relevantes del usuario o taller
@@ -245,23 +254,24 @@ const ProfileGarage = () => {
                 LinkFacebook: dataFinal?.LinkFacebook || '',
                 LinkInstagram: dataFinal?.LinkInstagram || '',
                 LinkTiktok: dataFinal?.LinkTiktok || '',
-            });
+                LinkWhatsapp: dataFinal?.LinkWhatsapp || '',
+                estado: dataFinal?.estado || '',
+            })
         } catch (error) {
-            console.error('Error al obtener los datos del cliente:', error);
+            console.error('Error al obtener los datos del cliente:', error)
             toast.push(
                 <Notification title="Error">
                     Ocurrio un error al cargar los datos del cliente.
-                </Notification>
-            );
+                </Notification>,
+            )
         } finally {
-            setLoading(false);
+            setLoading(false)
         }
-    };
+    }
 
     useEffect(() => {
-        getData();
-    }, []);
-
+        getData()
+    }, [])
 
     type CustomerInfoFieldProps = {
         title?: string
@@ -269,28 +279,25 @@ const ProfileGarage = () => {
     }
 
     const calculateDaysRemaining = (endDate: any) => {
-        const today = Math.floor(Date.now() / 1000);
-        const end = endDate.seconds;
-        const timeDifference = end - today;
-        const daysRemaining = Math.ceil(timeDifference / (60 * 60 * 24));
-        return daysRemaining;
-    };
-
+        const today = Math.floor(Date.now() / 1000)
+        const end = endDate.seconds
+        const timeDifference = end - today
+        const daysRemaining = Math.ceil(timeDifference / (60 * 60 * 24))
+        return daysRemaining
+    }
 
     const formatDate = (timestamp: any) => {
-        const date = new Date(timestamp.seconds * 1000);
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${day}/${month}/${year}`;
-    };
-
-
+        const date = new Date(timestamp.seconds * 1000)
+        const day = String(date.getDate()).padStart(2, '0')
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const year = date.getFullYear()
+        return `${day}/${month}/${year}`
+    }
 
     const handleSubscribe = async (plan: any) => {
         try {
-            const usuarioDocRef = doc(db, 'Usuarios', path);
-            const newSubscriptionRef = doc(collection(db, 'Subscripciones'));
+            const usuarioDocRef = doc(db, 'Usuarios', path)
+            const newSubscriptionRef = doc(collection(db, 'Subscripciones'))
 
             await setDoc(newSubscriptionRef, {
                 uid: newSubscriptionRef.id,
@@ -301,7 +308,7 @@ const ProfileGarage = () => {
                 cantidad_servicios: plan.cantidad_servicios,
                 status: 'Por Aprobar',
                 taller_uid: path,
-            });
+            })
 
             await updateDoc(usuarioDocRef, {
                 subscripcion_actual: {
@@ -312,29 +319,30 @@ const ProfileGarage = () => {
                     cantidad_servicios: plan.cantidad_servicios,
                     status: 'Por Aprobar',
                 },
-            });
+            })
 
+            setIsSuscrito(true)
+            await getData()
 
-            setIsSuscrito(true);
-            await getData();
-
-            onDialogClosesub();
-            console.log('Subscripción actualizada y guardada en Subscripciones.');
+            onDialogClosesub()
+            console.log(
+                'Subscripción actualizada y guardada en Subscripciones.',
+            )
             toast.push(
                 <Notification title="Éxito" type="success">
                     Se ha subscrito correctamente a este plan.
-                </Notification>
-            );
+                </Notification>,
+            )
         } catch (error) {
-            console.error('Error al guardar la subscripción:', error);
+            console.error('Error al guardar la subscripción:', error)
             toast.push(
                 <Notification title="Error">
-                    Ocurrió un error al subscribirse a este plan. Inténtalo nuevamente.
-                </Notification>
-            );
+                    Ocurrió un error al subscribirse a este plan. Inténtalo
+                    nuevamente.
+                </Notification>,
+            )
         }
-    };
-
+    }
 
     const CustomerInfoField = ({ title, value }: CustomerInfoFieldProps) => {
         return (
@@ -367,40 +375,41 @@ const ProfileGarage = () => {
         facebook: '',
         instagram: '',
         tiktok: '',
-    });
+        whatsapp: '',
+    })
 
     const validateUrl = (url: string, platform: string): string => {
         const regexMap: Record<string, RegExp> = {
             facebook: /^(https?:\/\/)?(www\.)?facebook\.com\/.+$/,
             instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/.+$/,
             tiktok: /^(https?:\/\/)?(www\.)?tiktok\.com\/.+$/,
-        };
+            whatsapp: /^(https?:\/\/)?(www\.)?whatsapp\.com\/.+$/,
+        }
 
         if (!regexMap[platform].test(url)) {
-            return `La URL ingresada no es válida para ${platform}.`;
+            return `La URL ingresada no es válida para ${platform}.`
         }
-        return '';
-    };
+        return ''
+    }
 
     const handleUrlChange = (
         e: React.ChangeEvent<HTMLInputElement>,
-        platform: string
+        platform: string,
     ) => {
-        const { value } = e.target;
+        const { value } = e.target
 
         setFormData((prev) => ({
             ...prev,
-            [`Link${platform.charAt(0).toUpperCase() + platform.slice(1)}`]: value,
-        }));
+            [`Link${platform.charAt(0).toUpperCase() + platform.slice(1)}`]:
+                value,
+        }))
 
-        const error = validateUrl(value, platform);
+        const error = validateUrl(value, platform)
         setUrlErrors((prev) => ({
             ...prev,
             [platform]: error,
-        }));
-    };
-
-
+        }))
+    }
 
     const handleEditSave = async () => {
         // Validaciones antes de proceder con la actualización
@@ -408,110 +417,120 @@ const ProfileGarage = () => {
             toast.push(
                 <Notification title="Error">
                     El nombre no puede estar vacío.
-                </Notification>
-            );
-            return;
+                </Notification>,
+            )
+            return
         }
 
         if (!formData.phone || !/^\d+$/.test(formData.phone)) {
             toast.push(
                 <Notification title="Error">
                     El teléfono debe contener solo números.
-                </Notification>
-            );
-            return;
+                </Notification>,
+            )
+            return
         }
 
         if (!formData.rif || !/^[JVEGCP]-\d+$/.test(formData.rif)) {
             toast.push(
                 <Notification title="Error">
-                    El RIF debe estar en un formato válido (Ejemplo: J-12345678).
-                </Notification>
-            );
-            return;
+                    El RIF debe estar en un formato válido (Ejemplo:
+                    J-12345678).
+                </Notification>,
+            )
+            return
         }
 
         if (!formData.location || formData.location.trim() === '') {
             toast.push(
                 <Notification title="Error">
                     La ubicación no puede estar vacía.
-                </Notification>
-            );
-            return;
+                </Notification>,
+            )
+            return
         }
 
         if (!formData.status) {
             toast.push(
                 <Notification title="Error">
                     Debes seleccionar un estatus.
-                </Notification>
-            );
-            return;
+                </Notification>,
+            )
+            return
+        }
+
+        if (!formData.estado) {
+            toast.push(
+                <Notification title="Error">
+                    Debes seleccionar un Esatdo.
+                </Notification>,
+            )
+            return
         }
 
         try {
             // Verifica si el RIF ya está registrado
-            const usuariosRef = collection(db, 'Usuarios');
-            const querySnapshot = await getDocs(usuariosRef);
+            const usuariosRef = collection(db, 'Usuarios')
+            const querySnapshot = await getDocs(usuariosRef)
 
             const rifExiste = querySnapshot.docs.some(
-                (doc) => doc.data().rif === formData.rif && doc.id !== path // Excluye el documento actual
-            );
+                (doc) => doc.data().rif === formData.rif && doc.id !== path, // Excluye el documento actual
+            )
 
             if (rifExiste) {
                 toast.push(
                     <Notification title="Error">
-                        El RIF ya está registrado. Por favor, verifica e intenta con otro.
-                    </Notification>
-                );
-                return; // Sal de la función si el RIF ya existe
+                        El RIF ya está registrado. Por favor, verifica e intenta
+                        con otro.
+                    </Notification>,
+                )
+                return // Sal de la función si el RIF ya existe
             }
 
             // Actualiza los datos si el RIF no está registrado
-            const docRef = doc(db, 'Usuarios', path);
-            await updateDoc(docRef, formData);
+            const docRef = doc(db, 'Usuarios', path)
+            await updateDoc(docRef, formData)
 
-            setData(formData);
-            setEditModalOpen(false);
+            setData(formData)
+            setEditModalOpen(false)
 
             toast.push(
                 <Notification title="Éxito" type="success">
                     Datos de Usuario actualizados correctamente.
-                </Notification>
-            );
+                </Notification>,
+            )
         } catch (error) {
-            console.error('Error al actualizar los datos:', error);
+            console.error('Error al actualizar los datos:', error)
             toast.push(
                 <Notification title="Error">
-                    Ocurrió un error al actualizar los datos del usuario. Inténtalo nuevamente.
-                </Notification>
-            );
+                    Ocurrió un error al actualizar los datos del usuario.
+                    Inténtalo nuevamente.
+                </Notification>,
+            )
         }
-    };
-
-
+    }
 
     const handleSavePaymentMethods = async () => {
         try {
-            const docRef = doc(db, 'Usuarios', path);
+            const docRef = doc(db, 'Usuarios', path)
             await updateDoc(docRef, {
                 metodos_pago: paymentMethodsState,
-            });
+            })
             toast.push(
                 <Notification title="Éxito" type="success">
                     Métodos de pago actualizados correctamente.
-                </Notification>
-            );
+                </Notification>,
+            )
         } catch (error) {
-            console.error('Error al guardar los métodos de pago:', error);
+            console.error('Error al guardar los métodos de pago:', error)
             toast.push(
                 <Notification title="Error">
-                    Ocurrió un error al actualizar los métodos de pago. Inténtalo nuevamente.
-                </Notification>
-            );
+                    Ocurrió un error al actualizar los métodos de pago.
+                    Inténtalo nuevamente.
+                </Notification>,
+            )
         }
-    };
-
+    }
 
     const paymentMethods = [
         {
@@ -563,33 +582,42 @@ const ProfileGarage = () => {
             header: 'Precio',
             accessorKey: 'precio',
             cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio);
-                return `$${precio.toFixed(2)}`;
+                const precio = parseFloat(row.original.precio)
+                return `$${precio.toFixed(2)}`
             },
         },
         {
             header: 'Estatus',
             accessorKey: 'estatus',
             cell: ({ row }) => {
-                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false);
+                const [estatus, setEstatus] = useState<boolean>(
+                    row.original.estatus ?? false,
+                )
                 const handleStatusChange = async (val: boolean) => {
-                    setEstatus(val);
+                    setEstatus(val)
 
-                    const updatedServices = services.map(service =>
+                    const updatedServices = services.map((service) =>
                         service.uid_servicio === row.original.uid_servicio
                             ? { ...service, estatus: val }
-                            : service
-                    );
-                    setServices(updatedServices);
+                            : service,
+                    )
+                    setServices(updatedServices)
 
                     try {
-                        const docRef = doc(db, 'Servicios', row.original.uid_servicio);
-                        await updateDoc(docRef, { estatus: val });
-                        console.log('Estado del servicio actualizado');
+                        const docRef = doc(
+                            db,
+                            'Servicios',
+                            row.original.uid_servicio,
+                        )
+                        await updateDoc(docRef, { estatus: val })
+                        console.log('Estado del servicio actualizado')
                     } catch (error) {
-                        console.error('Error al actualizar el estado del servicio:', error);
+                        console.error(
+                            'Error al actualizar el estado del servicio:',
+                            error,
+                        )
                     }
-                };
+                }
 
                 return (
                     <div>
@@ -598,11 +626,10 @@ const ProfileGarage = () => {
                             onChange={() => handleStatusChange(!estatus)}
                         />
                     </div>
-                );
+                )
             },
         },
-    ];
-
+    ]
 
     const columns2: ColumnDef<Planes>[] = [
         {
@@ -641,12 +668,9 @@ const ProfileGarage = () => {
             cell: ({ row }) => {
                 const fecha = formatDate(row.original.fecha_fin)
                 return `${fecha}`
-            }
-
+            },
         },
     ]
-
-
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
@@ -693,7 +717,6 @@ const ProfileGarage = () => {
     const [currentPage, setCurrentPage] = useState(1)
     const rowsPerPage = 6
 
-
     const dataservice = table.getRowModel().rows
     const totalRows = dataservice.length
 
@@ -701,8 +724,6 @@ const ProfileGarage = () => {
         console.log('onPaginationChange', page)
         setCurrentPage(page)
     }
-
-
 
     return (
         <Container className="h-full">
@@ -716,7 +737,6 @@ const ProfileGarage = () => {
                 </button>
             </div>
             <div className="flex flex-col xl:flex-row gap-4">
-
                 <Card>
                     <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
                         <div className="flex xl:flex-col items-center gap-4">
@@ -747,6 +767,10 @@ const ProfileGarage = () => {
                                 value={data?.rif || 'Rif no disponible'}
                             />
                             <CustomerInfoField
+                                title="Estado"
+                                value={data?.estado || 'Estado no disponible'}
+                            />
+                            <CustomerInfoField
                                 title="Estatus"
                                 value={data?.status || 'Estatus no disponible'}
                             />
@@ -762,8 +786,9 @@ const ProfileGarage = () => {
                                 <span>Redes Sociales</span>
                                 <div className="flex mt-4 gap-2">
                                     {data?.LinkFacebook ||
-                                        data?.LinkInstagram ||
-                                        data?.LinkTiktok ? (
+                                    data?.LinkInstagram ||
+                                    data?.LinkWhatsapp ||
+                                    data?.LinkTiktok ? (
                                         <>
                                             {data.LinkFacebook && (
                                                 <a
@@ -813,6 +838,22 @@ const ProfileGarage = () => {
                                                     />
                                                 </a>
                                             )}
+                                            {data.LinkWhatsapp && (
+                                                <a
+                                                    href={data.LinkWhatsapp}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    title={data.LinkWhatsapp} // Tooltip al pasar el mouse
+                                                >
+                                                    <Button
+                                                        shape="circle"
+                                                        size="sm"
+                                                        icon={
+                                                            <FaWhatsapp  className="text-[#25d366]" />
+                                                        }
+                                                    />
+                                                </a>
+                                            )}
                                         </>
                                     ) : (
                                         <p className="text-gray-500">
@@ -848,10 +889,13 @@ const ProfileGarage = () => {
                                     {!isSuscrito ? (
                                         <div className="flex justify-end">
                                             <p className="text-xs mr-64 mt-3">
-                                                Puede visualizar y suscribirse a un plan para su taller...
+                                                Puede visualizar y suscribirse a
+                                                un plan para su taller...
                                             </p>
                                             <button
-                                                onClick={() => setDialogOpensub(true)}
+                                                onClick={() =>
+                                                    setDialogOpensub(true)
+                                                }
                                                 className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
                                             >
                                                 Ver Planes
@@ -867,36 +911,67 @@ const ProfileGarage = () => {
                                                 />
                                                 <div>
                                                     <div className="flex items-center">
-                                                        <h3 className="text-lg font-semibold text-gray-800">{subscription?.nombre || 'Cargando...'}</h3>
+                                                        <h3 className="text-lg font-semibold text-gray-800">
+                                                            {subscription?.nombre ||
+                                                                'Cargando...'}
+                                                        </h3>
                                                         <Tag
-                                                            className={`rounded-md border-0 mx-2 ${subscription?.status === 'Aprobado' ? 'bg-green-100 text-green-400' : 'bg-yellow-100 text-yellow-400'}`}
+                                                            className={`rounded-md border-0 mx-2 ${
+                                                                subscription?.status ===
+                                                                'Aprobado'
+                                                                    ? 'bg-green-100 text-green-400'
+                                                                    : 'bg-yellow-100 text-yellow-400'
+                                                            }`}
                                                         >
-                                                            {subscription?.status || 'Pendiente'}
+                                                            {subscription?.status ||
+                                                                'Pendiente'}
                                                         </Tag>
                                                     </div>
                                                     <div className="grid grid-cols-4">
                                                         <p className="text-xs text-gray-500">
-                                                            Vigencia: {subscription?.vigencia ?? '---'} días
+                                                            Vigencia:{' '}
+                                                            {subscription?.vigencia ??
+                                                                '---'}{' '}
+                                                            días
                                                         </p>
                                                         <p className="text-xs text-gray-600">
-                                                            Monto mensual: <span className="font-bold text-gray-800">${subscription?.monto ?? '---'}</span>
+                                                            Monto mensual:{' '}
+                                                            <span className="font-bold text-gray-800">
+                                                                $
+                                                                {subscription?.monto ??
+                                                                    '---'}
+                                                            </span>
                                                         </p>
-                                                        {subscription?.status === 'Aprobado' && (
+                                                        {subscription?.status ===
+                                                            'Aprobado' && (
                                                             <>
                                                                 <p className="text-sm ml-2 text-gray-600">
-                                                                    {diasRestantes ?? '---'} días restantes
+                                                                    {diasRestantes ??
+                                                                        '---'}{' '}
+                                                                    días
+                                                                    restantes
                                                                 </p>
                                                                 <span className="text-gray-600">
-                                                                    {subscription.fecha_fin ? formatDate(subscription.fecha_fin) : 'Fecha no disponible'}
+                                                                    {subscription.fecha_fin
+                                                                        ? formatDate(
+                                                                              subscription.fecha_fin,
+                                                                          )
+                                                                        : 'Fecha no disponible'}
                                                                 </span>
                                                             </>
                                                         )}
                                                     </div>
                                                 </div>
                                             </div>
-                                            {subscription?.status === 'Por Aprobar' && (
+                                            {subscription?.status ===
+                                                'Por Aprobar' && (
                                                 <div className="flex justify-end mt-2">
-                                                    <PaymentDrawer subscriptionId={subscripcionestable[0]?.uid} />
+                                                    <PaymentDrawer
+                                                        subscriptionId={
+                                                            subscripcionestable[0]
+                                                                ?.uid
+                                                        }
+                                                    />
                                                 </div>
                                             )}
                                         </div>
@@ -904,7 +979,6 @@ const ProfileGarage = () => {
                                 </Card>
                                 <div>
                                     <div className="p-4 rounded-lg shadow">
-
                                         <h6 className="mb-6 flex justify-start mt-4">
                                             Historial de Subscripciones
                                         </h6>
@@ -962,9 +1036,9 @@ const ProfileGarage = () => {
                                                     .getRowModel()
                                                     .rows.slice(
                                                         (currentPage - 1) *
-                                                        rowsPerPage,
+                                                            rowsPerPage,
                                                         currentPage *
-                                                        rowsPerPage,
+                                                            rowsPerPage,
                                                     )
                                                     .map((row) => {
                                                         return (
@@ -1008,14 +1082,26 @@ const ProfileGarage = () => {
                                 <div className="border-t border-gray-300 my-4" />
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
                                     {paymentMethods.map((method) => (
-                                        <div key={method.name} className="flex items-center gap-2">
+                                        <div
+                                            key={method.name}
+                                            className="flex items-center gap-2"
+                                        >
                                             <Checkbox
-                                                checked={paymentMethodsState[method.dbKey] || false}
-                                                onChange={(checked: boolean) => {
-                                                    setPaymentMethodsState((prevState) => ({
-                                                        ...prevState,
-                                                        [method.dbKey]: checked,
-                                                    }));
+                                                checked={
+                                                    paymentMethodsState[
+                                                        method.dbKey
+                                                    ] || false
+                                                }
+                                                onChange={(
+                                                    checked: boolean,
+                                                ) => {
+                                                    setPaymentMethodsState(
+                                                        (prevState) => ({
+                                                            ...prevState,
+                                                            [method.dbKey]:
+                                                                checked,
+                                                        }),
+                                                    )
                                                 }}
                                             />
                                             <span>{method.icon}</span>
@@ -1032,18 +1118,19 @@ const ProfileGarage = () => {
                                         Guardar
                                     </button>
                                 </div>
-
                             </div>
                         </TabContent>
                     </div>
                     <TabContent value="tab2">
-                        <div className='w-[50vw]'>
+                        <div className="w-[50vw]">
                             <div className="p-1 rounded-lg">
-
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
-                                <Table className="w-full  rounded-lg" width={700}>
+                                <Table
+                                    className="w-full  rounded-lg"
+                                    width={700}
+                                >
                                     <THead>
                                         {table
                                             .getHeaderGroups()
@@ -1081,7 +1168,6 @@ const ProfileGarage = () => {
                                                                             <Sorter
                                                                                 sort={header.column.getIsSorted()}
                                                                             />
-
                                                                         </div>
                                                                     )}
                                                                 </Th>
@@ -1143,7 +1229,7 @@ const ProfileGarage = () => {
                 onClose={onDialogClosesub}
             >
                 <div className="table-responsive">
-                    <h2 className='mb-4'>Planes de Subscripción</h2>
+                    <h2 className="mb-4">Planes de Subscripción</h2>
                     <div className="p-2 rounded-lg shadow">
                         <Table className="w-full rounded-lg">
                             <THead>
@@ -1164,7 +1250,8 @@ const ProfileGarage = () => {
                                                         onClick={header.column.getToggleSortingHandler()}
                                                     >
                                                         {flexRender(
-                                                            header.column.columnDef
+                                                            header.column
+                                                                .columnDef
                                                                 .header,
                                                             header.getContext(),
                                                         )}
@@ -1205,7 +1292,6 @@ const ProfileGarage = () => {
                                             </Th>
                                         ))}
                                         <Th>Acción</Th>{' '}
-
                                     </Tr>
                                 ))}
                             </THead>
@@ -1218,14 +1304,17 @@ const ProfileGarage = () => {
                                     )
                                     .map((row) => (
                                         <Tr key={row.id}>
-                                            {row.getVisibleCells().map((cell) => (
-                                                <Td key={cell.id}>
-                                                    {flexRender(
-                                                        cell.column.columnDef.cell,
-                                                        cell.getContext(),
-                                                    )}
-                                                </Td>
-                                            ))}
+                                            {row
+                                                .getVisibleCells()
+                                                .map((cell) => (
+                                                    <Td key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column
+                                                                .columnDef.cell,
+                                                            cell.getContext(),
+                                                        )}
+                                                    </Td>
+                                                ))}
                                             <Td>
                                                 <button
                                                     className="bg-[#1d1e56] text-white px-4 py-2 rounded"
@@ -1245,8 +1334,6 @@ const ProfileGarage = () => {
                     </div>
                 </div>
             </Dialog>
-
-
 
             {editModalOpen && (
                 <ConfirmDialog
@@ -1306,7 +1393,8 @@ const ProfileGarage = () => {
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0]
                                                 if (file) {
-                                                    const reader = new FileReader()
+                                                    const reader =
+                                                        new FileReader()
                                                     reader.onloadend = () => {
                                                         setFormData(
                                                             (prev: any) => ({
@@ -1364,14 +1452,21 @@ const ProfileGarage = () => {
                                 />
                             </label>
                             <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">RIF:</span>
+                                <span className="font-semibold text-gray-700">
+                                    RIF:
+                                </span>
                                 <div className="flex items-center mt-1">
                                     <select
-                                        value={formData.rif?.split('-')[0] || 'J'}
+                                        value={
+                                            formData.rif?.split('-')[0] || 'J'
+                                        }
                                         onChange={(e) =>
                                             setFormData((prev: any) => ({
                                                 ...prev,
-                                                rif: `${e.target.value}-${(prev?.rif?.split('-')[1] || '')}`,
+                                                rif: `${e.target.value}-${
+                                                    prev?.rif?.split('-')[1] ||
+                                                    ''
+                                                }`,
                                             }))
                                         }
                                         className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -1385,16 +1480,68 @@ const ProfileGarage = () => {
                                     </select>
                                     <input
                                         type="text"
-                                        value={formData.rif?.split('-')[1] || ''}
+                                        value={
+                                            formData.rif?.split('-')[1] || ''
+                                        }
                                         onChange={(e) =>
                                             setFormData((prev: any) => ({
                                                 ...prev,
-                                                rif: `${(prev?.rif?.split('-')[0] || 'J')}-${e.target.value}`,
+                                                rif: `${
+                                                    prev?.rif?.split('-')[0] ||
+                                                    'J'
+                                                }-${e.target.value}`,
                                             }))
                                         }
                                         className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
                                     />
                                 </div>
+                            </label>
+
+                            {/* Estado */}
+                            <label className="flex flex-col">
+                                <span className="font-semibold text-gray-700">
+                                    Estado:
+                                </span>
+                                <select
+                                    name="estado"
+                                    value={formData.estado}
+                                    onChange={handleEditChange} // Asegúrate de tener esta función para manejar el cambio
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                >
+                                    <option value="">
+                                        Seleccione un Estado
+                                    </option>
+                                    {[
+                                        'Amazonas',
+                                        'Anzoátegui',
+                                        'Apure',
+                                        'Aragua',
+                                        'Barinas',
+                                        'Bolívar',
+                                        'Carabobo',
+                                        'Cojedes',
+                                        'Delta Amacuro',
+                                        'Distrito Capital',
+                                        'Falcón',
+                                        'Guárico',
+                                        'Lara',
+                                        'Mérida',
+                                        'Miranda',
+                                        'Monagas',
+                                        'Nueva Esparta',
+                                        'Portuguesa',
+                                        'Sucre',
+                                        'Táchira',
+                                        'Trujillo',
+                                        'Vargas',
+                                        'Yaracuy',
+                                        'Zulia',
+                                    ].map((estado) => (
+                                        <option key={estado} value={estado}>
+                                            {estado}
+                                        </option>
+                                    ))}
+                                </select>
                             </label>
 
                             <label className="block">
@@ -1426,13 +1573,17 @@ const ProfileGarage = () => {
                             </label>
                             {/* URL de Facebook */}
                             <label className="block">
-                                <span className="text-gray-700 font-semibold">Facebook</span>
+                                <span className="text-gray-700 font-semibold">
+                                    Facebook
+                                </span>
                                 <input
                                     className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
                                     placeholder="URL de Facebook"
                                     name="LinkFacebook"
                                     value={formData.LinkFacebook}
-                                    onChange={(e) => handleUrlChange(e, 'facebook')}
+                                    onChange={(e) =>
+                                        handleUrlChange(e, 'facebook')
+                                    }
                                 />
                                 {urlErrors.facebook && (
                                     <span className="text-red-500 text-sm">
@@ -1443,13 +1594,17 @@ const ProfileGarage = () => {
 
                             {/* URL de Instagram */}
                             <label className="block">
-                                <span className="text-gray-700 font-semibold">Instagram</span>
+                                <span className="text-gray-700 font-semibold">
+                                    Instagram
+                                </span>
                                 <input
                                     className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
                                     placeholder="URL de Instagram"
                                     name="LinkInstagram"
                                     value={formData.LinkInstagram}
-                                    onChange={(e) => handleUrlChange(e, 'instagram')}
+                                    onChange={(e) =>
+                                        handleUrlChange(e, 'instagram')
+                                    }
                                 />
                                 {urlErrors.instagram && (
                                     <span className="text-red-500 text-sm">
@@ -1460,13 +1615,17 @@ const ProfileGarage = () => {
 
                             {/* URL de TikTok */}
                             <label className="block">
-                                <span className="text-gray-700 font-semibold">TikTok</span>
+                                <span className="text-gray-700 font-semibold">
+                                    TikTok
+                                </span>
                                 <input
                                     className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
                                     placeholder="URL de TikTok"
                                     name="LinkTiktok"
                                     value={formData.LinkTiktok}
-                                    onChange={(e) => handleUrlChange(e, 'tiktok')}
+                                    onChange={(e) =>
+                                        handleUrlChange(e, 'tiktok')
+                                    }
                                 />
                                 {urlErrors.tiktok && (
                                     <span className="text-red-500 text-sm">
@@ -1474,6 +1633,29 @@ const ProfileGarage = () => {
                                     </span>
                                 )}
                             </label>
+
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Whatsapp
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder="URL de whatsapp"
+                                    name="LinkWhatsapp"
+                                    value={formData.LinkWhatsapp}
+                                    onChange={(e) =>
+                                        handleUrlChange(e, 'whatsapp')
+                                    }
+                                />
+                                {urlErrors.whatsapp && (
+                                    <span className="text-red-500 text-sm">
+                                        {urlErrors.whatsapp}
+                                    </span>
+                                )}
+                            </label>
+
+                            
+                            
                         </div>
                     </div>
                 </ConfirmDialog>

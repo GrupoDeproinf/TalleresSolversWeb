@@ -36,7 +36,7 @@ import {
     updateDoc,
     addDoc,
     where,
-    setDoc
+    setDoc,
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -50,6 +50,7 @@ import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
 import * as Yup from 'yup'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
+import { GrMapLocation } from 'react-icons/gr'
 
 type Garage = {
     nombre?: string
@@ -64,6 +65,7 @@ type Garage = {
     status?: string
     password?: string
     confirmPassword?: string
+    estado?: string
 }
 
 const Garages = () => {
@@ -119,6 +121,7 @@ const Garages = () => {
         direccion: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
         password: '',
+        estado: '',
     })
 
     const openDialog = (person: Garage) => {
@@ -158,6 +161,7 @@ const Garages = () => {
         confirmPassword: Yup.string()
             .oneOf([Yup.ref('password')], 'Las contraseñas no coinciden')
             .required('Por favor confirme su contraseña'),
+        estado: Yup.string().required('El estado es obligatorio'),
     })
 
     const [showPassword, setShowPassword] = useState(false)
@@ -166,64 +170,71 @@ const Garages = () => {
         if (values.password !== values.confirmPassword) {
             toast.push(
                 <Notification title="Error">
-                    Las contraseñas no coinciden. Por favor, verifica los campos.
-                </Notification>
-            );
-            return;
+                    Las contraseñas no coinciden. Por favor, verifica los
+                    campos.
+                </Notification>,
+            )
+            return
         }
-    
+
         try {
-            const userRef = collection(db, 'Usuarios');
-    
+            const userRef = collection(db, 'Usuarios')
+
             // Verificar si ya existe un documento con el mismo correo electrónico
-            const emailQuery = query(userRef, where('email', '==', values.email));
-            const emailSnapshot = await getDocs(emailQuery);
-    
+            const emailQuery = query(
+                userRef,
+                where('email', '==', values.email),
+            )
+            const emailSnapshot = await getDocs(emailQuery)
+
             if (!emailSnapshot.empty) {
                 toast.push(
                     <Notification title="Error">
                         ¡El correo electrónico ya está registrado!
-                    </Notification>
-                );
-                return;
+                    </Notification>,
+                )
+                return
             }
-            
+
             // Verificar si ya existe un documento con el mismo RIF
-            const rifQuery = query(userRef, where('rif', '==', values.rif));
-            const rifSnapshot = await getDocs(rifQuery);
-    
+            const rifQuery = query(userRef, where('rif', '==', values.rif))
+            const rifSnapshot = await getDocs(rifQuery)
+
             if (!rifSnapshot.empty) {
                 toast.push(
                     <Notification title="Error">
                         ¡El RIF ya está registrado!
-                    </Notification>
-                );
-                return;
+                    </Notification>,
+                )
+                return
             }
-    
+
             // Verificar si ya existe un documento con el mismo número de teléfono
-            const phoneQuery = query(userRef, where('phone', '==', values.phone));
-            const phoneSnapshot = await getDocs(phoneQuery);
-    
+            const phoneQuery = query(
+                userRef,
+                where('phone', '==', values.phone),
+            )
+            const phoneSnapshot = await getDocs(phoneQuery)
+
             if (!phoneSnapshot.empty) {
                 toast.push(
                     <Notification title="Error">
                         ¡El número de teléfono ya está registrado!
-                    </Notification>
-                );
-                return;
+                    </Notification>,
+                )
+                return
             }
-    
+
             // Crear usuario en Firebase Auth
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
                 values.email,
-                values.password
-            );
-            const user = userCredential.user;
-    
+                values.password,
+            )
+            const user = userCredential.user
+
             // Crear el documento en Firestore con el UID del usuario como ID
-            const docRef = doc(userRef, user.uid); // El UID será el ID del documento
+            const docRef = doc(userRef, user.uid) // El UID será el ID del documento
             await setDoc(docRef, {
                 uid: user.uid,
                 nombre: values.nombre,
@@ -234,25 +245,26 @@ const Garages = () => {
                 logoUrl: values.logoUrl,
                 status: 'Aprobado',
                 direccion: values.direccion,
-            });
-    
+                estado: values.estado,
+            })
+
             toast.push(
                 <Notification title="Éxito">
                     Taller creado y autenticado con éxito.
-                </Notification>
-            );
-    
-            setDrawerCreateIsOpen(false);
-            getData(); // Refrescar la lista de talleres
+                </Notification>,
+            )
+
+            setDrawerCreateIsOpen(false)
+            getData() // Refrescar la lista de talleres
         } catch (error) {
-            console.error('Error creando el taller:', error);
+            console.error('Error creando el taller:', error)
             toast.push(
                 <Notification title="Error">
                     Hubo un error al crear el Taller.
-                </Notification>
-            );
+                </Notification>,
+            )
         }
-    };    
+    }
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
@@ -296,6 +308,7 @@ const Garages = () => {
                     rif: selectedPerson.rif,
                     phone: selectedPerson.phone,
                     logoUrl: selectedPerson.logoUrl,
+                    estado: selectedPerson.estado,
                 })
                 // Mensaje de éxito
                 toast.push(
@@ -328,6 +341,7 @@ const Garages = () => {
             phone: '',
             id: '',
             uid: '',
+            estado: '',
         })
         setSelectedPerson(null) // Limpia la selección (si es necesario)
     }
@@ -389,6 +403,10 @@ const Garages = () => {
             accessorKey: 'rif',
         },
         {
+            header: 'Estado',
+            accessorKey: 'estado',
+        },
+        {
             header: 'Email',
             accessorKey: 'email',
         },
@@ -435,8 +453,10 @@ const Garages = () => {
                         )
                         color = 'text-yellow-500' // Color para el texto
                         break
-                        case 'En espera por aprobación':
-                        icon = <FaQuestionCircle className="text-blue-500 mr-1" />
+                    case 'En espera por aprobación':
+                        icon = (
+                            <FaQuestionCircle className="text-blue-500 mr-1" />
+                        )
                         color = 'text-blue-500' // Color para el texto
                         break
                     default:
@@ -773,29 +793,87 @@ const Garages = () => {
                 onClose={handleDrawerClose}
                 className="rounded-md shadow"
             >
-                <h2 className="mb-4 text-xl font-bold">
-                    Crear Taller
-                </h2>
-            <Formik
-                initialValues={{
-                    nombre: '',
-                    email: '',
-                    rif: 'J-',
-                    phone: '',
-                    direccion: '',
-                    password: '',
-                    confirmPassword: '',
-                    logoUrl: '',
-                }}
-                validationSchema={validationSchema}
-                onSubmit={(values, { setSubmitting }) => {
-                    handleCreateGarage(values)
-                    setSubmitting(false)
-                }}
-            >
-                {({ values, setFieldValue, isSubmitting }) => (
-                    <Form>
+                <h2 className="mb-4 text-xl font-bold">Crear Taller</h2>
+                <Formik
+                    initialValues={{
+                        nombre: '',
+                        email: '',
+                        rif: 'J-',
+                        phone: '',
+                        direccion: '',
+                        password: '',
+                        confirmPassword: '',
+                        logoUrl: '',
+                        estado: '',
+                    }}
+                    validationSchema={validationSchema}
+                    onSubmit={(values, { setSubmitting }) => {
+                        handleCreateGarage(values)
+                        setSubmitting(false)
+                    }}
+                >
+                    {({ values, setFieldValue, isSubmitting }) => (
+                        <Form>
                             <div className="flex flex-col space-y-6">
+                                {/* Campo para el logo */}
+                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                                <div className="text-center">
+                                    {!newGarage?.logoUrl ? (
+                                        <FaCamera
+                                            className="mx-auto h-12 w-12 text-gray-300"
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={newGarage.logoUrl}
+                                            alt="Preview Logo"
+                                            className="mx-auto h-32 w-32 object-cover"
+                                        />
+                                    )}
+                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                        <label
+                                            htmlFor="logo-upload"
+                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                        >
+                                            <span>
+                                                {newGarage?.logoUrl
+                                                    ? 'Cambiar Logo'
+                                                    : 'Seleccionar Logo'}
+                                            </span>
+                                            <input
+                                                id="logo-upload"
+                                                name="logo-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="sr-only"
+                                                onChange={(e) => {
+                                                    const file =
+                                                        e.target.files?.[0]
+                                                    if (file) {
+                                                        const reader =
+                                                            new FileReader()
+                                                        reader.onloadend =
+                                                            () => {
+                                                                setNewGarage(
+                                                                    (
+                                                                        prev: any,
+                                                                    ) => ({
+                                                                        ...prev,
+                                                                        logoUrl:
+                                                                            reader.result, // Almacena la URL del logo
+                                                                    }),
+                                                                )
+                                                            }
+                                                        reader.readAsDataURL(
+                                                            file,
+                                                        ) // Leer el archivo como una URL de datos
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         Nombre Taller:
@@ -834,29 +912,29 @@ const Garages = () => {
                                         RIF:
                                     </span>
                                     <div className="flex items-center mt-1">
-                                    <select
-                                        name="rifPrefix"
-                                        value={
-                                            values.rif.split('-')[0] || 'J'
-                                        }
-                                        onChange={(e) => {
-                                            const newCedula = `${
-                                                e.target.value
-                                            }-${
-                                                values.rif.split('-')[1] ||
-                                                ''
-                                            }`
-                                            setFieldValue('rif', newCedula)
-                                        }}
-                                        className="mx-2 p-3 border border-gray-300 rounded-l-lg"
-                                    >
-                                        <option value="V">V-</option>
-                                        <option value="E">E-</option>
-                                        <option value="C">C-</option>
-                                        <option value="G">G-</option>
-                                        <option value="J">J-</option>
-                                        <option value="P">P-</option>
-                                    </select>
+                                        <select
+                                            name="rifPrefix"
+                                            value={
+                                                values.rif.split('-')[0] || 'J'
+                                            }
+                                            onChange={(e) => {
+                                                const newCedula = `${
+                                                    e.target.value
+                                                }-${
+                                                    values.rif.split('-')[1] ||
+                                                    ''
+                                                }`
+                                                setFieldValue('rif', newCedula)
+                                            }}
+                                            className="mx-2 p-3 border border-gray-300 rounded-l-lg"
+                                        >
+                                            <option value="V">V-</option>
+                                            <option value="E">E-</option>
+                                            <option value="C">C-</option>
+                                            <option value="G">G-</option>
+                                            <option value="J">J-</option>
+                                            <option value="P">P-</option>
+                                        </select>
                                         <Field
                                             type="text"
                                             name="rif"
@@ -879,6 +957,58 @@ const Garages = () => {
                                         className="text-red-500"
                                     />
                                 </label>
+                                {/* Estado */}
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Estado:
+                                    </span>
+                                    <Field
+                                        as="select"
+                                        name="estado"
+                                        value={values.estado}
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                                    >
+                                        <option value="">
+                                            Seleccione un Estado
+                                        </option>
+                                        {[
+                                            'Amazonas',
+                                            'Anzoátegui',
+                                            'Apure',
+                                            'Aragua',
+                                            'Barinas',
+                                            'Bolívar',
+                                            'Carabobo',
+                                            'Cojedes',
+                                            'Delta Amacuro',
+                                            'Distrito Capital',
+                                            'Falcón',
+                                            'Guárico',
+                                            'Lara',
+                                            'Mérida',
+                                            'Miranda',
+                                            'Monagas',
+                                            'Nueva Esparta',
+                                            'Portuguesa',
+                                            'Sucre',
+                                            'Táchira',
+                                            'Trujillo',
+                                            'Vargas',
+                                            'Yaracuy',
+                                            'Zulia',
+                                        ].map((estado) => (
+                                            <option key={estado} value={estado}>
+                                                {estado}
+                                            </option>
+                                        ))}
+                                    </Field>
+
+                                    <ErrorMessage
+                                        name="estado"
+                                        component="div"
+                                        className="text-red-600 text-sm"
+                                    />
+                                </label>
 
                                 {/* Teléfono */}
                                 <label className="flex flex-col">
@@ -898,29 +1028,41 @@ const Garages = () => {
                                     />
                                 </label>
 
-                                {/* Dirección */}
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         Dirección:
                                     </span>
-                                    <Field
-                                        as="textarea"
-                                        name="direccion"
-                                        className="mt-1 p-3 border border-gray-300 rounded-lg  focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                                        rows={1}
-                                        style={{
-                                            maxHeight: '150px',
-                                            overflowY: 'auto',
-                                        }}
-                                        onInput={(e: any) => {
-                                            e.target.style.height = 'auto'
-                                            e.target.style.height = `${e.target.scrollHeight}px`
-                                        }}
-                                    />
+                                    <div className="flex items-center mt-1 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
+                                        {/* Icono como botón a la izquierda */}
+                                        <Button
+                                            type="button"
+                                            className="p-3 text-gray-500 focus:outline-none"
+                                        >
+                                            <GrMapLocation size={20} />
+                                        </Button>
+
+                                        {/* Input de Dirección */}
+                                        <Field
+                                            as="textarea"
+                                            name="direccion"
+                                            className="p-3 flex-1 focus:outline-none resize-none"
+                                            rows={1}
+                                            style={{
+                                                maxHeight: '150px',
+                                                overflowY: 'auto',
+                                            }}
+                                            onInput={(e: any) => {
+                                                e.target.style.height = 'auto'
+                                                e.target.style.height = `${e.target.scrollHeight}px`
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Mensaje de error */}
                                     <ErrorMessage
                                         name="direccion"
                                         component="div"
-                                        className="text-red-500  text-sm mt-1"
+                                        className="text-red-500 text-sm mt-1"
                                     />
                                 </label>
 
@@ -958,37 +1100,6 @@ const Garages = () => {
                                     />
                                 </label>
 
-                                {/* Logo */}
-                                <div className="mt-2 flex justify-center rounded-lg">
-                                    {!values.logoUrl ? (
-                                        <FaCamera className="mx-auto h-12 w-12 text-gray-300" />
-                                    ) : (
-                                        <img
-                                            src={values.logoUrl}
-                                            alt="Preview Logo"
-                                            className="mx-auto h-32 w-32 object-cover"
-                                        />
-                                    )}
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) {
-                                                const reader = new FileReader()
-                                                reader.onloadend = () => {
-                                                    setFieldValue(
-                                                        'logoUrl',
-                                                        reader.result,
-                                                    )
-                                                }
-                                                reader.readAsDataURL(file)
-                                            }
-                                        }}
-                                        className="mt-2"
-                                    />
-                                </div>
-
                                 <div className="text-right mt-6">
                                     <Button
                                         variant="default"
@@ -1008,10 +1119,10 @@ const Garages = () => {
                                     </Button>
                                 </div>
                             </div>
-                    </Form>
-                )}
-            </Formik>
-        </Drawer>
+                        </Form>
+                    )}
+                </Formik>
+            </Drawer>
         </>
     )
 }
