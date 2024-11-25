@@ -127,6 +127,7 @@ const Services = () => {
             setFiltering(newFilters)
         }
     }
+    
 
     const columns: ColumnDef<ServicesContact>[] = [
         {
@@ -146,6 +147,7 @@ const Services = () => {
             cell: ({ row }) => {
                 // Asegúrate de acceder correctamente al valor
                 const fechaCreacion = row.original.fecha_creacion;
+                const userName = row.original.usuario?.nombre;
                 if (fechaCreacion) {
                     // Si es un Timestamp, conviértelo a Date y formatea
                     if (fechaCreacion.toDate) {
@@ -161,11 +163,11 @@ const Services = () => {
         },
         {
             header: 'Nombre del Usuario',
-            accessorKey: 'usuario.nombre', // Acceso directo al campo anidado
+            accessorKey: 'usuario.nombre',
         },
         {
             header: 'Correo del Usuario',
-            accessorKey: 'usuario.email', // Acceso directo al campo anidado
+            accessorKey: 'usuario.email',
         },
     ];
 
@@ -231,6 +233,8 @@ const Services = () => {
                                     <option value="nombre_servicio">Servicio</option>
                                     <option value="taller">Taller</option>
                                     <option value="precio">Precio</option>
+                                    <option value="precio">Precio</option>
+                                    
                                 </select>
                             </div>
                             <div className="relative w-80 ml-4">
