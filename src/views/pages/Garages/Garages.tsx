@@ -51,6 +51,7 @@ import { GiMechanicGarage } from 'react-icons/gi'
 import * as Yup from 'yup'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 import { GrMapLocation } from 'react-icons/gr'
+import Password from '@/views/account/Settings/components/Password'
 
 type Garage = {
     nombre?: string
@@ -246,6 +247,7 @@ const Garages = () => {
                 status: 'Aprobado',
                 direccion: values.direccion,
                 estado: values.estado,
+                password: values.password,
             })
 
             toast.push(
@@ -342,6 +344,7 @@ const Garages = () => {
             id: '',
             uid: '',
             estado: '',
+            password: '',
         })
         setSelectedPerson(null) // Limpia la selección (si es necesario)
     }
@@ -800,7 +803,6 @@ const Garages = () => {
                         phone: '',
                         direccion: '',
                         password: '',
-                        confirmPassword: '',
                         logoUrl: '',
                         estado: '',
                     }}
