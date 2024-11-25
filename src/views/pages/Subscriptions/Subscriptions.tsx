@@ -31,6 +31,7 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Drawer, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import * as XLSX from 'xlsx'
 
 type Subscriptions = {
     nombre?: string
@@ -40,7 +41,7 @@ type Subscriptions = {
     fecha_inicio: Timestamp
     fecha_fin: Timestamp
     vigencia: string
-    monto?: number
+    monto?: string
     uid: string
     id: string
     nombre_taller: string
@@ -83,7 +84,6 @@ const Subscriptions = () => {
 
         const resolvedSubcripciones = await Promise.all(promises)
         setDataSubs(resolvedSubcripciones)
-        console.log(resolvedSubcripciones)
     }
 
     useEffect(() => {
@@ -170,13 +170,10 @@ const Subscriptions = () => {
                     cantidad_servicios: selectedPerson.cantidad_servicios,
                     monto: selectedPerson.monto,
                 }
-                // Actualizar documento en Firestore - Subscripciones
                 await updateDoc(
                     doc(db, 'Subscripciones', selectedPerson.uid),
                     updateData,
                 )
-
-                // Actualizar documento en Firestore - Usuarios (subscripcion_actual)
                 if (selectedPerson.taller_uid) {
                     await updateDoc(
                         doc(db, 'Usuarios', selectedPerson.taller_uid),
@@ -184,7 +181,6 @@ const Subscriptions = () => {
                     )
                 }
 
-                // Notificación de éxito
                 toast.push(
                     <Notification title="Éxito">
                         Subscripción actualizada con éxito.
@@ -221,27 +217,15 @@ const Subscriptions = () => {
     }
 
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
+    const rowsPerPage = 6
 
     const onPaginationChange = (page: number) => {
         console.log('onPaginationChange', page)
         setCurrentPage(page) // Actualiza la página actual
     }
 
-    // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
-
-    const handleFilterChange = (columnId: string, value: string) => {
-        setFiltering((prev) => {
-            // Actualizar el filtro correspondiente a la columna
-            const newFilters = prev.filter((filter) => filter.id !== columnId)
-            if (value !== '') {
-                newFilters.push({ id: columnId, value })
-            }
-            return newFilters
-        })
-    }
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
@@ -270,6 +254,75 @@ const Subscriptions = () => {
             ]
             setFiltering(newFilters)
         }
+    }
+    const handleExportToExcel = () => {
+        const camposDeseados = [
+            'nombre',
+            'nombre_taller',
+            'cantidad_servicios',
+            'monto',
+            'fecha_inicio',
+            'fecha_fin',
+            'status',
+        ]
+
+        const encabezados: Record<string, string> = {
+            nombre: 'Nombre Cliente',
+            nombre_taller: 'Nombre Taller',
+            cantidad_servicios: 'Cantidad de Servicios',
+            monto: 'Monto Total',
+            fecha_inicio: 'Fecha de Inicio',
+            fecha_fin: 'Fecha de Fin',
+            status: 'Estado',
+        }
+
+        const tableData = dataSubs.map((row) => {
+            const rowData: Record<string, any> = {}
+            camposDeseados.forEach((campo) => {
+                const value = row[campo as keyof Subscriptions]
+                const header = encabezados[campo] || campo
+                rowData[header] =
+                    value instanceof Timestamp
+                        ? value.toDate().toISOString().split('T')[0]
+                        : value ?? ''
+            })
+
+            if (row.comprobante_pago) {
+                rowData['Método Comprobante'] =
+                    row.comprobante_pago.metodo || ''
+                rowData['Banco Origen'] = row.comprobante_pago.bancoOrigen || ''
+                rowData['Banco Destino'] =
+                    row.comprobante_pago.bancoDestino || ''
+                rowData['Cédula'] = row.comprobante_pago.cedula || ''
+                rowData['Teléfono Comprobante'] =
+                    row.comprobante_pago.telefono || ''
+                rowData['Monto'] = row.comprobante_pago.monto || ''
+                rowData['Recibo'] = row.comprobante_pago.receiptFile || ''
+                rowData['Número Referencia'] =
+                    row.comprobante_pago.numReferencia || ''
+                rowData['Fecha Pago'] = row.comprobante_pago.fechaPago
+                    ? formatDate(row.comprobante_pago.fechaPago)
+                    : '-'
+                rowData['Correo Comprobante'] =
+                    row.comprobante_pago.correo || ''
+            }
+
+            return rowData
+        })
+
+        const worksheet = XLSX.utils.json_to_sheet(tableData)
+
+        // Ajustar ancho de columnas
+        worksheet['!cols'] = camposDeseados.map(() => ({ wch: 20 }))
+
+        // Congelar la primera fila
+        worksheet['!freeze'] = { xSplit: 0, ySplit: 1 }
+
+        const workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Subscripciones')
+
+        XLSX.writeFile(workbook, 'subscripciones.xlsx')
+        console.log(tableData)
     }
 
     const options = [
@@ -369,7 +422,7 @@ const Subscriptions = () => {
         data: dataSubs,
         columns,
         state: {
-            columnFilters: filtering, // Usar el array de filtros
+            columnFilters: filtering,
         },
         onColumnFiltersChange: setFiltering,
         getCoreRowModel: getCoreRowModel(),
@@ -377,7 +430,7 @@ const Subscriptions = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
+    const data = table.getRowModel().rows
     const totalRows = data.length
 
     return (
@@ -418,6 +471,12 @@ const Subscriptions = () => {
                             />
                             <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
                         </div>
+                        <button
+                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200"
+                            onClick={handleExportToExcel}
+                        >
+                            Exportar a Excel
+                        </button>
                     </div>
                 </div>
             </div>
@@ -485,7 +544,7 @@ const Subscriptions = () => {
             <Drawer
                 isOpen={drawerIsOpen}
                 onClose={handleDrawerClose}
-                className="rounded-md shadow" // Añadir estilo al Drawer
+                className="rounded-md shadow"
             >
                 <div className="grid grid-cols-2">
                     <h2 className="flex mb-4 text-xl font-bold">
@@ -495,7 +554,7 @@ const Subscriptions = () => {
                         <Switcher
                             defaultChecked={
                                 selectedPerson?.status === 'Aprobado'
-                            } // Determina si el Switcher debe estar activado o no
+                            }
                             onChange={(e) =>
                                 setSelectedPerson((prev: any) => ({
                                     ...(prev ?? {
@@ -507,7 +566,7 @@ const Subscriptions = () => {
                                         id: '',
                                         status: '',
                                     }),
-                                    status: e ? 'Aprobado' : 'Por Aprobar', // Cambia el estado según la posición del Switcher
+                                    status: e ? 'Aprobado' : 'Por Aprobar',
                                 }))
                             }
                             color={
