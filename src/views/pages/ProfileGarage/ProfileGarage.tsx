@@ -1040,9 +1040,7 @@ const ProfileGarage = () => {
                                                                                             .header,
                                                                                         header.getContext(),
                                                                                     )}
-                                                                                    <Sorter
-                                                                                        sort={header.column.getIsSorted()}
-                                                                                    />
+                                                                                    
                                                                                 </div>
                                                                             )}
                                                                         </Th>
@@ -1186,9 +1184,7 @@ const ProfileGarage = () => {
                                                                                     .header,
                                                                                 header.getContext(),
                                                                             )}
-                                                                            <Sorter
-                                                                                sort={header.column.getIsSorted()}
-                                                                            />
+                                                                            
                                                                         </div>
                                                                     )}
                                                                 </Th>
@@ -1276,9 +1272,7 @@ const ProfileGarage = () => {
                                                                 .header,
                                                             header.getContext(),
                                                         )}
-                                                        <Sorter
-                                                            sort={header.column.getIsSorted()}
-                                                        />
+                                                        
                                                         {header.column.getCanFilter() ? (
                                                             <input
                                                                 type="text"

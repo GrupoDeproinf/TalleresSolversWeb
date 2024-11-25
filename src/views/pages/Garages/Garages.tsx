@@ -645,9 +645,7 @@ const Garages = () => {
                                                             .header,
                                                         header.getContext(),
                                                     )}
-                                                    <Sorter
-                                                        sort={header.column.getIsSorted()}
-                                                    />
+                                                    
                                                 </div>
                                             )}
                                         </Th>

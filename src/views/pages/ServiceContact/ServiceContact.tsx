@@ -163,11 +163,11 @@ const Services = () => {
         },
         {
             header: 'Nombre del Usuario',
-            accessorKey: 'usuario.nombre',
+            accessorKey: 'usuario.nombre', // Acceso directo al campo anidado
         },
         {
             header: 'Correo del Usuario',
-            accessorKey: 'usuario.email',
+            accessorKey: 'usuario.email', // Acceso directo al campo anidado
         },
     ];
 
@@ -278,9 +278,7 @@ const Services = () => {
                                                                 .header,
                                                             header.getContext(),
                                                         )}
-                                                        <Sorter
-                                                            sort={header.column.getIsSorted()}
-                                                        />
+                                                        
                                                     </div>
                                                 )}
                                             </Th>
