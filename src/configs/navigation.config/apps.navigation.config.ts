@@ -45,7 +45,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Usuarios',
                 icon: 'user',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
             {
@@ -65,7 +65,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Plantillas Servicios',
                 icon: 'tools',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
             {
@@ -75,7 +75,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Categorías',
                 icon: 'category',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
             {
@@ -85,7 +85,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Servicios por Taller',
                 icon: 'serviceGarage',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
             {
@@ -95,7 +95,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Planes',
                 icon: 'plans',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
             {
@@ -105,7 +105,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Subscriptions',
                 icon: 'subscriptions',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
         ],
