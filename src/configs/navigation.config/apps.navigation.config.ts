@@ -108,6 +108,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN],
                 subMenu: [],
             },
+            {
+                key: 'apps.ServiceContact',
+                path: `${APP_PREFIX_PATH}/ServiceContact`,
+                title: 'Servicios Solicitados',
+                translateKey: 'Servicios Solicitados',
+                icon: 'ServiceContact',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
         ],
     },
 ]

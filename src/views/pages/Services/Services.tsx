@@ -48,6 +48,7 @@ type ServiceTemplate = {
     // Campos para subcategoría
     subcategoria?: []
     garantia?: string
+    precio?: number
 
     id?: string
 }
@@ -180,6 +181,7 @@ const Services = () => {
             subcategoria: [],
             id: '',
             garantia: '',
+            precio: 0,
         })
 
         const validationSchema = Yup.object().shape({
@@ -211,6 +213,7 @@ const Services = () => {
                 subcategoria: values.subcategoria,
                 uid_servicio: '', // Inicialmente vacío, se actualizará con docRef.id
                 garantia: values.garantia,
+                precio: values.precio,
             })
 
             // Actualización del campo uid_servicio con el ID del documento recién creado
@@ -232,6 +235,7 @@ const Services = () => {
                 nombre_categoria: '',
                 subcategoria: [],
                 garantia: '',
+                precio: 0,
             })
 
             // Cierre del Drawer y actualización de la lista de datos
@@ -303,6 +307,7 @@ const Services = () => {
                     nombre_categoria: values.nombre_categoria,
                     subcategoria: values.subcategoria || [], // Array vacío si no hay subcategorías
                     garantia: values.garantia,
+                    precio: values.precio,
                 });
     
                 toast.push(
@@ -369,6 +374,10 @@ const Services = () => {
             accessorKey: 'garantia',
         },
         {
+            header: 'precio',
+            accessorKey: 'precio',
+        },
+        {
             header: ' ',
             cell: ({ row }) => {
                 const person = row.original
@@ -394,32 +403,10 @@ const Services = () => {
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    const handleEdit = (service: ServiceTemplate) => {
-        console.log('Editando el servicio:', service)
-        // Lógica de edición
-    }
-
     const onDialogClose = (e: MouseEvent) => {
         console.log('onDialogClose', e)
         setIsOpen(false)
         setSelectedServiceTemplate(null) // Limpiar selección
-    }
-
-    const handleDrawerClose = (e: MouseEvent) => {
-        //console.log('Drawer cerrado', e)
-        setDrawerCreateIsOpen(false) // Cierra el Drawer
-        setNewServiceTemplate({
-            // Limpia los campos de usuario
-            nombre_servicio: '',
-            descripcion: '',
-            id: '',
-            uid_servicio: '',
-            uid_categoria: '',
-            nombre_categoria: '',
-            subcategoria: [],
-            garantia: '',
-        })
-        setSelectedServiceTemplate(null) // Limpia la selección (si es necesario)
     }
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
@@ -579,9 +566,7 @@ const Services = () => {
                                                                 .header,
                                                             header.getContext(),
                                                         )}
-                                                        <Sorter
-                                                            sort={header.column.getIsSorted()}
-                                                        />
+                                                        
                                                     </div>
                                                 )}
                                             </Th>
@@ -670,6 +655,7 @@ const Services = () => {
                         subcategoria:
                             selectedServiceTemplate?.subcategoria || [],
                         garantia: selectedServiceTemplate?.garantia || '',
+                        precio: selectedServiceTemplate?.precio || '',
                     }}
                     validationSchema={validationSchema}
                     onSubmit={(values) => {
@@ -679,8 +665,7 @@ const Services = () => {
                 >
                     {({ isSubmitting, setFieldValue, values }) => (
                             <Form
-                            className="flex flex-col space-y-6"
-                                
+                            className="flex flex-col space-y-6"    
                             >
                             {/* Nombre */}
                             <div className="flex flex-col">
@@ -836,6 +821,22 @@ const Services = () => {
                                     className="text-red-600 text-sm mt-1"
                                 />
                             </div>
+                            {/* precio */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Precio:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="precio"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <ErrorMessage
+                                    name="precio"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
 
                             <div className="text-right mt-6">
                                 <Button
@@ -872,6 +873,7 @@ const Services = () => {
                         uid_categoria: '',
                         subcategoria: [],
                         garantia: '',
+                        precio: '',
                     }}
                     validationSchema={validationSchema}
                     onSubmit={(values, { setSubmitting }) => {
@@ -1031,6 +1033,22 @@ const Services = () => {
                                 />
                                 <ErrorMessage
                                     name="garantia"
+                                    component="div"
+                                    className="text-red-600 text-sm mt-1"
+                                />
+                            </div>
+                            {/* precio */}
+                            <div className="flex flex-col">
+                                <label className="font-semibold text-gray-700">
+                                    Precio:
+                                </label>
+                                <Field
+                                    type="text"
+                                    name="precio"
+                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <ErrorMessage
+                                    name="precio"
                                     component="div"
                                     className="text-red-600 text-sm mt-1"
                                 />

@@ -59,7 +59,7 @@ type Category = {
     nombreUser?: string // Nombre del creador
     estatus?: boolean
 
-    uid?: string // ID del usuario que creó la categoría
+    //uid?: string // ID del usuario que creó la categoría
     id: string // ID único de la categoría
     subcategorias?: any[]
 }
@@ -131,44 +131,13 @@ const Users = () => {
         logoUrl: '',
         nombreUser: '',
         estatus: true,
-        uid: '', // Asignar valor vacío si no quieres que sea undefined
+        //uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
     const openDialog = (Category: Category) => {
         setSelectedCategory(Category)
         setIsOpen(true)
-    }
-    const openDrawer = (Category: Category) => {
-        setSelectedCategory(Category)
-        setDrawerIsOpen(true) // Abre el Drawer
-    }
-
-    const handleEditCategory = async (categoryId: string) => {
-        try {
-            const subcategoriesRef = collection(
-                db,
-                'Categorias',
-                categoryId,
-                'Subcategorias',
-            )
-            const snapshot = await getDocs(subcategoriesRef)
-            const loadedSubcategories: Subcategory[] = snapshot.docs.map(
-                (doc) => ({
-                    ...doc.data(),
-                    uid: doc.id,
-                }),
-            ) as Subcategory[]
-
-            setSubcategories(
-                loadedSubcategories.length > 0
-                    ? loadedSubcategories
-                    : [{ nombre: '', descripcion: '', estatus: true, uid: '' }],
-            )
-            setDrawerIsOpen(true)
-        } catch (error) {
-            console.error('Error al cargar las subcategorías:', error)
-        }
     }
 
     const handleDrawerOpenEdit = (category: any) => {
@@ -194,12 +163,7 @@ const Users = () => {
         { nombre: '', descripcion: '', estatus: true, uid: '' },
     ])
 
-    const handleAddSubcategory = () => {
-        setSubcategories([
-            ...subcategories,
-            { nombre: '', descripcion: '', estatus: true, uid: '' },
-        ])
-    }
+
 
     const handleSubcategoryChange = (
         index: number,
@@ -244,85 +208,86 @@ const Users = () => {
     })
 
     const handleCreateCategory = async (values: any) => {
-        const auth = getAuth()
-        const currentUser = auth.currentUser
-
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+    
         if (!values || !currentUser) {
             toast.push(
                 <Notification title="Error">
                     {!currentUser
                         ? 'Usuario no autenticado.'
                         : 'Los datos de la categoría son inválidos. Por favor, verifica.'}
-                </Notification>,
-            )
-            return
+                </Notification>
+            );
+            return;
         }
-
+    
         try {
             // Obtener información del usuario actual
-            const userDocRef = doc(db, 'Usuarios', currentUser.uid)
-            const userDoc = await getDoc(userDocRef)
+            const userDocRef = doc(db, 'Usuarios', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
             const userName =
                 userDoc.exists() && userDoc.data()?.nombre
                     ? userDoc.data().nombre
-                    : 'Administrador'
-
+                    : 'Administrador';
+    
+            // Extraer subcategorías de los valores
+            const { subcategorias, ...categoryData } = values;
+    
             // Preparar datos de la categoría
             const categoryPayload = {
-                ...values,
+                ...categoryData,
                 nombreUser: userName,
-                uid: currentUser.uid,
                 fechaCreacion: Timestamp.fromDate(new Date()),
-            }
-
+            };
+    
             // Guardar categoría principal
             const categoryRef = await addDoc(
                 collection(db, 'Categorias'),
-                categoryPayload,
-            )
-
+                categoryPayload
+            );
+    
             // Crear subcategorías si existen
-            const { subcategorias } = values
             if (subcategorias && subcategorias.length > 0) {
                 const subcategoriesRef = collection(
                     db,
                     'Categorias',
                     categoryRef.id,
-                    'Subcategorias',
-                )
-
-                const batch = writeBatch(db)
-
+                    'Subcategorias'
+                );
+    
+                const batch = writeBatch(db);
+    
                 subcategorias.forEach((subcategory: any) => {
                     if (subcategory.nombre && subcategory.descripcion) {
-                        const subcategoryRef = doc(subcategoriesRef)
-                        batch.set(subcategoryRef, subcategory)
+                        const subcategoryRef = doc(subcategoriesRef);
+                        batch.set(subcategoryRef, subcategory);
                     }
-                })
-
-                await batch.commit()
+                });
+    
+                await batch.commit();
             }
-
+    
             // Notificar éxito
             toast.push(
                 <Notification title="Éxito">
                     Categoría y subcategorías creadas con éxito.
-                </Notification>,
-            )
-
+                </Notification>
+            );
+    
             // Limpiar estados o datos
-            setDrawerCreateIsOpen(false)
-            getData() // Refrescar datos si es necesario
+            setDrawerCreateIsOpen(false);
+            getData(); // Refrescar datos si es necesario
         } catch (error) {
-            console.error('Error al crear categoría:', error)
+            console.error('Error al crear categoría:', error);
             toast.push(
                 <Notification title="Error">
-                    Ocurrió un error al crear la categoría. Inténtalo
-                    nuevamente.
-                </Notification>,
-            )
+                    Ocurrió un error al crear la categoría. Inténtalo nuevamente.
+                </Notification>
+            );
         }
-    }
+    };
+    
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
@@ -416,26 +381,6 @@ const Users = () => {
                 </Notification>,
             )
         }
-    }
-
-    // Obtener iniciales de los nombres
-    const getInitials = (nombre: string | undefined): string => {
-        if (!nombre) return ''
-        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
-        return words
-            .map((word) => {
-                if (typeof word === 'string' && word.length > 0) {
-                    return word[0].toUpperCase()
-                }
-                return '' // Retorna una cadena vacía si la palabra no es válida
-            })
-            .join('')
-    }
-
-    const handleSelectCategory = (category: any) => {
-        setSelectedCategory(category)
-        setSubcategories(category.subcategorias || []) // Cargar subcategorías
-        setDrawerIsOpen(true)
     }
 
     const columns: ColumnDef<Category>[] = [
@@ -544,7 +489,7 @@ const Users = () => {
             nombre: '',
             descripcion: '',
             logoUrl: '',
-            uid: '',
+            //uid: '',
             id: '',
         }) // Limpia los campos de la categoría
         setSubcategories([]) // Limpia las subcategorías
@@ -796,9 +741,7 @@ const Users = () => {
                                                             .header,
                                                         header.getContext(),
                                                     )}
-                                                    <Sorter
-                                                        sort={header.column.getIsSorted()}
-                                                    />
+                                                    
                                                 </div>
                                             )}
                                         </Th>
@@ -1103,13 +1046,13 @@ const Users = () => {
                 <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
                 <Formik
                     initialValues={{
-                        uid: '',
+                        //uid: '',
                         nombre: '',
                         descripcion: '',
                         logoUrl: '',
                         nombreUser: '',
                         estatus: true,
-                        id: '',
+                        //id: '',
                         subcategorias: [
                             {
                                 nombre: '',
