@@ -208,85 +208,86 @@ const Users = () => {
     })
 
     const handleCreateCategory = async (values: any) => {
-        const auth = getAuth()
-        const currentUser = auth.currentUser
-
+        const auth = getAuth();
+        const currentUser = auth.currentUser;
+    
         if (!values || !currentUser) {
             toast.push(
                 <Notification title="Error">
                     {!currentUser
                         ? 'Usuario no autenticado.'
                         : 'Los datos de la categoría son inválidos. Por favor, verifica.'}
-                </Notification>,
-            )
-            return
+                </Notification>
+            );
+            return;
         }
-
+    
         try {
             // Obtener información del usuario actual
-            const userDocRef = doc(db, 'Usuarios', currentUser.uid)
-            const userDoc = await getDoc(userDocRef)
+            const userDocRef = doc(db, 'Usuarios', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
             const userName =
                 userDoc.exists() && userDoc.data()?.nombre
                     ? userDoc.data().nombre
-                    : 'Administrador'
-
+                    : 'Administrador';
+    
+            // Extraer subcategorías de los valores
+            const { subcategorias, ...categoryData } = values;
+    
             // Preparar datos de la categoría
             const categoryPayload = {
-                ...values,
+                ...categoryData,
                 nombreUser: userName,
-                //uid: currentUser.uid,
                 fechaCreacion: Timestamp.fromDate(new Date()),
-            }
-
+            };
+    
             // Guardar categoría principal
             const categoryRef = await addDoc(
                 collection(db, 'Categorias'),
-                categoryPayload,
-            )
-
+                categoryPayload
+            );
+    
             // Crear subcategorías si existen
-            const { subcategorias } = values
             if (subcategorias && subcategorias.length > 0) {
                 const subcategoriesRef = collection(
                     db,
                     'Categorias',
                     categoryRef.id,
-                    'Subcategorias',
-                )
-
-                const batch = writeBatch(db)
-
+                    'Subcategorias'
+                );
+    
+                const batch = writeBatch(db);
+    
                 subcategorias.forEach((subcategory: any) => {
                     if (subcategory.nombre && subcategory.descripcion) {
-                        const subcategoryRef = doc(subcategoriesRef)
-                        batch.set(subcategoryRef, subcategory)
+                        const subcategoryRef = doc(subcategoriesRef);
+                        batch.set(subcategoryRef, subcategory);
                     }
-                })
-
-                await batch.commit()
+                });
+    
+                await batch.commit();
             }
-
+    
             // Notificar éxito
             toast.push(
                 <Notification title="Éxito">
                     Categoría y subcategorías creadas con éxito.
-                </Notification>,
-            )
-
+                </Notification>
+            );
+    
             // Limpiar estados o datos
-            setDrawerCreateIsOpen(false)
-            getData() // Refrescar datos si es necesario
+            setDrawerCreateIsOpen(false);
+            getData(); // Refrescar datos si es necesario
         } catch (error) {
-            console.error('Error al crear categoría:', error)
+            console.error('Error al crear categoría:', error);
             toast.push(
                 <Notification title="Error">
-                    Ocurrió un error al crear la categoría. Inténtalo
-                    nuevamente.
-                </Notification>,
-            )
+                    Ocurrió un error al crear la categoría. Inténtalo nuevamente.
+                </Notification>
+            );
         }
-    }
+    };
+    
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
@@ -380,26 +381,6 @@ const Users = () => {
                 </Notification>,
             )
         }
-    }
-
-    // Obtener iniciales de los nombres
-    const getInitials = (nombre: string | undefined): string => {
-        if (!nombre) return ''
-        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
-        return words
-            .map((word) => {
-                if (typeof word === 'string' && word.length > 0) {
-                    return word[0].toUpperCase()
-                }
-                return '' // Retorna una cadena vacía si la palabra no es válida
-            })
-            .join('')
-    }
-
-    const handleSelectCategory = (category: any) => {
-        setSelectedCategory(category)
-        setSubcategories(category.subcategorias || []) // Cargar subcategorías
-        setDrawerIsOpen(true)
     }
 
     const columns: ColumnDef<Category>[] = [

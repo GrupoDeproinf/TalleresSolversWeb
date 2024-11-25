@@ -3,6 +3,8 @@ import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { Drawer } from '@/components/ui'
 import Select from '@/components/ui/Select'
+import Checkbox from '@/components/ui/Checkbox'
+import type { SyntheticEvent } from 'react'
 import {
     flexRender,
     getCoreRowModel,
@@ -73,7 +75,7 @@ type subscricion = {
 type Service = {
     nombre_servicio?: string
     descripcion?: string
-    precio?: string
+    precio?: number
     uid_taller?: string
     taller?: string
     uid_servicio: string
@@ -86,6 +88,7 @@ type Service = {
     nombre_categoria?: string
     // Campos para subcategoría
     subcategoria?: []
+    typeService?: string
 }
 
 type ServiceTemplate = {
@@ -99,6 +102,7 @@ type ServiceTemplate = {
     // Campos para subcategoría
     subcategoria?: []
     garantia?: string
+    precio?: number
 
     id?: string
 }
@@ -117,12 +121,19 @@ type Subcategory = {
 }
 
 const ServiceGarages = () => {
+    const [typeService, setTypeService] = useState<string>('local') // Valor predeterminado
+
+    const handleCheckboxChange = (value: string) => {
+        setTypeService(value) // Actualiza la selección al valor seleccionado
+    }
+
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [dataCategories, setDataCategories] = useState<Category[]>([])
     const [dataSubcategories, setDataSubcategories] = useState<Subcategory[]>(
         [],
     )
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre_servicio')
+    const [selectedColumn, setSelectedColumn] =
+        useState<string>('nombre_servicio')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
         null,
@@ -241,8 +252,9 @@ const ServiceGarages = () => {
         uid_categoria: '',
         nombre_categoria: '',
         subcategoria: [],
-        precio: '',
+        precio: 0,
         uid_servicio: '',
+        typeService: '',
 
         estatus: true,
         garantia: '',
@@ -266,6 +278,9 @@ const ServiceGarages = () => {
             .positive('El precio debe ser un valor positivo.')
             .typeError('El precio debe ser un número.'),
         garantia: Yup.string().required('La garantía es obligatoria.'),
+        typeService: Yup.string().required(
+            'Debe seleccionar un tipo de servicio',
+        ),
     })
 
     const handleCreateService = async (values: any) => {
@@ -284,7 +299,7 @@ const ServiceGarages = () => {
             }
 
             const tallerData = tallerSnapshot.data()
-            console.log('Datos a guardar: ', values);
+            console.log('Datos a guardar: ', values)
 
             // Verificar si la cantidad de servicios disponibles es mayor que 0
             const cantidadServicios =
@@ -313,6 +328,7 @@ const ServiceGarages = () => {
                 taller: values.taller,
                 uid_servicio: '', // Inicialmente vacío
                 garantia: values.garantia,
+                typeService: values.typeService,
                 estatus: true,
             })
 
@@ -340,10 +356,11 @@ const ServiceGarages = () => {
                 uid_categoria: '',
                 nombre_categoria: '',
                 subcategoria: [],
-                precio: '',
+                precio: 0,
                 uid_taller: '',
                 taller: '',
                 garantia: '',
+                typeService: '',
                 estatus: true,
             })
 
@@ -368,9 +385,10 @@ const ServiceGarages = () => {
             uid_categoria: '',
             nombre_categoria: '',
             subcategoria: [],
-            precio: '',
+            precio: 0,
             uid_servicio: '',
             garantia: '',
+            typeService: '',
         })
         setDrawerIsOpen(true)
     }
@@ -383,7 +401,7 @@ const ServiceGarages = () => {
             uid_categoria: serviceTemplate.uid_categoria || '',
             nombre_categoria: serviceTemplate.nombre_categoria || '',
             subcategoria: serviceTemplate.subcategoria || [],
-            precio: '',
+            precio: serviceTemplate.precio || 0,
             uid_servicio: serviceTemplate.uid_servicio || '',
             garantia: serviceTemplate.garantia || '',
         })
@@ -467,6 +485,10 @@ const ServiceGarages = () => {
             accessorKey: 'garantia',
         },
         {
+            header: 'Precio',
+            accessorKey: 'precio',
+        },
+        {
             header: ' ',
             cell: ({ row }) => {
                 const person = row.original
@@ -523,25 +545,6 @@ const ServiceGarages = () => {
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
 
-    const handleDrawerClose = (e: MouseEvent) => {
-        setDrawerCreateIsOpen(false) // Cierra el Drawer
-        setNewService({
-            // Limpia los campos de usuario
-            nombre_servicio: '',
-            descripcion: '',
-            id: '',
-            uid_servicio: '',
-            uid_categoria: '',
-            nombre_categoria: '',
-            subcategoria: [],
-            taller: '',
-            precio: '',
-
-            garantia: '',
-        })
-        setSelectedServiceTemplate(null) // Limpia la selección (si es necesario)
-    }
-
     const handleDrawerCloseEdit = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
         setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
@@ -577,6 +580,9 @@ const ServiceGarages = () => {
                                 <option value="nombre_servicio">Nombre</option>
                                 <option value="nombre_categoria">
                                     Categoria
+                                </option>
+                                <option value="typeService">
+                                    Tipo de Servicio
                                 </option>
                             </select>
                         </div>
@@ -685,6 +691,7 @@ const ServiceGarages = () => {
                         uid_taller: newService?.uid_taller || '',
                         precio: newService?.precio || '',
                         garantia: newService?.garantia || '',
+                        typeService: 'local',
 
                         subcategoria: newService?.subcategoria || [],
                     }}
@@ -760,6 +767,37 @@ const ServiceGarages = () => {
                                     className="text-red-600 text-sm"
                                 />
                             </label>
+                            {/* TypeService */}
+                            <div className="flex flex-col space-y-4">
+                                <span className="font-semibold text-gray-700">
+                                    Tipo de Servicio:
+                                </span>
+                                <div className="flex items-center space-x-10">
+                                    <label className="flex items-center space-x-2">
+                                        <Field
+                                            type="radio"
+                                            name="typeService"
+                                            value="local"
+                                            className="form-radio"
+                                        />
+                                        <span>En el Local</span>
+                                    </label>
+                                    <label className="flex items-center space-x-2">
+                                        <Field
+                                            type="radio"
+                                            name="typeService"
+                                            value="domicilio"
+                                            className="form-radio"
+                                        />
+                                        <span>A Domicilio</span>
+                                    </label>
+                                </div>
+                                <ErrorMessage
+                                    name="typeService"
+                                    component="div"
+                                    className="text-red-600 text-sm"
+                                />
+                            </div>
 
                             {/* Categoría */}
                             <label className="flex flex-col">
