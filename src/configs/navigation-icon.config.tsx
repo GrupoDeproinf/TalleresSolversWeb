@@ -31,6 +31,7 @@ import CategoryIcon from '@/components/icons/categoryicon'
 import ServecesxGarage from '@/components/icons/servicesxgaregeicon'
 import PlansIcon from '@/components/icons/plansicon'
 import AnalyticsUpIcon from '@/components/icons/dashtboardicon'
+import { IoIosContacts } from 'react-icons/io'
 
 export type NavigationIcons = Record<string, JSX.Element>
 
@@ -69,6 +70,7 @@ const navigationIcon: NavigationIcons = {
     serviceGarage: <ServecesxGarage />,
     plans: <PlansIcon />,
     subscriptions: <CustomIcon></CustomIcon>,
+    ServiceContact: <IoIosContacts ></IoIosContacts>,
 }
 
 export default navigationIcon

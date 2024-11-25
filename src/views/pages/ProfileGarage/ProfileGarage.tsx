@@ -383,7 +383,6 @@ const ProfileGarage = () => {
             facebook: /^(https?:\/\/)?(www\.)?facebook\.com\/.+$/,
             instagram: /^(https?:\/\/)?(www\.)?instagram\.com\/.+$/,
             tiktok: /^(https?:\/\/)?(www\.)?tiktok\.com\/.+$/,
-            whatsapp: /^(https?:\/\/)?(www\.)?whatsapp\.com\/.+$/,
         }
 
         if (!regexMap[platform].test(url)) {
@@ -426,6 +425,15 @@ const ProfileGarage = () => {
             toast.push(
                 <Notification title="Error">
                     El teléfono debe contener solo números.
+                </Notification>,
+            )
+            return
+        }
+
+        if (!formData.LinkWhatsapp || !/^\d+$/.test(formData.LinkWhatsapp)) {
+            toast.push(
+                <Notification title="Error">
+                    El Whatsapp debe contener solo números.
                 </Notification>,
             )
             return
@@ -487,7 +495,22 @@ const ProfileGarage = () => {
                 return // Sal de la función si el RIF ya existe
             }
 
-            // Actualiza los datos si el RIF no está registrado
+            // Verifica si el teléfono ya está registrado
+        const phoneExiste = querySnapshot.docs.some(
+            (doc) => doc.data().phone === formData.phone && doc.id !== path, // Excluye el documento actual
+        )
+
+        if (phoneExiste) {
+            toast.push(
+                <Notification title="Error">
+                    El teléfono ya está registrado. Por favor, verifica e
+                    intenta con otro.
+                </Notification>,
+            )
+            return // Sal de la función si el teléfono ya existe
+        }
+
+            // Actualiza los datos
             const docRef = doc(db, 'Usuarios', path)
             await updateDoc(docRef, formData)
 
@@ -1449,6 +1472,25 @@ const ProfileGarage = () => {
                                     onChange={handleEditChange}
                                 />
                             </label>
+                            <label className="block">
+                                <span className="text-gray-700 font-semibold">
+                                    Whatsapp
+                                </span>
+                                <input
+                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+                                    placeholder="URL de whatsapp"
+                                    name="LinkWhatsapp"
+                                    value={formData.LinkWhatsapp}
+                                    onChange={(e) =>
+                                        handleUrlChange(e, 'whatsapp')
+                                    }
+                                />
+                                {urlErrors.whatsapp && (
+                                    <span className="text-red-500 text-sm">
+                                        {urlErrors.whatsapp}
+                                    </span>
+                                )}
+                            </label>
                             <label className="flex flex-col">
                                 <span className="font-semibold text-gray-700">
                                     RIF:
@@ -1631,27 +1673,6 @@ const ProfileGarage = () => {
                                     </span>
                                 )}
                             </label>
-
-                            <label className="block">
-                                <span className="text-gray-700 font-semibold">
-                                    Whatsapp
-                                </span>
-                                <input
-                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                    placeholder="URL de whatsapp"
-                                    name="LinkWhatsapp"
-                                    value={formData.LinkWhatsapp}
-                                    onChange={(e) =>
-                                        handleUrlChange(e, 'whatsapp')
-                                    }
-                                />
-                                {urlErrors.whatsapp && (
-                                    <span className="text-red-500 text-sm">
-                                        {urlErrors.whatsapp}
-                                    </span>
-                                )}
-                            </label>
-
                             
                             
                         </div>
