@@ -28,7 +28,7 @@ import Button from '@/components/ui/Button'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
-import { Drawer, Switcher } from '@/components/ui'
+import { Dialog, Drawer, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as XLSX from 'xlsx'
 
@@ -110,7 +110,6 @@ const Subscriptions = () => {
         setEndDate('')
     }
 
-    
     const openDrawer = (person: Subscriptions) => {
         setSelectedPerson(person)
         setDrawerIsOpen(true)
@@ -264,6 +263,28 @@ const Subscriptions = () => {
         }
     }
     const handleExportToExcel = () => {
+        if (!startDate || !endDate) {
+            toast.push(
+                <Notification title="Fechas incompletas">
+                    Por favor, selecciona ambas fechas para continuar.
+                </Notification>,
+            )
+            return
+        }
+
+        // Ajustar fecha de inicio al principio del día en UTC
+        const adjustedStartDate = new Date(startDate)
+        adjustedStartDate.setUTCHours(0, 0, 0, 0)
+
+        // Ajustar fecha de fin al final del día en UTC
+        const adjustedEndDate = new Date(endDate)
+        adjustedEndDate.setUTCHours(23, 59, 59, 999)
+
+        console.log({
+            startDate: adjustedStartDate,
+            endDate: adjustedEndDate,
+        })
+
         const camposDeseados = [
             'nombre',
             'nombre_taller',
@@ -284,7 +305,48 @@ const Subscriptions = () => {
             status: 'Estado',
         }
 
-        const tableData = dataSubs.map((row) => {
+        // Filtrar los datos para las fechas dentro del rango
+        const filteredData = dataSubs.filter((row) => {
+            // Convertir `fecha_inicio` a Date si es un Timestamp
+            const fechaInicio =
+                row.fecha_inicio instanceof Timestamp
+                    ? row.fecha_inicio.toDate() // Si es Timestamp, convertir a Date
+                    : new Date(row.fecha_inicio) // Si ya es Date, dejarlo como está
+
+            // Asegurarse de que `fechaInicio` sea una fecha válida
+            if (
+                !(fechaInicio instanceof Date) ||
+                isNaN(fechaInicio.getTime())
+            ) {
+                return false // Si no es una fecha válida, no lo incluimos
+            }
+
+            console.log(
+                'Fecha Inicio:',
+                fechaInicio,
+                'Inicio Range:',
+                adjustedStartDate,
+                'End Range:',
+                adjustedEndDate,
+            )
+
+            // Comparar las fechas
+            return (
+                fechaInicio.getTime() >= adjustedStartDate.getTime() && // Fecha dentro del rango de inicio
+                fechaInicio.getTime() <= adjustedEndDate.getTime() // Fecha dentro del rango de fin
+            )
+        })
+
+        if (filteredData.length === 0) {
+            toast.push(
+                <Notification title="Sin datos para exportar">
+                    No hay datos disponibles en el rango de fechas seleccionado.
+                </Notification>,
+            )
+            return
+        }
+
+        const tableData = filteredData.map((row) => {
             const rowData: Record<string, any> = {}
             camposDeseados.forEach((campo) => {
                 const value = row[campo as keyof Subscriptions]
@@ -319,18 +381,16 @@ const Subscriptions = () => {
         })
 
         const worksheet = XLSX.utils.json_to_sheet(tableData)
-
-        // Ajustar ancho de columnas
-        worksheet['!cols'] = camposDeseados.map(() => ({ wch: 20 }))
-
-        // Congelar la primera fila
-        worksheet['!freeze'] = { xSplit: 0, ySplit: 1 }
-
         const workbook = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Subscripciones')
-
         XLSX.writeFile(workbook, 'subscripciones.xlsx')
-        console.log(tableData)
+
+        toast.push(
+            <Notification title="Exportación exitosa">
+                El archivo Excel se ha descargado correctamente.
+            </Notification>,
+        )
+        handleCloseDialog()
     }
 
     const options = [
@@ -482,7 +542,7 @@ const Subscriptions = () => {
                         <button
                             style={{ backgroundColor: '#000B7E' }}
                             className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
-                            onClick={handleExportToExcel}
+                            onClick={handleOpenDialog}
                         >
                             Exportar a Excel
                         </button>
@@ -757,6 +817,52 @@ const Subscriptions = () => {
                     </Button>
                 </div>
             </Drawer>
+            <Dialog isOpen={dialogIsOpen} onClose={handleCloseDialog}>
+                <div className="p-4">
+                    <h3 className="text-lg font-bold">
+                        Seleccionar Rango de Fechas
+                    </h3>
+                    <div className="mt-4 space-y-4">
+                        <div>
+                            <label
+                                htmlFor="startDate"
+                                className="block text-sm"
+                            >
+                                Desde:
+                            </label>
+                            <input
+                                id="startDate"
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-2"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="endDate" className="block text-sm">
+                                Hasta:
+                            </label>
+                            <input
+                                id="endDate"
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-2"
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-4">
+                        <Button onClick={handleCloseDialog}>Cancelar</Button>
+                        <Button
+                            onClick={handleExportToExcel}
+                            className="text-white hover:opacity-80"
+                            style={{ backgroundColor: '#000B7E' }}
+                        >
+                            Exportar
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
         </>
     )
 }
