@@ -49,13 +49,23 @@ const appsNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
+                key: 'apps.profileGarage',
+                path: `/profilegarage/:id`, // El placeholder :id será reemplazado
+                title: 'Mi Perfil',
+                translateKey: 'nav.appsProfileGarage.profilegarage',
+                icon: 'user',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [USER],
+                subMenu: [],
+            },            
+            {
                 key: 'apps.garages',
                 path: `${APP_PREFIX_PATH}/garages`,
                 title: 'Talleres',
                 translateKey: 'Talleres',
                 icon: 'cars',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
             {
@@ -85,7 +95,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Servicios por Taller',
                 icon: 'serviceGarage',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN],
+                authority: [ADMIN, USER],
                 subMenu: [],
             },
             {
@@ -115,7 +125,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Servicios Solicitados',
                 icon: 'ServiceContact',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, USER],
+                authority: [ADMIN],
                 subMenu: [],
             },
         ],

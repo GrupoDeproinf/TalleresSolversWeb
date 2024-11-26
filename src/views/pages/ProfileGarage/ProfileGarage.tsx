@@ -56,6 +56,7 @@ import Checkbox from '@/components/ui/Checkbox'
 import { SiZelle } from 'react-icons/si'
 import PaymentDrawer from './Components/PaymentForm'
 import { BsWhatsapp } from 'react-icons/bs'
+import { useAppSelector } from '@/store'
 
 type Service = {
     nombre_servicio: string
@@ -144,6 +145,11 @@ const ProfileGarage = () => {
         location.pathname.lastIndexOf('/') + 1,
     )
     const navigate = useNavigate()
+    const userAuthority = useAppSelector((state) => state.auth.user.authority)
+
+    const canGoBack = userAuthority?.includes("Admin")
+
+
 
     const getData = async () => {
         setLoading(true)
@@ -750,15 +756,17 @@ const ProfileGarage = () => {
 
     return (
         <Container className="h-full">
-            <div className="flex items-center">
-                <button
-                    onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
-                    className="flex items-center text-blue-900 mb-3 ml-2 px-4 py-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition duration-200"
-                >
-                    <FaArrowLeft className="mr-2" />
-                    <span>Volver</span>
-                </button>
-            </div>
+            {canGoBack && (
+                <div className="flex items-center">
+                    <button
+                        onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
+                        className="flex items-center text-blue-900 mb-3 ml-2 px-4 py-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition duration-200"
+                    >
+                        <FaArrowLeft className="mr-2" />
+                        <span>Volver</span>
+                    </button>
+                </div>
+            )}
             <div className="flex flex-col xl:flex-row gap-4">
                 <Card>
                     <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
