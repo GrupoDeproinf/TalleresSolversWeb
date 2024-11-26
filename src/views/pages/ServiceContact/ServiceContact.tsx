@@ -215,18 +215,28 @@ const Services = () => {
                 <Notification title="Fechas incompletas">
                     Por favor, selecciona ambas fechas para continuar.
                 </Notification>,
-            )
-            return
+            );
+            return;
         }
-
+    
+        // Ajustar fecha de inicio y fin al inicio y fin del día en UTC
+        const adjustedStartDate = new Date(startDate);
+        adjustedStartDate.setUTCHours(0, 0, 0, 0); // Ajustar al inicio del día UTC
+    
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setUTCHours(23, 59, 59, 999); // Ajustar al final del día UTC
+    
+        console.log({
+            startDate: adjustedStartDate,
+            endDate: adjustedEndDate,
+        });
+    
+        // Filtrar los datos
         const formattedData = dataServicesContact
             .filter((service) => {
-                const creationDate = service.fecha_creacion?.toDate()
-                return (
-                    creationDate &&
-                    creationDate >= new Date(startDate) &&
-                    creationDate <= new Date(endDate)
-                )
+                const creationDate = service.fecha_creacion?.toDate();
+                console.log("Creation date aquí", creationDate);
+                return creationDate && creationDate >= adjustedStartDate && creationDate <= adjustedEndDate;
             })
             .map((service) => ({
                 'Nombre del Servicio': service.nombre_servicio || 'N/A',
@@ -237,30 +247,36 @@ const Services = () => {
                     : 'N/A',
                 'Nombre del Usuario': service.usuario?.nombre || 'N/A',
                 'Correo del Usuario': service.usuario?.email || 'N/A',
-            }))
-
+            }));
+    
         if (formattedData.length === 0) {
             toast.push(
                 <Notification title="Sin datos para exportar">
                     No hay datos disponibles en el rango de fechas seleccionado.
                 </Notification>,
-            )
-            return
+            );
+            return;
         }
-
-        const worksheet = XLSX.utils.json_to_sheet(formattedData)
-        const workbook = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios')
-        XLSX.writeFile(workbook, 'ServiciosSolicitados.xlsx')
-
+    
+        // Exportar a Excel
+        const worksheet = XLSX.utils.json_to_sheet(formattedData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios');
+        XLSX.writeFile(workbook, 'ServiciosSolicitados.xlsx');
+    
         toast.push(
             <Notification title="Exportación exitosa">
                 El archivo Excel se ha descargado correctamente.
             </Notification>,
-        )
-
-        handleCloseDialog()
-    }
+        );
+    
+        handleCloseDialog();
+        console.log('Start date aquí: ', adjustedStartDate, 'End date aquí', adjustedEndDate);
+    };
+    
+    
+    
+    
     
     return (
         <>
