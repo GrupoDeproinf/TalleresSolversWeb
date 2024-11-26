@@ -472,7 +472,8 @@ const Subscriptions = () => {
                             <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
                         </div>
                         <button
-                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200"
+                            style={{ backgroundColor: '#000B7E' }}
+                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
                             onClick={handleExportToExcel}
                         >
                             Exportar a Excel

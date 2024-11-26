@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
-import Select from '@/components/ui/Select'
+import Button from '@/components/ui/Button'
 import {
     flexRender,
     getCoreRowModel,
@@ -14,29 +14,17 @@ import type {
     ColumnFiltersState,
     ColumnSort,
 } from '@tanstack/react-table'
-import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import {
     collection,
     getDocs,
     query,
-    where,
-    doc,
-    deleteDoc,
-    updateDoc,
-    addDoc,
     Timestamp,
 } from 'firebase/firestore'
-import { z } from 'zod'
 import { db } from '@/configs/firebaseAssets.config'
-import Button from '@/components/ui/Button'
-import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
-import type { MouseEvent } from 'react'
-import { Drawer } from '@/components/ui'
-import * as Yup from 'yup'
-import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import * as XLSX from 'xlsx'
 
 type ServicesContact = {
     nombre_servicio?: string
@@ -127,7 +115,6 @@ const Services = () => {
             setFiltering(newFilters)
         }
     }
-    
 
     const columns: ColumnDef<ServicesContact>[] = [
         {
@@ -205,6 +192,42 @@ const Services = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
+    const handleExportToExcel = () => {
+        if (dataServicesContact.length === 0) {
+            toast.push(
+                <Notification title="Sin datos para exportar">
+                    No hay datos disponibles en la tabla para exportar.
+                </Notification>,
+            )
+            return
+        }
+    
+        // Prepara los datos para el Excel
+        const formattedData = dataServicesContact.map((service) => ({
+            'Nombre del Servicio': service.nombre_servicio || 'N/A',
+            Taller: service.taller || 'N/A',
+            Precio: service.precio || 'N/A',
+            'Fecha de Creación': service.fecha_creacion
+                ? service.fecha_creacion.toDate().toLocaleString()
+                : 'N/A',
+            'Nombre del Usuario': service.usuario?.nombre || 'N/A',
+            'Correo del Usuario': service.usuario?.email || 'N/A',
+        }))
+    
+        // Crea el libro de Excel
+        const worksheet = XLSX.utils.json_to_sheet(formattedData)
+        const workbook = XLSX.utils.book_new()
+    
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios')
+        XLSX.writeFile(workbook, 'ServiciosSolicitados.xlsx')
+    
+        toast.push(
+            <Notification title="Exportación exitosa">
+                El archivo Excel se ha descargado correctamente.
+            </Notification>,
+        )
+    }
+    
     return (
         <>
             <div>
@@ -232,9 +255,7 @@ const Services = () => {
                                 >
                                     <option value="nombre_servicio">Servicio</option>
                                     <option value="taller">Taller</option>
-                                    <option value="precio">Precio</option>
-                                    <option value="precio">Precio</option>
-                                    
+                                    <option value="precio">Precio</option>                                    
                                 </select>
                             </div>
                             <div className="relative w-80 ml-4">
@@ -247,6 +268,13 @@ const Services = () => {
                                 />
                                 <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
                             </div>
+                            <button
+                            style={{ backgroundColor: '#000B7E' }}
+                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
+                            onClick={handleExportToExcel}
+                        >
+                            Exportar a Excel
+                        </button>
                         </div>
                     </div>
                 </div>
