@@ -22,7 +22,6 @@ import {
     doc,
     updateDoc,
     Timestamp,
-    getDoc,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -70,6 +69,8 @@ const Subscriptions = () => {
         null,
     )
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
+    const [startDate, setStartDate] = useState<string>('')
+    const [endDate, setEndDate] = useState<string>('')
 
     const getData = async () => {
         const q = query(collection(db, 'Subscripciones'))
@@ -99,10 +100,17 @@ const Subscriptions = () => {
         )
     }
 
-    const openDialog = (person: Subscriptions) => {
-        setSelectedPerson(person)
+    const handleOpenDialog = () => {
         setIsOpen(true)
     }
+
+    const handleCloseDialog = () => {
+        setIsOpen(false)
+        setStartDate('')
+        setEndDate('')
+    }
+
+    
     const openDrawer = (person: Subscriptions) => {
         setSelectedPerson(person)
         setDrawerIsOpen(true)
