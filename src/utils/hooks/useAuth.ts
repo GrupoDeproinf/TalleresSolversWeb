@@ -58,8 +58,16 @@ function useAuth() {
     
         if (!usuariosSnapshot.empty) {
             // Si el usuario está en la colección Usuarios
-            collectionToCheck = 'Usuarios'
-            userData = usuariosSnapshot.docs[0].data()
+            const potentialUser = usuariosSnapshot.docs[0].data()
+            if (potentialUser.typeUser === 'Taller') {
+                collectionToCheck = 'Usuarios'
+                userData = potentialUser
+            } else {
+                return {
+                    status: 'failed',
+                    message: 'El usuario no tiene permitido iniciar sesión',
+                }
+            }
         } else {
             // Consultar en la colección Admins si no está en Usuarios
             const queryAdmins = query(
@@ -82,6 +90,7 @@ function useAuth() {
                 message: 'El usuario no se encuentra registrado',
             }
         }
+        
     
         // Intentar iniciar sesión con Firebase Auth
         try {

@@ -47,6 +47,7 @@ import { Avatar } from '@/components/ui'
 import * as Yup from 'yup'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
+import { useAppSelector } from '@/store'
 
 type Garage = {
     nombre?: string
@@ -126,6 +127,13 @@ const ServiceGarages = () => {
     const handleCheckboxChange = (value: string) => {
         setTypeService(value) // Actualiza la selección al valor seleccionado
     }
+
+    const userAuthority = useAppSelector((state) => state.auth.user.authority)
+    const loggedInUserId = useAppSelector((state) => state.auth.user.key);
+    const loggedInUserName = useAppSelector((state) => state.auth.user.userName);
+
+
+    const canGoBack = userAuthority?.includes("Admin")
 
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [dataCategories, setDataCategories] = useState<Category[]>([])
@@ -686,7 +694,14 @@ const ServiceGarages = () => {
                         descripcion: newService?.descripcion || '',
                         uid_categoria: newService?.uid_categoria || '',
                         nombre_categoria: newService?.nombre_categoria || '',
-                        uid_taller: newService?.uid_taller || '',
+                        uid_taller:
+                        userAuthority === 'Admin'
+                            ? newService?.uid_taller || ''
+                            : loggedInUserId,
+                        taller:
+                            userAuthority === 'Admin'
+                                ? newService?.taller || ''
+                                : loggedInUserName, // Usa el nombre del usuario logueado
                         precio: newService?.precio || '',
                         garantia: newService?.garantia || '',
                         typeService: 'local',
@@ -722,8 +737,8 @@ const ServiceGarages = () => {
                                     className="text-red-600 text-sm"
                                 />
                             </label>
-
-                            {/* Taller */}
+                            {canGoBack && (
+                            <div>
                             <label className="flex flex-col">
                                 <span className="font-semibold text-gray-700">
                                     Taller:
@@ -765,6 +780,8 @@ const ServiceGarages = () => {
                                     className="text-red-600 text-sm"
                                 />
                             </label>
+                            </div>
+                            )}
                             {/* TypeService */}
                             <div className="flex flex-col space-y-4">
                                 <span className="font-semibold text-gray-700">
