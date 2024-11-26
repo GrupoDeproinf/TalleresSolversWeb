@@ -46,86 +46,98 @@ function useAuth() {
           }
         | undefined
     > => {
-        const query1 = query(
+        let collectionToCheck: 'Usuarios' | 'Admins' | null = null
+        let userData: any = null
+    
+        // Consultar en la colección Usuarios
+        const queryUsuarios = query(
             collection(db, 'Usuarios'),
             where('email', '==', values.userName),
         )
-        const querySnapshot = await getDocs(query1)
-        let infoFinal: any = []
-        querySnapshot.forEach((doc) => {
-            let dataTempo: any = doc.data()
-            dataTempo.key = doc.id
-            dataTempo.total = 0
-            infoFinal.push(dataTempo)
-        })
-
-        console.log(infoFinal)
-        if (infoFinal.length == 0) {
+        const usuariosSnapshot = await getDocs(queryUsuarios)
+    
+        if (!usuariosSnapshot.empty) {
+            // Si el usuario está en la colección Usuarios
+            collectionToCheck = 'Usuarios'
+            userData = usuariosSnapshot.docs[0].data()
+        } else {
+            // Consultar en la colección Admins si no está en Usuarios
+            const queryAdmins = query(
+                collection(db, 'Admins'),
+                where('email', '==', values.userName),
+            )
+            const adminsSnapshot = await getDocs(queryAdmins)
+    
+            if (!adminsSnapshot.empty) {
+                // Si el usuario está en la colección Admins
+                collectionToCheck = 'Admins'
+                userData = adminsSnapshot.docs[0].data()
+            }
+        }
+    
+        // Si el usuario no se encuentra en ninguna colección
+        if (!collectionToCheck || !userData) {
             return {
                 status: 'failed',
                 message: 'El usuario no se encuentra registrado',
             }
-        } else {
-            try {
-                const auth = getAuth()
-                const userCredential = await signInWithEmailAndPassword(
-                    auth,
-                    values.userName,
-                    values.password,
+        }
+    
+        // Intentar iniciar sesión con Firebase Auth
+        try {
+            const auth = getAuth()
+            const userCredential = await signInWithEmailAndPassword(
+                auth,
+                values.userName,
+                values.password,
+            )
+    
+            if (userCredential?.user?.uid) {
+                const token = userCredential.user.uid
+                dispatch(signInSuccess(token))
+    
+                // Obtener detalles del usuario desde la colección correspondiente
+                const userDoc = await getDoc(
+                    doc(db, collectionToCheck, userCredential.user.uid),
                 )
-
-                // .then(resp=>{
-                if (userCredential?.user?.uid) {
-                    const token = userCredential?.user?.uid
-                    dispatch(signInSuccess(token))
-                    if (userCredential?.user) {
-                        console.log(userCredential?.user?.uid)
-                        getDoc(
-                            doc(db, 'Usuarios', userCredential?.user?.uid),
-                        ).then((resp) => {
-                            const info = resp.data()
-                            console.log(info)
-                            localStorage.setItem('nombre', info?.nombre)
-                            dispatch(
-                                setUser({
-                                    avatar: '',
-                                    userName: info?.nombre,
-                                    email: info?.email,
-                                    key: resp.id,
-                                    authority: ['admin', 'user'], // ['user']
-                                }),
-                            )
-                            const redirectUrl =
-                                queryRedirect.get(REDIRECT_URL_KEY)
-                            navigate(
-                                redirectUrl
-                                    ? redirectUrl
-                                    : appConfig.authenticatedEntryPath,
-                            )
-                            return {
-                                status: 'success',
-                                message: '',
-                            }
-                        })
-                    }
-                } else {
-                    console.log(userCredential)
+    
+                if (userDoc.exists()) {
+                    const userInfo = userDoc.data()
+                    localStorage.setItem('nombre', userInfo?.nombre)
+                    dispatch(
+                        setUser({
+                            avatar: '',
+                            userName: userInfo?.nombre,
+                            email: userInfo?.email,
+                            key: userDoc.id,
+                            authority: [userInfo?.typeUser], // ['user'] o ['admin']
+                        }),
+                    )
+                    const redirectUrl = queryRedirect.get(REDIRECT_URL_KEY)
+                    navigate(
+                        redirectUrl
+                            ? redirectUrl
+                            : appConfig.authenticatedEntryPath,
+                    )
                     return {
-                        status: 'failed',
-                        message: 'fallo',
+                        status: 'success',
+                        message: '',
                     }
                 }
-            } catch (errors: any) {
-                // eslint-disable-next-line  @typescript-eslint/no-explicit-any
-                // }
+            } else {
                 return {
                     status: 'failed',
-                    message: 'Su contraseña es invalida',
-                       // errors?.response?.data?.message || errors.toString(),
+                    message: 'Error al obtener la información del usuario',
                 }
+            }
+        } catch (error: any) {
+            return {
+                status: 'failed',
+                message: 'Su contraseña es inválida',
             }
         }
     }
+    
 
     const signUp = async (values: any) => {
         return new Promise((resolve, reject) => {
@@ -145,29 +157,9 @@ function useAuth() {
                         setDoc(doc(db, 'Usuarios', token), values).then(
                             (resp) => {
                                 console.log(resp)
-                                dispatch(signInSuccess(token))
-                                if (user?.uid) {
-                                    localStorage.setItem(
-                                        'userName',
-                                        values.name,
-                                    )
-                                    dispatch(
-                                        setUser({
-                                            avatar: '',
-                                            userName: values?.name,
-                                            email: values?.email,
-                                            key: token,
-                                            authority: ['admin', 'user'], // ['user']
-                                        }),
-                                    )
-                                }
-                                const redirectUrl =
-                                    queryRedirect.get(REDIRECT_URL_KEY)
-                                navigate(
-                                    redirectUrl
-                                        ? redirectUrl
-                                        : appConfig.authenticatedEntryPath,
-                                )
+                                
+                                const redirectUrl ='/sign-in'
+                                navigate(redirectUrl)
 
                                 return {
                                     status: 'success',
