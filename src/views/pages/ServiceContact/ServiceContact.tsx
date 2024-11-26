@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
+import Dialog from '@/components/ui/Dialog'
 import {
     flexRender,
     getCoreRowModel,
@@ -19,6 +20,7 @@ import {
     getDocs,
     query,
     Timestamp,
+    doc,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import toast from '@/components/ui/toast'
@@ -51,6 +53,8 @@ const Services = () => {
     const [dataServicesContact, setDataServicesContact] = useState<
         ServicesContact[]
     >([])
+    const [startDate, setStartDate] = useState<string>('')
+    const [endDate, setEndDate] = useState<string>('')
 
     const getAllData = async () => {
         try {
@@ -115,6 +119,19 @@ const Services = () => {
             setFiltering(newFilters)
         }
     }
+
+    const [dialogIsOpen, setIsOpen] = useState(false)
+    
+    const handleOpenDialog = () => {
+        setIsOpen(true)
+    }
+
+    const handleCloseDialog = () => {
+        setIsOpen(false)
+        setStartDate('')
+        setEndDate('')
+    }
+
 
     const columns: ColumnDef<ServicesContact>[] = [
         {
@@ -193,39 +210,56 @@ const Services = () => {
     const endIndex = startIndex + rowsPerPage
 
     const handleExportToExcel = () => {
-        if (dataServicesContact.length === 0) {
+        if (!startDate || !endDate) {
             toast.push(
-                <Notification title="Sin datos para exportar">
-                    No hay datos disponibles en la tabla para exportar.
+                <Notification title="Fechas incompletas">
+                    Por favor, selecciona ambas fechas para continuar.
                 </Notification>,
             )
             return
         }
-    
-        // Prepara los datos para el Excel
-        const formattedData = dataServicesContact.map((service) => ({
-            'Nombre del Servicio': service.nombre_servicio || 'N/A',
-            Taller: service.taller || 'N/A',
-            Precio: service.precio || 'N/A',
-            'Fecha de Creación': service.fecha_creacion
-                ? service.fecha_creacion.toDate().toLocaleString()
-                : 'N/A',
-            'Nombre del Usuario': service.usuario?.nombre || 'N/A',
-            'Correo del Usuario': service.usuario?.email || 'N/A',
-        }))
-    
-        // Crea el libro de Excel
+
+        const formattedData = dataServicesContact
+            .filter((service) => {
+                const creationDate = service.fecha_creacion?.toDate()
+                return (
+                    creationDate &&
+                    creationDate >= new Date(startDate) &&
+                    creationDate <= new Date(endDate)
+                )
+            })
+            .map((service) => ({
+                'Nombre del Servicio': service.nombre_servicio || 'N/A',
+                Taller: service.taller || 'N/A',
+                Precio: service.precio || 'N/A',
+                'Fecha de Creación': service.fecha_creacion
+                    ? service.fecha_creacion.toDate().toLocaleString()
+                    : 'N/A',
+                'Nombre del Usuario': service.usuario?.nombre || 'N/A',
+                'Correo del Usuario': service.usuario?.email || 'N/A',
+            }))
+
+        if (formattedData.length === 0) {
+            toast.push(
+                <Notification title="Sin datos para exportar">
+                    No hay datos disponibles en el rango de fechas seleccionado.
+                </Notification>,
+            )
+            return
+        }
+
         const worksheet = XLSX.utils.json_to_sheet(formattedData)
         const workbook = XLSX.utils.book_new()
-    
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios')
         XLSX.writeFile(workbook, 'ServiciosSolicitados.xlsx')
-    
+
         toast.push(
             <Notification title="Exportación exitosa">
                 El archivo Excel se ha descargado correctamente.
             </Notification>,
         )
+
+        handleCloseDialog()
     }
     
     return (
@@ -271,7 +305,7 @@ const Services = () => {
                             <button
                             style={{ backgroundColor: '#000B7E' }}
                             className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
-                            onClick={handleExportToExcel}
+                            onClick={handleOpenDialog}
                         >
                             Exportar a Excel
                         </button>
@@ -351,6 +385,46 @@ const Services = () => {
                         rowsPerPage={rowsPerPage}
                     />
                 </div>
+                <Dialog isOpen={dialogIsOpen} onClose={handleCloseDialog}>
+                <div className="p-4">
+                    <h3 className="text-lg font-bold">Seleccionar Rango de Fechas</h3>
+                    <div className="mt-4 space-y-4">
+                        <div>
+                            <label htmlFor="startDate" className="block text-sm">
+                                Fecha de Inicio:
+                            </label>
+                            <input
+                                id="startDate"
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-2"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="endDate" className="block text-sm">
+                                Fecha de Fin:
+                            </label>
+                            <input
+                                id="endDate"
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="w-full border border-gray-300 rounded-md p-2"
+                            />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-4">
+                        <Button onClick={handleCloseDialog}>Cancelar</Button>
+                        <Button onClick={handleExportToExcel} 
+                        className="text-white hover:opacity-80"
+                        style={{ backgroundColor: '#000B7E' }}
+                        >
+                            Exportar
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
             </div>
         </>
     )
