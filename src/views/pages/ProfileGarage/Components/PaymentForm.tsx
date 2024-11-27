@@ -202,7 +202,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                             <h4 className="font-semibold text-lg">Selecciona el Método de Pago</h4>
 
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                {metodosPago.map((metodo) => (
+                                {metodosPago?.map((metodo) => (
                                     <button
                                         key={metodo.tipo_pago}
                                         type="button"

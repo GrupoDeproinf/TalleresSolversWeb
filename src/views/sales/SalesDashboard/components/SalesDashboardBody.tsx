@@ -28,7 +28,6 @@ const SalesDashboardBody = () => {
 
     return (
         <Loading loading={loading}>
-            <Statistic data={dashboardData?.statisticData} />
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <SalesReport
                     data={dashboardData?.salesReportData}
