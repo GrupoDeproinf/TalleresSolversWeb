@@ -16,7 +16,6 @@ const SalesByCategories = ({
 }: SalesByCategoriesProps) => {
     return (
         <Card>
-            <h4>Categorías</h4>
             <div className="mt-6">
                 {data.data.length > 0 && (
                     <>
