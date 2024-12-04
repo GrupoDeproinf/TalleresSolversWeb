@@ -30,7 +30,8 @@ import {
     deleteDoc,
     updateDoc,
     addDoc,
-    where
+    where,
+    deleteField,
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -54,6 +55,7 @@ type Person = {
     uid: string
     typeUser?: string
     id: string
+    estado?: string
 }
 
 const Users = () => {
@@ -153,45 +155,59 @@ const Users = () => {
         try {
             // Validación de los valores usando Yup
             await validationSchema.validate(values, { abortEarly: false })
-    
+
             // Verificar si ya existe un usuario con la misma cédula, teléfono o correo en Firestore
             const usersRef = collection(db, 'Usuarios')
-    
+
             // Consulta para verificar si ya existe un documento con la misma cédula
-            const cedulaQuery = query(usersRef, where('cedula', '==', values.cedula))
+            const cedulaQuery = query(
+                usersRef,
+                where('cedula', '==', values.cedula),
+            )
             const cedulaSnapshot = await getDocs(cedulaQuery)
-    
+
             // Consulta para verificar si ya existe un documento con el mismo teléfono
-            const phoneQuery = query(usersRef, where('phone', '==', values.phone))
+            const phoneQuery = query(
+                usersRef,
+                where('phone', '==', values.phone),
+            )
             const phoneSnapshot = await getDocs(phoneQuery)
-    
+
             // Consulta para verificar si ya existe un documento con el mismo correo electrónico
-            const emailQuery = query(usersRef, where('email', '==', values.email))
+            const emailQuery = query(
+                usersRef,
+                where('email', '==', values.email),
+            )
             const emailSnapshot = await getDocs(emailQuery)
-    
+
             // Si existe un documento con la misma cédula, teléfono o correo, muestra la notificación correspondiente
             if (!emailSnapshot.empty) {
                 toast.push(
-                    <Notification title="Error">¡El correo electrónico ya está registrado!</Notification>
+                    <Notification title="Error">
+                        ¡El correo electrónico ya está registrado!
+                    </Notification>,
                 )
                 return // Detener la ejecución si hay un error
             }
 
             if (!cedulaSnapshot.empty) {
                 toast.push(
-                    <Notification title="Error">¡La cédula ya está registrada!</Notification>
-                )
-                return // Detener la ejecución si hay un error
-            }
-    
-            if (!phoneSnapshot.empty) {
-                toast.push(
-                    <Notification title="Error">¡El número de teléfono ya está registrado!</Notification>
+                    <Notification title="Error">
+                        ¡La cédula ya está registrada!
+                    </Notification>,
                 )
                 return // Detener la ejecución si hay un error
             }
 
-    
+            if (!phoneSnapshot.empty) {
+                toast.push(
+                    <Notification title="Error">
+                        ¡El número de teléfono ya está registrado!
+                    </Notification>,
+                )
+                return // Detener la ejecución si hay un error
+            }
+
             // Crear y autenticar el usuario en Firebase
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
@@ -199,10 +215,10 @@ const Users = () => {
                 values.password,
             )
             const user = userCredential.user // Usuario autenticado desde Firebase
-    
+
             // Referencia a la colección 'Usuarios' en Firestore
             const userRef = collection(db, 'Usuarios')
-    
+
             // Crear el documento en Firestore con el UID de Firebase
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
@@ -213,22 +229,22 @@ const Users = () => {
                 typeUser: values.typeUser || 'Cliente', // Asumiendo que 'typeUser' puede ser 'Cliente' u otro tipo
                 uid: user.uid, // Usar el UID de Firebase para asociar el usuario
             })
-    
+
             // Actualización del UID en Firestore con el ID del documento recién creado
             await updateDoc(docRef, {
                 uid: docRef.id,
             })
-    
+
             // Notificación de éxito
             toast.push(
                 <Notification title="Éxito">
                     Usuario creado exitosamente.
-                </Notification>
+                </Notification>,
             )
-    
+
             // Cierre del Drawer después de crear el usuario
             setDrawerCreateIsOpen(false)
-    
+
             // Llamada a obtener los datos (si es necesario para actualizar la lista de usuarios)
             getData()
         } catch (error) {
@@ -238,7 +254,7 @@ const Users = () => {
                     toast.push(
                         <Notification title="Error">
                             {validationError.message}
-                        </Notification>
+                        </Notification>,
                     )
                 })
             } else {
@@ -247,12 +263,11 @@ const Users = () => {
                 toast.push(
                     <Notification title="Error">
                         Hubo un error al crear el Usuario.
-                    </Notification>
+                    </Notification>,
                 )
             }
         }
     }
-    
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
@@ -286,64 +301,95 @@ const Users = () => {
         }
     }
 
-    const handleSaveChanges = async () => {
-        if (selectedPerson) {
-            try {
-                // Verificar si ya existe un usuario con la misma cédula, teléfono o correo en Firestore, excepto el usuario actual
-                const usersRef = collection(db, 'Usuarios');
     
-                // Consulta para verificar si ya existe un documento con la misma cédula
-                const cedulaQuery = query(usersRef, where('cedula', '==', selectedPerson.cedula));
-                const cedulaSnapshot = await getDocs(cedulaQuery);
-    
-                // Consulta para verificar si ya existe un documento con el mismo teléfono
-                const phoneQuery = query(usersRef, where('phone', '==', selectedPerson.phone));
-                const phoneSnapshot = await getDocs(phoneQuery);
-    
-                // Verificar si los resultados de las consultas no están vacíos y si el uid no corresponde al usuario actual
-                if (!cedulaSnapshot.empty && cedulaSnapshot.docs[0].data().uid !== selectedPerson.uid) {
-                    toast.push(
-                        <Notification title="Error">¡La cédula ya está registrada!</Notification>
-                    );
-                    return; // Detener la ejecución si hay un error
-                }
-    
-                if (!phoneSnapshot.empty && phoneSnapshot.docs[0].data().uid !== selectedPerson.uid) {
-                    toast.push(
-                        <Notification title="Error">¡El número de teléfono ya está registrado!</Notification>
-                    );
-                    return; // Detener la ejecución si hay un error
-                }
-    
-                // Si no hay conflictos, proceder a actualizar el documento del usuario
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid);
-                await updateDoc(userDoc, {
-                    nombre: selectedPerson.nombre,
-                    email: selectedPerson.email,
-                    cedula: selectedPerson.cedula,
-                    phone: selectedPerson.phone,
-                    typeUser: selectedPerson.typeUser,
-                });
-    
-                // Mensaje de éxito
-                toast.push(
-                    <Notification title="Éxito">
-                        Usuario actualizado con éxito.
-                    </Notification>
-                );
-                setDrawerIsOpen(false);
-                getData(); // Refrescar datos después de guardar
-            } catch (error) {
-                console.error('Error actualizando el usuario:', error);
-                // Mensaje de error
+
+const handleSaveChanges = async () => {
+    if (selectedPerson) {
+        try {
+            // Referencia a la colección de usuarios
+            const usersRef = collection(db, "Usuarios");
+
+            // Consulta para verificar si ya existe un documento con la misma cédula
+            const cedulaQuery = query(
+                usersRef,
+                where("cedula", "==", selectedPerson.cedula)
+            );
+            const cedulaSnapshot = await getDocs(cedulaQuery);
+
+            // Consulta para verificar si ya existe un documento con el mismo teléfono
+            const phoneQuery = query(
+                usersRef,
+                where("phone", "==", selectedPerson.phone)
+            );
+            const phoneSnapshot = await getDocs(phoneQuery);
+
+            // Verificar conflictos con la cédula y el teléfono
+            if (
+                !cedulaSnapshot.empty &&
+                cedulaSnapshot.docs[0].data().uid !== selectedPerson.uid
+            ) {
                 toast.push(
                     <Notification title="Error">
-                        Hubo un error al actualizar el usuario.
+                        ¡La cédula ya está registrada!
                     </Notification>
                 );
+                return; // Detener la ejecución si hay un error
             }
+
+            if (
+                !phoneSnapshot.empty &&
+                phoneSnapshot.docs[0].data().uid !== selectedPerson.uid
+            ) {
+                toast.push(
+                    <Notification title="Error">
+                        ¡El número de teléfono ya está registrado!
+                    </Notification>
+                );
+                return; // Detener la ejecución si hay un error
+            }
+
+            // Preparar datos para la actualización
+            const userDoc = doc(db, "Usuarios", selectedPerson.uid);
+            const updateData: any = {
+                nombre: selectedPerson.nombre,
+                email: selectedPerson.email,
+                cedula: selectedPerson.cedula,
+                phone: selectedPerson.phone,
+                typeUser: selectedPerson.typeUser,
+            };
+
+            // Si el tipo de usuario es Certificador, incluir el estado
+            if (selectedPerson.typeUser === "Certificador") {
+                updateData.estado = selectedPerson.estado;
+            } else {
+                // Si es Cliente, eliminar el campo estado
+                updateData.estado = deleteField();
+            }
+
+            // Actualizar el documento en Firestore
+            await updateDoc(userDoc, updateData);
+
+            // Mensaje de éxito
+            toast.push(
+                <Notification title="Éxito">
+                    Usuario actualizado con éxito.
+                </Notification>
+            );
+            setDrawerIsOpen(false);
+            getData(); // Refrescar datos después de guardar
+        } catch (error) {
+            console.error("Error actualizando el usuario:", error);
+            // Mensaje de error
+            toast.push(
+                <Notification title="Error">
+                    Hubo un error al actualizar el usuario.
+                </Notification>
+            );
         }
     }
+};
+
+    
 
     // Obtener iniciales de los nombres
     const getInitials = (nombre: string | undefined): string => {
@@ -429,7 +475,6 @@ const Users = () => {
                 )
             },
         },
-
         {
             header: ' ',
             cell: ({ row }) => {
@@ -633,7 +678,6 @@ const Users = () => {
                                                             .header,
                                                         header.getContext(),
                                                     )}
-                                                    
                                                 </div>
                                             )}
                                         </Th>
@@ -821,6 +865,57 @@ const Users = () => {
                             <option value="Certificador">Certificador</option>
                         </select>
                     </label>
+
+                    {/* Campo para Estados (condicional) */}
+                    {selectedPerson?.typeUser === 'Certificador' && (
+                        <label className="flex flex-col">
+                            <span className="font-semibold text-gray-700">
+                                Estado:
+                            </span>
+                            <select
+                                value={selectedPerson?.estado || ''}
+                                onChange={(e) =>
+                                    setSelectedPerson((prev: any) => ({
+                                        ...prev,
+                                        estado: e.target.value,
+                                    }))
+                                }
+                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            >
+                                <option value="">Seleccione un Estado</option>
+                                {[
+                                    'Amazonas',
+                                    'Anzoátegui',
+                                    'Apure',
+                                    'Aragua',
+                                    'Barinas',
+                                    'Bolívar',
+                                    'Carabobo',
+                                    'Cojedes',
+                                    'Delta Amacuro',
+                                    'Distrito Capital',
+                                    'Falcón',
+                                    'Guárico',
+                                    'Lara',
+                                    'Mérida',
+                                    'Miranda',
+                                    'Monagas',
+                                    'Nueva Esparta',
+                                    'Portuguesa',
+                                    'Sucre',
+                                    'Táchira',
+                                    'Trujillo',
+                                    'Vargas',
+                                    'Yaracuy',
+                                    'Zulia',
+                                ].map((estado) => (
+                                    <option key={estado} value={estado}>
+                                        {estado}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
                 </div>
 
                 <div className="text-right mt-6">
