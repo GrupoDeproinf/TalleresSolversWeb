@@ -87,6 +87,7 @@ type SubscriptionHistory = {
     fecha_fin: Timestamp
     fecha_inicio: Timestamp
     taller_uid: string
+    fechaCreacion: Timestamp
 }
 
 const ProfileGarage = () => {
@@ -110,6 +111,7 @@ const ProfileGarage = () => {
         status: '',
         vigencia: '',
         uid: '',
+        fechaCreacion: Timestamp.fromDate(new Date()),
     })
     const [subscripcionestable, setSubscriptionHistory] = useState<
         SubscriptionHistory[]
@@ -192,6 +194,7 @@ const ProfileGarage = () => {
                     fecha_fin: data.fecha_fin || 'no hay fecha',
                     fecha_inicio: data.fecha_inicio || 'no hay fecha',
                     taller_uid: data.taller_uid || '', // UID del taller
+                    fechaCreacion: Timestamp.fromDate(new Date()),
                 }
             })
 
@@ -314,6 +317,7 @@ const ProfileGarage = () => {
                 cantidad_servicios: plan.cantidad_servicios,
                 status: 'Por Aprobar',
                 taller_uid: path,
+                fechaCreacion: Timestamp.fromDate(new Date()),
             })
 
             await updateDoc(usuarioDocRef, {

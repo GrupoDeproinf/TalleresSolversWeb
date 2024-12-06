@@ -27,8 +27,8 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN, USER],
                 subMenu: [
                     {
-                        key: 'appsProject.dashboard',
-                        path: `${APP_PREFIX_PATH}/project/dashboard`,
+                        key: 'appsSales.dashboard',
+                        path: `${APP_PREFIX_PATH}/sales/SalesDashboard`,
                         title: 'Dashboard',
                         translateKey: 'nav.appsProject.dashboard',
                         icon: '',

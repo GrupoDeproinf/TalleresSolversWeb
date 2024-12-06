@@ -7,26 +7,28 @@ type SalesByCategoriesProps = {
     data?: {
         labels: string[]
         data: number[]
+        colors: string[]
     }
 }
 
 const SalesByCategories = ({
-    data = { labels: [], data: [] },
+    data = { labels: [], data: [], colors: [] },
 }: SalesByCategoriesProps) => {
     return (
         <Card>
-            <h4>Categories</h4>
             <div className="mt-6">
                 {data.data.length > 0 && (
                     <>
                         <Chart
-                            donutTitle={`${data.data.reduce(
-                                (a, b) => a + b,
-                                0
-                            )}`}
-                            donutText="Product Sold"
+                            donutTitle={`${data.data.reduce((a, b) => a + b, 0)}`}
+                            donutText="Cantidad de Talleres" // Texto personalizado
                             series={data.data}
-                            customOptions={{ labels: data.labels }}
+                            customOptions={{
+                                labels: data.labels,
+                                colors: data.colors.length
+                                    ? data.colors
+                                    : COLORS, // Usa colores personalizados o predeterminados
+                            }}
                             type="donut"
                         />
                         {data.data.length === data.labels.length && (
@@ -38,12 +40,10 @@ const SalesByCategories = ({
                                     >
                                         <Badge
                                             badgeStyle={{
-                                                backgroundColor: COLORS[index],
+                                                backgroundColor: data.colors[index] || COLORS[index],
                                             }}
                                         />
-                                        <span className="font-semibold">
-                                            {value}
-                                        </span>
+                                        <span className="font-semibold">{value}</span>
                                     </div>
                                 ))}
                             </div>
@@ -52,7 +52,7 @@ const SalesByCategories = ({
                 )}
             </div>
         </Card>
-    )
-}
+    );
+};
 
-export default SalesByCategories
+export default SalesByCategories;
