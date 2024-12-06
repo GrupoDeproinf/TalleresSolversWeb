@@ -306,7 +306,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         type="text"
                                         autoComplete="off"
                                         name="phone"
-                                        placeholder="Ejem (04142611966)"
+                                        placeholder="Ejem (04141234567)"
                                         component={Input}
                                     />
                                 </FormItem>
