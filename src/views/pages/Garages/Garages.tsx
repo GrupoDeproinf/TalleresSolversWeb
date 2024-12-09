@@ -60,7 +60,7 @@ type Garage = {
     phone?: string
     uid: string
     typeUser?: string
-    logoUrl?: string
+    image_perfil?: string
     direccion?: string
     id?: string
     status?: string
@@ -120,7 +120,7 @@ const Garages = () => {
         phone: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         typeUser: 'Taller',
-        logoUrl: '',
+        image_perfil: '',
         status: 'Aprobado',
         direccion: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
@@ -244,7 +244,7 @@ const Garages = () => {
                 rif: values.rif,
                 phone: values.phone,
                 typeUser: 'Taller',
-                logoUrl: values.logoUrl,
+                image_perfil: values.image_perfil,
                 status: 'Aprobado',
                 direccion: coordenadas === null ? '' : coordenadas.latiLng,
                 estado: values.estado,
@@ -310,7 +310,7 @@ const Garages = () => {
                     email: selectedPerson.email,
                     rif: selectedPerson.rif,
                     phone: selectedPerson.phone,
-                    logoUrl: selectedPerson.logoUrl,
+                    image_perfil: selectedPerson.image_perfil,
                     estado: selectedPerson.estado,
                 })
                 // Mensaje de éxito
@@ -379,12 +379,12 @@ const Garages = () => {
             header: 'Nombre',
             accessorKey: 'nombre',
             cell: ({ getValue, row }) => {
-                const logoUrl = row.original.logoUrl as string | undefined // Obtener el logo de la fila
+                const image_perfil = row.original.image_perfil as string | undefined // Obtener el logo de la fila
                 return (
                     <div className="flex items-center">
-                        {logoUrl ? (
+                        {image_perfil ? (
                             <img
-                                src={logoUrl}
+                                src={image_perfil}
                                 alt="Logo"
                                 className="h-10 w-10 object-cover rounded-full mr-4"
                             />
@@ -793,7 +793,7 @@ const Garages = () => {
                         phone: '',
                         direccion: '',
                         password: '',
-                        logoUrl: '',
+                        image_perfil: '',
                         estado: '',
                     }}
                     validationSchema={validationSchema}
@@ -806,12 +806,69 @@ const Garages = () => {
                     {({ values, setFieldValue, isSubmitting }) => (
                         <Form>
                             <div className="flex flex-col space-y-6">
+<<<<<<< HEAD
                                 <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                                     <div className="text-center">
                                         {!newGarage?.logoUrl ? (
                                             <FaCamera
                                                 className="mx-auto h-12 w-12 text-gray-300"
                                                 aria-hidden="true"
+=======
+                                {/* Campo para el logo */}
+                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                                <div className="text-center">
+                                    {!newGarage?.image_perfil ? (
+                                        <FaCamera
+                                            className="mx-auto h-12 w-12 text-gray-300"
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={newGarage.image_perfil}
+                                            alt="Preview Logo"
+                                            className="mx-auto h-32 w-32 object-cover"
+                                        />
+                                    )}
+                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                        <label
+                                            htmlFor="logo-upload"
+                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                        >
+                                            <span>
+                                                {newGarage?.image_perfil
+                                                    ? 'Cambiar Logo'
+                                                    : 'Seleccionar Logo'}
+                                            </span>
+                                            <input
+                                                id="logo-upload"
+                                                name="logo-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="sr-only"
+                                                onChange={(e) => {
+                                                    const file =
+                                                        e.target.files?.[0]
+                                                    if (file) {
+                                                        const reader =
+                                                            new FileReader()
+                                                        reader.onloadend =
+                                                            () => {
+                                                                setNewGarage(
+                                                                    (
+                                                                        prev: any,
+                                                                    ) => ({
+                                                                        ...prev,
+                                                                        image_perfil:
+                                                                            reader.result, // Almacena la URL del logo
+                                                                    }),
+                                                                )
+                                                            }
+                                                        reader.readAsDataURL(
+                                                            file,
+                                                        ) // Leer el archivo como una URL de datos
+                                                    }
+                                                }}
+>>>>>>> c777d53c7e26dd75e2e14e47c7b68c88f3d8fc59
                                             />
                                         ) : (
                                             <img

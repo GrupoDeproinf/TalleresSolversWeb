@@ -29,7 +29,7 @@ import {
     FaWhatsapp,
 } from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
-import { db } from '@/configs/firebaseAssets.config'
+import { db, storage } from '@/configs/firebaseAssets.config'
 import { useNavigate } from 'react-router-dom'
 import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
@@ -57,6 +57,7 @@ import { SiZelle } from 'react-icons/si'
 import PaymentDrawer from './Components/PaymentForm'
 import { BsWhatsapp } from 'react-icons/bs'
 import { useAppSelector } from '@/store'
+import { deleteObject, getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage'
 
 type Service = {
     nombre_servicio: string
@@ -116,8 +117,22 @@ const ProfileGarage = () => {
     const [subscripcionestable, setSubscriptionHistory] = useState<
         SubscriptionHistory[]
     >([])
-    const [formData, setFormData] = useState({
-        logoUrl: '',
+    const [formData, setFormData] = useState<{
+        image_perfil: string;
+        nombre: string;
+        email: string;
+        phone: string;
+        rif: string;
+        status: string;
+        location: string;
+        LinkFacebook: string;
+        LinkTiktok: string;
+        LinkInstagram: string;
+        estado: string;
+        LinkWhatsapp: string;
+        newLogoFile?: File | null;
+    }>({
+        image_perfil: '',
         nombre: '',
         email: '',
         phone: '',
@@ -129,7 +144,8 @@ const ProfileGarage = () => {
         LinkInstagram: '',
         estado: '',
         LinkWhatsapp: '',
-    })
+        newLogoFile: null, // Inicializa como null
+    });
     const [paymentMethodsState, setPaymentMethodsState] = useState<
         Record<string, boolean>
     >({
@@ -254,17 +270,18 @@ const ProfileGarage = () => {
             // Actualizar formData con los datos relevantes del usuario o taller
             setFormData({
                 nombre: dataFinal?.nombre || '',
-                logoUrl: dataFinal?.logoUrl || '',
+                image_perfil: dataFinal?.image_perfil || '',
                 email: dataFinal?.email || '',
                 phone: dataFinal?.phone || '',
                 rif: dataFinal?.rif || '',
                 status: dataFinal?.status || '',
-                location: dataFinal?.direccion || '',
+                location: dataFinal?.location || '',
                 LinkFacebook: dataFinal?.LinkFacebook || '',
                 LinkInstagram: dataFinal?.LinkInstagram || '',
                 LinkTiktok: dataFinal?.LinkTiktok || '',
                 LinkWhatsapp: dataFinal?.LinkWhatsapp || '',
                 estado: dataFinal?.estado || '',
+                newLogoFile: dataFinal?.newlogoFile || null,
             })
         } catch (error) {
             console.error('Error al obtener los datos del cliente:', error)
@@ -375,7 +392,6 @@ const ProfileGarage = () => {
             return newFilters
         })
     }
-
     const handleEditChange = (e: any) => {
         const { name, value } = e.target
         setFormData((prev) => ({ ...prev, [name]: value }))
@@ -419,7 +435,6 @@ const ProfileGarage = () => {
             [platform]: error,
         }))
     }
-
     const handleEditSave = async () => {
         // Validaciones antes de proceder con la actualización
         if (!formData.nombre || formData.nombre.trim() === '') {
@@ -452,8 +467,7 @@ const ProfileGarage = () => {
         if (!formData.rif || !/^[JVEGCP]-\d+$/.test(formData.rif)) {
             toast.push(
                 <Notification title="Error">
-                    El RIF debe estar en un formato válido (Ejemplo:
-                    J-12345678).
+                    El RIF debe estar en un formato válido (Ejemplo: J-12345678).
                 </Notification>,
             )
             return
@@ -480,53 +494,89 @@ const ProfileGarage = () => {
         if (!formData.estado) {
             toast.push(
                 <Notification title="Error">
-                    Debes seleccionar un Esatdo.
+                    Debes seleccionar un estado.
                 </Notification>,
             )
             return
         }
 
         try {
-            // Verifica si el RIF ya está registrado
+            // Referencia a la colección 'Usuarios'
             const usuariosRef = collection(db, 'Usuarios')
             const querySnapshot = await getDocs(usuariosRef)
 
+            // Verifica si el RIF ya está registrado
             const rifExiste = querySnapshot.docs.some(
-                (doc) => doc.data().rif === formData.rif && doc.id !== path, // Excluye el documento actual
+                (doc) => doc.data().rif === formData.rif && doc.id !== path // Excluye el documento actual
             )
 
             if (rifExiste) {
                 toast.push(
                     <Notification title="Error">
-                        El RIF ya está registrado. Por favor, verifica e intenta
-                        con otro.
+                        El RIF ya está registrado. Por favor, verifica e intenta con otro.
                     </Notification>,
                 )
-                return // Sal de la función si el RIF ya existe
+                return
             }
 
             // Verifica si el teléfono ya está registrado
-        const phoneExiste = querySnapshot.docs.some(
-            (doc) => doc.data().phone === formData.phone && doc.id !== path, // Excluye el documento actual
-        )
-
-        if (phoneExiste) {
-            toast.push(
-                <Notification title="Error">
-                    El teléfono ya está registrado. Por favor, verifica e
-                    intenta con otro.
-                </Notification>,
+            const phoneExiste = querySnapshot.docs.some(
+                (doc) => doc.data().phone === formData.phone && doc.id !== path // Excluye el documento actual
             )
-            return // Sal de la función si el teléfono ya existe
-        }
+
+            if (phoneExiste) {
+                toast.push(
+                    <Notification title="Error">
+                        El teléfono ya está registrado. Por favor, verifica e intenta con otro.
+                    </Notification>,
+                )
+                return
+            }
+
+            let newImageUrl = formData.image_perfil; // Mantiene la URL actual por defecto
+
+            // Subir nueva imagen si se seleccionó un archivo
+            if (formData.newLogoFile) {
+                const decodedUrl = decodeURIComponent(formData.image_perfil);
+                const lastImageName = decodedUrl.split('/').pop()?.split('?')[0]; // Usa el operador opcional "?" aquí
+                const baseName = `${path}_`; // Usa `path` como UID del taller
+                const match = lastImageName?.match(/_(\d+)\.jpg$/); // Busca un número antes de ".jpg"
+                const lastNumber = match ? parseInt(match[1], 10) : 0;
+                const newImageName = `${baseName}${lastNumber + 1}.jpg`;
+
+                console.log(lastImageName, lastNumber, newImageName)
+
+                // Referencia a la imagen anterior
+                const oldImageRef = ref(storage, `profileImages/${lastImageName}`);
+
+                try {
+                    // Eliminar la imagen anterior si existe
+                    await deleteObject(oldImageRef);
+                } catch (error) {
+                    console.error('Error al eliminar la imagen anterior:', error);
+                    // Si la imagen no existe o no se puede eliminar, se registra el error pero no se detiene el flujo
+                }
+
+                // Subir la nueva imagen
+                const storageRef = ref(storage, `profileImages/${newImageName}`);
+                await uploadBytes(storageRef, formData.newLogoFile);
+
+                // Obtener la URL de la nueva imagen
+                newImageUrl = await getDownloadURL(storageRef);
+            }
 
             // Actualiza los datos
             const docRef = doc(db, 'Usuarios', path)
-            await updateDoc(docRef, formData)
+            const updatedData = { ...formData, image_perfil: newImageUrl };
+            delete updatedData.newLogoFile // Elimina cualquier campo no deseado antes de actualizar
 
-            setData(formData)
-            setEditModalOpen(false)
+            await updateDoc(docRef, updatedData)
 
+            // Actualiza el estado local
+            setData({ ...formData, image_perfil: newImageUrl });
+            setEditModalOpen(false);
+
+            // Notifica éxito
             toast.push(
                 <Notification title="Éxito" type="success">
                     Datos de Usuario actualizados correctamente.
@@ -536,12 +586,12 @@ const ProfileGarage = () => {
             console.error('Error al actualizar los datos:', error)
             toast.push(
                 <Notification title="Error">
-                    Ocurrió un error al actualizar los datos del usuario.
-                    Inténtalo nuevamente.
+                    Ocurrió un error al actualizar los datos del usuario. Inténtalo nuevamente.
                 </Notification>,
             )
         }
     }
+
 
     const handleSavePaymentMethods = async () => {
         try {
@@ -758,6 +808,8 @@ const ProfileGarage = () => {
         setCurrentPage(page)
     }
 
+    console.log("aqui location", formData)
+
     return (
         <Container className="h-full">
             {canGoBack && (
@@ -779,7 +831,7 @@ const ProfileGarage = () => {
                                 size={90}
                                 shape="circle"
                                 src={
-                                    data?.logoUrl ||
+                                    data?.image_perfil ||
                                     '/img/logo/logo-light-streamline.png'
                                 }
                                 className="p-2 bg-white shadow-lg"
@@ -812,7 +864,7 @@ const ProfileGarage = () => {
                             <CustomerInfoField
                                 title="Ubicacion"
                                 value={
-                                    data?.direccion || 'Ubicacion no disponible'
+                                    data?.location || 'Ubicacion no disponible'
                                 }
                             />
 
@@ -821,9 +873,9 @@ const ProfileGarage = () => {
                                 <span>Redes Sociales</span>
                                 <div className="flex mt-4 gap-2">
                                     {data?.LinkFacebook ||
-                                    data?.LinkInstagram ||
-                                    data?.LinkWhatsapp ||
-                                    data?.LinkTiktok ? (
+                                        data?.LinkInstagram ||
+                                        data?.LinkWhatsapp ||
+                                        data?.LinkTiktok ? (
                                         <>
                                             {data.LinkFacebook && (
                                                 <a
@@ -949,12 +1001,11 @@ const ProfileGarage = () => {
                                                                 'Cargando...'}
                                                         </h3>
                                                         <Tag
-                                                            className={`rounded-md border-0 mx-2 ${
-                                                                subscription?.status ===
+                                                            className={`rounded-md border-0 mx-2 ${subscription?.status ===
                                                                 'Aprobado'
-                                                                    ? 'bg-green-100 text-green-400'
-                                                                    : 'bg-yellow-100 text-yellow-400'
-                                                            }`}
+                                                                ? 'bg-green-100 text-green-400'
+                                                                : 'bg-yellow-100 text-yellow-400'
+                                                                }`}
                                                         >
                                                             {subscription?.status ||
                                                                 'Pendiente'}
@@ -977,36 +1028,36 @@ const ProfileGarage = () => {
                                                         </p>
                                                         {subscription?.status ===
                                                             'Aprobado' && (
-                                                            <>
-                                                                <p className="text-sm ml-2 text-gray-600">
-                                                                    {diasRestantes ??
-                                                                        '---'}{' '}
-                                                                    días
-                                                                    restantes
-                                                                </p>
-                                                                <span className="text-gray-600">
-                                                                    {subscription.fecha_fin
-                                                                        ? formatDate(
-                                                                              subscription.fecha_fin,
-                                                                          )
-                                                                        : 'Fecha no disponible'}
-                                                                </span>
-                                                            </>
-                                                        )}
+                                                                <>
+                                                                    <p className="text-sm ml-2 text-gray-600">
+                                                                        {diasRestantes ??
+                                                                            '---'}{' '}
+                                                                        días
+                                                                        restantes
+                                                                    </p>
+                                                                    <span className="text-gray-600">
+                                                                        {subscription.fecha_fin
+                                                                            ? formatDate(
+                                                                                subscription.fecha_fin,
+                                                                            )
+                                                                            : 'Fecha no disponible'}
+                                                                    </span>
+                                                                </>
+                                                            )}
                                                     </div>
                                                 </div>
                                             </div>
                                             {subscription?.status ===
                                                 'Por Aprobar' && (
-                                                <div className="flex justify-end mt-2">
-                                                    <PaymentDrawer
-                                                        subscriptionId={
-                                                            subscripcionestable[0]
-                                                                ?.uid
-                                                        }
-                                                    />
-                                                </div>
-                                            )}
+                                                    <div className="flex justify-end mt-2">
+                                                        <PaymentDrawer
+                                                            subscriptionId={
+                                                                subscripcionestable[0]
+                                                                    ?.uid
+                                                            }
+                                                        />
+                                                    </div>
+                                                )}
                                         </div>
                                     )}
                                 </Card>
@@ -1052,7 +1103,7 @@ const ProfileGarage = () => {
                                                                                             .header,
                                                                                         header.getContext(),
                                                                                     )}
-                                                                                    
+
                                                                                 </div>
                                                                             )}
                                                                         </Th>
@@ -1067,9 +1118,9 @@ const ProfileGarage = () => {
                                                     .getRowModel()
                                                     .rows.slice(
                                                         (currentPage - 1) *
-                                                            rowsPerPage,
+                                                        rowsPerPage,
                                                         currentPage *
-                                                            rowsPerPage,
+                                                        rowsPerPage,
                                                     )
                                                     .map((row) => {
                                                         return (
@@ -1120,7 +1171,7 @@ const ProfileGarage = () => {
                                             <Checkbox
                                                 checked={
                                                     paymentMethodsState[
-                                                        method.dbKey
+                                                    method.dbKey
                                                     ] || false
                                                 }
                                                 onChange={(
@@ -1196,7 +1247,7 @@ const ProfileGarage = () => {
                                                                                     .header,
                                                                                 header.getContext(),
                                                                             )}
-                                                                            
+
                                                                         </div>
                                                                     )}
                                                                 </Th>
@@ -1284,7 +1335,7 @@ const ProfileGarage = () => {
                                                                 .header,
                                                             header.getContext(),
                                                         )}
-                                                        
+
                                                         {header.column.getCanFilter() ? (
                                                             <input
                                                                 type="text"
@@ -1375,24 +1426,21 @@ const ProfileGarage = () => {
                     <div className="max-h-[450px] overflow-y-auto">
                         <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10 gap-2">
                             <div className="text-center">
-                                {!formData.logoUrl ? (
-                                    <FaCamera
-                                        className="mx-auto h-12 w-12 text-gray-300"
-                                        aria-hidden="true"
-                                    />
+                                {!formData.image_perfil && !formData.newLogoFile ? (
+                                    <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
                                 ) : (
                                     <div>
                                         <img
-                                            src={formData.logoUrl}
+                                            src={formData.newLogoFile ? URL.createObjectURL(formData.newLogoFile) : formData.image_perfil}
                                             alt="Preview Logo"
                                             className="mx-auto h-32 w-32 object-cover"
                                         />
-
                                         <button
                                             onClick={() =>
                                                 setFormData((prev) => ({
                                                     ...prev,
-                                                    logoUrl: '',
+                                                    newLogoFile: null,
+                                                    image_perfil: '',
                                                 }))
                                             }
                                             className="mt-2 text-red-500 hover:text-red-700"
@@ -1407,9 +1455,7 @@ const ProfileGarage = () => {
                                         className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
                                     >
                                         <span>
-                                            {formData.logoUrl
-                                                ? 'Cambiar Logo'
-                                                : 'Seleccionar Logo'}
+                                            {formData.newLogoFile ? 'Cambiar Logo' : 'Seleccionar Logo'}
                                         </span>
                                         <input
                                             id="logo-upload"
@@ -1418,21 +1464,11 @@ const ProfileGarage = () => {
                                             accept="image/*"
                                             className="sr-only"
                                             onChange={(e) => {
-                                                const file = e.target.files?.[0]
-                                                if (file) {
-                                                    const reader =
-                                                        new FileReader()
-                                                    reader.onloadend = () => {
-                                                        setFormData(
-                                                            (prev: any) => ({
-                                                                ...prev,
-                                                                logoUrl:
-                                                                    reader.result,
-                                                            }),
-                                                        )
-                                                    }
-                                                    reader.readAsDataURL(file)
-                                                }
+                                                const file = e.target.files?.[0];
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    newLogoFile: file || null, // Actualiza el archivo o lo establece como null
+                                                }));
                                             }}
                                         />
                                     </label>
@@ -1509,10 +1545,9 @@ const ProfileGarage = () => {
                                         onChange={(e) =>
                                             setFormData((prev: any) => ({
                                                 ...prev,
-                                                rif: `${e.target.value}-${
-                                                    prev?.rif?.split('-')[1] ||
+                                                rif: `${e.target.value}-${prev?.rif?.split('-')[1] ||
                                                     ''
-                                                }`,
+                                                    }`,
                                             }))
                                         }
                                         className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -1532,10 +1567,9 @@ const ProfileGarage = () => {
                                         onChange={(e) =>
                                             setFormData((prev: any) => ({
                                                 ...prev,
-                                                rif: `${
-                                                    prev?.rif?.split('-')[0] ||
+                                                rif: `${prev?.rif?.split('-')[0] ||
                                                     'J'
-                                                }-${e.target.value}`,
+                                                    }-${e.target.value}`,
                                             }))
                                         }
                                         className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
@@ -1679,8 +1713,8 @@ const ProfileGarage = () => {
                                     </span>
                                 )}
                             </label>
-                            
-                            
+
+
                         </div>
                     </div>
                 </ConfirmDialog>
