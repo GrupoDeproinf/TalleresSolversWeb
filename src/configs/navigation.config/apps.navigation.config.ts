@@ -39,7 +39,7 @@ const appsNavigationConfig: NavigationTree[] = [
                     {
                         key: 'apps.garages_ubication',
                         path: `${APP_PREFIX_PATH}/garages_ubication`,
-                        title: 'Ubicacion Talleres',
+                        title: 'Ubicación Talleres',
                         translateKey: 'garages_ubication',
                         icon: '',
                         type: NAV_ITEM_TYPE_COLLAPSE,
