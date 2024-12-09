@@ -4,6 +4,9 @@ import { Formik, Form, Field, ErrorMessage } from 'formik'
 import * as Yup from 'yup'
 import { db } from '@/configs/firebaseAssets.config'
 import { doc, updateDoc, collection, getDocs, Timestamp } from 'firebase/firestore'
+import { FaCamera } from 'react-icons/fa'
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+
 
 type MetodoPago = 'Transferencia' | 'Pago Móvil' | 'Zelle' | 'Efectivo'
 
@@ -19,6 +22,7 @@ interface MetodoPagoInfo {
     tipo_cuenta?: string
     telefono?: string
     titular?: string
+    newLogoFile?: File | null;
 }
 
 const bancos = [
@@ -50,7 +54,7 @@ const bancos = [
     { codigo: "0178", nombre: "N58 BANCO DIGITAL BANCO MICROFINANCIERO S A" },
 ];
 
-const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) => {
+const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ subscriptionId, talleruid }) => {
     const [metodoPago, setMetodoPago] = useState<MetodoPago>('Efectivo')
     const [metodosPago, setMetodosPago] = useState<MetodoPagoInfo[]>([])
     const [cargando, setCargando] = useState(false)
@@ -108,7 +112,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
 
 
     const initialValues = {
-        metodoPago: '', // Agregar metodoPago aquí
+        metodoPago: '',
         monto: '',
         numReferencia: '',
         telefono: '',
@@ -117,6 +121,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
         bancoOrigen: '',
         bancoDestino: '',
         fechaPago: '',
+        newLogoFile: null
     }
 
     const handleSubmit = async (values: any) => {
@@ -128,59 +133,80 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
         setCargando(true)
 
         try {
-            const fechaPagoTimestamp = values.fechaPago ? Timestamp.fromDate(new Date(values.fechaPago)) : null
+            let imageUrl = '';
+            if (values.newLogoFile && metodoPago && talleruid) {
+                // Configura Firebase Storage
+                const storage = getStorage();
+                const fechaActual = new Date().toISOString(); // Fecha en formato ISO
+                const nombreArchivo = `${metodoPago}_${talleruid}_${fechaActual}.jpg`; // Nombre del archivo
+                const file = values.newLogoFile;
+
+                // Usamos el nombre correcto para la referencia
+                const storageRef = ref(storage, `paymentcommitment/${nombreArchivo}`);
+
+                // Sube la imagen a Firebase Storage
+                const snapshot = await uploadBytes(storageRef, file);
+
+                // Obtén la URL pública de la imagen
+                imageUrl = await getDownloadURL(snapshot.ref);
+            }
+
+            const fechaPagoTimestamp = values.fechaPago ? Timestamp.fromDate(new Date(values.fechaPago)) : null;
 
             const comprobantePago: any = {
                 metodo: metodoPago,
                 monto: values.monto,
                 fechaPago: fechaPagoTimestamp,
+                comprobante: imageUrl,
+            };
+
+            // Personalización según el método de pago
+            if (metodoPago === 'Transferencia') {
+                comprobantePago.numReferencia = values.numReferencia ?? '';
+                comprobantePago.cedula = values.cedula ?? '';
+                comprobantePago.bancoOrigen = values.bancoOrigen ?? '';
+                comprobantePago.bancoDestino = values.bancoDestino ?? '';
             }
 
-            // if (metodoPago === 'Transferencia') {
-                comprobantePago.numReferencia = values.numReferencia == undefined ? '' : values.numReferencia
-                comprobantePago.cedula = values.cedula == undefined ? '' : values.cedula
-                comprobantePago.bancoOrigen = values.bancoOrigen == undefined ? '' : values.bancoOrigen
-                comprobantePago.bancoDestino = values.bancoDestino == undefined ? '' : values.bancoDestino
-            // }
+            if (metodoPago === 'Pago Móvil') {
+                comprobantePago.cedula = values.cedula;
+                comprobantePago.telefono = values.telefono;
+                comprobantePago.bancoOrigen = values.bancoOrigen;
+                comprobantePago.bancoDestino = values.bancoDestino;
+            }
 
-            // if (metodoPago === 'Pago Móvil') {
-                comprobantePago.cedula = values.cedula
-                comprobantePago.telefono = values.telefono
-                comprobantePago.bancoOrigen = values.bancoOrigen
-                comprobantePago.bancoDestino = values.bancoDestino
-            // }
+            if (metodoPago === 'Zelle') {
+                comprobantePago.correo = values.correo ?? '';
+                comprobantePago.numReferencia = values.numReferencia;
+            }
 
-            // if (metodoPago === 'Zelle') {
-                comprobantePago.correo = values.correo == undefined ? '' : values.correo
-                comprobantePago.numReferencia = values.numReferencia
-            // }
-
-           console.log(comprobantePago)
-            const subscriptionRef = doc(db, 'Subscripciones', subscriptionId)
+            console.log(comprobantePago);
+            const subscriptionRef = doc(db, 'Subscripciones', subscriptionId);
             await updateDoc(subscriptionRef, {
                 comprobante_pago: comprobantePago,
-            })
+            });
 
-            console.log('Pago registrado exitosamente')
+            console.log('Pago registrado exitosamente');
             toast.push(
                 <Notification title="Éxito" type="success">
                     Se ha registrado el pago correctamente.
                 </Notification>
             );
         } catch (error) {
-            console.error('Error al registrar el pago:', error)
+            console.error('Error al registrar el pago:', error);
             toast.push(
                 <Notification title="Error">
                     Ocurrió un problema al registrar el pago.
                 </Notification>
             );
         } finally {
-            setCargando(false)
-            setOpenDrawer(false)
+            setCargando(false);
+            setOpenDrawer(false);
         }
     }
 
-    // Filtra los detalles del método de pago seleccionado
+
+
     const metodoPagoInfo = metodosPago.find(m => m.tipo_pago === metodoPago)
 
     return (
@@ -197,7 +223,7 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
                     validateOnBlur={true}
                     validateOnChange={false}
                 >
-                    {({ setFieldValue }) => (
+                    {({ setFieldValue, values }) => (
                         <Form className="flex flex-col gap-4">
                             <h4 className="font-semibold text-lg">Selecciona el Método de Pago</h4>
 
@@ -271,8 +297,45 @@ const PaymentForm: React.FC<{ subscriptionId: string }> = ({ subscriptionId }) =
 
                                 </>
                             )}
+                            {['Transferencia', 'Pago Móvil', 'Zelle'].includes(metodoPago!) && (
+                                <>
+                                    <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10 gap-2">
+                                        <div className="text-center">
+                                            {!values.newLogoFile ? (
+                                                <FaCamera className="text-gray-500 text-center text-3xl" />
+                                            ) : (
+                                                <img
+                                                    src={URL.createObjectURL(values.newLogoFile)}
+                                                    alt="Logo"
+                                                    className="w-32 h-32 object-cover rounded-md"
+                                                />
+                                            )}
+                                            <div className="mt-2">
+                                                <label
+                                                    htmlFor="fileInput"
+                                                    className="text-sm font-medium text-blue-600 cursor-pointer"
+                                                >
+                                                    Subir Comprobante de Pago
+                                                </label>
+                                                <input
+                                                    id="fileInput"
+                                                    name="newLogoFile"
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            setFieldValue('newLogoFile', e.target.files[0]);
+                                                        }
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
 
-                            <button type="submit"  className="w-full py-2 mt-4 bg-blue-900 rounded-md hover:bg-blue-700 text-white">
+                            <button type="submit" className="w-full py-2 mt-4 bg-blue-900 rounded-md hover:bg-blue-700 text-white">
                                 Registrar Pago
                             </button>
                         </Form>

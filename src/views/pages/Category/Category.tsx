@@ -54,13 +54,12 @@ import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 type Category = {
     nombre?: string
     descripcion?: string
-    fechaCreacion?: Timestamp // Fecha de creación de la categoría
-    logoUrl?: string // URL de la imagen que funcione como logo de la categoría
-    nombreUser?: string // Nombre del creador
+    fechaCreacion?: Timestamp 
+    logoUrl?: string 
+    nombreUser?: string
     estatus?: boolean
 
-    //uid?: string // ID del usuario que creó la categoría
-    id: string // ID único de la categoría
+    id: string 
     subcategorias?: any[]
 }
 

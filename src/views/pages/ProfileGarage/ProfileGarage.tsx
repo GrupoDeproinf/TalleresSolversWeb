@@ -575,6 +575,7 @@ const ProfileGarage = () => {
             // Actualiza el estado local
             setData({ ...formData, image_perfil: newImageUrl });
             setEditModalOpen(false);
+            getData()
 
             // Notifica éxito
             toast.push(
@@ -1050,7 +1051,7 @@ const ProfileGarage = () => {
                                             {subscription?.status ===
                                                 'Por Aprobar' && (
                                                     <div className="flex justify-end mt-2">
-                                                        <PaymentDrawer
+                                                        <PaymentDrawer talleruid={path}
                                                             subscriptionId={
                                                                 subscripcionestable[0]
                                                                     ?.uid
