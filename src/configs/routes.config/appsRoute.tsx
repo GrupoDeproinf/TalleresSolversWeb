@@ -146,7 +146,7 @@ const appsRoute: Routes = [
         key: 'appsSales.dashboard',
         path: `${APP_PREFIX_PATH}/sales/dashboard`,
         component: lazy(() => import('@/views/sales/SalesDashboard')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsSales.productList',
