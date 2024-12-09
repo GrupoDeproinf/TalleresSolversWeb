@@ -153,41 +153,35 @@ const Users = () => {
 
     const handleCreateUser = async (values: any) => {
         try {
-            // Validación de los valores usando Yup
             await validationSchema.validate(values, { abortEarly: false })
 
-            // Verificar si ya existe un usuario con la misma cédula, teléfono o correo en Firestore
             const usersRef = collection(db, 'Usuarios')
 
-            // Consulta para verificar si ya existe un documento con la misma cédula
             const cedulaQuery = query(
                 usersRef,
                 where('cedula', '==', values.cedula),
             )
             const cedulaSnapshot = await getDocs(cedulaQuery)
 
-            // Consulta para verificar si ya existe un documento con el mismo teléfono
             const phoneQuery = query(
                 usersRef,
                 where('phone', '==', values.phone),
             )
             const phoneSnapshot = await getDocs(phoneQuery)
 
-            // Consulta para verificar si ya existe un documento con el mismo correo electrónico
             const emailQuery = query(
                 usersRef,
                 where('email', '==', values.email),
             )
             const emailSnapshot = await getDocs(emailQuery)
 
-            // Si existe un documento con la misma cédula, teléfono o correo, muestra la notificación correspondiente
             if (!emailSnapshot.empty) {
                 toast.push(
                     <Notification title="Error">
                         ¡El correo electrónico ya está registrado!
                     </Notification>,
                 )
-                return // Detener la ejecución si hay un error
+                return
             }
 
             if (!cedulaSnapshot.empty) {
@@ -196,7 +190,7 @@ const Users = () => {
                         ¡La cédula ya está registrada!
                     </Notification>,
                 )
-                return // Detener la ejecución si hay un error
+                return
             }
 
             if (!phoneSnapshot.empty) {
@@ -205,50 +199,42 @@ const Users = () => {
                         ¡El número de teléfono ya está registrado!
                     </Notification>,
                 )
-                return // Detener la ejecución si hay un error
+                return
             }
 
-            // Crear y autenticar el usuario en Firebase
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
                 values.email,
                 values.password,
             )
-            const user = userCredential.user // Usuario autenticado desde Firebase
+            const user = userCredential.user
 
-            // Referencia a la colección 'Usuarios' en Firestore
             const userRef = collection(db, 'Usuarios')
 
-            // Crear el documento en Firestore con el UID de Firebase
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
                 email: values.email,
                 cedula: values.cedula,
                 phone: values.phone,
-                Password: values.password, // Puedes encriptar la contraseña antes de guardarla
-                typeUser: values.typeUser || 'Cliente', // Asumiendo que 'typeUser' puede ser 'Cliente' u otro tipo
-                uid: user.uid, // Usar el UID de Firebase para asociar el usuario
+                Password: values.password,
+                typeUser: values.typeUser || 'Cliente',
+                uid: user.uid,
             })
 
-            // Actualización del UID en Firestore con el ID del documento recién creado
             await updateDoc(docRef, {
                 uid: docRef.id,
             })
 
-            // Notificación de éxito
             toast.push(
                 <Notification title="Éxito">
                     Usuario creado exitosamente.
                 </Notification>,
             )
 
-            // Cierre del Drawer después de crear el usuario
             setDrawerCreateIsOpen(false)
 
-            // Llamada a obtener los datos (si es necesario para actualizar la lista de usuarios)
             getData()
         } catch (error) {
-            // Manejo de errores de validación de Yup
             if (error instanceof Yup.ValidationError) {
                 error.inner.forEach((validationError) => {
                     toast.push(
@@ -258,7 +244,6 @@ const Users = () => {
                     )
                 })
             } else {
-                // Manejo de errores inesperados
                 console.error('Error creando Usuario:', error)
                 toast.push(
                     <Notification title="Error">
@@ -273,10 +258,9 @@ const Users = () => {
         const value = event.target.value
         setSearchTerm(value)
 
-        // Aplica el filtro dinámico según la columna seleccionada
         const newFilters = [
             {
-                id: selectedColumn, // Usar la columna seleccionada
+                id: selectedColumn,
                 value,
             },
         ]
@@ -289,118 +273,104 @@ const Users = () => {
         const value = event.target.value
         setSelectedColumn(value)
 
-        // Aplicar filtro vacío cuando se cambia la columna
         if (searchTerm !== '') {
             const newFilters = [
                 {
-                    id: value, // La columna seleccionada
-                    value: searchTerm, // Filtrar por el término de búsqueda actual
+                    id: value,
+                    value: searchTerm,
                 },
             ]
             setFiltering(newFilters)
         }
     }
 
-    
+    const handleSaveChanges = async () => {
+        if (selectedPerson) {
+            try {
+                const usersRef = collection(db, 'Usuarios')
 
-const handleSaveChanges = async () => {
-    if (selectedPerson) {
-        try {
-            // Referencia a la colección de usuarios
-            const usersRef = collection(db, "Usuarios");
+                const cedulaQuery = query(
+                    usersRef,
+                    where('cedula', '==', selectedPerson.cedula),
+                )
+                const cedulaSnapshot = await getDocs(cedulaQuery)
 
-            // Consulta para verificar si ya existe un documento con la misma cédula
-            const cedulaQuery = query(
-                usersRef,
-                where("cedula", "==", selectedPerson.cedula)
-            );
-            const cedulaSnapshot = await getDocs(cedulaQuery);
+                const phoneQuery = query(
+                    usersRef,
+                    where('phone', '==', selectedPerson.phone),
+                )
+                const phoneSnapshot = await getDocs(phoneQuery)
 
-            // Consulta para verificar si ya existe un documento con el mismo teléfono
-            const phoneQuery = query(
-                usersRef,
-                where("phone", "==", selectedPerson.phone)
-            );
-            const phoneSnapshot = await getDocs(phoneQuery);
+                if (
+                    !cedulaSnapshot.empty &&
+                    cedulaSnapshot.docs[0].data().uid !== selectedPerson.uid
+                ) {
+                    toast.push(
+                        <Notification title="Error">
+                            ¡La cédula ya está registrada!
+                        </Notification>,
+                    )
+                    return
+                }
 
-            // Verificar conflictos con la cédula y el teléfono
-            if (
-                !cedulaSnapshot.empty &&
-                cedulaSnapshot.docs[0].data().uid !== selectedPerson.uid
-            ) {
+                if (
+                    !phoneSnapshot.empty &&
+                    phoneSnapshot.docs[0].data().uid !== selectedPerson.uid
+                ) {
+                    toast.push(
+                        <Notification title="Error">
+                            ¡El número de teléfono ya está registrado!
+                        </Notification>,
+                    )
+                    return
+                }
+
+                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
+                const updateData: any = {
+                    nombre: selectedPerson.nombre,
+                    email: selectedPerson.email,
+                    cedula: selectedPerson.cedula,
+                    phone: selectedPerson.phone,
+                    typeUser: selectedPerson.typeUser,
+                }
+
+                if (selectedPerson.typeUser === 'Certificador') {
+                    updateData.estado = selectedPerson.estado
+                } else {
+                    updateData.estado = deleteField()
+                }
+
+                await updateDoc(userDoc, updateData)
+
+                toast.push(
+                    <Notification title="Éxito">
+                        Usuario actualizado con éxito.
+                    </Notification>,
+                )
+                setDrawerIsOpen(false)
+                getData()
+            } catch (error) {
+                console.error('Error actualizando el usuario:', error)
+                // Mensaje de error
                 toast.push(
                     <Notification title="Error">
-                        ¡La cédula ya está registrada!
-                    </Notification>
-                );
-                return; // Detener la ejecución si hay un error
+                        Hubo un error al actualizar el usuario.
+                    </Notification>,
+                )
             }
-
-            if (
-                !phoneSnapshot.empty &&
-                phoneSnapshot.docs[0].data().uid !== selectedPerson.uid
-            ) {
-                toast.push(
-                    <Notification title="Error">
-                        ¡El número de teléfono ya está registrado!
-                    </Notification>
-                );
-                return; // Detener la ejecución si hay un error
-            }
-
-            // Preparar datos para la actualización
-            const userDoc = doc(db, "Usuarios", selectedPerson.uid);
-            const updateData: any = {
-                nombre: selectedPerson.nombre,
-                email: selectedPerson.email,
-                cedula: selectedPerson.cedula,
-                phone: selectedPerson.phone,
-                typeUser: selectedPerson.typeUser,
-            };
-
-            // Si el tipo de usuario es Certificador, incluir el estado
-            if (selectedPerson.typeUser === "Certificador") {
-                updateData.estado = selectedPerson.estado;
-            } else {
-                // Si es Cliente, eliminar el campo estado
-                updateData.estado = deleteField();
-            }
-
-            // Actualizar el documento en Firestore
-            await updateDoc(userDoc, updateData);
-
-            // Mensaje de éxito
-            toast.push(
-                <Notification title="Éxito">
-                    Usuario actualizado con éxito.
-                </Notification>
-            );
-            setDrawerIsOpen(false);
-            getData(); // Refrescar datos después de guardar
-        } catch (error) {
-            console.error("Error actualizando el usuario:", error);
-            // Mensaje de error
-            toast.push(
-                <Notification title="Error">
-                    Hubo un error al actualizar el usuario.
-                </Notification>
-            );
         }
     }
-};
-
-    
 
     // Obtener iniciales de los nombres
     const getInitials = (nombre: string | undefined): string => {
         if (!nombre) return ''
-        const words = nombre.split(' ').filter(Boolean) // Filtrar elementos vacíos
+        const words = nombre.split(' ').filter(Boolean)
         return words
             .map((word) => {
                 if (typeof word === 'string' && word.length > 0) {
                     return word[0].toUpperCase()
                 }
-                return '' // Retorna una cadena vacía si la palabra no es válida
+                return ''
             })
             .join('')
     }
@@ -428,11 +398,11 @@ const handleSaveChanges = async () => {
             accessorKey: 'phone',
             filterFn: 'includesString',
             cell: ({ row }) => {
-                const nombre = row.original.nombre // Accede al nombre del cliente
+                const nombre = row.original.nombre
                 return (
                     <div className="flex items-center">
                         <Avatar
-                            style={{ backgroundColor: '#887677' }} // Establecer el color directamente
+                            style={{ backgroundColor: '#887677' }}
                             className="mr-2 w-6 h-6 flex items-center justify-center rounded-full"
                         >
                             <span className="text-white font-bold">
@@ -440,7 +410,6 @@ const handleSaveChanges = async () => {
                             </span>
                         </Avatar>
                         {row.original.phone}{' '}
-                        {/* Muestra el número telefónico */}
                     </div>
                 )
             },
@@ -456,15 +425,15 @@ const handleSaveChanges = async () => {
                 switch (typeUser) {
                     case 'Cliente':
                         icon = <FaUserCircle className="text-green-500 mr-1" />
-                        color = 'text-green-500' // Color para el texto
+                        color = 'text-green-500'
                         break
                     case 'Certificador':
                         icon = <FaUserShield className="text-yellow-500 mr-1" />
-                        color = 'text-yellow-500' // Color para el texto
+                        color = 'text-yellow-500'
                         break
                     default:
                         icon = null
-                        color = 'text-gray-500' // Color predeterminado
+                        color = 'text-gray-500'
                 }
 
                 return (
@@ -482,7 +451,7 @@ const handleSaveChanges = async () => {
                 return (
                     <div className="flex gap-2">
                         <button
-                            onClick={() => openDrawer(person)} // Cambiar aquí
+                            onClick={() => openDrawer(person)}
                             className="text-blue-900"
                         >
                             <FaEdit />
@@ -504,13 +473,11 @@ const handleSaveChanges = async () => {
     const onDialogClose = (e: MouseEvent) => {
         console.log('onDialogClose', e)
         setIsOpen(false)
-        setSelectedPerson(null) // Limpiar selección
+        setSelectedPerson(null)
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
-        // Cierra el Drawer
         setDrawerCreateIsOpen(false)
-        // Limpia otros estados si es necesario (como el estado de newUser)
         setNewUser({
             nombre: '',
             email: '',
@@ -523,7 +490,7 @@ const handleSaveChanges = async () => {
             uid: '',
         })
 
-        setSelectedPerson(null) // Limpia la selección (si es necesario)
+        setSelectedPerson(null)
     }
 
     const handleDelete = async () => {
@@ -531,11 +498,9 @@ const handleSaveChanges = async () => {
             console.log('Eliminando a:', selectedPerson)
 
             try {
-                // Usa el id del documento en lugar de uid
                 const userDoc = doc(db, 'Usuarios', selectedPerson.id)
                 await deleteDoc(userDoc)
 
-                // Usar toast para mostrar el mensaje de éxito
                 const toastNotification = (
                     <Notification title="Éxito">
                         Usuario {selectedPerson.nombre} eliminado con éxito.
@@ -543,11 +508,10 @@ const handleSaveChanges = async () => {
                 )
                 toast.push(toastNotification)
 
-                getData() // Refrescar datos después de eliminar
+                getData()
             } catch (error) {
                 console.error('Error eliminando el usuario:', error)
 
-                // Usar toast para mostrar el mensaje de error
                 const errorNotification = (
                     <Notification title="Error">
                         Hubo un error eliminando el usuario.
@@ -555,8 +519,8 @@ const handleSaveChanges = async () => {
                 )
                 toast.push(errorNotification)
             } finally {
-                setIsOpen(false) // Cerrar diálogo después de la operación
-                setSelectedPerson(null) // Limpiar selección
+                setIsOpen(false)
+                setSelectedPerson(null)
             }
         }
     }
@@ -566,7 +530,7 @@ const handleSaveChanges = async () => {
         columns,
         state: {
             sorting,
-            columnFilters: filtering, // Usar el array de filtros
+            columnFilters: filtering,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
@@ -576,26 +540,24 @@ const handleSaveChanges = async () => {
     })
 
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
+    const rowsPerPage = 6
 
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-    // Suponiendo que tienes un array de datos
-    const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
+    const data = table.getRowModel().rows
     const totalRows = data.length
 
     const onPaginationChange = (page: number) => {
         console.log('onPaginationChange', page)
-        setCurrentPage(page) // Actualiza la página actual
+        setCurrentPage(page)
     }
 
-    // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
     const handleDrawerCloseEdit = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
-        setDrawerIsOpen(false) // Usar el estado correcto para cerrar el Drawer
+        setDrawerIsOpen(false)
     }
 
     return (
@@ -618,7 +580,7 @@ const handleSaveChanges = async () => {
                             <select
                                 className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 onChange={handleSelectChange}
-                                value={selectedColumn} // Se mantiene el valor predeterminado
+                                value={selectedColumn}
                             >
                                 <option value="" disabled>
                                     Seleccionar columna...
@@ -644,7 +606,7 @@ const handleSaveChanges = async () => {
                         <Button
                             className="w-40 ml-4 text-white hover:opacity-80"
                             style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                            onClick={() => setDrawerCreateIsOpen(true)}
                         >
                             Crear Usuario
                         </Button>

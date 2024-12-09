@@ -19,9 +19,6 @@ import {
     FaCamera,
     FaCheckCircle,
     FaExclamationCircle,
-    FaEye,
-    FaEyeSlash,
-    FaFolder,
     FaQuestionCircle,
     FaRegEye,
     FaTimesCircle,
@@ -50,9 +47,12 @@ import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
 import * as Yup from 'yup'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
-import { GrMapLocation } from 'react-icons/gr'
-import Password from '@/views/account/Settings/components/Password'
+import Maps from './components/googlemaps'
 
+interface SelectedPlace {
+    latiLng: { lat: number; lng: number }
+    zoom: number
+}
 type Garage = {
     nombre?: string
     email?: string
@@ -70,6 +70,9 @@ type Garage = {
 }
 
 const Garages = () => {
+    const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(
+        null,
+    )
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
@@ -153,9 +156,6 @@ const Garages = () => {
         phone: Yup.string()
             .matches(/^\d{11}$/, 'El teléfono debe tener 11 dígitos')
             .required('El teléfono es obligatorio'),
-        direccion: Yup.string()
-            .required('La Dirección es obligatoria')
-            .min(5, 'La Dirección debe tener al menos 5 caracteres'),
         password: Yup.string()
             .required('Por favor ingrese una contraseña')
             .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -167,7 +167,7 @@ const Garages = () => {
 
     const [showPassword, setShowPassword] = useState(false)
 
-    const handleCreateGarage = async (values: any) => {
+    const handleCreateGarage = async (values: any, coordenadas: any) => {
         if (values.password !== values.confirmPassword) {
             toast.push(
                 <Notification title="Error">
@@ -177,6 +177,7 @@ const Garages = () => {
             )
             return
         }
+        console.log(coordenadas)
 
         try {
             const userRef = collection(db, 'Usuarios')
@@ -245,7 +246,7 @@ const Garages = () => {
                 typeUser: 'Taller',
                 logoUrl: values.logoUrl,
                 status: 'Aprobado',
-                direccion: values.direccion,
+                direccion: coordenadas === null ? '' : coordenadas.latiLng,
                 estado: values.estado,
                 password: values.password,
             })
@@ -334,7 +335,8 @@ const Garages = () => {
 
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
-        setDrawerCreateIsOpen(false) // Cierra el Drawer
+        setDrawerCreateIsOpen(false)
+        setSelectedPlace(null) // Cierra el Drawer
         setNewGarage({
             // Limpia los campos de usuario
             nombre: '',
@@ -590,7 +592,7 @@ const Garages = () => {
                             <select
                                 className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 onChange={handleSelectChange}
-                                value={selectedColumn} // Se mantiene el valor predeterminado
+                                value={selectedColumn}
                             >
                                 <option value="" disabled>
                                     Seleccionar columna...
@@ -614,7 +616,7 @@ const Garages = () => {
                         <Button
                             className="w-40 ml-4 text-white hover:opacity-80"
                             style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                            onClick={() => setDrawerCreateIsOpen(true)}
                         >
                             Crear Taller
                         </Button>
@@ -648,7 +650,6 @@ const Garages = () => {
                                                             .header,
                                                         header.getContext(),
                                                     )}
-                                                    
                                                 </div>
                                             )}
                                         </Th>
@@ -680,7 +681,6 @@ const Garages = () => {
                             })}
                     </TBody>
                 </Table>
-                {/* Agregar la paginación */}
                 <Pagination
                     onChange={onPaginationChange}
                     currentPage={currentPage}
@@ -715,8 +715,6 @@ const Garages = () => {
                     </Button>
                 </div>
             </Dialog>
-
-            {/* Drawer para edición */}
             <Dialog
                 isOpen={drawerIsOpen}
                 onClose={() => setDrawerIsOpen(false)}
@@ -724,7 +722,6 @@ const Garages = () => {
             >
                 <h2 className="text-xl font-bold">Editar Taller</h2>
 
-                {/* Componente Avatar con iniciales */}
                 <Avatar
                     className="mr-2 w-12 h-12 flex items-center justify-center rounded-full"
                     style={{ backgroundColor: getRandomColor() }}
@@ -735,7 +732,6 @@ const Garages = () => {
                 </Avatar>
 
                 <div className="flex flex-col space-y-4">
-                    {/* Campo para Nombre */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Nombre Taller:
@@ -744,8 +740,6 @@ const Garages = () => {
                             {selectedPerson?.nombre || 'No especificado'}
                         </p>
                     </label>
-
-                    {/* Campo para Email */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Email:
@@ -754,8 +748,6 @@ const Garages = () => {
                             {selectedPerson?.email || 'No especificado'}
                         </p>
                     </label>
-
-                    {/* Campo para RIF */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             RIF:
@@ -764,8 +756,6 @@ const Garages = () => {
                             {selectedPerson?.rif || 'No especificado'}
                         </p>
                     </label>
-
-                    {/* Campo para Teléfono */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Teléfono:
@@ -808,72 +798,72 @@ const Garages = () => {
                     }}
                     validationSchema={validationSchema}
                     onSubmit={(values, { setSubmitting }) => {
-                        handleCreateGarage(values)
+                        handleCreateGarage(values, selectedPlace)
                         setSubmitting(false)
+                        console.log(selectedPlace)
                     }}
                 >
                     {({ values, setFieldValue, isSubmitting }) => (
                         <Form>
                             <div className="flex flex-col space-y-6">
-                                {/* Campo para el logo */}
-                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                                <div className="text-center">
-                                    {!newGarage?.logoUrl ? (
-                                        <FaCamera
-                                            className="mx-auto h-12 w-12 text-gray-300"
-                                            aria-hidden="true"
-                                        />
-                                    ) : (
-                                        <img
-                                            src={newGarage.logoUrl}
-                                            alt="Preview Logo"
-                                            className="mx-auto h-32 w-32 object-cover"
-                                        />
-                                    )}
-                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                                        <label
-                                            htmlFor="logo-upload"
-                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-                                        >
-                                            <span>
-                                                {newGarage?.logoUrl
-                                                    ? 'Cambiar Logo'
-                                                    : 'Seleccionar Logo'}
-                                            </span>
-                                            <input
-                                                id="logo-upload"
-                                                name="logo-upload"
-                                                type="file"
-                                                accept="image/*"
-                                                className="sr-only"
-                                                onChange={(e) => {
-                                                    const file =
-                                                        e.target.files?.[0]
-                                                    if (file) {
-                                                        const reader =
-                                                            new FileReader()
-                                                        reader.onloadend =
-                                                            () => {
-                                                                setNewGarage(
-                                                                    (
-                                                                        prev: any,
-                                                                    ) => ({
-                                                                        ...prev,
-                                                                        logoUrl:
-                                                                            reader.result, // Almacena la URL del logo
-                                                                    }),
-                                                                )
-                                                            }
-                                                        reader.readAsDataURL(
-                                                            file,
-                                                        ) // Leer el archivo como una URL de datos
-                                                    }
-                                                }}
+                                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                                    <div className="text-center">
+                                        {!newGarage?.logoUrl ? (
+                                            <FaCamera
+                                                className="mx-auto h-12 w-12 text-gray-300"
+                                                aria-hidden="true"
                                             />
-                                        </label>
+                                        ) : (
+                                            <img
+                                                src={newGarage.logoUrl}
+                                                alt="Preview Logo"
+                                                className="mx-auto h-32 w-32 object-cover"
+                                            />
+                                        )}
+                                        <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                            <label
+                                                htmlFor="logo-upload"
+                                                className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                            >
+                                                <span>
+                                                    {newGarage?.logoUrl
+                                                        ? 'Cambiar Logo'
+                                                        : 'Seleccionar Logo'}
+                                                </span>
+                                                <input
+                                                    id="logo-upload"
+                                                    name="logo-upload"
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="sr-only"
+                                                    onChange={(e) => {
+                                                        const file =
+                                                            e.target.files?.[0]
+                                                        if (file) {
+                                                            const reader =
+                                                                new FileReader()
+                                                            reader.onloadend =
+                                                                () => {
+                                                                    setNewGarage(
+                                                                        (
+                                                                            prev: any,
+                                                                        ) => ({
+                                                                            ...prev,
+                                                                            logoUrl:
+                                                                                reader.result, // Almacena la URL del logo
+                                                                        }),
+                                                                    )
+                                                                }
+                                                            reader.readAsDataURL(
+                                                                file,
+                                                            )
+                                                        }
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         Nombre Taller:
@@ -905,8 +895,6 @@ const Garages = () => {
                                         className="text-red-500"
                                     />
                                 </label>
-
-                                {/* RIF */}
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         RIF:
@@ -1033,28 +1021,9 @@ const Garages = () => {
                                         Dirección:
                                     </span>
                                     <div className="flex items-center mt-1 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
-                                        {/* Icono como botón a la izquierda */}
-                                        <Button
-                                            type="button"
-                                            className="p-3 text-gray-500 focus:outline-none"
-                                        >
-                                            <GrMapLocation size={20} />
-                                        </Button>
-
-                                        {/* Input de Dirección */}
-                                        <Field
-                                            as="textarea"
-                                            name="direccion"
-                                            className="p-3 flex-1 focus:outline-none resize-none"
-                                            rows={1}
-                                            style={{
-                                                maxHeight: '150px',
-                                                overflowY: 'auto',
-                                            }}
-                                            onInput={(e: any) => {
-                                                e.target.style.height = 'auto'
-                                                e.target.style.height = `${e.target.scrollHeight}px`
-                                            }}
+                                        <Maps
+                                            data={selectedPlace}
+                                            save={setSelectedPlace}
                                         />
                                     </div>
 
