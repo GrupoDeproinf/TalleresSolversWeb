@@ -25,6 +25,7 @@ import {
     FaStarHalfAlt,
     FaTrash,
     FaEdit,
+    FaCamera,
 } from 'react-icons/fa'
 import {
     collection,
@@ -48,6 +49,8 @@ import * as Yup from 'yup'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { useAppSelector } from '@/store'
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/configs/firebaseAssets.config';
 
 type Garage = {
     nombre?: string
@@ -90,6 +93,7 @@ type Service = {
     // Campos para subcategoría
     subcategoria?: []
     typeService?: string
+    service_image?: string
 }
 
 type ServiceTemplate = {
@@ -266,6 +270,7 @@ const ServiceGarages = () => {
 
         estatus: true,
         garantia: '',
+        service_image: '',
     })
 
     // Esquema de validación con Yup
@@ -293,38 +298,34 @@ const ServiceGarages = () => {
 
     const handleCreateService = async (values: any) => {
         try {
-            // Obtener los datos del taller seleccionado
-            const tallerRef = doc(db, 'Usuarios', values.uid_taller) // Obtener referencia al taller
-            const tallerSnapshot = await getDoc(tallerRef)
-
+    
+            // Obtener referencia al taller
+            const tallerRef = doc(db, 'Usuarios', values.uid_taller);
+            const tallerSnapshot = await getDoc(tallerRef);
+    
             if (!tallerSnapshot.exists()) {
                 toast.push(
                     <Notification title="Error">
                         El taller seleccionado no existe.
-                    </Notification>,
-                )
-                return
+                    </Notification>
+                );
+                return;
             }
-
-            const tallerData = tallerSnapshot.data()
-            console.log('Datos a guardar: ', values)
-
-            // Verificar si la cantidad de servicios disponibles es mayor que 0
-            const cantidadServicios =
-                tallerData.subscripcion_actual?.cantidad_servicios
-
+    
+            const tallerData = tallerSnapshot.data();
+            const cantidadServicios = tallerData.subscripcion_actual?.cantidad_servicios;
+    
             if (cantidadServicios <= 0) {
                 toast.push(
                     <Notification title="Error">
-                        Este taller no tiene más servicios disponibles para
-                        crear.
-                    </Notification>,
-                )
-                return
+                        Este taller no tiene más servicios disponibles para crear.
+                    </Notification>
+                );
+                return;
             }
-
-            // Crear el servicio en la colección "Servicios"
-            const userRef = collection(db, 'Servicios')
+    
+            // Crear el servicio inicialmente sin service_image
+            const userRef = collection(db, 'Servicios');
             const docRef = await addDoc(userRef, {
                 nombre_servicio: values.nombre_servicio,
                 descripcion: values.descripcion,
@@ -338,25 +339,35 @@ const ServiceGarages = () => {
                 garantia: values.garantia,
                 typeService: values.typeService,
                 estatus: true,
-            })
-
-            // Actualizar el campo uid_servicio con el ID del documento recién creado
+                service_image: '', // Temporalmente vacío
+            });
+    
+            const serviceId = docRef.id;
+    
+            // Subir el logo al Storage
+            const storageRef = ref(storage, `service_images/${serviceId}_1`);
+            const logoBlob = await fetch(values.service_image).then((res) => res.blob());
+            await uploadBytes(storageRef, logoBlob);
+            const logoDownloadUrl = await getDownloadURL(storageRef);
+    
+            // Actualizar Firestore con el ID del documento y la URL del logo
             await updateDoc(docRef, {
-                uid_servicio: docRef.id,
-            })
-
-            // Reducir la cantidad de servicios en la subscripción del taller
+                uid_servicio: serviceId,
+                service_image: logoDownloadUrl,
+            });
+    
+            // Reducir cantidad de servicios del taller
             await updateDoc(tallerRef, {
                 'subscripcion_actual.cantidad_servicios': cantidadServicios - 1,
-            })
-
+            });
+    
             toast.push(
                 <Notification title="Éxito">
                     Servicio creado con éxito.
-                </Notification>,
-            )
-
-            // Resetear el formulario después de crear el servicio
+                </Notification>
+            );
+    
+            // Resetear el formulario
             setNewService({
                 nombre_servicio: '',
                 descripcion: '',
@@ -370,20 +381,21 @@ const ServiceGarages = () => {
                 garantia: '',
                 typeService: '',
                 estatus: true,
-            })
-
-            setDrawerCreateIsOpen(false)
-            setDrawerIsOpen(false)
-            fetchData() // Llamada a fetchData para refrescar los servicios
+            });
+    
+            setDrawerCreateIsOpen(false);
+            setDrawerIsOpen(false);
+            fetchData(); // Actualizar la lista de servicios
         } catch (error) {
-            console.error('Error creando Servicio:', error)
+            console.error('Error creando Servicio:', error);
             toast.push(
                 <Notification title="Error">
                     Hubo un error al crear el Servicio.
-                </Notification>,
-            )
+                </Notification>
+            );
         }
-    }
+    };
+    
 
     const openCreateDrawer = () => {
         setSelectedServiceTemplate(null) // No selecciona ningún template
@@ -594,7 +606,7 @@ const ServiceGarages = () => {
                                 </option>
                             </select>
                         </div>
-                        <div className="relative w-80 ml-4">
+                        <div className="relative w-70 ml-4">
                             <input
                                 type="text"
                                 placeholder="Buscar..."
@@ -694,6 +706,7 @@ const ServiceGarages = () => {
                         descripcion: newService?.descripcion || '',
                         uid_categoria: newService?.uid_categoria || '',
                         nombre_categoria: newService?.nombre_categoria || '',
+                        service_image: '',
                         uid_taller:
                         userAuthority === 'Admin'
                             ? newService?.uid_taller || ''
@@ -719,6 +732,65 @@ const ServiceGarages = () => {
                         touched,
                     }) => (
                         <Form className="flex flex-col space-y-6">
+                                {/* Campo para el logo */}
+                                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                                <div className="text-center">
+                                    {!newService?.service_image ? (
+                                        <FaCamera
+                                            className="mx-auto h-12 w-12 text-gray-300"
+                                            aria-hidden="true"
+                                        />
+                                    ) : (
+                                        <img
+                                            src={newService.service_image}
+                                            alt="Preview Logo"
+                                            className="mx-auto h-32 w-32 object-cover"
+                                        />
+                                    )}
+                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                                        <label
+                                            htmlFor="logo-upload"
+                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                        >
+                                            <span>
+                                                {newService?.service_image
+                                                    ? 'Cambiar Imagen'
+                                                    : 'Seleccionar Imagen'}
+                                            </span>
+                                            <input
+                                                id="logo-upload"
+                                                name="logo-upload"
+                                                type="file"
+                                                accept="image/*"
+                                                className="sr-only"
+                                                onChange={(e) => {
+                                                    const file =
+                                                        e.target.files?.[0]
+                                                    if (file) {
+                                                        const reader =
+                                                            new FileReader()
+                                                        reader.onloadend =
+                                                            () => {
+                                                                setNewService(
+                                                                    (
+                                                                        prev: any,
+                                                                    ) => ({
+                                                                        ...prev,
+                                                                        service_image:
+                                                                            reader.result, // Almacena la URL del logo
+                                                                    }),
+                                                                )
+                                                            }
+                                                        reader.readAsDataURL(
+                                                            file,
+                                                        ) // Leer el archivo como una URL de datos
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                             {/* Nombre del Servicio */}
                             <label className="flex flex-col">
                                 <span className="font-semibold text-gray-700">
