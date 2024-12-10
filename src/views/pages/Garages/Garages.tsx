@@ -30,8 +30,6 @@ import {
     query,
     doc,
     deleteDoc,
-    updateDoc,
-    addDoc,
     where,
     setDoc,
 } from 'firebase/firestore'
@@ -61,7 +59,8 @@ type Garage = {
     uid: string
     typeUser?: string
     image_perfil?: string
-    direccion?: string
+    Direccion?: string
+    ubicacion?: string
     id?: string
     status?: string
     password?: string
@@ -122,7 +121,8 @@ const Garages = () => {
         typeUser: 'Taller',
         image_perfil: '',
         status: 'Aprobado',
-        direccion: '',
+        Direccion: '',
+        ubicacion: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
         password: '',
         estado: '',
@@ -246,7 +246,8 @@ const Garages = () => {
                 typeUser: 'Taller',
                 image_perfil: values.image_perfil,
                 status: 'Aprobado',
-                direccion: coordenadas === null ? '' : coordenadas.latiLng,
+                Direccion: values.Direccion,
+                ubicacion: coordenadas === null ? '' : coordenadas.latiLng,
                 estado: values.estado,
                 password: values.password,
             })
@@ -301,38 +302,6 @@ const Garages = () => {
         }
     }
 
-    const handleSaveChanges = async () => {
-        if (selectedPerson) {
-            try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
-                await updateDoc(userDoc, {
-                    nombre: selectedPerson.nombre,
-                    email: selectedPerson.email,
-                    rif: selectedPerson.rif,
-                    phone: selectedPerson.phone,
-                    image_perfil: selectedPerson.image_perfil,
-                    estado: selectedPerson.estado,
-                })
-                // Mensaje de éxito
-                toast.push(
-                    <Notification title="Éxito">
-                        Taller actualizado con éxito.
-                    </Notification>,
-                )
-                setDrawerIsOpen(false)
-                getData() // Refrescar datos después de guardar
-            } catch (error) {
-                console.error('Error actualizando el taller:', error)
-                // Mensaje de error
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al actualizar el Taller.
-                    </Notification>,
-                )
-            }
-        }
-    }
-
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
         setDrawerCreateIsOpen(false)
@@ -344,6 +313,7 @@ const Garages = () => {
             rif: '',
             phone: '',
             id: '',
+            Direccion: '',
             uid: '',
             estado: '',
             password: '',
@@ -379,7 +349,9 @@ const Garages = () => {
             header: 'Nombre',
             accessorKey: 'nombre',
             cell: ({ getValue, row }) => {
-                const image_perfil = row.original.image_perfil as string | undefined // Obtener el logo de la fila
+                const image_perfil = row.original.image_perfil as
+                    | string
+                    | undefined // Obtener el logo de la fila
                 return (
                     <div className="flex items-center">
                         {image_perfil ? (
@@ -715,70 +687,6 @@ const Garages = () => {
                     </Button>
                 </div>
             </Dialog>
-            <Dialog
-                isOpen={drawerIsOpen}
-                onClose={() => setDrawerIsOpen(false)}
-                className="rounded-md shadow"
-            >
-                <h2 className="text-xl font-bold">Editar Taller</h2>
-
-                <Avatar
-                    className="mr-2 w-12 h-12 flex items-center justify-center rounded-full"
-                    style={{ backgroundColor: getRandomColor() }}
-                >
-                    <span className="text-white font-bold">
-                        {getInitials(selectedPerson?.nombre)}
-                    </span>
-                </Avatar>
-
-                <div className="flex flex-col space-y-4">
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre Taller:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.nombre || 'No especificado'}
-                        </p>
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.email || 'No especificado'}
-                        </p>
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            RIF:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.rif || 'No especificado'}
-                        </p>
-                    </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.phone || 'No especificado'}
-                        </p>
-                    </label>
-                </div>
-
-                <div className="text-right mt-6">
-                    <Button
-                        className="mr-2"
-                        variant="default"
-                        onClick={() => setDrawerIsOpen(false)}
-                    >
-                        Cerrar
-                    </Button>
-                    <Button variant="solid" onClick={handleSaveChanges}>
-                        Guardar Cambios
-                    </Button>
-                </div>
-            </Dialog>
             <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={handleDrawerClose}
@@ -791,7 +699,8 @@ const Garages = () => {
                         email: '',
                         rif: 'J-',
                         phone: '',
-                        direccion: '',
+                        Direccion: '',
+                        ubicacion: '',
                         password: '',
                         image_perfil: '',
                         estado: '',
@@ -801,6 +710,7 @@ const Garages = () => {
                         handleCreateGarage(values, selectedPlace)
                         setSubmitting(false)
                         console.log(selectedPlace)
+                        console.log(newGarage)
                     }}
                 >
                     {({ values, setFieldValue, isSubmitting }) => (
@@ -1015,10 +925,25 @@ const Garages = () => {
                                         className="text-red-500"
                                     />
                                 </label>
-
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         Dirección:
+                                    </span>
+                                    <Field
+                                        type="text"
+                                        name="Direccion"
+                                        placeholder="Indique su direccion"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    />
+                                    <ErrorMessage
+                                        name="Direccion"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Ubicación:
                                     </span>
                                     <div className="flex items-center mt-1 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
                                         <Maps
@@ -1029,7 +954,7 @@ const Garages = () => {
 
                                     {/* Mensaje de error */}
                                     <ErrorMessage
-                                        name="direccion"
+                                        name="ubicacion"
                                         component="div"
                                         className="text-red-500 text-sm mt-1"
                                     />

@@ -1,25 +1,19 @@
 import { GoogleMap, Marker } from '@react-google-maps/api'
 
-export interface MarkerData {
-    id: string
-    lat: number
-    lng: number
-    title: string
-    taller: string
-}
-
-interface MapsGaragesProps {
-    markers: MarkerData[]
-    center: { lat: number; lng: number } // Prop para el centro dinámico
-}
-
-const MapsGarages: React.FC<MapsGaragesProps> = ({ markers, center }) => {
+const MapsProfile = () => {
+    const center = { lat: 10.47915, lng: -66.90618 } // Centro predeterminado del mapa
     const zoom = 10 // Nivel de zoom predeterminado
+
+    // Ejemplo de marcadores predeterminados
+    const markers = [
+        { id: 1, lat: 10.47915, lng: -66.90618, title: 'Marcador 1' },
+        { id: 2, lat: 10.48015, lng: -66.90518, title: 'Marcador 2' },
+    ]
 
     return (
         <div style={{ height: '450px', width: '100%' }}>
             <GoogleMap
-                center={center} // Usamos el centro dinámico
+                center={center}
                 zoom={zoom}
                 mapContainerStyle={{
                     height: '400px',
@@ -30,10 +24,7 @@ const MapsGarages: React.FC<MapsGaragesProps> = ({ markers, center }) => {
                 {markers.map((marker) => (
                     <Marker
                         key={marker.id}
-                        position={{
-                            lat: marker.lat,
-                            lng: marker.lng,
-                        }}
+                        position={{ lat: marker.lat, lng: marker.lng }}
                         title={marker.title}
                     />
                 ))}
@@ -42,4 +33,4 @@ const MapsGarages: React.FC<MapsGaragesProps> = ({ markers, center }) => {
     )
 }
 
-export default MapsGarages
+export default MapsProfile
