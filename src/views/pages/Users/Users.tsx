@@ -111,6 +111,7 @@ const Users = () => {
         password: '',
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         id: '', // También puedes asignar un valor vacío si no quieres undefined
+        estado: '',
     })
 
     const openDialog = (person: Person) => {
@@ -143,6 +144,7 @@ const Users = () => {
         typeUser: Yup.string()
             .oneOf(['Cliente', 'Certificador'], 'Tipo de usuario inválido')
             .required('El tipo de usuario es obligatorio'),
+        estado: Yup.string().required('El estado es obligatorio'),
         password: Yup.string()
             .required('Por favor ingrese una contraseña')
             .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -219,6 +221,7 @@ const Users = () => {
                 Password: values.password,
                 typeUser: values.typeUser || 'Cliente',
                 uid: user.uid,
+                estado: values.estado,
             })
 
             await updateDoc(docRef, {
@@ -332,12 +335,7 @@ const Users = () => {
                     cedula: selectedPerson.cedula,
                     phone: selectedPerson.phone,
                     typeUser: selectedPerson.typeUser,
-                }
-
-                if (selectedPerson.typeUser === 'Certificador') {
-                    updateData.estado = selectedPerson.estado
-                } else {
-                    updateData.estado = deleteField()
+                    estado: selectedPerson.estado
                 }
 
                 await updateDoc(userDoc, updateData)
@@ -828,8 +826,7 @@ const Users = () => {
                         </select>
                     </label>
 
-                    {/* Campo para Estados (condicional) */}
-                    {selectedPerson?.typeUser === 'Certificador' && (
+                    {/* Campo para Estados */}
                         <label className="flex flex-col">
                             <span className="font-semibold text-gray-700">
                                 Estado:
@@ -877,7 +874,6 @@ const Users = () => {
                                 ))}
                             </select>
                         </label>
-                    )}
                 </div>
 
                 <div className="text-right mt-6">
@@ -913,6 +909,7 @@ const Users = () => {
                         typeUser: 'Cliente',
                         password: '',
                         confirmPassword: '',
+                        estado: '',
                     }}
                     validationSchema={validationSchema}
                     onSubmit={(values, { setSubmitting }) => {
@@ -1047,6 +1044,53 @@ const Users = () => {
                                     className="text-red-600 text-sm mt-1"
                                 />
                             </div>
+
+                            {/* Campo para Estados */}
+<div className="flex flex-col">
+    <label className="font-semibold text-gray-700">Estado:</label>
+    <Field
+        as="select"
+        name="estado"
+        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+    >
+        <option value="">Seleccione un Estado</option>
+        {[
+            'Amazonas',
+            'Anzoátegui',
+            'Apure',
+            'Aragua',
+            'Barinas',
+            'Bolívar',
+            'Carabobo',
+            'Cojedes',
+            'Delta Amacuro',
+            'Distrito Capital',
+            'Falcón',
+            'Guárico',
+            'Lara',
+            'Mérida',
+            'Miranda',
+            'Monagas',
+            'Nueva Esparta',
+            'Portuguesa',
+            'Sucre',
+            'Táchira',
+            'Trujillo',
+            'Vargas',
+            'Yaracuy',
+            'Zulia',
+        ].map((estado) => (
+            <option key={estado} value={estado}>
+                {estado}
+            </option>
+        ))}
+    </Field>
+    <ErrorMessage
+        name="estado"
+        component="div"
+        className="text-red-600 text-sm mt-1"
+    />
+</div>
 
                             {/* Contraseña */}
                             <div className="flex flex-col relative">
