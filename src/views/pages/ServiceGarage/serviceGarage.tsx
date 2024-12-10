@@ -93,7 +93,8 @@ type Service = {
     // Campos para subcategoría
     subcategoria?: []
     typeService?: string
-    service_image?: string
+    service_image?: []
+    service_image_files?: []
 }
 
 type ServiceTemplate = {
@@ -270,7 +271,8 @@ const ServiceGarages = () => {
 
         estatus: true,
         garantia: '',
-        service_image: '',
+        service_image: [], // Asegúrate de que sea un array vacío
+        service_image_files: [],
     })
 
     // Esquema de validación con Yup
@@ -297,8 +299,8 @@ const ServiceGarages = () => {
     })
 
     const handleCreateService = async (values: any) => {
+        console.log('Valores enviados a handleCreateService: ', values); // Verifica aquí
         try {
-    
             // Obtener referencia al taller
             const tallerRef = doc(db, 'Usuarios', values.uid_taller);
             const tallerSnapshot = await getDoc(tallerRef);
@@ -324,7 +326,7 @@ const ServiceGarages = () => {
                 return;
             }
     
-            // Crear el servicio inicialmente sin service_image
+            // Crear el servicio inicialmente sin service_image (array vacío)
             const userRef = collection(db, 'Servicios');
             const docRef = await addDoc(userRef, {
                 nombre_servicio: values.nombre_servicio,
@@ -339,21 +341,53 @@ const ServiceGarages = () => {
                 garantia: values.garantia,
                 typeService: values.typeService,
                 estatus: true,
-                service_image: '', // Temporalmente vacío
+                service_image: [], // Guardar como un array vacío para las imágenes
             });
     
             const serviceId = docRef.id;
     
-            // Subir el logo al Storage
-            const storageRef = ref(storage, `service_images/${serviceId}_1`);
-            const logoBlob = await fetch(values.service_image).then((res) => res.blob());
-            await uploadBytes(storageRef, logoBlob);
-            const logoDownloadUrl = await getDownloadURL(storageRef);
+            // Obtener las imágenes seleccionadas (array de archivos)
+            const serviceImages = values.service_image_files;
+            console.log('Aquí están las imagenes: ',serviceImages)
     
-            // Actualizar Firestore con el ID del documento y la URL del logo
+            if (!serviceImages || serviceImages.length === 0) {
+                toast.push(
+                    <Notification title="Error">
+                        Debes seleccionar al menos una imagen.
+                    </Notification>
+                );
+                return;
+            }
+    
+            // Subir todas las imágenes al Storage y obtener las URLs
+            const imageUrls: string[] = [];
+            for (let i = 0; i < serviceImages.length; i++) {
+                const file = serviceImages[i];
+                const fileType = file.name.split('.').pop()?.toLowerCase();
+    
+                // Validar tipo de archivo
+                if (!fileType || !['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
+                    toast.push(
+                        <Notification title="Error">
+                            Tipo de archivo no soportado. Solo se permiten imágenes.
+                        </Notification>
+                    );
+                    return;
+                }
+    
+                // Subir la imagen al Storage
+                const storageRef = ref(storage, `service_images/${serviceId}_${i + 1}.${fileType}`);
+                await uploadBytes(storageRef, file);
+                const downloadUrl = await getDownloadURL(storageRef);
+    
+                // Guardar la URL en el array
+                imageUrls.push(downloadUrl);
+            }
+    
+            // Actualizar Firestore con las URLs de las imágenes
             await updateDoc(docRef, {
                 uid_servicio: serviceId,
-                service_image: logoDownloadUrl,
+                service_image: imageUrls, // Guardar todas las URLs de las imágenes
             });
     
             // Reducir cantidad de servicios del taller
@@ -361,6 +395,7 @@ const ServiceGarages = () => {
                 'subscripcion_actual.cantidad_servicios': cantidadServicios - 1,
             });
     
+            // Notificar éxito
             toast.push(
                 <Notification title="Éxito">
                     Servicio creado con éxito.
@@ -381,11 +416,14 @@ const ServiceGarages = () => {
                 garantia: '',
                 typeService: '',
                 estatus: true,
+                service_image: [], // Reiniciar imágenes
+                service_image_files: [], // Reiniciar archivos
             });
     
             setDrawerCreateIsOpen(false);
             setDrawerIsOpen(false);
             fetchData(); // Actualizar la lista de servicios
+    
         } catch (error) {
             console.error('Error creando Servicio:', error);
             toast.push(
@@ -395,7 +433,7 @@ const ServiceGarages = () => {
             );
         }
     };
-    
+        
 
     const openCreateDrawer = () => {
         setSelectedServiceTemplate(null) // No selecciona ningún template
@@ -706,7 +744,8 @@ const ServiceGarages = () => {
                         descripcion: newService?.descripcion || '',
                         uid_categoria: newService?.uid_categoria || '',
                         nombre_categoria: newService?.nombre_categoria || '',
-                        service_image: '',
+                        service_image: [],
+                        service_image_files: [],
                         uid_taller:
                         userAuthority === 'Admin'
                             ? newService?.uid_taller || ''
@@ -732,65 +771,60 @@ const ServiceGarages = () => {
                         touched,
                     }) => (
                         <Form className="flex flex-col space-y-6">
-                                {/* Campo para el logo */}
-                                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                                <div className="text-center">
-                                    {!newService?.service_image ? (
-                                        <FaCamera
-                                            className="mx-auto h-12 w-12 text-gray-300"
-                                            aria-hidden="true"
-                                        />
-                                    ) : (
-                                        <img
-                                            src={newService.service_image}
-                                            alt="Preview Logo"
-                                            className="mx-auto h-32 w-32 object-cover"
-                                        />
-                                    )}
-                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                                        <label
-                                            htmlFor="logo-upload"
-                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-                                        >
-                                            <span>
-                                                {newService?.service_image
-                                                    ? 'Cambiar Imagen'
-                                                    : 'Seleccionar Imagen'}
-                                            </span>
-                                            <input
-                                                id="logo-upload"
-                                                name="logo-upload"
-                                                type="file"
-                                                accept="image/*"
-                                                className="sr-only"
-                                                onChange={(e) => {
-                                                    const file =
-                                                        e.target.files?.[0]
-                                                    if (file) {
-                                                        const reader =
-                                                            new FileReader()
-                                                        reader.onloadend =
-                                                            () => {
-                                                                setNewService(
-                                                                    (
-                                                                        prev: any,
-                                                                    ) => ({
-                                                                        ...prev,
-                                                                        service_image:
-                                                                            reader.result, // Almacena la URL del logo
-                                                                    }),
-                                                                )
-                                                            }
-                                                        reader.readAsDataURL(
-                                                            file,
-                                                        ) // Leer el archivo como una URL de datos
-                                                    }
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
+                                <div className="mt-2 flex flex-col items-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+    <div className="text-center">
+        {Array.isArray(values.service_image) && values.service_image.length > 0 ? (
+            <div className="grid grid-cols-3 gap-4">
+                {values.service_image.map((img: string, index: number) => (
+                    <img
+                        key={index}
+                        src={img}
+                        alt={`Preview ${index + 1}`}
+                        className="h-32 w-32 object-cover rounded-md"
+                    />
+                ))}
+            </div>
+        ) : (
+            <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+        )}
+        <div className="mt-4 flex flex-col text-sm leading-6 text-gray-600 justify-center">
+            <label
+                htmlFor="images-upload"
+                className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+            >
+                <span>Agregar otra imagen</span>
+                <input
+                    id="images-upload"
+                    name="images-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        const newImages = files.map((file) => URL.createObjectURL(file));
+
+                        // Actualizamos los valores en Formik
+                        setFieldValue("service_image", [
+                            ...(values.service_image || []),
+                            ...newImages,
+                        ]);
+                        setFieldValue("service_image_files", [
+                            ...(values.service_image_files || []),
+                            ...files,
+                        ]);
+                    }}
+                />
+            </label>
+            {values.service_image_files?.length === 0 && (
+                <p className="text-red-600 mt-2">Debes seleccionar al menos una imagen.</p>
+            )}
+        </div>
+    </div>
+</div>
+
+
+
                             {/* Nombre del Servicio */}
                             <label className="flex flex-col">
                                 <span className="font-semibold text-gray-700">
