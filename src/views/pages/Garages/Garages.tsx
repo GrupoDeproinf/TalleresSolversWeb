@@ -19,9 +19,6 @@ import {
     FaCamera,
     FaCheckCircle,
     FaExclamationCircle,
-    FaEye,
-    FaEyeSlash,
-    FaFolder,
     FaQuestionCircle,
     FaRegEye,
     FaTimesCircle,
@@ -33,10 +30,9 @@ import {
     query,
     doc,
     deleteDoc,
-    updateDoc,
-    addDoc,
     where,
     setDoc,
+    updateDoc,
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -50,11 +46,16 @@ import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
 import * as Yup from 'yup'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
+import Maps from './components/googlemaps'
 import { GrMapLocation } from 'react-icons/gr'
 import Password from '@/views/account/Settings/components/Password'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
 
+interface SelectedPlace {
+    latiLng: { lat: number; lng: number }
+    zoom: number
+}
 type Garage = {
     nombre?: string
     email?: string
@@ -64,7 +65,9 @@ type Garage = {
     typeUser?: string
     image_perfil?: string
     image_file?: string
-    direccion?: string
+    Direccion?: string
+    ubicacion?: string
+
     id?: string
     status?: string
     password?: string
@@ -73,6 +76,9 @@ type Garage = {
 }
 
 const Garages = () => {
+    const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(
+        null,
+    )
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
@@ -123,7 +129,8 @@ const Garages = () => {
         image_perfil: '',
         image_file: '',
         status: 'Aprobado',
-        direccion: '',
+        Direccion: '',
+        ubicacion: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
         password: '',
         estado: '',
@@ -157,9 +164,6 @@ const Garages = () => {
         phone: Yup.string()
             .matches(/^\d{11}$/, 'El teléfono debe tener 11 dígitos')
             .required('El teléfono es obligatorio'),
-        direccion: Yup.string()
-            .required('La Dirección es obligatoria')
-            .min(5, 'La Dirección debe tener al menos 5 caracteres'),
         password: Yup.string()
             .required('Por favor ingrese una contraseña')
             .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -171,7 +175,7 @@ const Garages = () => {
 
     const [showPassword, setShowPassword] = useState(false)
 
-    const handleCreateGarage = async (values: any) => {
+    const handleCreateGarage = async (values: any, coordenadas: any) => {
         console.log('Datos del garage a crear', values);
     
         if (values.password !== values.confirmPassword) {
@@ -182,7 +186,8 @@ const Garages = () => {
             );
             return;
         }
-    
+        console.log(coordenadas)
+
         try {
             const userRef = collection(db, 'Usuarios');
     
@@ -224,7 +229,8 @@ const Garages = () => {
                 phone: values.phone,
                 typeUser: 'Taller',
                 status: 'Aprobado',
-                direccion: values.direccion,
+                Direccion: values.Direccion,
+                ubicacion: coordenadas === null ? '' : coordenadas.latiLng,
                 estado: values.estado,
                 image_perfil: '', // Inicialmente vacío, se actualiza más tarde
             });
@@ -301,41 +307,10 @@ const Garages = () => {
         }
     }
 
-    const handleSaveChanges = async () => {
-        if (selectedPerson) {
-            try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
-                await updateDoc(userDoc, {
-                    nombre: selectedPerson.nombre,
-                    email: selectedPerson.email,
-                    rif: selectedPerson.rif,
-                    phone: selectedPerson.phone,
-                    image_perfil: selectedPerson.image_perfil,
-                    estado: selectedPerson.estado,
-                })
-                // Mensaje de éxito
-                toast.push(
-                    <Notification title="Éxito">
-                        Taller actualizado con éxito.
-                    </Notification>,
-                )
-                setDrawerIsOpen(false)
-                getData() // Refrescar datos después de guardar
-            } catch (error) {
-                console.error('Error actualizando el taller:', error)
-                // Mensaje de error
-                toast.push(
-                    <Notification title="Error">
-                        Hubo un error al actualizar el Taller.
-                    </Notification>,
-                )
-            }
-        }
-    }
-
     const handleDrawerClose = (e: MouseEvent) => {
         console.log('Drawer cerrado', e)
-        setDrawerCreateIsOpen(false) // Cierra el Drawer
+        setDrawerCreateIsOpen(false)
+        setSelectedPlace(null) // Cierra el Drawer
         setNewGarage({
             // Limpia los campos de usuario
             nombre: '',
@@ -343,6 +318,7 @@ const Garages = () => {
             rif: '',
             phone: '',
             id: '',
+            Direccion: '',
             uid: '',
             estado: '',
             password: '',
@@ -379,7 +355,9 @@ const Garages = () => {
             header: 'Nombre',
             accessorKey: 'nombre',
             cell: ({ getValue, row }) => {
-                const image_perfil = row.original.image_perfil as string | undefined // Obtener el logo de la fila
+                const image_perfil = row.original.image_perfil as
+                    | string
+                    | undefined // Obtener el logo de la fila
                 return (
                     <div className="flex items-center">
                         {image_perfil ? (
@@ -592,7 +570,7 @@ const Garages = () => {
                             <select
                                 className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 onChange={handleSelectChange}
-                                value={selectedColumn} // Se mantiene el valor predeterminado
+                                value={selectedColumn}
                             >
                                 <option value="" disabled>
                                     Seleccionar columna...
@@ -616,7 +594,7 @@ const Garages = () => {
                         <Button
                             className="w-40 ml-4 text-white hover:opacity-80"
                             style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
+                            onClick={() => setDrawerCreateIsOpen(true)}
                         >
                             Crear Taller
                         </Button>
@@ -650,7 +628,6 @@ const Garages = () => {
                                                             .header,
                                                         header.getContext(),
                                                     )}
-                                                    
                                                 </div>
                                             )}
                                         </Th>
@@ -682,7 +659,6 @@ const Garages = () => {
                             })}
                     </TBody>
                 </Table>
-                {/* Agregar la paginación */}
                 <Pagination
                     onChange={onPaginationChange}
                     currentPage={currentPage}
@@ -717,80 +693,6 @@ const Garages = () => {
                     </Button>
                 </div>
             </Dialog>
-
-            {/* Drawer para edición */}
-            <Dialog
-                isOpen={drawerIsOpen}
-                onClose={() => setDrawerIsOpen(false)}
-                className="rounded-md shadow"
-            >
-                <h2 className="text-xl font-bold">Editar Taller</h2>
-
-                {/* Componente Avatar con iniciales */}
-                <Avatar
-                    className="mr-2 w-12 h-12 flex items-center justify-center rounded-full"
-                    style={{ backgroundColor: getRandomColor() }}
-                >
-                    <span className="text-white font-bold">
-                        {getInitials(selectedPerson?.nombre)}
-                    </span>
-                </Avatar>
-
-                <div className="flex flex-col space-y-4">
-                    {/* Campo para Nombre */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Nombre Taller:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.nombre || 'No especificado'}
-                        </p>
-                    </label>
-
-                    {/* Campo para Email */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Email:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.email || 'No especificado'}
-                        </p>
-                    </label>
-
-                    {/* Campo para RIF */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            RIF:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.rif || 'No especificado'}
-                        </p>
-                    </label>
-
-                    {/* Campo para Teléfono */}
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Teléfono:
-                        </span>
-                        <p className="mt-1 p-3 border border-gray-300 rounded-lg">
-                            {selectedPerson?.phone || 'No especificado'}
-                        </p>
-                    </label>
-                </div>
-
-                <div className="text-right mt-6">
-                    <Button
-                        className="mr-2"
-                        variant="default"
-                        onClick={() => setDrawerIsOpen(false)}
-                    >
-                        Cerrar
-                    </Button>
-                    <Button variant="solid" onClick={handleSaveChanges}>
-                        Guardar Cambios
-                    </Button>
-                </div>
-            </Dialog>
             <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={handleDrawerClose}
@@ -803,19 +705,22 @@ const Garages = () => {
         email: '',
         rif: 'J-',
         phone: '',
-        direccion: '',
+        Direccion: '',
+        ubicacion: '',
         password: '',
         image_perfil: '',
         estado: '',
         image_file: null, // Añadimos el campo `image_file` en los valores de Formik
     }}
     validationSchema={validationSchema}
-    onSubmit={(values, { setSubmitting }) => {
-        handleCreateGarage(values);
-        setSubmitting(false);
-    }}
->
-    {({ values, setFieldValue, isSubmitting }) => (
+                    onSubmit={(values, { setSubmitting }) => {
+                        handleCreateGarage(values, selectedPlace)
+                        setSubmitting(false)
+                        console.log(selectedPlace)
+                        console.log(newGarage)
+                    }}
+                >
+                    {({ values, setFieldValue, isSubmitting }) => (
         <Form>
             <div className="flex flex-col space-y-6">
                 {/* Campo para el logo */}
@@ -891,8 +796,6 @@ const Garages = () => {
                                         className="text-red-500"
                                     />
                                 </label>
-
-                                {/* RIF */}
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         RIF:
@@ -1013,40 +916,36 @@ const Garages = () => {
                                         className="text-red-500"
                                     />
                                 </label>
-
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         Dirección:
                                     </span>
+                                    <Field
+                                        type="text"
+                                        name="Direccion"
+                                        placeholder="Indique su direccion"
+                                        className="mt-1 p-3 border border-gray-300 rounded-lg"
+                                    />
+                                    <ErrorMessage
+                                        name="Direccion"
+                                        component="div"
+                                        className="text-red-500"
+                                    />
+                                </label>
+                                <label className="flex flex-col">
+                                    <span className="font-semibold text-gray-700">
+                                        Ubicación:
+                                    </span>
                                     <div className="flex items-center mt-1 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500">
-                                        {/* Icono como botón a la izquierda */}
-                                        <Button
-                                            type="button"
-                                            className="p-3 text-gray-500 focus:outline-none"
-                                        >
-                                            <GrMapLocation size={20} />
-                                        </Button>
-
-                                        {/* Input de Dirección */}
-                                        <Field
-                                            as="textarea"
-                                            name="direccion"
-                                            className="p-3 flex-1 focus:outline-none resize-none"
-                                            rows={1}
-                                            style={{
-                                                maxHeight: '150px',
-                                                overflowY: 'auto',
-                                            }}
-                                            onInput={(e: any) => {
-                                                e.target.style.height = 'auto'
-                                                e.target.style.height = `${e.target.scrollHeight}px`
-                                            }}
+                                        <Maps
+                                            data={selectedPlace}
+                                            save={setSelectedPlace}
                                         />
                                     </div>
 
                                     {/* Mensaje de error */}
                                     <ErrorMessage
-                                        name="direccion"
+                                        name="ubicacion"
                                         component="div"
                                         className="text-red-500 text-sm mt-1"
                                     />

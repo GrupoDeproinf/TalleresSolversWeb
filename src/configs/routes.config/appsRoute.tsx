@@ -53,6 +53,12 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER],
     },
     {
+        key: 'appsgarages_ubication.garages_ubication',
+        path: `${APP_PREFIX_PATH}/garages_ubication`,
+        component: lazy(() => import('@/views/pages/Garages_Ubication')),
+        authority: [ADMIN, USER],
+    },
+    {
         key: 'appsSubscriptions.subscriptions',
         path: `${APP_PREFIX_PATH}/subscriptions`,
         component: lazy(() => import('@/views/pages/Subscriptions')),
