@@ -52,6 +52,8 @@ import * as Yup from 'yup'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 import { GrMapLocation } from 'react-icons/gr'
 import Password from '@/views/account/Settings/components/Password'
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/configs/firebaseAssets.config';
 
 type Garage = {
     nombre?: string
@@ -61,6 +63,7 @@ type Garage = {
     uid: string
     typeUser?: string
     image_perfil?: string
+    image_file?: string
     direccion?: string
     id?: string
     status?: string
@@ -118,6 +121,7 @@ const Garages = () => {
         uid: '', // Asignar valor vacío si no quieres que sea undefined
         typeUser: 'Taller',
         image_perfil: '',
+        image_file: '',
         status: 'Aprobado',
         direccion: '',
         id: '', // También puedes asignar un valor vacío si no quieres undefined
@@ -168,74 +172,50 @@ const Garages = () => {
     const [showPassword, setShowPassword] = useState(false)
 
     const handleCreateGarage = async (values: any) => {
+        console.log('Datos del garage a crear', values);
+    
         if (values.password !== values.confirmPassword) {
             toast.push(
                 <Notification title="Error">
-                    Las contraseñas no coinciden. Por favor, verifica los
-                    campos.
-                </Notification>,
-            )
-            return
+                    Las contraseñas no coinciden. Por favor, verifica los campos.
+                </Notification>
+            );
+            return;
         }
-
+    
         try {
-            const userRef = collection(db, 'Usuarios')
-
-            // Verificar si ya existe un documento con el mismo correo electrónico
-            const emailQuery = query(
-                userRef,
-                where('email', '==', values.email),
-            )
-            const emailSnapshot = await getDocs(emailQuery)
-
+            const userRef = collection(db, 'Usuarios');
+    
+            // Validar correo electrónico único
+            const emailQuery = query(userRef, where('email', '==', values.email));
+            const emailSnapshot = await getDocs(emailQuery);
             if (!emailSnapshot.empty) {
-                toast.push(
-                    <Notification title="Error">
-                        ¡El correo electrónico ya está registrado!
-                    </Notification>,
-                )
-                return
+                toast.push(<Notification title="Error">¡El correo electrónico ya está registrado!</Notification>);
+                return;
             }
-
-            // Verificar si ya existe un documento con el mismo RIF
-            const rifQuery = query(userRef, where('rif', '==', values.rif))
-            const rifSnapshot = await getDocs(rifQuery)
-
+    
+            // Validar RIF único
+            const rifQuery = query(userRef, where('rif', '==', values.rif));
+            const rifSnapshot = await getDocs(rifQuery);
             if (!rifSnapshot.empty) {
-                toast.push(
-                    <Notification title="Error">
-                        ¡El RIF ya está registrado!
-                    </Notification>,
-                )
-                return
+                toast.push(<Notification title="Error">¡El RIF ya está registrado!</Notification>);
+                return;
             }
-
-            // Verificar si ya existe un documento con el mismo número de teléfono
-            const phoneQuery = query(
-                userRef,
-                where('phone', '==', values.phone),
-            )
-            const phoneSnapshot = await getDocs(phoneQuery)
-
+    
+            // Validar número de teléfono único
+            const phoneQuery = query(userRef, where('phone', '==', values.phone));
+            const phoneSnapshot = await getDocs(phoneQuery);
             if (!phoneSnapshot.empty) {
-                toast.push(
-                    <Notification title="Error">
-                        ¡El número de teléfono ya está registrado!
-                    </Notification>,
-                )
-                return
+                toast.push(<Notification title="Error">¡El número de teléfono ya está registrado!</Notification>);
+                return;
             }
-
+    
             // Crear usuario en Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(
-                auth,
-                values.email,
-                values.password,
-            )
-            const user = userCredential.user
-
-            // Crear el documento en Firestore con el UID del usuario como ID
-            const docRef = doc(userRef, user.uid) // El UID será el ID del documento
+            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+            const user = userCredential.user;
+    
+            // Crear documento en Firestore
+            const docRef = doc(userRef, user.uid);
             await setDoc(docRef, {
                 uid: user.uid,
                 nombre: values.nombre,
@@ -243,30 +223,51 @@ const Garages = () => {
                 rif: values.rif,
                 phone: values.phone,
                 typeUser: 'Taller',
-                image_perfil: values.image_perfil,
                 status: 'Aprobado',
                 direccion: values.direccion,
                 estado: values.estado,
-                password: values.password,
-            })
-
-            toast.push(
-                <Notification title="Éxito">
-                    Taller creado y autenticado con éxito.
-                </Notification>,
-            )
-
-            setDrawerCreateIsOpen(false)
-            getData() // Refrescar la lista de talleres
+                image_perfil: '', // Inicialmente vacío, se actualiza más tarde
+            });
+    
+            let logoDownloadUrl = '';
+    
+            // Subir imagen si se proporciona
+            if (values.image_file) {
+                // Obtener la extensión del archivo
+                const fileType = values.image_file.name.split('.').pop()?.toLowerCase();
+    
+                // Validar si el archivo es una imagen válida
+                if (!fileType || !['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
+                    toast.push(
+                        <Notification title="Error">
+                            Tipo de archivo no soportado. Solo se permiten imágenes.
+                        </Notification>
+                    );
+                    return;
+                }
+    
+                // Subir la imagen al Storage
+                const newImageName = `${user.uid}_1.${fileType}`; // Usar la extensión del archivo
+                const storageRef = ref(storage, `profileImages/${newImageName}`);
+                const imageFile = values.image_file; // Asegúrate de que sea un archivo `File`
+                await uploadBytes(storageRef, imageFile);
+    
+                // Obtener la URL de la imagen subida
+                logoDownloadUrl = await getDownloadURL(storageRef);
+    
+                // Actualizar la URL de la imagen en Firestore
+                await updateDoc(docRef, { image_perfil: logoDownloadUrl });
+            }
+    
+            toast.push(<Notification title="Éxito">Taller creado y autenticado con éxito.</Notification>);
+            setDrawerCreateIsOpen(false);
+            getData(); // Refrescar lista
         } catch (error) {
-            console.error('Error creando el taller:', error)
-            toast.push(
-                <Notification title="Error">
-                    Hubo un error al crear el Taller.
-                </Notification>,
-            )
+            console.error('Error creando el taller:', error);
+            toast.push(<Notification title="Error">Hubo un error al crear el Taller.</Notification>);
         }
-    }
+    };
+       
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
@@ -345,6 +346,7 @@ const Garages = () => {
             uid: '',
             estado: '',
             password: '',
+            image_perfil: '',
         })
         setSelectedPerson(null) // Limpia la selección (si es necesario)
     }
@@ -796,84 +798,68 @@ const Garages = () => {
             >
                 <h2 className="mb-4 text-xl font-bold">Crear Taller</h2>
                 <Formik
-                    initialValues={{
-                        nombre: '',
-                        email: '',
-                        rif: 'J-',
-                        phone: '',
-                        direccion: '',
-                        password: '',
-                        image_perfil: '',
-                        estado: '',
-                    }}
-                    validationSchema={validationSchema}
-                    onSubmit={(values, { setSubmitting }) => {
-                        handleCreateGarage(values)
-                        setSubmitting(false)
-                    }}
-                >
-                    {({ values, setFieldValue, isSubmitting }) => (
-                        <Form>
-                            <div className="flex flex-col space-y-6">
-                                {/* Campo para el logo */}
-                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                                <div className="text-center">
-                                    {!newGarage?.image_perfil ? (
-                                        <FaCamera
-                                            className="mx-auto h-12 w-12 text-gray-300"
-                                            aria-hidden="true"
-                                        />
-                                    ) : (
-                                        <img
-                                            src={newGarage.image_perfil}
-                                            alt="Preview Logo"
-                                            className="mx-auto h-32 w-32 object-cover"
-                                        />
-                                    )}
-                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                                        <label
-                                            htmlFor="logo-upload"
-                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-                                        >
-                                            <span>
-                                                {newGarage?.image_perfil
-                                                    ? 'Cambiar Logo'
-                                                    : 'Seleccionar Logo'}
-                                            </span>
-                                            <input
-                                                id="logo-upload"
-                                                name="logo-upload"
-                                                type="file"
-                                                accept="image/*"
-                                                className="sr-only"
-                                                onChange={(e) => {
-                                                    const file =
-                                                        e.target.files?.[0]
-                                                    if (file) {
-                                                        const reader =
-                                                            new FileReader()
-                                                        reader.onloadend =
-                                                            () => {
-                                                                setNewGarage(
-                                                                    (
-                                                                        prev: any,
-                                                                    ) => ({
-                                                                        ...prev,
-                                                                        image_perfil:
-                                                                            reader.result, // Almacena la URL del logo
-                                                                    }),
-                                                                )
-                                                            }
-                                                        reader.readAsDataURL(
-                                                            file,
-                                                        ) // Leer el archivo como una URL de datos
-                                                    }
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
+    initialValues={{
+        nombre: '',
+        email: '',
+        rif: 'J-',
+        phone: '',
+        direccion: '',
+        password: '',
+        image_perfil: '',
+        estado: '',
+        image_file: null, // Añadimos el campo `image_file` en los valores de Formik
+    }}
+    validationSchema={validationSchema}
+    onSubmit={(values, { setSubmitting }) => {
+        handleCreateGarage(values);
+        setSubmitting(false);
+    }}
+>
+    {({ values, setFieldValue, isSubmitting }) => (
+        <Form>
+            <div className="flex flex-col space-y-6">
+                {/* Campo para el logo */}
+                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                    <div className="text-center">
+                        {!values.image_perfil ? (
+                            <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+                        ) : (
+                            <img
+                                src={values.image_perfil} // Usamos `values.image_perfil` directamente aquí
+                                alt="Preview Logo"
+                                className="mx-auto h-32 w-32 object-cover"
+                            />
+                        )}
+                        <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                            <label
+                                htmlFor="logo-upload"
+                                className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                            >
+                                <span>
+                                    {values.image_perfil ? 'Cambiar Logo' : 'Seleccionar Logo'}
+                                </span>
+                                <input
+                                    id="logo-upload"
+                                    name="logo-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            const reader = new FileReader();
+                                            reader.onloadend = () => {
+                                                setFieldValue('image_perfil', reader.result); // Establecemos el URL para la vista previa
+                                                setFieldValue('image_file', file); // Establecemos el archivo para enviarlo al backend
+                                            };
+                                            reader.readAsDataURL(file); // Convierte el archivo en URL de datos para vista previa
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </div>
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
                                         Nombre Taller:

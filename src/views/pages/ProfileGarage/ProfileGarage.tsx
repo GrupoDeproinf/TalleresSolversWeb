@@ -1029,19 +1029,23 @@ const ProfileGarage = () => {
                                                         {subscription?.status ===
                                                             'Aprobado' && (
                                                                 <>
-                                                                    <p className="text-sm ml-2 text-gray-600">
+                                                                    <p className="text-xs ml-2 text-gray-600">
                                                                         {diasRestantes ??
                                                                             '---'}{' '}
                                                                         días
                                                                         restantes
                                                                     </p>
-                                                                    <span className="text-gray-600">
+                                                                    <p className="text-xs ml-2 text-gray-600">
+                                                                            Fecha de vencimiento:{' '}
+                                                                    
+                                                                    <span className="text-xs text-gray-600">
                                                                         {subscription.fecha_fin
                                                                             ? formatDate(
                                                                                 subscription.fecha_fin,
                                                                             )
                                                                             : 'Fecha no disponible'}
                                                                     </span>
+                                                                    </p>
                                                                 </>
                                                             )}
                                                     </div>
