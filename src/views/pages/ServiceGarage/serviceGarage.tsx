@@ -25,6 +25,7 @@ import {
     FaStarHalfAlt,
     FaTrash,
     FaEdit,
+    FaCamera,
 } from 'react-icons/fa'
 import {
     collection,
@@ -48,6 +49,8 @@ import * as Yup from 'yup'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { useAppSelector } from '@/store'
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/configs/firebaseAssets.config';
 
 type Garage = {
     nombre?: string
@@ -90,6 +93,8 @@ type Service = {
     // Campos para subcategoría
     subcategoria?: []
     typeService?: string
+    service_image?: []
+    service_image_files?: []
 }
 
 type ServiceTemplate = {
@@ -266,6 +271,8 @@ const ServiceGarages = () => {
 
         estatus: true,
         garantia: '',
+        service_image: [], // Asegúrate de que sea un array vacío
+        service_image_files: [],
     })
 
     // Esquema de validación con Yup
@@ -292,39 +299,35 @@ const ServiceGarages = () => {
     })
 
     const handleCreateService = async (values: any) => {
+        console.log('Valores enviados a handleCreateService: ', values); // Verifica aquí
         try {
-            // Obtener los datos del taller seleccionado
-            const tallerRef = doc(db, 'Usuarios', values.uid_taller) // Obtener referencia al taller
-            const tallerSnapshot = await getDoc(tallerRef)
-
+            // Obtener referencia al taller
+            const tallerRef = doc(db, 'Usuarios', values.uid_taller);
+            const tallerSnapshot = await getDoc(tallerRef);
+    
             if (!tallerSnapshot.exists()) {
                 toast.push(
                     <Notification title="Error">
                         El taller seleccionado no existe.
-                    </Notification>,
-                )
-                return
+                    </Notification>
+                );
+                return;
             }
-
-            const tallerData = tallerSnapshot.data()
-            console.log('Datos a guardar: ', values)
-
-            // Verificar si la cantidad de servicios disponibles es mayor que 0
-            const cantidadServicios =
-                tallerData.subscripcion_actual?.cantidad_servicios
-
+    
+            const tallerData = tallerSnapshot.data();
+            const cantidadServicios = tallerData.subscripcion_actual?.cantidad_servicios;
+    
             if (cantidadServicios <= 0) {
                 toast.push(
                     <Notification title="Error">
-                        Este taller no tiene más servicios disponibles para
-                        crear.
-                    </Notification>,
-                )
-                return
+                        Este taller no tiene más servicios disponibles para crear.
+                    </Notification>
+                );
+                return;
             }
-
-            // Crear el servicio en la colección "Servicios"
-            const userRef = collection(db, 'Servicios')
+    
+            // Crear el servicio inicialmente sin service_image (array vacío)
+            const userRef = collection(db, 'Servicios');
             const docRef = await addDoc(userRef, {
                 nombre_servicio: values.nombre_servicio,
                 descripcion: values.descripcion,
@@ -338,25 +341,68 @@ const ServiceGarages = () => {
                 garantia: values.garantia,
                 typeService: values.typeService,
                 estatus: true,
-            })
-
-            // Actualizar el campo uid_servicio con el ID del documento recién creado
+                service_image: [], // Guardar como un array vacío para las imágenes
+            });
+    
+            const serviceId = docRef.id;
+    
+            // Obtener las imágenes seleccionadas (array de archivos)
+            const serviceImages = values.service_image_files;
+            console.log('Aquí están las imagenes: ',serviceImages)
+    
+            if (!serviceImages || serviceImages.length === 0) {
+                toast.push(
+                    <Notification title="Error">
+                        Debes seleccionar al menos una imagen.
+                    </Notification>
+                );
+                return;
+            }
+    
+            // Subir todas las imágenes al Storage y obtener las URLs
+            const imageUrls: string[] = [];
+            for (let i = 0; i < serviceImages.length; i++) {
+                const file = serviceImages[i];
+                const fileType = file.name.split('.').pop()?.toLowerCase();
+    
+                // Validar tipo de archivo
+                if (!fileType || !['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
+                    toast.push(
+                        <Notification title="Error">
+                            Tipo de archivo no soportado. Solo se permiten imágenes.
+                        </Notification>
+                    );
+                    return;
+                }
+    
+                // Subir la imagen al Storage
+                const storageRef = ref(storage, `service_images/${serviceId}_${i + 1}.${fileType}`);
+                await uploadBytes(storageRef, file);
+                const downloadUrl = await getDownloadURL(storageRef);
+    
+                // Guardar la URL en el array
+                imageUrls.push(downloadUrl);
+            }
+    
+            // Actualizar Firestore con las URLs de las imágenes
             await updateDoc(docRef, {
-                uid_servicio: docRef.id,
-            })
-
-            // Reducir la cantidad de servicios en la subscripción del taller
+                uid_servicio: serviceId,
+                service_image: imageUrls, // Guardar todas las URLs de las imágenes
+            });
+    
+            // Reducir cantidad de servicios del taller
             await updateDoc(tallerRef, {
                 'subscripcion_actual.cantidad_servicios': cantidadServicios - 1,
-            })
-
+            });
+    
+            // Notificar éxito
             toast.push(
                 <Notification title="Éxito">
                     Servicio creado con éxito.
-                </Notification>,
-            )
-
-            // Resetear el formulario después de crear el servicio
+                </Notification>
+            );
+    
+            // Resetear el formulario
             setNewService({
                 nombre_servicio: '',
                 descripcion: '',
@@ -370,20 +416,24 @@ const ServiceGarages = () => {
                 garantia: '',
                 typeService: '',
                 estatus: true,
-            })
-
-            setDrawerCreateIsOpen(false)
-            setDrawerIsOpen(false)
-            fetchData() // Llamada a fetchData para refrescar los servicios
+                service_image: [], // Reiniciar imágenes
+                service_image_files: [], // Reiniciar archivos
+            });
+    
+            setDrawerCreateIsOpen(false);
+            setDrawerIsOpen(false);
+            fetchData(); // Actualizar la lista de servicios
+    
         } catch (error) {
-            console.error('Error creando Servicio:', error)
+            console.error('Error creando Servicio:', error);
             toast.push(
                 <Notification title="Error">
                     Hubo un error al crear el Servicio.
-                </Notification>,
-            )
+                </Notification>
+            );
         }
-    }
+    };
+        
 
     const openCreateDrawer = () => {
         setSelectedServiceTemplate(null) // No selecciona ningún template
@@ -594,7 +644,7 @@ const ServiceGarages = () => {
                                 </option>
                             </select>
                         </div>
-                        <div className="relative w-80 ml-4">
+                        <div className="relative w-70 ml-4">
                             <input
                                 type="text"
                                 placeholder="Buscar..."
@@ -694,6 +744,8 @@ const ServiceGarages = () => {
                         descripcion: newService?.descripcion || '',
                         uid_categoria: newService?.uid_categoria || '',
                         nombre_categoria: newService?.nombre_categoria || '',
+                        service_image: [],
+                        service_image_files: [],
                         uid_taller:
                         userAuthority === 'Admin'
                             ? newService?.uid_taller || ''
@@ -719,6 +771,60 @@ const ServiceGarages = () => {
                         touched,
                     }) => (
                         <Form className="flex flex-col space-y-6">
+                                <div className="mt-2 flex flex-col items-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+    <div className="text-center">
+        {Array.isArray(values.service_image) && values.service_image.length > 0 ? (
+            <div className="grid grid-cols-3 gap-4">
+                {values.service_image.map((img: string, index: number) => (
+                    <img
+                        key={index}
+                        src={img}
+                        alt={`Preview ${index + 1}`}
+                        className="h-32 w-32 object-cover rounded-md"
+                    />
+                ))}
+            </div>
+        ) : (
+            <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+        )}
+        <div className="mt-4 flex flex-col text-sm leading-6 text-gray-600 justify-center">
+            <label
+                htmlFor="images-upload"
+                className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+            >
+                <span>Agregar otra imagen</span>
+                <input
+                    id="images-upload"
+                    name="images-upload"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="sr-only"
+                    onChange={(e) => {
+                        const files = Array.from(e.target.files || []);
+                        const newImages = files.map((file) => URL.createObjectURL(file));
+
+                        // Actualizamos los valores en Formik
+                        setFieldValue("service_image", [
+                            ...(values.service_image || []),
+                            ...newImages,
+                        ]);
+                        setFieldValue("service_image_files", [
+                            ...(values.service_image_files || []),
+                            ...files,
+                        ]);
+                    }}
+                />
+            </label>
+            {values.service_image_files?.length === 0 && (
+                <p className="text-red-600 mt-2">Debes seleccionar al menos una imagen.</p>
+            )}
+        </div>
+    </div>
+</div>
+
+
+
                             {/* Nombre del Servicio */}
                             <label className="flex flex-col">
                                 <span className="font-semibold text-gray-700">
