@@ -50,6 +50,8 @@ import { px } from 'framer-motion'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/configs/firebaseAssets.config';
 
 type Category = {
     nombre?: string
@@ -58,6 +60,7 @@ type Category = {
     logoUrl?: string 
     nombreUser?: string
     estatus?: boolean
+    imageUrl?: string
 
     id: string 
     subcategorias?: any[]
@@ -230,14 +233,15 @@ const Users = () => {
                     ? userDoc.data().nombre
                     : 'Administrador';
     
-            // Extraer subcategorías de los valores
-            const { subcategorias, ...categoryData } = values;
+            // Extraer subcategorías e imagen de los valores
+            const { subcategorias, image_file, ...categoryData } = values;
     
             // Preparar datos de la categoría
             const categoryPayload = {
                 ...categoryData,
                 nombreUser: userName,
                 fechaCreacion: Timestamp.fromDate(new Date()),
+                imageUrl: '', // Inicialmente vacío, se actualizará después si se sube una imagen
             };
     
             // Guardar categoría principal
@@ -245,6 +249,35 @@ const Users = () => {
                 collection(db, 'Categorias'),
                 categoryPayload
             );
+    
+            let imageDownloadUrl = '';
+    
+            // Subir imagen si se proporciona
+            if (image_file) {
+                // Obtener la extensión del archivo
+                const fileType = image_file.name.split('.').pop()?.toLowerCase();
+    
+                // Validar si el archivo es una imagen válida
+                if (!fileType || !['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
+                    toast.push(
+                        <Notification title="Error">
+                            Tipo de archivo no soportado. Solo se permiten imágenes.
+                        </Notification>
+                    );
+                    return;
+                }
+    
+                // Generar nombre de archivo basado en el ID del documento
+                const newImageName = `${categoryRef.id}_1.${fileType}`; // Formato: uid_1.extension
+                const storageRef = ref(storage, `categoriesImages/${newImageName}`);
+                await uploadBytes(storageRef, image_file);
+    
+                // Obtener la URL de la imagen subida
+                imageDownloadUrl = await getDownloadURL(storageRef);
+    
+                // Actualizar la URL de la imagen en Firestore
+                await updateDoc(categoryRef, { imageUrl: imageDownloadUrl });
+            }
     
             // Crear subcategorías si existen
             if (subcategorias && subcategorias.length > 0) {
@@ -285,7 +318,7 @@ const Users = () => {
                 </Notification>
             );
         }
-    };
+    };    
     
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -387,12 +420,12 @@ const Users = () => {
             header: 'Nombre',
             accessorKey: 'nombre',
             cell: ({ getValue, row }) => {
-                const logoUrl = row.original.logoUrl as string | undefined // Obtener el logo de la fila
+                const imageUrl = row.original.imageUrl as string | undefined // Obtener el logo de la fila
                 return (
                     <div className="flex items-center">
-                        {logoUrl ? (
+                        {imageUrl ? (
                             <img
-                                src={logoUrl}
+                                src={imageUrl}
                                 alt="Logo"
                                 className="h-10 w-10 object-cover rounded-full mr-4" // Espaciado a la derecha del logo
                             />
@@ -1038,96 +1071,75 @@ const Users = () => {
                 </Formik>
             </Drawer>
             <Drawer
-                isOpen={drawerCreateIsOpen}
-                onClose={handleDrawerClose}
-                className="rounded-md shadow"
-            >
-                <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
-                <Formik
-                    initialValues={{
-                        //uid: '',
-                        nombre: '',
-                        descripcion: '',
-                        logoUrl: '',
-                        nombreUser: '',
-                        estatus: true,
-                        //id: '',
-                        subcategorias: [
-                            {
-                                nombre: '',
-                                descripcion: '',
-                                uid: '',
-                                estatus: true,
-                            },
-                        ], // Al menos una subcategoría
-                    }}
-                    validationSchema={validationSchema}
-                    onSubmit={(values, { setSubmitting }) => {
-                        handleCreateCategory(values) // Lógica de creación
-                        setSubmitting(false)
-                    }}
-                >
-                    {({ values, setFieldValue }) => (
-                        <Form className="flex flex-col space-y-6">
-                            {/* Campo para el logo */}
-                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                                <div className="text-center">
-                                    {!newCategory?.logoUrl ? (
-                                        <FaCamera
-                                            className="mx-auto h-12 w-12 text-gray-300"
-                                            aria-hidden="true"
-                                        />
-                                    ) : (
-                                        <img
-                                            src={newCategory.logoUrl}
-                                            alt="Preview Logo"
-                                            className="mx-auto h-32 w-32 object-cover"
-                                        />
-                                    )}
-                                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
-                                        <label
-                                            htmlFor="logo-upload"
-                                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
-                                        >
-                                            <span>
-                                                {newCategory?.logoUrl
-                                                    ? 'Cambiar Logo'
-                                                    : 'Seleccionar Logo'}
-                                            </span>
-                                            <input
-                                                id="logo-upload"
-                                                name="logo-upload"
-                                                type="file"
-                                                accept="image/*"
-                                                className="sr-only"
-                                                onChange={(e) => {
-                                                    const file =
-                                                        e.target.files?.[0]
-                                                    if (file) {
-                                                        const reader =
-                                                            new FileReader()
-                                                        reader.onloadend =
-                                                            () => {
-                                                                setnewCategory(
-                                                                    (
-                                                                        prev: any,
-                                                                    ) => ({
-                                                                        ...prev,
-                                                                        logoUrl:
-                                                                            reader.result, // Almacena la URL del logo
-                                                                    }),
-                                                                )
-                                                            }
-                                                        reader.readAsDataURL(
-                                                            file,
-                                                        ) // Leer el archivo como una URL de datos
-                                                    }
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
+    isOpen={drawerCreateIsOpen}
+    onClose={handleDrawerClose}
+    className="rounded-md shadow"
+>
+    <h2 className="mb-4 text-xl font-bold">Crear Categoría</h2>
+    <Formik
+        initialValues={{
+            nombre: '',
+            descripcion: '',
+            image_file: null, // Campo para el archivo del logo
+            subcategorias: [
+                {
+                    nombre: '',
+                    descripcion: '',
+                    uid: '',
+                    estatus: true,
+                },
+            ],
+        }}
+        validationSchema={validationSchema}
+        onSubmit={(values, { setSubmitting }) => {
+            handleCreateCategory(values); // Lógica de creación
+            setSubmitting(false);
+        }}
+    >
+        {({ values, setFieldValue }) => (
+            <Form className="flex flex-col space-y-6">
+                {/* Campo para el logo */}
+                <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
+                    <div className="text-center">
+                        {!values.image_file ? (
+                            <FaCamera
+                                className="mx-auto h-12 w-12 text-gray-300"
+                                aria-hidden="true"
+                            />
+                        ) : (
+                            <img
+                                src={URL.createObjectURL(values.image_file)}
+                                alt="Preview Logo"
+                                className="mx-auto h-32 w-32 object-cover"
+                            />
+                        )}
+                        <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                            <label
+                                htmlFor="logo-upload"
+                                className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                            >
+                                <span>
+                                    {values.image_file
+                                        ? 'Cambiar Logo'
+                                        : 'Seleccionar Logo'}
+                                </span>
+                                <input
+                                    id="logo-upload"
+                                    name="logo-upload"
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                            setFieldValue('image_file', file); // Vincula el archivo al formulario
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </div>
                             {/* Campos de Categoría */}
                             <div className="flex flex-col">
                                 <label className="font-semibold text-gray-700">
