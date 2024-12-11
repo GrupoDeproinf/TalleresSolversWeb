@@ -34,6 +34,7 @@ import {
     deleteDoc,
     updateDoc,
     addDoc,
+    
     writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
@@ -50,7 +51,7 @@ import { px } from 'framer-motion'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
 
 type Category = {
@@ -130,7 +131,7 @@ const Users = () => {
         nombre: '',
         descripcion: '',
         fechaCreacion: Timestamp.fromDate(new Date()),
-        logoUrl: '',
+        imageUrl: '',
         nombreUser: '',
         estatus: true,
         //uid: '', // Asignar valor vacío si no quieres que sea undefined
@@ -354,66 +355,117 @@ const Users = () => {
     }
 
     const handleSaveChanges = async (values: any) => {
-        if (!values) return
-
+        if (!values) return;
+    
         if (!selectedCategory) {
-            console.error('selectedCategory es null o undefined')
-            return
+            console.error('selectedCategory es null o undefined');
+            return;
         }
+    
         try {
-            // Referencia a la categoría seleccionada
-            const categoryRef = doc(db, 'Categorias', selectedCategory.id)
-
-            // Actualiza la categoría
+            const categoryRef = doc(db, 'Categorias', selectedCategory.id);
+    
+            let newImageUrl = selectedCategory.imageUrl; // Mantener la URL actual si no se sube una nueva
+    
+            // Subir una nueva imagen si se proporciona
+            if (values.image_file) {
+                const file = values.image_file;
+    
+                // Determinar el sufijo para evitar conflictos de nombre
+                let currentSuffix = 0; // Inicialmente, el sufijo será 0
+                if (selectedCategory.imageUrl) {
+                    // Extraer el sufijo actual si hay una imagen previa
+                    const currentFileName =
+                        selectedCategory.imageUrl.split('/').pop()?.split('?')[0] || '';
+                    const currentSuffixMatch = currentFileName.match(/_(\d+)\./);
+                    currentSuffix = currentSuffixMatch ? parseInt(currentSuffixMatch[1], 10) : 0;
+                }
+    
+                // Incrementar el sufijo para la nueva imagen
+                const nextSuffix = currentSuffix + 1;
+    
+                // Determinar extensión del archivo
+                const fileType = file.name.split('.').pop()?.toLowerCase();
+                if (!fileType || !['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
+                    toast.push(
+                        <Notification title="Error">
+                            Tipo de archivo no soportado. Solo se permiten imágenes.
+                        </Notification>
+                    );
+                    return;
+                }
+    
+                // Generar nuevo nombre de archivo
+                const newImageName = `${selectedCategory.id}_${nextSuffix}.${fileType}`;
+                const storageRef = ref(storage, `categoriesImages/${newImageName}`);
+    
+                // Eliminar la imagen anterior si existe
+                if (selectedCategory.imageUrl) {
+                    const decodedUrl = decodeURIComponent(selectedCategory.imageUrl);
+                    const lastImageName = decodedUrl.split('/').pop()?.split('?')[0];
+                    if (lastImageName) {
+                        const oldImageRef = ref(storage, `categoriesImages/${lastImageName}`);
+                        try {
+                            await deleteObject(oldImageRef); // Elimina la imagen anterior
+                        } catch (error) {
+                            console.error('Error al eliminar la imagen anterior:', error);
+                        }
+                    }
+                }
+    
+                // Subir nueva imagen al storage
+                await uploadBytes(storageRef, file);
+    
+                // Obtener la nueva URL de descarga
+                newImageUrl = await getDownloadURL(storageRef);
+            }
+    
+            // Actualizar la categoría en Firestore
             await updateDoc(categoryRef, {
                 nombre: values.nombre,
                 descripcion: values.descripcion,
-                logoUrl: values.logoUrl || '', // Dejar el logo vacío si no se proporciona
-            })
-
-            // Actualiza las subcategorías
+                imageUrl: newImageUrl, // Actualizar la URL de la imagen
+            });
+    
+            // Actualizar subcategorías
             const subcategoriesCollection = collection(
                 db,
-                `Categorias/${selectedCategory?.id}/Subcategorias`,
-            )
-
-            const batch = writeBatch(db)
-
-            // Recorre las subcategorías y actualiza o crea nuevas
+                `Categorias/${selectedCategory.id}/Subcategorias`
+            );
+    
+            const batch = writeBatch(db);
+    
             values.subcategorias.forEach((sub: any) => {
                 if (sub.uid) {
-                    // Si tiene un `uid`, actualizamos una subcategoría existente
-                    const subRef = doc(subcategoriesCollection, sub.uid)
-                    batch.set(subRef, sub, { merge: true }) // Usamos `merge: true` para evitar sobrescribir los campos no especificados
+                    const subRef = doc(subcategoriesCollection, sub.uid);
+                    batch.set(subRef, sub, { merge: true });
                 } else {
-                    // Si no tiene `uid`, creamos una nueva subcategoría
-                    const newSubRef = doc(subcategoriesCollection)
-                    batch.set(newSubRef, sub)
+                    const newSubRef = doc(subcategoriesCollection);
+                    batch.set(newSubRef, sub);
                 }
-            })
-
-            // Ejecutar la operación en batch (tanto actualización como creación de subcategorías)
-            await batch.commit()
-
+            });
+    
+            await batch.commit();
+    
             // Notificación de éxito
             toast.push(
                 <Notification title="Éxito">
                     Categoría y subcategorías actualizadas con éxito.
-                </Notification>,
-            )
-
-            // Cerrar el drawer y refrescar los datos
-            setDrawerIsOpen(false)
-            getData() // Refrescar datos
+                </Notification>
+            );
+    
+            setDrawerIsOpen(false);
+            getData(); // Refrescar datos
         } catch (error) {
-            console.error('Error al guardar los cambios:', error)
+            console.error('Error al guardar los cambios:', error);
             toast.push(
                 <Notification title="Error">
                     Ocurrió un error al guardar los cambios.
-                </Notification>,
-            )
+                </Notification>
+            );
         }
-    }
+    };
+      
 
     const columns: ColumnDef<Category>[] = [
         {
@@ -837,79 +889,87 @@ const Users = () => {
                 </div>
             </Dialog>
             <Drawer
-                isOpen={drawerIsOpen}
-                onClose={handleDrawerCloseEdit}
-                className="rounded-md shadow"
-            >
-                <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
-                <Formik
-                    initialValues={{
-                        nombre: selectedCategory?.nombre || '',
-                        descripcion: selectedCategory?.descripcion || '',
-                        subcategorias: selectedCategory?.subcategorias || [],
-                        logoUrl: selectedCategory?.logoUrl || '',
-                    }}
-                    validationSchema={validationSchema}
-                    onSubmit={(values) => {
-                        console.log('Valores enviados:', values)
-                        handleSaveChanges(values) // Llamar la función para guardar los cambios
-                    }}
-                >
-                    {({ isSubmitting, setFieldValue, values }) => (
-                        <Form className="flex flex-col space-y-6">
-                            {/* Logo */}
-                            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                                <div className="text-center">
-                                    {!selectedCategory?.logoUrl ? (
-                                        <FaCamera className="mx-auto h-12 w-12 text-gray-300" />
-                                    ) : (
-                                        <div>
-                                            <img
-                                                src={selectedCategory.logoUrl}
-                                                alt="Preview Logo"
-                                                className="mx-auto h-32 w-32 object-cover"
-                                            />
-                                            <button
-                                                onClick={() => {
-                                                    setFieldValue('logoUrl', '') // Limpiar logo
-                                                }}
-                                                className="mt-2 text-red-500 hover:text-red-700"
-                                            >
-                                                Quitar Logo
-                                            </button>
-                                        </div>
-                                    )}
-                                    <label
-                                        htmlFor="logo-upload"
-                                        className="relative cursor-pointer bg-white font-semibold text-indigo-600 flex justify-center items-center"
-                                    >
-                                        <span>
-                                            {selectedCategory?.logoUrl
-                                                ? 'Cambiar Logo'
-                                                : 'Seleccionar Logo'}
-                                        </span>
-                                        <input
-                                            id="logo-upload"
-                                            name="logo-upload"
-                                            type="file"
-                                            accept="image/*"
-                                            className="sr-only"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0]
-                                                if (file) {
-                                                    const reader =
-                                                        new FileReader()
-                                                    reader.onloadend = () => {
-                                                        setFieldValue(
-                                                            'logoUrl',
-                                                            reader.result,
-                                                        )
-                                                    }
-                                                    reader.readAsDataURL(file)
-                                                }
-                                            }}
-                                        />
-                                    </label>
+    isOpen={drawerIsOpen}
+    onClose={handleDrawerCloseEdit}
+    className="rounded-md shadow"
+>
+    <h2 className="mb-4 text-xl font-bold">Editar Categoría</h2>
+    <Formik
+    initialValues={{
+        nombre: selectedCategory?.nombre || '',
+        descripcion: selectedCategory?.descripcion || '',
+        subcategorias: selectedCategory?.subcategorias || [],
+        imageUrl: selectedCategory?.imageUrl || '',
+        image_file: null, // Campo para el archivo del logo
+    }}
+    validationSchema={validationSchema}
+    onSubmit={(values) => {
+        console.log('Valores enviados:', values);
+        handleSaveChanges(values); // Llamar la función para guardar los cambios
+    }}
+>
+    {({ isSubmitting, setFieldValue, values }) => (
+        <Form className="flex flex-col space-y-6">
+            {/* Logo */}
+            <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10 gap-2">
+                <div className="text-center">
+                    {/* Mostrar previsualización del logo o icono si no hay imagen */}
+                    {!values.image_file && !selectedCategory?.imageUrl ? (
+                        <FaCamera className="mx-auto h-12 w-12 text-gray-300" />
+                    ) : (
+                        <div>
+                            {values.image_file ? (
+                                <img
+                                    src={URL.createObjectURL(values.image_file)} // Previsualizar la imagen seleccionada
+                                    alt="Preview Logo"
+                                    className="mx-auto h-32 w-32 object-cover"
+                                />
+                            ) : (
+                                <img
+                                    src={selectedCategory?.imageUrl} // Mostrar la imagen actual si no hay una nueva
+                                    alt="Preview Logo"
+                                    className="mx-auto h-32 w-32 object-cover"
+                                />
+                            )}
+                            {/* Botón para quitar la imagen */}
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setFieldValue('image_file', null); // Limpiar archivo seleccionado
+                                }}
+                                className="mt-2 text-red-500 hover:text-red-700"
+                            >
+                                Quitar Logo
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Botón para seleccionar o cambiar el logo */}
+                    <div className="mt-4 flex text-sm leading-6 text-gray-600 justify-center">
+                        <label
+                            htmlFor="logo-upload"
+                            className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                        >
+                            <span>
+                                {values.image_file || selectedCategory?.imageUrl
+                                    ? 'Cambiar Logo'
+                                    : 'Seleccionar Logo'}
+                            </span>
+                            <input
+                                id="logo-upload"
+                                name="logo-upload"
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        setFieldValue('image_file', file); // Guardar el archivo seleccionado
+                                    }
+                                }}
+                            />
+                        </label>
+                        </div>
                                 </div>
                             </div>
 
