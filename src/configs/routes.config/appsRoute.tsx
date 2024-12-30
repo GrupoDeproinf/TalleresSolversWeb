@@ -71,6 +71,12 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER],
     },
     {
+        key: 'appsContact.Puntuacion',
+        path: `${APP_PREFIX_PATH}/Puntuacion`,
+        component: lazy(() => import('@/views/pages/Puntuacion')),
+        authority: [ADMIN, USER],
+    },
+    {
         key: 'appsProject.scrumBoard',
         path: `${APP_PREFIX_PATH}/project/scrum-board`,
         component: lazy(() => import('@/views/project/ScrumBoard')),

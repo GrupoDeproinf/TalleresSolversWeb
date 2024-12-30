@@ -138,6 +138,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN],
                 subMenu: [],
             },
+            {
+                key: 'apps.Puntuacion',
+                path: `${APP_PREFIX_PATH}/Puntuacion`,
+                title: 'Puntuación de Talleres',
+                translateKey: 'Puntuación de Talleres',
+                icon: 'Puntuacion',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN],
+                subMenu: [],
+            },
         ],
     },
 ]
