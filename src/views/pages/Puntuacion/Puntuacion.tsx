@@ -29,54 +29,86 @@ import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as XLSX from 'xlsx'
 import { FaRegStar, FaStar } from 'react-icons/fa'
 
-type Puntuacion = {
-    nombre_taller?: string
-    uid_taller?: string
-    puntuacion?: number
-    fecha_creacion?: Timestamp
+type Calificacion = {
+    nombre_taller?: string;
+    puntuacion?: number;
+    fecha_creacion?: Timestamp;
     usuario?: {
-        email?: string
-        uid?: string
-        nombre?: string
-    }
-    id?: string
-}
+        email?: string;
+        uid?: string;
+        nombre?: string;
+    };
+    id?: string; // ID de la calificación
+};
+
+type ServicioConCalificaciones = {
+    nombre_servicio: string;
+    uid_servicio: string; // ID del servicio
+    calificaciones: Calificacion[]; // Subcolección de calificaciones
+};
 
 const Puntuacion = () => {
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPuntuacion, setSelectedPuntuacion] =
-        useState<Puntuacion | null>(null)
+        useState<Calificacion | null>(null)
     const [selectedColumn, setSelectedColumn] = useState<string>('nombre_taller')
     const [searchTerm, setSearchTerm] = useState('')
     const [dataPuntuacion, setDataPuntuacion] = useState<
-        Puntuacion[]
+    Calificacion[]
     >([])
     const [startDate, setStartDate] = useState<string>('')
     const [endDate, setEndDate] = useState<string>('')
 
     const getAllData = async () => {
         try {
-            const PuntuacionQuery = query(collection(db, 'puntuacion'))
-            const [PuntuacionSnapshot] = await Promise.all([
-                getDocs(PuntuacionQuery),
-            ])
-            const Puntuacion: Puntuacion[] = PuntuacionSnapshot.docs.map(
-                (doc) => ({
-                    ...doc.data(),
-                    uid_puntuacion: doc.id,
-                }),
-            ) as Puntuacion[]
+            // Obtén todos los servicios
+            const serviciosSnapshot = await getDocs(collection(db, 'Servicios'));
+            const serviciosConCalificaciones: ServicioConCalificaciones[] = [];
+    
+            // Itera por cada servicio y carga las calificaciones
+            await Promise.all(
+                serviciosSnapshot.docs.map(async (doc) => {
+                    const servicioData = doc.data();
+                    const uid_servicio = doc.id;
+    
+                    // Obtén la subcolección 'calificaciones' para cada servicio
+                    const calificacionesSnapshot = await getDocs(
+                        collection(db, 'Servicios', uid_servicio, 'calificaciones')
+                    );
+    
+                    const calificaciones: Calificacion[] = calificacionesSnapshot.docs.map((calDoc) => ({
+                        ...calDoc.data(),
+                        id: calDoc.id,
+                    })) as Calificacion[];
 
-            setDataPuntuacion(Puntuacion)
+                    serviciosConCalificaciones.push({
+                        nombre_servicio: servicioData.nombre_servicio,
+                        uid_servicio,
+                        calificaciones,
+                    });
+                })
+            );
+    
+            // Aplana las calificaciones para mostrarlas en la tabla
+            const dataPuntuacion = serviciosConCalificaciones.flatMap((servicio) =>
+                servicio.calificaciones.map((calificacion) => ({
+                    ...calificacion,
+                    nombre_servicio: servicio.nombre_servicio, // Incluye el nombre del servicio en cada calificación
+                }))
+            );
+    
+            setDataPuntuacion(dataPuntuacion);
         } catch (error) {
-            console.error('Error obteniendo los datos:', error)
+            console.error('Error obteniendo los datos:', error);
         }
-    }
+    };
 
     useEffect(() => {
-        getAllData()
-    }, [])
+        getAllData();
+    }, []);
+    
+    
 
     const handleRefresh = async () => {
         await getAllData()
@@ -132,26 +164,29 @@ const Puntuacion = () => {
     }
 
 
-    const columns: ColumnDef<Puntuacion>[] = [
+    const columns: ColumnDef<Calificacion>[] = [
+        {
+            header: 'Servicio',
+            accessorKey: 'nombre_servicio',
+        },
         {
             header: 'Taller',
             accessorKey: 'nombre_taller',
         },
         {
             header: 'Nombre del Usuario',
-            accessorKey: 'usuario.nombre', // Acceso directo al campo anidado
+            accessorKey: 'usuario.nombre',
         },
         {
             header: 'Correo del Usuario',
-            accessorKey: 'usuario.email', // Acceso directo al campo anidado
+            accessorKey: 'usuario.email',
         },
         {
             header: 'Puntuación',
             cell: ({ row }) => {
-                const puntuacion = row.original.puntuacion || 0; // Asegúrate de que puntuación tenga un valor
+                const puntuacion = row.original.puntuacion || 0;
                 const maxPuntuacion = 5;
     
-                // Genera un array de estrellas
                 const estrellas = Array.from({ length: maxPuntuacion }, (_, index) =>
                     index < puntuacion ? (
                         <FaStar key={index} color="gold" />
@@ -164,25 +199,26 @@ const Puntuacion = () => {
             },
         },
         {
+            header: 'Comentario',
+            accessorKey: 'comentario',
+        },
+        {
             header: 'Fecha de Creación',
             cell: ({ row }) => {
-                // Asegúrate de acceder correctamente al valor
                 const fechaCreacion = row.original.fecha_creacion;
                 if (fechaCreacion) {
-                    // Si es un Timestamp, conviértelo a Date y formatea
                     if (fechaCreacion.toDate) {
-                        return fechaCreacion.toDate().toLocaleString(); // Formato de fecha y hora
+                        return fechaCreacion.toDate().toLocaleString();
                     }
-                    // Si ya es un Date, formatea directamente
                     if (fechaCreacion instanceof Date) {
                         return fechaCreacion.toLocaleString();
                     }
                 }
-                return 'Sin fecha'; // Para valores no válidos
+                return 'Sin fecha';
             },
         },
     ];
-
+    
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
     const table = useReactTable({
