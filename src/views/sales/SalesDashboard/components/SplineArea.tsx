@@ -61,8 +61,8 @@ const SplineArea = () => {
                 const series2 = last7Days.map(day => dataByComprobante[day]);
 
                 setSeries([
-                    { name: 'Subscripciones por día', data: series1 },
-                    { name: 'Subscripciones con comprobante', data: series2 },
+                    { name: 'Subscripciones Diarias', data: series1 },
+                    { name: 'Subscripciones Pagas', data: series2 },
                 ]);
                 setCategories(last7Days);
             } catch (error) {

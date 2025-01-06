@@ -166,12 +166,27 @@ const Puntuacion = () => {
 
     const columns: ColumnDef<Calificacion>[] = [
         {
+            header: 'Taller',
+            accessorKey: 'nombre_taller',
+        },
+        {
             header: 'Servicio',
             accessorKey: 'nombre_servicio',
         },
         {
-            header: 'Taller',
-            accessorKey: 'nombre_taller',
+            header: 'Fecha de Creación',
+            cell: ({ row }) => {
+                const fechaCreacion = row.original.fecha_creacion;
+                if (fechaCreacion) {
+                    if (fechaCreacion.toDate) {
+                        return fechaCreacion.toDate().toLocaleString();
+                    }
+                    if (fechaCreacion instanceof Date) {
+                        return fechaCreacion.toLocaleString();
+                    }
+                }
+                return 'Sin fecha';
+            },
         },
         {
             header: 'Nombre del Usuario',
@@ -201,21 +216,6 @@ const Puntuacion = () => {
         {
             header: 'Comentario',
             accessorKey: 'comentario',
-        },
-        {
-            header: 'Fecha de Creación',
-            cell: ({ row }) => {
-                const fechaCreacion = row.original.fecha_creacion;
-                if (fechaCreacion) {
-                    if (fechaCreacion.toDate) {
-                        return fechaCreacion.toDate().toLocaleString();
-                    }
-                    if (fechaCreacion instanceof Date) {
-                        return fechaCreacion.toLocaleString();
-                    }
-                }
-                return 'Sin fecha';
-            },
         },
     ];
     
