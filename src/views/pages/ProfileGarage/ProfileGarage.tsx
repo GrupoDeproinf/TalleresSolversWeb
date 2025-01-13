@@ -454,14 +454,14 @@ const ProfileGarage = () => {
             return
         }
 
-        if (!formData.phone || !/^\d+$/.test(formData.phone)) {
+        if (!formData.phone || !/^\d+$/.test(formData.phone) || formData.phone.startsWith('0')) {
             toast.push(
                 <Notification title="Error">
-                    El teléfono debe contener solo números.
-                </Notification>,
-            )
-            return
-        }
+                    El teléfono debe contener solo números y no puede comenzar con 0.
+                </Notification>
+            );
+            return;
+        }        
 
         if (!formData.whatsapp || !/^\d+$/.test(formData.whatsapp)) {
             toast.push(
@@ -1576,24 +1576,23 @@ const ProfileGarage = () => {
                                 />
                             </label>
                             <label className="block">
-                                <span className="text-gray-700 font-semibold">
-                                    Whatsapp
-                                </span>
-                                <input
-                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                    placeholder="URL de whatsapp"
-                                    name="whatsapp"
-                                    value={formData.whatsapp}
-                                    onChange={(e) =>
-                                        handleUrlChange(e, 'whatsapp')
-                                    }
-                                />
-                                {urlErrors.whatsapp && (
-                                    <span className="text-red-500 text-sm">
-                                        {urlErrors.whatsapp}
-                                    </span>
-                                )}
-                            </label>
+    <span className="text-gray-700 font-semibold">
+        Whatsapp
+    </span>
+    <input
+        className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
+        placeholder="URL de whatsapp"
+        name="whatsapp"
+        value={formData.whatsapp || ''}
+        onChange={(e) => handleUrlChange(e, 'whatsapp')}
+    />
+    {urlErrors.whatsapp && (
+        <span className="text-red-500 text-sm">
+            {urlErrors.whatsapp}
+        </span>
+    )}
+</label>
+
                             <label className="flex flex-col">
                                 <span className="font-semibold text-gray-700">
                                     RIF:
@@ -1698,6 +1697,18 @@ const ProfileGarage = () => {
                                     onChange={handleEditChange}
                                 />
                             </label>
+                            <MapsProfile
+                                            center={{
+                                                lat: data?.ubicacion.lat,
+                                                lng: data?.ubicacion.lng,
+                                            }}
+                                            markers={[
+                                                {
+                                                    lat: data?.ubicacion.lat,
+                                                    lng: data?.ubicacion.lat,
+                                                },
+                                            ]}
+                            />
                             <label className="block">
                                 <span className="text-gray-700 font-semibold">
                                     Estatus

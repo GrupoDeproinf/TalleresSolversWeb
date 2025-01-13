@@ -162,8 +162,8 @@ const Garages = () => {
             .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
             .required('El rif es obligatoria'),
         phone: Yup.string()
-            .matches(/^\d{11}$/, 'El teléfono debe tener 11 dígitos')
-            .required('El teléfono es obligatorio'),
+            .matches(/^(?!0)\d{10}$/, 'El teléfono debe tener 11 dígitos y no puede comenzar con 0')
+            .required('El teléfono es obligatorio'),        
         password: Yup.string()
             .required('Por favor ingrese una contraseña')
             .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -907,7 +907,7 @@ const Garages = () => {
                                     <Field
                                         type="text"
                                         name="phone"
-                                        placeholder="Ejem (04142611966)"
+                                        placeholder="Ejem (4142611966)"
                                         className="mt-1 p-3 border border-gray-300 rounded-lg"
                                     />
                                     <ErrorMessage
