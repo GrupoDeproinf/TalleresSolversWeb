@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react'
 import { GoogleMap, Marker } from '@react-google-maps/api'
 
 interface MarkerData {
@@ -6,11 +7,18 @@ interface MarkerData {
 }
 
 interface MapsProfileProps {
-    markers: MarkerData[]
+    markers: MarkerData[] // Prop de marcadores
     center: { lat: number; lng: number } // Prop para el centro dinámico
 }
 
 const MapsProfile: React.FC<MapsProfileProps> = ({ markers, center }) => {
+    const [mapMarkers, setMapMarkers] = useState<MarkerData[]>([])
+
+    // useEffect para actualizar los marcadores cuando cambian las props
+    useEffect(() => {
+        setMapMarkers(markers)
+    }, [markers]) // El efecto se ejecuta cuando `markers` cambie
+
     return (
         <div style={{ height: '50%', width: '100%' }}>
             <GoogleMap
@@ -22,7 +30,7 @@ const MapsProfile: React.FC<MapsProfileProps> = ({ markers, center }) => {
                     marginTop: '10px',
                 }}
             >
-                {markers.map((marker, index) => (
+                {mapMarkers.map((marker, index) => (
                     <Marker
                         key={index}
                         position={{

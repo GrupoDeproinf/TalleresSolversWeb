@@ -885,27 +885,27 @@ const ProfileGarage = () => {
                                     data?.Direccion || 'Direccion no disponible'
                                 }
                             />
-                            <CustomerInfoField
+                            {/* <CustomerInfoField
                                 title="Ubicación"
-                                value={
-                                    data?.ubicacion ? (
-                                        <MapsProfile
-                                            center={{
-                                                lat: data.ubicacion.lat,
-                                                lng: data.ubicacion.lng,
-                                            }}
-                                            markers={[
-                                                {
-                                                    lat: data.ubicacion.lat,
-                                                    lng: data.ubicacion.lat,
-                                                },
-                                            ]}
-                                        />
-                                    ) : (
-                                        'Ubicación no disponible'
-                                    )
-                                }
-                            />
+                                value=
+                            /> */}
+
+                            {data?.ubicacion ? (
+                                <MapsProfile
+                                    center={{
+                                        lat: data.ubicacion.lat,
+                                        lng: data.ubicacion.lng,
+                                    }}
+                                    markers={[
+                                        {
+                                            lat: data.ubicacion.lat,
+                                            lng: data.ubicacion.lng,
+                                        },
+                                    ]}
+                                />
+                            ) : (
+                                'Ubicación no disponible'
+                            )}
 
                             {/* Redes Sociales */}
                             <div className="mb-7">
