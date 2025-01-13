@@ -65,6 +65,7 @@ import {
     uploadBytes,
 } from 'firebase/storage'
 import MapsProfile from './Components/MapsProfile'
+import MapsEdit from './Components/MapsEdit'
 
 type Service = {
     nombre_servicio: string
@@ -155,6 +156,10 @@ const ProfileGarage = () => {
         whatsapp: '',
         newLogoFile: null, // Inicializa como null
     })
+
+    const [selectedPlace, setSelectedPlace] = useState<{ lat: number; lng: number } | null>(null);
+
+
     const [paymentMethodsState, setPaymentMethodsState] = useState<
         Record<string, boolean>
     >({
@@ -1697,18 +1702,6 @@ const ProfileGarage = () => {
                                     onChange={handleEditChange}
                                 />
                             </label>
-                            <MapsProfile
-                                            center={{
-                                                lat: data?.ubicacion.lat,
-                                                lng: data?.ubicacion.lng,
-                                            }}
-                                            markers={[
-                                                {
-                                                    lat: data?.ubicacion.lat,
-                                                    lng: data?.ubicacion.lat,
-                                                },
-                                            ]}
-                            />
                             <label className="block">
                                 <span className="text-gray-700 font-semibold">
                                     Estatus
