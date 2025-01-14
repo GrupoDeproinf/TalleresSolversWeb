@@ -31,6 +31,8 @@ import type { MouseEvent } from 'react'
 import { Dialog, Drawer, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as XLSX from 'xlsx'
+import moment from 'moment'
+import 'moment/locale/ES'
 
 type Subscriptions = {
     nombre?: string
@@ -665,25 +667,31 @@ const Subscriptions = () => {
                         </label>
                     )}
                     {selectedPerson?.comprobante_pago.fechaPago && (
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Fecha de Pago:
-                            </span>
-                            <input
-                                type="text"
-                                value={new Date(
-                                    selectedPerson.comprobante_pago.fechaPago
-                                        .seconds * 1000,
-                                ).toLocaleDateString('es-ES', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                })}
-                                readOnly
-                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                            />
-                        </label>
-                    )}
+    <label className="flex flex-col">
+        <span className="font-semibold text-gray-700">Fecha de Pago:</span>
+        <input
+            type="text"
+            value={
+                selectedPerson.comprobante_pago.fechaPago instanceof Timestamp ? (
+                    // Si es un Timestamp de Firebase, usar .toDate() para convertirlo a un objeto Date
+                    new Date(selectedPerson.comprobante_pago.fechaPago.toDate()).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                    })
+                ) : (
+                    // Si es un string ISO, lo convertimos a Date y usamos toLocaleDateString
+                    new Date(selectedPerson.comprobante_pago.fechaPago).toLocaleDateString(
+                        'es-ES',
+                        { year: 'numeric', month: 'long', day: 'numeric' }
+                    )
+                )
+            }
+            readOnly
+            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+        />
+    </label>
+)}
                     {selectedPerson?.comprobante_pago.bancoOrigen && (
                         <label className="flex flex-col">
                             <span className="font-semibold text-gray-700">
