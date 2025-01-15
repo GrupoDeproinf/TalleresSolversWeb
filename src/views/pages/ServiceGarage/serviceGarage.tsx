@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { Drawer } from '@/components/ui'
-import Select from '@/components/ui/Select'
+import Selec from '@/components/ui/Select'
+import Select from 'react-select';
 import Checkbox from '@/components/ui/Checkbox'
 import type { SyntheticEvent } from 'react'
 import {
@@ -181,12 +182,17 @@ const ServiceGarages = () => {
 
             // Procesar los datos obtenidos de las colecciones
             const talleres = garagesSnapshot.docs
-                .map((doc) => ({ ...doc.data(), id: doc.id }) as Garage)
-                .filter(
-                    (garage) =>
-                        garage.typeUser === 'Taller' &&
-                        garage.subscripcion_actual?.status === 'Aprobado', // Aseguramos que "subscripcion_actual.status" sea "aprobado"
-                )
+    .map((doc) => ({ ...doc.data(), id: doc.id }) as Garage)
+    .filter(
+        (garage) =>
+            garage.typeUser === 'Taller' &&
+            garage.subscripcion_actual?.status === 'Aprobado', // Aseguramos que "subscripcion_actual.status" sea "aprobado"
+    )
+    .sort((a: any, b: any) => {
+        // Ordena alfabéticamente por el nombre del taller (puedes ajustar esto según el campo que estés utilizando)
+        return a.nombre.localeCompare(b.nombre);
+    });
+
 
             const categorias = categoriesSnapshot.docs.map(
                 (doc) => ({ ...doc.data(), uid_categoria: doc.id }) as Category,
@@ -844,50 +850,47 @@ const ServiceGarages = () => {
                                 />
                             </label>
                             {canGoBack && (
-                            <div>
-                            <label className="flex flex-col">
-                                <span className="font-semibold text-gray-700">
-                                    Taller:
-                                </span>
-                                <Field
-                                    as="select"
-                                    name="uid_taller"
-                                    value={values.uid_taller}
-                                    onChange={(e: any) => {
-                                        const selectedId = e.target.value
-                                        const selectedTaller = dataGarages.find(
-                                            (garage) =>
-                                                garage.uid === selectedId,
-                                        )
-                                        setFieldValue('uid_taller', selectedId)
-                                        setFieldValue(
-                                            'taller',
-                                            selectedTaller?.nombre || '',
-                                        ) // Almacena el nombre del taller
-                                    }}
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                                >
-                                    <option value="">
-                                        Seleccione un Taller
-                                    </option>
-                                    {dataGarages.map((garage) => (
-                                        <option
-                                            key={garage.uid}
-                                            value={garage.uid}
-                                        >
-                                            {garage.nombre}
-                                        </option>
-                                    ))}
-                                </Field>
+    <div>
+        <label className="flex flex-col">
+            <span className="font-semibold text-gray-700">Taller:</span>
+            <div className="relative">
+                <Select
+                    name="uid_taller"
+                    options={dataGarages.map((garage) => ({
+                        label: garage.nombre,
+                        value: garage.uid,
+                    }))}
+                    value={
+                        dataGarages
+                            .map((garage) => ({
+                                label: garage.nombre,
+                                value: garage.uid,
+                            }))
+                            .find((option) => option.value === values.uid_taller) || null
+                    }
+                    onChange={(selectedOption) => {
+                        const selectedTaller = dataGarages.find(
+                            (garage) => garage.uid === selectedOption?.value
+                        );
+                        setFieldValue('uid_taller', selectedOption?.value || '');
+                        setFieldValue('taller', selectedTaller?.nombre || '');
+                    }}
+                    placeholder="Buscar taller..."
+                    className="w-full mt-1 p-3 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                    isClearable={true}
+                    isSearchable={true}  // Asegúrate de que tu Select soporte búsqueda
+                />
+            </div>
 
-                                <ErrorMessage
-                                    name="uid_taller"
-                                    component="div"
-                                    className="text-red-600 text-sm"
-                                />
-                            </label>
-                            </div>
-                            )}
+            <ErrorMessage
+                name="uid_taller"
+                component="div"
+                className="text-red-600 text-sm"
+            />
+        </label>
+    </div>
+)}
+
                             {/* TypeService */}
                             <div className="flex flex-col space-y-4">
                                 <span className="font-semibold text-gray-700">
