@@ -336,7 +336,6 @@ const ProfileGarage = () => {
             await setDoc(newSubscriptionRef, {
                 uid: newSubscriptionRef.id,
                 nombre: plan.nombre,
-                nombre_taller: data?.nombre,
                 monto: plan.monto,
                 vigencia: plan.vigencia,
                 cantidad_servicios: plan.cantidad_servicios,

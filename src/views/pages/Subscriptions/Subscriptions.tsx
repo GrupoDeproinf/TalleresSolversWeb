@@ -22,6 +22,7 @@ import {
     doc,
     updateDoc,
     Timestamp,
+    getDoc,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -31,6 +32,7 @@ import type { MouseEvent } from 'react'
 import { Dialog, Drawer, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as XLSX from 'xlsx'
+import { resolve } from 'path'
 
 type Subscriptions = {
     nombre?: string
@@ -80,10 +82,21 @@ const Subscriptions = () => {
         const promises = querySnapshot.docs.map(async (docSnap) => {
             const subsData = docSnap.data() as Subscriptions
 
-            return { ...subsData, uid: docSnap.id }
+            let nombre_taller = 'Taller no encontrado'
+            if (subsData.taller_uid) {
+                const tallerDoc = await getDoc(
+                    doc(db, 'Usuarios', subsData.taller_uid),
+                )
+                nombre_taller = tallerDoc.exists()
+                    ? tallerDoc.data().nombre
+                    : 'Taller no encontrado'
+            }
+
+            return { ...subsData, uid: docSnap.id, nombre_taller }
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
+        console.log('Data de suscripciones:', resolvedSubcripciones) // Agrega este console.log
         setDataSubs(resolvedSubcripciones)
     }
 
