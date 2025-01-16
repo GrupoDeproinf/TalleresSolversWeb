@@ -684,14 +684,26 @@ const Subscriptions = () => {
                             </span>
                             <input
                                 type="text"
-                                value={new Date(
-                                    selectedPerson.comprobante_pago.fechaPago
-                                        .seconds * 1000,
-                                ).toLocaleDateString('es-ES', {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                })}
+                                value={
+                                    selectedPerson.comprobante_pago
+                                        .fechaPago instanceof Timestamp
+                                        ? // Si es un Timestamp de Firebase, usar .toDate() para convertirlo a un objeto Date
+                                          new Date(
+                                              selectedPerson.comprobante_pago.fechaPago.toDate(),
+                                          ).toLocaleDateString('es-ES', {
+                                              year: 'numeric',
+                                              month: 'long',
+                                              day: 'numeric',
+                                          })
+                                        : // Si es un string ISO, lo convertimos a Date y usamos toLocaleDateString
+                                          new Date(
+                                              selectedPerson.comprobante_pago.fechaPago,
+                                          ).toLocaleDateString('es-ES', {
+                                              year: 'numeric',
+                                              month: 'long',
+                                              day: 'numeric',
+                                          })
+                                }
                                 readOnly
                                 className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
                             />
