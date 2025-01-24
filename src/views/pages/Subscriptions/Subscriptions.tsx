@@ -83,16 +83,19 @@ const Subscriptions = () => {
             const subsData = docSnap.data() as Subscriptions
 
             let nombre_taller = 'Taller no encontrado'
+            let correo_taller = 'Correo no encontrado'
             if (subsData.taller_uid) {
                 const tallerDoc = await getDoc(
                     doc(db, 'Usuarios', subsData.taller_uid),
                 )
-                nombre_taller = tallerDoc.exists()
-                    ? tallerDoc.data().nombre
-                    : 'Taller no encontrado'
+                if (tallerDoc.exists()) {
+                    const tallerData = tallerDoc.data()
+                    nombre_taller = tallerData.nombre || 'Taller no encontrado'
+                    correo_taller = tallerData.email || 'Correo no encontrado'
+                }
             }
 
-            return { ...subsData, uid: docSnap.id, nombre_taller }
+            return { ...subsData, uid: docSnap.id, nombre_taller, correo_taller }
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
@@ -420,6 +423,10 @@ const Subscriptions = () => {
         {
             header: 'Taller Subscrito',
             accessorKey: 'nombre_taller',
+        },
+        {  
+            header: 'Correo Taller',
+            accessorKey: 'correo_taller',
         },
         {
             header: 'Cantidad de Servicios',
