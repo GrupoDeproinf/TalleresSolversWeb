@@ -190,9 +190,10 @@ const Garages = () => {
 
         try {
             const userRef = collection(db, 'Usuarios');
+            const emailLower = values.email.toLowerCase();
     
             // Validar correo electrónico único
-            const emailQuery = query(userRef, where('email', '==', values.email));
+            const emailQuery = query(userRef, where('email', '==', emailLower));
             const emailSnapshot = await getDocs(emailQuery);
             if (!emailSnapshot.empty) {
                 toast.push(<Notification title="Error">¡El correo electrónico ya está registrado!</Notification>);
@@ -216,7 +217,7 @@ const Garages = () => {
             }
     
             // Crear usuario en Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+            const userCredential = await createUserWithEmailAndPassword(auth, emailLower, values.password);
             const user = userCredential.user;
     
             // Crear documento en Firestore
@@ -224,7 +225,7 @@ const Garages = () => {
             await setDoc(docRef, {
                 uid: user.uid,
                 nombre: values.nombre,
-                email: values.email,
+                email: emailLower,
                 rif: values.rif,
                 phone: values.phone,
                 typeUser: 'Taller',

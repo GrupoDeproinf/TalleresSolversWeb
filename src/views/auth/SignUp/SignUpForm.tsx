@@ -75,44 +75,44 @@ const SignUpForm = (props: SignUpFormProps) => {
         values: SignUpFormSchema,
         setSubmitting: (isSubmitting: boolean) => void,
     ) => {
-        setSubmitting(true)
-
+        setSubmitting(true);
+    
         const newUser = {
             nombre: values.nombre,
-            email: values.email,
+            email: values.email.toLowerCase(), // Convierte el email a minúsculas
             password: values.password,
             phone: values.phone,
             typeUser: values.typeUser,
-            status: 'Pendiente', // Establecemos el status como 'Pendiente'
+            status: 'Pendiente',
             ...(values.typeUser === 'Cliente'
                 ? { cedula: values.cedulaOrif }
                 : { rif: values.cedulaOrif }),
-        }
-
+        };
+    
         signUp(newUser)
             .then((resp) => {
-                console.log(resp)
+                console.log(resp);
             })
             .catch((error) => {
-                console.error(error)
-
-                type AuthErrorCodes = 'auth/email-already-in-use'
-
+                console.error(error);
+    
+                type AuthErrorCodes = 'auth/email-already-in-use';
+    
                 const errorMessages: Record<AuthErrorCodes, string> = {
                     'auth/email-already-in-use':
                         'La dirección de correo electrónico ya está en uso por otra cuenta',
-                }
-
+                };
+    
                 const message =
                     error.code in errorMessages
                         ? errorMessages[error.code as AuthErrorCodes]
-                        : 'Este correo ya esta registrado.'
-
-                showToast(message)
-            })
-
-        setSubmitting(false)
-    }
+                        : 'Este correo ya esta registrado.';
+    
+                showToast(message);
+            });
+    
+        setSubmitting(false);
+    };
 
     const showToast = (message: any = '') => {
         toast.push(

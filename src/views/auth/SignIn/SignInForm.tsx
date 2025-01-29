@@ -47,13 +47,16 @@ const SignInForm = (props: SignInFormProps) => {
     ) => {
         const { userName, password } = values
         setSubmitting(true)
-
-        const result = await signIn({ userName, password })
-
+    
+        // Convertir el email a minúsculas antes de enviarlo
+        const normalizedEmail = userName.trim().toLowerCase();
+    
+        const result = await signIn({ userName: normalizedEmail, password })
+    
         if (result?.status === 'failed') {
             setMessage(result.message)
         }
-
+    
         setSubmitting(false)
     }
 
@@ -65,20 +68,22 @@ const SignInForm = (props: SignInFormProps) => {
                 </Alert>
             )}
             <Formik
-                initialValues={{
-                    userName: '',
-                    password: '',
-                    rememberMe: true,
-                }}
-                validationSchema={validationSchema}
-                onSubmit={(values, { setSubmitting }) => {
-                    if (!disableSubmit) {
-                        onSignIn(values, setSubmitting)
-                    } else {
-                        setSubmitting(false)
-                    }
-                }}
-            >
+    initialValues={{
+        userName: '',
+        password: '',
+        rememberMe: true,
+    }}
+    validationSchema={validationSchema}
+    onSubmit={(values, { setSubmitting }) => {
+        if (!disableSubmit) {
+            // Normalizar el email antes de enviarlo a la función de autenticación
+            onSignIn({ ...values, userName: values.userName.trim().toLowerCase() }, setSubmitting)
+        } else {
+            setSubmitting(false)
+        }
+    }}
+>
+
                 {({ touched, errors, isSubmitting }) => (
                     <Form>
                         <FormContainer>

@@ -158,6 +158,7 @@ const Users = () => {
             await validationSchema.validate(values, { abortEarly: false })
 
             const usersRef = collection(db, 'Usuarios')
+            const emailLower = values.email.toLowerCase();
 
             const cedulaQuery = query(
                 usersRef,
@@ -173,7 +174,7 @@ const Users = () => {
 
             const emailQuery = query(
                 usersRef,
-                where('email', '==', values.email),
+                where('email', '==', emailLower),
             )
             const emailSnapshot = await getDocs(emailQuery)
 
@@ -206,7 +207,7 @@ const Users = () => {
 
             const userCredential = await createUserWithEmailAndPassword(
                 auth,
-                values.email,
+                emailLower,
                 values.password,
             )
             const user = userCredential.user
@@ -215,7 +216,7 @@ const Users = () => {
 
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
-                email: values.email,
+                email: emailLower,
                 cedula: values.cedula,
                 phone: values.phone,
                 Password: values.password,
@@ -291,6 +292,7 @@ const Users = () => {
         if (selectedPerson) {
             try {
                 const usersRef = collection(db, 'Usuarios')
+                const emailLower = selectedPerson.email.toLowerCase();
 
                 const cedulaQuery = query(
                     usersRef,
@@ -331,7 +333,7 @@ const Users = () => {
                 const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
                 const updateData: any = {
                     nombre: selectedPerson.nombre,
-                    email: selectedPerson.email,
+                    email: emailLower,
                     cedula: selectedPerson.cedula,
                     phone: selectedPerson.phone,
                     typeUser: selectedPerson.typeUser,

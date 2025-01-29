@@ -182,16 +182,16 @@ const ServiceGarages = () => {
 
             // Procesar los datos obtenidos de las colecciones
             const talleres = garagesSnapshot.docs
-    .map((doc) => ({ ...doc.data(), id: doc.id }) as Garage)
-    .filter(
-        (garage) =>
-            garage.typeUser === 'Taller' &&
-            garage.subscripcion_actual?.status === 'Aprobado', // Aseguramos que "subscripcion_actual.status" sea "aprobado"
-    )
-    .sort((a: any, b: any) => {
-        // Ordena alfabéticamente por el nombre del taller (puedes ajustar esto según el campo que estés utilizando)
-        return a.nombre.localeCompare(b.nombre);
-    });
+                .map((doc) => ({ ...doc.data(), id: doc.id }) as Garage)
+                .filter(
+                    (garage) =>
+                        garage.typeUser === 'Taller' &&
+                        garage.subscripcion_actual?.status === 'Aprobado', // Aseguramos que "subscripcion_actual.status" sea "aprobado"
+                )
+            .sort((a: any, b: any) => {
+                // Ordena alfabéticamente por el nombre del taller (puedes ajustar esto según el campo que estés utilizando)
+                return a.nombre.localeCompare(b.nombre);
+            });
 
 
             const categorias = categoriesSnapshot.docs.map(
