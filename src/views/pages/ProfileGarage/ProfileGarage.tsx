@@ -467,14 +467,14 @@ const ProfileGarage = () => {
             return;
         }       
         
-        if (!formData.whatsapp || !/^\d+$/.test(formData.whatsapp) || formData.whatsapp.startsWith('0')) {
+        if (formData.whatsapp && (!/^\d+$/.test(formData.whatsapp) || formData.whatsapp.startsWith('0'))) {
             toast.push(
                 <Notification title="Error">
                     El WhatsApp debe contener solo números y no puede comenzar con 0.
                 </Notification>
             );
             return;
-        }    
+        }         
 
         if (!formData.rif || !/^[JVEGCP]-\d+$/.test(formData.rif)) {
             toast.push(
@@ -1625,6 +1625,7 @@ const ProfileGarage = () => {
                                         <option value="P">P-</option>
                                     </select>
                                     <input
+                                    disabled
                                         type="text"
                                         value={
                                             formData.rif?.split('-')[1] || ''
