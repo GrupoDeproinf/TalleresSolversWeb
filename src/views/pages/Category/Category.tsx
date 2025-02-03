@@ -243,6 +243,7 @@ const Users = () => {
                 nombreUser: userName,
                 fechaCreacion: Timestamp.fromDate(new Date()),
                 imageUrl: '', // Inicialmente vacío, se actualizará después si se sube una imagen
+                estatus: true,
             };
     
             // Guardar categoría principal
