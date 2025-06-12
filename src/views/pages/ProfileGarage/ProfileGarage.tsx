@@ -157,8 +157,10 @@ const ProfileGarage = () => {
         newLogoFile: null, // Inicializa como null
     })
 
-    const [selectedPlace, setSelectedPlace] = useState<{ lat: number; lng: number } | null>(null);
-
+    const [selectedPlace, setSelectedPlace] = useState<{
+        lat: number
+        lng: number
+    } | null>(null)
 
     const [paymentMethodsState, setPaymentMethodsState] = useState<
         Record<string, boolean>
@@ -458,23 +460,33 @@ const ProfileGarage = () => {
             return
         }
 
-        if (!formData.phone || !/^\d+$/.test(formData.phone) || formData.phone.startsWith('0')) {
+        if (
+            !formData.phone ||
+            !/^\d+$/.test(formData.phone) ||
+            formData.phone.startsWith('0')
+        ) {
             toast.push(
                 <Notification title="Error">
-                    El teléfono debe contener solo números y no puede comenzar con 0.
-                </Notification>
-            );
-            return;
-        }       
-        
-        if (formData.whatsapp && (!/^\d+$/.test(formData.whatsapp) || formData.whatsapp.startsWith('0'))) {
+                    El teléfono debe contener solo números y no puede comenzar
+                    con 0.
+                </Notification>,
+            )
+            return
+        }
+
+        if (
+            formData.whatsapp &&
+            (!/^\d+$/.test(formData.whatsapp) ||
+                formData.whatsapp.startsWith('0'))
+        ) {
             toast.push(
                 <Notification title="Error">
-                    El WhatsApp debe contener solo números y no puede comenzar con 0.
-                </Notification>
-            );
-            return;
-        }         
+                    El WhatsApp debe contener solo números y no puede comenzar
+                    con 0.
+                </Notification>,
+            )
+            return
+        }
 
         if (!formData.rif || !/^[JVEGCP]-\d+$/.test(formData.rif)) {
             toast.push(
@@ -832,11 +844,11 @@ const ProfileGarage = () => {
 
     console.log('data del taller', formData)
 
-    const [isMapOpen, setIsMapOpen] = useState(false); // Estado para controlar el modal del mapa
+    const [isMapOpen, setIsMapOpen] = useState(false) // Estado para controlar el modal del mapa
 
     const toggleMapModal = () => {
-        setIsMapOpen((prev) => !prev); // Alternar la visibilidad del modal
-    };
+        setIsMapOpen((prev) => !prev) // Alternar la visibilidad del modal
+    }
 
     return (
         <Container className="h-full">
@@ -853,6 +865,15 @@ const ProfileGarage = () => {
             )}
             <div className="flex flex-col xl:flex-row gap-4">
                 <Card>
+                    {/* Botón Editar */}
+                    <div className="mt-4 flex justify-end">
+                        <button
+                            className="bg-[#1d1e56] rounded-md p-2 hover:bg-[#1E3a8a] text-white"
+                            onClick={onEdit}
+                        >
+                            Editar
+                        </button>
+                    </div>
                     <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
                         <div className="flex xl:flex-col items-center gap-4">
                             <Avatar
@@ -868,6 +889,7 @@ const ProfileGarage = () => {
                                 {data?.nombre || 'Nombre no disponible'}
                             </h4>
                         </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-y-7 gap-x-4 mt-8">
                             <CustomerInfoField
                                 title="Correo electronico"
@@ -1001,16 +1023,6 @@ const ProfileGarage = () => {
                                         </p>
                                     )}
                                 </div>
-                            </div>
-
-                            {/* Botón Editar */}
-                            <div className="mt-4 flex justify-end">
-                                <button
-                                    className="bg-[#1d1e56] rounded-md p-2 hover:bg-[#1E3a8a] text-white"
-                                    onClick={onEdit}
-                                >
-                                    Editar
-                                </button>
                             </div>
                         </div>
                     </div>
@@ -1625,7 +1637,7 @@ const ProfileGarage = () => {
                                         <option value="P">P-</option>
                                     </select>
                                     <input
-                                    disabled
+                                        disabled
                                         type="text"
                                         value={
                                             formData.rif?.split('-')[1] || ''
@@ -1703,54 +1715,58 @@ const ProfileGarage = () => {
                                 />
                             </label>
                             <label className="block">
-                <span className="text-gray-700 font-semibold">Mapa</span>
-                <button
-                    type="button"
-                    className="w-full mt-1 p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-300"
-                    onClick={toggleMapModal} // Abre el modal al hacer clic
-                >
-                    Abrir Mapa
-                </button>
-            </label>
+                                <span className="text-gray-700 font-semibold">
+                                    Mapa
+                                </span>
+                                <button
+                                    type="button"
+                                    className="w-full mt-1 p-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-300"
+                                    onClick={toggleMapModal} // Abre el modal al hacer clic
+                                >
+                                    Abrir Mapa
+                                </button>
+                            </label>
 
-            {/* Modal para el mapa */}
-            {isMapOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-3xl">
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-lg font-semibold text-gray-800">Editar ubicación</h2>
-                            <button
-                                className="text-gray-600 hover:text-gray-800 focus:outline-none"
-                                onClick={toggleMapModal} // Cierra el modal
-                            >
-                                ✖
-                            </button>
-                        </div>
-                        {/* Componente del mapa */}
-                        <MapsEdit
-                            initialLocation={{
-                                lat: formData.ubicacion.lat,
-                                lng: formData.ubicacion.lng,
-                            }}
-                            onLocationChange={(newLocation) =>
-                                setFormData((prev) => ({
-                                    ...prev,
-                                    ubicacion: newLocation, // Actualiza la ubicación en el formulario
-                                }))
-                            }
-                        />
-                        <div className="flex justify-end mt-4">
-                            <button
-                                type="button"
-                                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-300"
-                                onClick={toggleMapModal} // Guarda y cierra el modal
-                            >
-                                Guardar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                            {/* Modal para el mapa */}
+                            {isMapOpen && (
+                                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-3xl">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h2 className="text-lg font-semibold text-gray-800">
+                                                Editar ubicación
+                                            </h2>
+                                            <button
+                                                className="text-gray-600 hover:text-gray-800 focus:outline-none"
+                                                onClick={toggleMapModal} // Cierra el modal
+                                            >
+                                                ✖
+                                            </button>
+                                        </div>
+                                        {/* Componente del mapa */}
+                                        <MapsEdit
+                                            initialLocation={{
+                                                lat: formData.ubicacion.lat,
+                                                lng: formData.ubicacion.lng,
+                                            }}
+                                            onLocationChange={(newLocation) =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    ubicacion: newLocation, // Actualiza la ubicación en el formulario
+                                                }))
+                                            }
+                                        />
+                                        <div className="flex justify-end mt-4">
+                                            <button
+                                                type="button"
+                                                className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-300"
+                                                onClick={toggleMapModal} // Guarda y cierra el modal
+                                            >
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <label className="block">
                                 <span className="text-gray-700 font-semibold">
                                     Estatus
