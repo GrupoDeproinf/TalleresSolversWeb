@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Drawer, Input, Notification, toast } from '@/components/ui'
+import { Button, Drawer, Input, Notification, toast, Dialog } from '@/components/ui'
 import { Formik, Form, Field, ErrorMessage } from 'formik'
 import * as Yup from 'yup'
 import { db } from '@/configs/firebaseAssets.config'
-import { doc, updateDoc, collection, getDocs, Timestamp } from 'firebase/firestore'
+import { doc, updateDoc, collection, getDocs, Timestamp, getDoc } from 'firebase/firestore'
 import { FaCamera } from 'react-icons/fa'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -59,6 +59,8 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
     const [metodosPago, setMetodosPago] = useState<MetodoPagoInfo[]>([])
     const [cargando, setCargando] = useState(false)
     const [openDrawer, setOpenDrawer] = useState(false)
+    const [pagoReportado, setPagoReportado] = useState(false)
+    const [showModal, setShowModal] = useState(false)
 
 
     useEffect(() => {
@@ -71,8 +73,40 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
         fetchMetodosPago()
     }, [])
 
+    useEffect(() => {
+        const verificarPagoReportado = async () => {
+            if (talleruid) {
+                try {
+                    const tallerRef = doc(db, 'Usuarios', talleruid)
+                    const tallerDoc = await getDoc(tallerRef)
+                    
+                    if (tallerDoc.exists()) {
+                        const tallerData = tallerDoc.data()
+                        const subscripcionActual = tallerData.subscripcion_actual
+                        
+                        if (subscripcionActual && subscripcionActual.pago_reportado === true) {
+                            setPagoReportado(true)
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error al verificar si ya se reportó el pago:', error)
+                }
+            }
+        }
+        
+        verificarPagoReportado()
+    }, [talleruid])
+
     const handleMetodoPagoChange = (metodo: MetodoPago) => {
         setMetodoPago(metodo)
+    }
+
+    const handleReportarPago = () => {
+        if (pagoReportado) {
+            setShowModal(true)
+        } else {
+            setOpenDrawer(true)
+        }
     }
 
     const EfectivoValidationSchema = Yup.object().shape({
@@ -186,6 +220,15 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                 comprobante_pago: comprobantePago,
             });
 
+            // Actualizar el campo pago_reportado en la subscripción actual del taller
+            if (talleruid) {
+                const tallerRef = doc(db, 'Usuarios', talleruid);
+                await updateDoc(tallerRef, {
+                    'subscripcion_actual.pago_reportado': true,
+                });
+                setPagoReportado(true);
+            }
+
             console.log('Pago registrado exitosamente');
             toast.push(
                 <Notification title="Éxito" type="success">
@@ -211,9 +254,30 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
 
     return (
         <>
-            <button onClick={() => setOpenDrawer(true)} className='bg-blue-900 rounded-md p-2 text-white hover:bg-blue-700'>
+            <button 
+                onClick={handleReportarPago} 
+                className='bg-blue-900 rounded-md p-2 text-white hover:bg-blue-700'
+            >
                 Reportar Pago
             </button>
+
+            {/* Modal para pago ya reportado */}
+            <Dialog isOpen={showModal} onClose={() => setShowModal(false)}>
+                <div className="p-6">
+                    <h4 className="text-lg font-semibold mb-4">Pago Ya Reportado</h4>
+                    <p className="text-gray-600 mb-6">
+                        Ya se ha reportado un pago para esta suscripción. No se puede reportar otro pago.
+                    </p>
+                    <div className="flex justify-end">
+                        <button 
+                            onClick={() => setShowModal(false)}
+                            className="bg-blue-900 rounded-md p-2 text-white hover:bg-blue-700"
+                        >
+                            Entendido
+                        </button>
+                    </div>
+                </div>
+            </Dialog>
 
             <Drawer isOpen={openDrawer} onClose={() => setOpenDrawer(false)} title="Registrar Pago">
                 <Formik

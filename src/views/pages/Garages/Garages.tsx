@@ -51,6 +51,7 @@ import { GrMapLocation } from 'react-icons/gr'
 import Password from '@/views/account/Settings/components/Password'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
+import * as XLSX from 'xlsx'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -67,6 +68,7 @@ type Garage = {
     image_file?: string
     Direccion?: string
     ubicacion?: string
+    certificador_nombre?: string
 
     id?: string
     status?: string
@@ -87,6 +89,7 @@ const Garages = () => {
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
+    const [exportDialogIsOpen, setExportDialogIsOpen] = useState(false) // Estado para el modal de exportación
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
@@ -116,6 +119,73 @@ const Garages = () => {
                 La tabla ha sido actualizada con éxito.
             </Notification>,
         )
+    }
+
+    const handleExportToExcel = () => {
+        // Campos que queremos exportar
+        const camposDeseados = [
+            'nombre',
+            'rif',
+            'estado',
+            'email',
+            'phone',
+            'status',
+            'Direccion',
+        ]
+
+        // Mapeo de encabezados en español
+        const encabezados: Record<string, string> = {
+            nombre: 'Nombre del Taller',
+            rif: 'RIF',
+            estado: 'Estado',
+            email: 'Correo Electrónico',
+            phone: 'Número Telefónico',
+            status: 'Estado de Aprobación',
+            Direccion: 'Dirección',
+        }
+
+        // Preparar los datos para exportar
+        const tableData = dataGarages.map((row) => {
+            const rowData: Record<string, any> = {}
+            camposDeseados.forEach((campo) => {
+                const value = row[campo as keyof Garage]
+                const header = encabezados[campo] || campo
+                rowData[header] = value ?? ''
+            })
+            // Agregar columna Certificador con el email
+            rowData['Certificador'] = row.certificador_nombre ?? ''
+            return rowData
+        })
+
+        if (tableData.length === 0) {
+            toast.push(
+                <Notification title="Sin datos para exportar">
+                    No hay talleres disponibles para exportar.
+                </Notification>,
+            )
+            return
+        }
+
+        // Crear el archivo Excel
+        const worksheet = XLSX.utils.json_to_sheet(tableData)
+        const workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Talleres')
+        XLSX.writeFile(workbook, 'talleres.xlsx')
+
+        toast.push(
+            <Notification title="Exportación exitosa">
+                El archivo Excel se ha descargado correctamente.
+            </Notification>,
+        )
+        setExportDialogIsOpen(false) // Cerrar el modal
+    }
+
+    const handleOpenExportDialog = () => {
+        setExportDialogIsOpen(true)
+    }
+
+    const handleCloseExportDialog = () => {
+        setExportDialogIsOpen(false)
     }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
@@ -391,8 +461,8 @@ const Garages = () => {
             accessorKey: 'estado',
         },
         {
-            header: 'Email',
-            accessorKey: 'email',
+            header: 'Certificador',
+            accessorKey: 'certificador_nombre',
         },
         {
             header: 'Numero Telefonico',
@@ -599,6 +669,13 @@ const Garages = () => {
                         >
                             Crear Taller
                         </Button>
+                        <button
+                            style={{ backgroundColor: '#10B981' }}
+                            className="w-40 ml-4 p-2 text-white rounded-md shadow-md hover:bg-green-600 active:bg-green-700 transition duration-200 hover:opacity-80"
+                            onClick={handleOpenExportDialog}
+                        >
+                            Exportar a Excel
+                        </button>
                     </div>
                 </div>
             </div>
@@ -691,6 +768,32 @@ const Garages = () => {
                         onClick={handleDelete}
                     >
                         Eliminar
+                    </Button>
+                </div>
+            </Dialog>
+            <Dialog
+                isOpen={exportDialogIsOpen}
+                onClose={handleCloseExportDialog}
+                onRequestClose={handleCloseExportDialog}
+            >
+                <h5 className="mb-4">Confirmar Exportación</h5>
+                <p>
+                    ¿Estás seguro de que deseas exportar todos los talleres a Excel?
+                </p>
+                <div className="text-right mt-6">
+                    <Button
+                        className="ltr:mr-2 rtl:ml-2"
+                        variant="plain"
+                        onClick={handleCloseExportDialog}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        style={{ backgroundColor: '#10B981' }}
+                        className="text-white hover:opacity-80"
+                        onClick={handleExportToExcel}
+                    >
+                        Exportar
                     </Button>
                 </div>
             </Dialog>
