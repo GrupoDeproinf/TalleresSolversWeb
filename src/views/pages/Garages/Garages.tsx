@@ -46,7 +46,7 @@ import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
 import * as Yup from 'yup'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
-import Maps from './components/googlemaps'
+import Maps from './components/Googlemaps'
 import { GrMapLocation } from 'react-icons/gr'
 import Password from '@/views/account/Settings/components/Password'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
