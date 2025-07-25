@@ -1684,6 +1684,7 @@ const ProfileGarage = () => {
                                         'Falcón',
                                         'Guárico',
                                         'Lara',
+                                        'La Guaira',
                                         'Mérida',
                                         'Miranda',
                                         'Monagas',
@@ -1692,7 +1693,6 @@ const ProfileGarage = () => {
                                         'Sucre',
                                         'Táchira',
                                         'Trujillo',
-                                        'Vargas',
                                         'Yaracuy',
                                         'Zulia',
                                     ].map((estado) => (

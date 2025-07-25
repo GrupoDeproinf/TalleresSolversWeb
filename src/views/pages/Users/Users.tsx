@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import React from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
@@ -39,7 +40,7 @@ import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
-import { Avatar, Drawer } from '@/components/ui'
+import { Avatar, Drawer, Select } from '@/components/ui'
 import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
@@ -55,7 +56,7 @@ type Person = {
     uid: string
     typeUser?: string
     id: string
-    estado?: string
+    estado?: string | string[]
 }
 
 const Users = () => {
@@ -67,6 +68,34 @@ const Users = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
+
+    // Opciones para el select de estados
+    const estadoOptions = [
+        { value: 'Amazonas', label: 'Amazonas' },
+        { value: 'Anzoátegui', label: 'Anzoátegui' },
+        { value: 'Apure', label: 'Apure' },
+        { value: 'Aragua', label: 'Aragua' },
+        { value: 'Barinas', label: 'Barinas' },
+        { value: 'Bolívar', label: 'Bolívar' },
+        { value: 'Carabobo', label: 'Carabobo' },
+        { value: 'Cojedes', label: 'Cojedes' },
+        { value: 'Delta Amacuro', label: 'Delta Amacuro' },
+        { value: 'Distrito Capital', label: 'Distrito Capital' },
+        { value: 'Falcón', label: 'Falcón' },
+        { value: 'Guárico', label: 'Guárico' },
+        { value: 'Lara', label: 'Lara' },
+        { value: 'La Guaira', label: 'La Guaira' },
+        { value: 'Mérida', label: 'Mérida' },
+        { value: 'Miranda', label: 'Miranda' },
+        { value: 'Monagas', label: 'Monagas' },
+        { value: 'Nueva Esparta', label: 'Nueva Esparta' },
+        { value: 'Portuguesa', label: 'Portuguesa' },
+        { value: 'Sucre', label: 'Sucre' },
+        { value: 'Táchira', label: 'Táchira' },
+        { value: 'Trujillo', label: 'Trujillo' },
+        { value: 'Yaracuy', label: 'Yaracuy' },
+        { value: 'Zulia', label: 'Zulia' },
+    ]
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
@@ -144,7 +173,11 @@ const Users = () => {
         typeUser: Yup.string()
             .oneOf(['Cliente', 'Certificador'], 'Tipo de usuario inválido')
             .required('El tipo de usuario es obligatorio'),
-        estado: Yup.string().required('El estado es obligatorio'),
+        estado: Yup.mixed().when('typeUser', {
+            is: 'Certificador',
+            then: () => Yup.array().min(1, 'Debe seleccionar al menos un estado').required('El estado es obligatorio'),
+            otherwise: () => Yup.string().required('El estado es obligatorio'),
+        }),
         password: Yup.string()
             .required('Por favor ingrese una contraseña')
             .min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -222,7 +255,7 @@ const Users = () => {
                 Password: values.password,
                 typeUser: values.typeUser || 'Cliente',
                 uid: user.uid,
-                estado: values.estado,
+                estado: values.typeUser === 'Certificador' ? (Array.isArray(values.estado) ? values.estado : [values.estado]) : values.estado,
             })
 
             await updateDoc(docRef, {
@@ -337,7 +370,7 @@ const Users = () => {
                     cedula: selectedPerson.cedula,
                     phone: selectedPerson.phone,
                     typeUser: selectedPerson.typeUser,
-                    estado: selectedPerson.estado
+                    estado: selectedPerson.typeUser === 'Certificador' ? (Array.isArray(selectedPerson.estado) ? selectedPerson.estado : [selectedPerson.estado]) : selectedPerson.estado
                 }
 
                 await updateDoc(userDoc, updateData)
@@ -415,6 +448,29 @@ const Users = () => {
             },
         },
         {
+            header: 'Estado',
+            accessorKey: 'estado',
+            filterFn: 'includesString',
+            cell: ({ row }) => {
+                const estado = row.original.estado
+                if (Array.isArray(estado)) {
+                    return (
+                        <div className="flex flex-wrap gap-1">
+                            {estado.map((est, index) => (
+                                <span
+                                    key={index}
+                                    className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full"
+                                >
+                                    {est}
+                                </span>
+                            ))}
+                        </div>
+                    )
+                }
+                return <span>{estado}</span>
+            },
+        },
+        {
             header: 'Tipo de Usuario',
             accessorKey: 'typeUser',
             cell: ({ row }) => {
@@ -488,6 +544,7 @@ const Users = () => {
             confirmPassword: '',
             id: '',
             uid: '',
+            estado: '',
         })
 
         setSelectedPerson(null)
@@ -833,48 +890,39 @@ const Users = () => {
                             <span className="font-semibold text-gray-700">
                                 Estado:
                             </span>
-                            <select
-                                value={selectedPerson?.estado || ''}
-                                onChange={(e) =>
-                                    setSelectedPerson((prev: any) => ({
-                                        ...prev,
-                                        estado: e.target.value,
-                                    }))
-                                }
-                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                            >
-                                <option value="">Seleccione un Estado</option>
-                                {[
-                                    'Amazonas',
-                                    'Anzoátegui',
-                                    'Apure',
-                                    'Aragua',
-                                    'Barinas',
-                                    'Bolívar',
-                                    'Carabobo',
-                                    'Cojedes',
-                                    'Delta Amacuro',
-                                    'Distrito Capital',
-                                    'Falcón',
-                                    'Guárico',
-                                    'Lara',
-                                    'Mérida',
-                                    'Miranda',
-                                    'Monagas',
-                                    'Nueva Esparta',
-                                    'Portuguesa',
-                                    'Sucre',
-                                    'Táchira',
-                                    'Trujillo',
-                                    'Vargas',
-                                    'Yaracuy',
-                                    'Zulia',
-                                ].map((estado) => (
-                                    <option key={estado} value={estado}>
-                                        {estado}
-                                    </option>
-                                ))}
-                            </select>
+                            {selectedPerson?.typeUser === 'Certificador' ? (
+                                <Select
+                                    isMulti
+                                    options={estadoOptions}
+                                    value={estadoOptions.filter((option) => 
+                                        Array.isArray(selectedPerson?.estado) && selectedPerson.estado.includes(option.value)
+                                    )}
+                                    onChange={(selectedOptions) => {
+                                        const selectedValues = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
+                                        setSelectedPerson((prev: any) => ({
+                                            ...prev,
+                                            estado: selectedValues,
+                                        }));
+                                    }}
+                                    placeholder="Seleccione los estados..."
+                                    className="mt-1"
+                                />
+                            ) : (
+                                <Select
+                                    options={estadoOptions}
+                                    value={estadoOptions.find((option) => 
+                                        !Array.isArray(selectedPerson?.estado) && option.value === selectedPerson?.estado
+                                    ) || null}
+                                    onChange={(selectedOption) => {
+                                        setSelectedPerson((prev: any) => ({
+                                            ...prev,
+                                            estado: selectedOption ? selectedOption.value : '',
+                                        }));
+                                    }}
+                                    placeholder="Seleccione un estado..."
+                                    className="mt-1"
+                                />
+                            )}
                         </label>
                 </div>
 
@@ -919,7 +967,17 @@ const Users = () => {
                         setSubmitting(false)
                     }}
                 >
-                    {({ isSubmitting, setFieldValue, values }) => (
+                    {({ isSubmitting, setFieldValue, values }) => {
+                        // Efecto para limpiar el estado cuando cambie el tipo de usuario
+                        React.useEffect(() => {
+                            if (values.typeUser === 'Cliente' && Array.isArray(values.estado)) {
+                                setFieldValue('estado', '');
+                            } else if (values.typeUser === 'Certificador' && !Array.isArray(values.estado)) {
+                                setFieldValue('estado', []);
+                            }
+                        }, [values.typeUser, setFieldValue]);
+
+                        return (
                         <Form className="flex flex-col space-y-6">
                             {/* Nombre */}
                             <div className="flex flex-col">
@@ -1050,43 +1108,43 @@ const Users = () => {
                             {/* Campo para Estados */}
 <div className="flex flex-col">
     <label className="font-semibold text-gray-700">Estado:</label>
-    <Field
-        as="select"
-        name="estado"
-        className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    >
-        <option value="">Seleccione un Estado</option>
-        {[
-            'Amazonas',
-            'Anzoátegui',
-            'Apure',
-            'Aragua',
-            'Barinas',
-            'Bolívar',
-            'Carabobo',
-            'Cojedes',
-            'Delta Amacuro',
-            'Distrito Capital',
-            'Falcón',
-            'Guárico',
-            'Lara',
-            'Mérida',
-            'Miranda',
-            'Monagas',
-            'Nueva Esparta',
-            'Portuguesa',
-            'Sucre',
-            'Táchira',
-            'Trujillo',
-            'Vargas',
-            'Yaracuy',
-            'Zulia',
-        ].map((estado) => (
-            <option key={estado} value={estado}>
-                {estado}
-            </option>
-        ))}
-    </Field>
+    {values.typeUser === 'Certificador' ? (
+        <Field name="estado">
+            {({ field, form }: any) => (
+                <Select
+                    isMulti
+                    field={field}
+                    form={form}
+                    options={estadoOptions}
+                    value={estadoOptions.filter((option) => 
+                        Array.isArray(values.estado) && values.estado.includes(option.value)
+                    )}
+                    onChange={(selectedOptions) => {
+                        const selectedValues = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
+                        form.setFieldValue(field.name, selectedValues);
+                    }}
+                    placeholder="Seleccione los estados..."
+                    className="mt-1"
+                />
+            )}
+        </Field>
+    ) : (
+        <Field name="estado">
+            {({ field, form }: any) => (
+                <Select
+                    field={field}
+                    form={form}
+                    options={estadoOptions}
+                    value={estadoOptions.find((option) => option.value === values.estado) || null}
+                    onChange={(selectedOption) => {
+                        form.setFieldValue(field.name, selectedOption ? selectedOption.value : '');
+                    }}
+                    placeholder="Seleccione un estado..."
+                    className="mt-1"
+                />
+            )}
+        </Field>
+    )}
     <ErrorMessage
         name="estado"
         component="div"
@@ -1175,7 +1233,8 @@ const Users = () => {
                                 </Button>
                             </div>
                         </Form>
-                    )}
+                    );
+                    }}
                 </Formik>
             </Drawer>
         </>

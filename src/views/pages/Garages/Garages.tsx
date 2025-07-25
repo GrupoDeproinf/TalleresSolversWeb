@@ -978,6 +978,7 @@ const Garages = () => {
                                             'Falcón',
                                             'Guárico',
                                             'Lara',
+                                            'La Guaira',
                                             'Mérida',
                                             'Miranda',
                                             'Monagas',
@@ -986,7 +987,6 @@ const Garages = () => {
                                             'Sucre',
                                             'Táchira',
                                             'Trujillo',
-                                            'Vargas',
                                             'Yaracuy',
                                             'Zulia',
                                         ].map((estado) => (
