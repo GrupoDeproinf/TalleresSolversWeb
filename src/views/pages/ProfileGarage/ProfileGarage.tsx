@@ -66,6 +66,7 @@ import {
 } from 'firebase/storage'
 import MapsProfile from './Components/MapsProfile'
 import MapsEdit from './Components/MapsEdit'
+import EditServiceDrawer from './Components/EditServiceDrawer'
 
 type Service = {
     nombre_servicio: string
@@ -75,6 +76,13 @@ type Service = {
     puntuacion: string
     uid_servicio: string
     estatus: boolean
+    uid_taller: string
+    uid_categoria: string
+    nombre_categoria: string
+    subcategoria: any[]
+    garantia: string
+    typeService: string
+    service_image: string[]
 }
 type Planes = {
     uid: string
@@ -246,6 +254,13 @@ const ProfileGarage = () => {
                     estatus: serviceData?.estatus,
                     taller: serviceData?.taller || '',
                     puntuacion: serviceData?.puntuacion || '0',
+                    uid_taller: serviceData?.uid_taller || '',
+                    uid_categoria: serviceData?.uid_categoria || '',
+                    nombre_categoria: serviceData?.nombre_categoria || '',
+                    subcategoria: serviceData?.subcategoria || [],
+                    garantia: serviceData?.garantia || '',
+                    typeService: serviceData?.typeService || 'local',
+                    service_image: serviceData?.service_image || serviceData?.imagenes || [],
                 }
             })
 
@@ -746,6 +761,24 @@ const ProfileGarage = () => {
                 )
             },
         },
+        {
+            header: 'Acciones',
+            id: 'actions',
+            cell: ({ row }) => {
+                return (
+                    <div className="">
+                        <Button
+                            size="sm"
+                            variant="solid"
+                            onClick={() => handleEditService(row.original)}
+                            className="text-blue-900 hover:bg-blue-700"
+                        >
+                            <FaEdit />
+                        </Button>
+                    </div>
+                )
+            },
+        },
     ]
 
     const columns2: ColumnDef<Planes>[] = [
@@ -845,13 +878,30 @@ const ProfileGarage = () => {
     console.log('data del taller', formData)
 
     const [isMapOpen, setIsMapOpen] = useState(false) // Estado para controlar el modal del mapa
+    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false) // Estado para controlar el drawer de edición
+    const [selectedService, setSelectedService] = useState<Service | null>(null) // Servicio seleccionado para editar
 
     const toggleMapModal = () => {
         setIsMapOpen((prev) => !prev) // Alternar la visibilidad del modal
     }
 
+    const handleEditService = (service: Service) => {
+        setSelectedService(service)
+        setIsEditDrawerOpen(true)
+    }
+
+    const handleCloseEditDrawer = () => {
+        setIsEditDrawerOpen(false)
+        setSelectedService(null)
+    }
+
+    const handleServiceUpdated = () => {
+        // Recargar los servicios después de una actualización
+        getData()
+    }
+
     return (
-        <Container className="h-full">
+        <Container className="min-h-screen overflow-y-auto pb-8">
             {canGoBack && (
                 <div className="flex items-center">
                     <button
@@ -863,7 +913,7 @@ const ProfileGarage = () => {
                     </button>
                 </div>
             )}
-            <div className="flex flex-col xl:flex-row gap-4">
+            <div className="flex flex-col xl:flex-row gap-4 pb-8">
                 <Card>
                     {/* Botón Editar */}
                     <div className="mt-4 flex justify-end">
@@ -1028,12 +1078,13 @@ const ProfileGarage = () => {
                     </div>
                 </Card>
                 {/* Aqui empieza el tab */}
-                <Tabs defaultValue="tab1">
-                    <TabList>
-                        <TabNav value="tab1">Planes</TabNav>
-                        <TabNav value="tab2">Servicios</TabNav>
-                    </TabList>
-                    <div>
+                <div className="flex-1 min-w-0">
+                    <Tabs defaultValue="tab1">
+                        <TabList>
+                            <TabNav value="tab1">Planes</TabNav>
+                            <TabNav value="tab2">Servicios</TabNav>
+                        </TabList>
+                        <div className="w-full">
                         <TabContent value="tab1">
                             <div className="mb-8 mt-4">
                                 <h6 className="mb-4">Subscripción</h6>
@@ -1057,9 +1108,9 @@ const ProfileGarage = () => {
                                         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border rounded-lg shadow-md bg-white">
                                             <div className="flex items-center gap-3">
                                                 <Avatar
-                                                    className="bg-emerald-500"
+                                                    className="bg-transparent"
                                                     shape="circle"
-                                                    icon={<HiFire />}
+                                                    icon={<HiFire className="text-blue-600" />}
                                                 />
                                                 <div>
                                                     <div className="flex items-center">
@@ -1276,14 +1327,13 @@ const ProfileGarage = () => {
                         </TabContent>
                     </div>
                     <TabContent value="tab2">
-                        <div className="w-[50vw]">
-                            <div className="p-1 rounded-lg">
+                        <div className="w-full h-full">
+                            <div className="p-4 rounded-lg">
                                 <h6 className="mb-6 flex justify-start mt-4">
                                     Lista de Servicios
                                 </h6>
                                 <Table
-                                    className="w-full  rounded-lg"
-                                    width={700}
+                                    className="w-full rounded-lg"
                                 >
                                     <THead>
                                         {table
@@ -1372,7 +1422,8 @@ const ProfileGarage = () => {
                         </div>
                     </TabContent>
                 </Tabs>
-            </div>
+                    </div>
+                </div>
 
             <Dialog
                 width={1000}
@@ -1851,6 +1902,14 @@ const ProfileGarage = () => {
                     </div>
                 </ConfirmDialog>
             )}
+
+            {/* Drawer para editar servicio */}
+            <EditServiceDrawer
+                isOpen={isEditDrawerOpen}
+                onClose={handleCloseEditDrawer}
+                service={selectedService}
+                onServiceUpdated={handleServiceUpdated}
+            />
         </Container>
     )
 }
