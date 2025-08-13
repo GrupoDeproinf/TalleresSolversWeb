@@ -1,1 +1,0 @@
-import{u as a,j as t,t as r}from"./index-BDN-NirA.js";import{S as l}from"./Side-i-Lg1U2G.js";import{V as o}from"./Views-D5n2Trj8.js";import"./Logo-B1aQDABb.js";const u=()=>{const e=a(s=>s.theme.layout.type);return t.jsx("div",{className:"app-layout-blank flex flex-auto flex-col h-[100vh]",children:e===r?t.jsx(o,{}):t.jsx(l,{children:t.jsx(o,{})})})},c=u;export{c as default};
