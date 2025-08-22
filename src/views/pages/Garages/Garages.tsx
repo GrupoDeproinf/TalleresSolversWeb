@@ -90,6 +90,7 @@ const Garages = () => {
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
     const [exportDialogIsOpen, setExportDialogIsOpen] = useState(false) // Estado para el modal de exportación
+    const [showEliminados, setShowEliminados] = useState(false) // Estado para mostrar/ocultar talleres eliminados
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
@@ -99,7 +100,10 @@ const Garages = () => {
         querySnapshot.forEach((doc) => {
             const garageData = doc.data() as Garage
             if (garageData.typeUser === 'Taller') {
-                talleres.push({ ...garageData, id: doc.id }) // Guardar el ID del documento
+                // Si showEliminados es false, filtrar los eliminados
+                if (showEliminados || garageData.status !== 'Eliminado') {
+                    talleres.push({ ...garageData, id: doc.id }) // Guardar el ID del documento
+                }
             }
         })
 
@@ -110,7 +114,7 @@ const Garages = () => {
 
     useEffect(() => {
         getData()
-    }, [])
+    }, [showEliminados])
 
     const handleRefresh = async () => {
         await getData()
@@ -513,6 +517,10 @@ const Garages = () => {
                         )
                         color = 'text-blue-500' // Color para el texto
                         break
+                    case 'Eliminado':
+                        icon = <FaTrash className="text-gray-500 mr-1" />
+                        color = 'text-gray-500' // Color para el texto
+                        break
                     default:
                         icon = null
                 }
@@ -529,22 +537,28 @@ const Garages = () => {
             header: ' ',
             cell: ({ row }) => {
                 const person = row.original
+                const isEliminado = person.status === 'Eliminado'
                 return (
                     <div className="flex gap-2">
                         <button
                             onClick={() =>
                                 navigate(`/profilegarage/${person.uid}`)
                             }
-                            className="text-blue-900"
+                            className={`${isEliminado ? 'text-gray-400 cursor-not-allowed' : 'text-blue-900'}`}
+                            disabled={isEliminado}
+                            title={isEliminado ? 'Taller eliminado' : 'Ver perfil'}
                         >
                             <FaRegEye />
                         </button>
-                        <button
-                            onClick={() => openDialog(person)}
-                            className="text-red-700"
-                        >
-                            <FaTrash />
-                        </button>
+                        {!isEliminado && (
+                            <button
+                                onClick={() => openDialog(person)}
+                                className="text-red-700"
+                                title="Eliminar taller"
+                            >
+                                <FaTrash />
+                            </button>
+                        )}
                     </div>
                 )
             },
@@ -564,12 +578,30 @@ const Garages = () => {
             console.log('Eliminando a:', selectedPerson)
 
             try {
+                // 1. Cambiar el status del taller a "Eliminado"
                 const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
-                await deleteDoc(userDoc)
+                await updateDoc(userDoc, {
+                    status: 'Eliminado'
+                })
+
+                // 2. Buscar y actualizar servicios relacionados
+                const serviciosRef = collection(db, 'Servicios')
+                const serviciosQuery = query(serviciosRef, where('uid_taller', '==', selectedPerson.uid))
+                const serviciosSnapshot = await getDocs(serviciosQuery)
+
+                // Actualizar todos los servicios encontrados
+                const updatePromises = serviciosSnapshot.docs.map(async (servicioDoc) => {
+                    await updateDoc(doc(db, 'Servicios', servicioDoc.id), {
+                        estatus: false
+                    })
+                })
+
+                // Esperar a que se completen todas las actualizaciones
+                await Promise.all(updatePromises)
 
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Taller {selectedPerson.nombre} eliminado con éxito.
+                        Taller {selectedPerson.nombre} eliminado con éxito. Se actualizaron {serviciosSnapshot.docs.length} servicios relacionados.
                     </Notification>
                 )
                 toast.push(toastNotification)
@@ -636,6 +668,29 @@ const Garages = () => {
                 </h1>
                 <div className="flex justify-end">
                     <div className="flex items-center">
+                        {/* Toggle para mostrar/ocultar talleres eliminados */}
+                        <div className="flex items-center mr-4">
+                            <label className="flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showEliminados}
+                                    onChange={(e) => {
+                                        setShowEliminados(e.target.checked)
+                                    }}
+                                    className="sr-only"
+                                />
+                                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    showEliminados ? 'bg-blue-600' : 'bg-gray-300'
+                                }`}>
+                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        showEliminados ? 'translate-x-6' : 'translate-x-1'
+                                    }`} />
+                                </div>
+                                <span className="ml-2 text-sm text-gray-700">
+                                    Mostrar eliminados
+                                </span>
+                            </label>
+                        </div>
                         <div className="relative w-32">
                             {' '}
                             <select
@@ -719,11 +774,18 @@ const Garages = () => {
                             .getRowModel()
                             .rows.slice(startIndex, endIndex)
                             .map((row) => {
+                                const isEliminado = row.original.status === 'Eliminado'
                                 return (
-                                    <Tr key={row.id}>
+                                    <Tr 
+                                        key={row.id}
+                                        className={isEliminado ? 'opacity-50 bg-gray-50' : ''}
+                                    >
                                         {row.getVisibleCells().map((cell) => {
                                             return (
-                                                <Td key={cell.id}>
+                                                <Td 
+                                                    key={cell.id}
+                                                    className={isEliminado ? 'line-through text-gray-500' : ''}
+                                                >
                                                     {flexRender(
                                                         cell.column.columnDef
                                                             .cell,
@@ -751,8 +813,8 @@ const Garages = () => {
             >
                 <h5 className="mb-4">Confirmar Eliminación</h5>
                 <p>
-                    ¿Estás seguro de que deseas eliminar a{' '}
-                    {selectedPerson?.nombre}?
+                    ¿Estás seguro de que deseas marcar como eliminado al taller{' '}
+                    {selectedPerson?.nombre}? Esta acción también desactivará todos los servicios asociados.
                 </p>
                 <div className="text-right mt-6">
                     <Button
