@@ -64,7 +64,7 @@ const Password = ({ data }: { data?: LoginHistory[] }) => {
             placement: 'top-center',
         })
         setSubmitting(false)
-        console.log('values', values)
+        //console.log('values', values)
     }
 
     return (

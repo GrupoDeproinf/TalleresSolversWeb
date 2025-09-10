@@ -278,7 +278,7 @@ const ProfileGarage = () => {
 
             setData(dataFinal)
             setServices(services)
-            console.log(services)
+            //console.log(services)
             setPlanes(planes)
             setSubscription(subscripcionActual)
             setSubscriptionHistory(subscripciones)
@@ -586,7 +586,7 @@ const ProfileGarage = () => {
                 const lastNumber = match ? parseInt(match[1], 10) : 0
                 const newImageName = `${baseName}${lastNumber + 1}.jpg`
 
-                console.log(lastImageName, lastNumber, newImageName)
+                //console.log(lastImageName, lastNumber, newImageName)
 
                 // Referencia a la imagen anterior
                 const oldImageRef = ref(
@@ -875,7 +875,7 @@ const ProfileGarage = () => {
         setCurrentPage(page)
     }
 
-    console.log('data del taller', formData)
+    //console.log('data del taller', formData)
 
     const [isMapOpen, setIsMapOpen] = useState(false) // Estado para controlar el modal del mapa
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false) // Estado para controlar el drawer de edición

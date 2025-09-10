@@ -132,7 +132,7 @@ const Profile = ({
         values: ProfileFormModel,
         setSubmitting: (isSubmitting: boolean) => void
     ) => {
-        console.log('values', values)
+        //console.log('values', values)
         toast.push(<Notification title={'Profile updated'} type="success" />, {
             placement: 'top-center',
         })

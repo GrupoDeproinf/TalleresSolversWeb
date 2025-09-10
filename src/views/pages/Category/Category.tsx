@@ -905,7 +905,7 @@ const Users = () => {
     }}
     validationSchema={validationSchema}
     onSubmit={(values) => {
-        console.log('Valores enviados:', values);
+        //console.log('Valores enviados:', values);
         handleSaveChanges(values); // Llamar la función para guardar los cambios
     }}
 >

@@ -14,6 +14,7 @@ import {
     FaCheckCircle,
     FaExclamationCircle,
     FaTimesCircle,
+    FaTrash,
 } from 'react-icons/fa'
 import {
     collection,
@@ -21,6 +22,7 @@ import {
     query,
     doc,
     updateDoc,
+    deleteDoc,
     Timestamp,
     getDoc,
 } from 'firebase/firestore'
@@ -73,6 +75,8 @@ const Subscriptions = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
     const [startDate, setStartDate] = useState<string>('')
     const [endDate, setEndDate] = useState<string>('')
+    const [deleteModalIsOpen, setDeleteModalIsOpen] = useState(false)
+    const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscriptions | null>(null)
 
     const getData = async () => {
         const q = query(collection(db, 'Subscripciones'))
@@ -99,7 +103,7 @@ const Subscriptions = () => {
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
-        console.log('Data de suscripciones:', resolvedSubcripciones) // Agrega este console.log
+        //console.log('Data de suscripciones:', resolvedSubcripciones) // Agrega este console.log
         setDataSubs(resolvedSubcripciones)
     }
 
@@ -237,6 +241,52 @@ const Subscriptions = () => {
         console.log('Drawer cerrado', e)
         setDrawerIsOpen(false)
         setSelectedPerson(null) // Limpiar la selección
+    }
+
+    const handleDeleteSubscription = (subscription: Subscriptions) => {
+        setSubscriptionToDelete(subscription)
+        setDeleteModalIsOpen(true)
+    }
+
+    const confirmDeleteSubscription = async () => {
+        if (subscriptionToDelete) {
+            try {
+                // Eliminar la suscripción de la colección Subscripciones
+                await deleteDoc(doc(db, 'Subscripciones', subscriptionToDelete.uid))
+                
+                // Si tiene taller_uid, verificar si el usuario existe antes de actualizar
+                if (subscriptionToDelete.taller_uid) {
+                    const userDocRef = doc(db, 'Usuarios', subscriptionToDelete.taller_uid)
+                    const userDoc = await getDoc(userDocRef)
+                    
+                    if (userDoc.exists()) {
+                        await updateDoc(userDocRef, { subscripcion_actual: null })
+                    }
+                }
+
+                toast.push(
+                    <Notification title="Suscripción eliminada">
+                        La suscripción ha sido eliminada exitosamente.
+                    </Notification>,
+                )
+
+                setDeleteModalIsOpen(false)
+                setSubscriptionToDelete(null)
+                getData() // Recargar los datos
+            } catch (error) {
+                console.error('Error eliminando la suscripción:', error)
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al eliminar la suscripción.
+                    </Notification>,
+                )
+            }
+        }
+    }
+
+    const cancelDeleteSubscription = () => {
+        setDeleteModalIsOpen(false)
+        setSubscriptionToDelete(null)
     }
 
     const [currentPage, setCurrentPage] = useState(1)
@@ -488,20 +538,29 @@ const Subscriptions = () => {
             },
         },
         {
-            header: ' ',
+            header: 'Acciones',
             cell: ({ row }) => {
                 const person = row.original
-                return person.status !== 'Vencido' &&
-                    person.comprobante_pago ? (
-                    <div className="gap-2">
+                return (
+                    <div className="flex gap-2">
+                        {person.status !== 'Vencido' && person.comprobante_pago && (
+                            <button
+                                onClick={() => openDrawer(person)}
+                                className="text-blue-900 hover:text-blue-700 transition-colors duration-200 p-1 rounded hover:bg-blue-50"
+                                title="Ver detalles"
+                            >
+                                <FaRegEye />
+                            </button>
+                        )}
                         <button
-                            onClick={() => openDrawer(person)}
-                            className="text-blue-900"
+                            onClick={() => handleDeleteSubscription(person)}
+                            className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded hover:bg-red-50"
+                            title="Eliminar suscripción"
                         >
-                            <FaRegEye />
+                            <FaTrash />
                         </button>
                     </div>
-                ) : null
+                )
             },
         },
     ]
@@ -892,6 +951,49 @@ const Subscriptions = () => {
                         >
                             Exportar
                         </Button>
+                    </div>
+                </div>
+            </Dialog>
+            
+            {/* Modal de confirmación para eliminar suscripción */}
+            <Dialog isOpen={deleteModalIsOpen} onClose={cancelDeleteSubscription}>
+                <div className="p-6">
+                    <div className="flex items-center mb-4">
+                        <div className="flex-shrink-0 w-10 h-10 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                            <FaTrash className="w-6 h-6 text-red-600" />
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            ¿Eliminar suscripción?
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Esta acción no se puede deshacer. Se eliminará permanentemente la suscripción de{' '}
+                            <span className="font-semibold text-gray-900">
+                                {subscriptionToDelete?.nombre}
+                            </span>{' '}
+                            para el taller{' '}
+                            <span className="font-semibold text-gray-900">
+                                {subscriptionToDelete?.nombre_taller}
+                            </span>.
+                        </p>
+                        <div className="flex justify-center space-x-4">
+                            <Button
+                                onClick={cancelDeleteSubscription}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={confirmDeleteSubscription}
+                                className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                style={{ backgroundColor: '#dc2626' }}
+                                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#991b1b'}
+                                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#dc2626'}
+                            >
+                                Eliminar
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </Dialog>

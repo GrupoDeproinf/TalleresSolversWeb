@@ -161,12 +161,12 @@ const OrdersTable = () => {
     const data = useAppSelector((state) => state.salesOrderList.data.orderList)
 
     const fetchData = useCallback(() => {
-        console.log('{ pageIndex, pageSize, sort, query }', {
-            pageIndex,
-            pageSize,
-            sort,
-            query,
-        })
+        // console.log('{ pageIndex, pageSize, sort, query }', {
+        //     pageIndex,
+        //     pageSize,
+        //     sort,
+        //     query,
+        // })
         dispatch(getOrders({ pageIndex, pageSize, sort, query }))
     }, [dispatch, pageIndex, pageSize, sort, query])
 

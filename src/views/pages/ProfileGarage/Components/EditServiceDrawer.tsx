@@ -100,8 +100,8 @@ const EditServiceDrawer: React.FC<EditServiceDrawerProps> = ({
                     typeService: service?.typeService || 'local',
                     subcategoria: service?.subcategoria || [],
                 }
-                console.log('Service data:', service)
-                console.log('Initial values:', initialVals)
+                //console.log('Service data:', service)
+                //console.log('Initial values:', initialVals)
                 setInitialValues(initialVals)
 
                 // Si hay un servicio seleccionado con categoría, cargar sus subcategorías
@@ -143,7 +143,7 @@ const EditServiceDrawer: React.FC<EditServiceDrawerProps> = ({
                 id: doc.id,
                 ...doc.data()
             })) as Subcategory[]
-            console.log('Subcategories loaded:', subcategories)
+            //console.log('Subcategories loaded:', subcategories)
             setDataSubcategories(subcategories)
         } catch (error) {
             console.error('Error loading subcategories:', error)

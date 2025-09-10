@@ -166,7 +166,7 @@ const NotificationSetting = ({
             }
         )
         setSubmitting(false)
-        console.log(values)
+        //console.log(values)
     }
 
     return (
