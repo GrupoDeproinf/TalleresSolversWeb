@@ -1,1 +1,0 @@
-import{a,u as t,j as s}from"./index-Nr7DOcs5.js";import{w as p}from"./withHeaderItem-TyR6xLM0.js";const r=o=>(a(),t(e=>e.theme.panelExpand),t(e=>e.theme.direction),s.jsx(s.Fragment,{})),m=p(r);export{m as S};
