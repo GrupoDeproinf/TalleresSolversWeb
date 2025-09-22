@@ -61,7 +61,7 @@ const validationSchema = Yup.object().shape({
                 .required('Este campo es obligatorio'),
     }),
     phone: Yup.string()
-        .matches(/^0\d{10}$/, 'Debe tener 11 dígitos')
+        .matches(/^[1-9]\d{10}$/, 'El teléfono debe tener 11 dígitos y no puede comenzar con 0')
         .required('Por favor ingrese su número telefónico'),
 })
 
@@ -306,7 +306,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         type="text"
                                         autoComplete="off"
                                         name="phone"
-                                        placeholder="Ejem (04141234567)"
+                                        placeholder="Ejem (4141234567)"
                                         component={Input}
                                     />
                                 </FormItem>

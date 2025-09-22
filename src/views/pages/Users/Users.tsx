@@ -168,7 +168,7 @@ const Users = () => {
             .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
             .required('La cédula es obligatoria'),
         phone: Yup.string()
-            .matches(/^\d{11}$/, 'El teléfono debe tener 11 dígitos')
+            .matches(/^[1-9]\d{10}$/, 'El teléfono debe tener 11 dígitos y no puede comenzar con 0')
             .required('El teléfono es obligatorio'),
         typeUser: Yup.string()
             .oneOf(['Cliente', 'Certificador'], 'Tipo de usuario inválido')
@@ -1073,8 +1073,21 @@ const Users = () => {
                                 <Field
                                     type="text"
                                     name="phone"
-                                    placeholder="Ejem (04142611966)"
+                                    placeholder="Ejem (4142611966)"
                                     className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                        // Prevenir escribir 0 al principio
+                                        if (e.currentTarget.value === '' && e.key === '0') {
+                                            e.preventDefault()
+                                        }
+                                    }}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        // Remover 0 al principio si se pega texto
+                                        const value = e.target.value.replace(/^0+/, '')
+                                        if (value !== e.target.value) {
+                                            e.target.value = value
+                                        }
+                                    }}
                                 />
                                 <ErrorMessage
                                     name="phone"

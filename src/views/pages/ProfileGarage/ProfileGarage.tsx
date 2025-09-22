@@ -477,8 +477,7 @@ const ProfileGarage = () => {
 
         if (
             !formData.phone ||
-            !/^\d+$/.test(formData.phone) ||
-            formData.phone.startsWith('0')
+            !/^[1-9]\d*$/.test(formData.phone)
         ) {
             toast.push(
                 <Notification title="Error">
@@ -491,8 +490,7 @@ const ProfileGarage = () => {
 
         if (
             formData.whatsapp &&
-            (!/^\d+$/.test(formData.whatsapp) ||
-                formData.whatsapp.startsWith('0'))
+            !/^[1-9]\d*$/.test(formData.whatsapp)
         ) {
             toast.push(
                 <Notification title="Error">
@@ -1123,6 +1121,8 @@ const ProfileGarage = () => {
                                                                 subscription?.status ===
                                                                 'Aprobado'
                                                                     ? 'bg-green-100 text-green-400'
+                                                                    : subscription?.status === 'Vencido'
+                                                                    ? 'bg-red-100 text-red-400'
                                                                     : 'bg-yellow-100 text-yellow-400'
                                                             }`}
                                                         >
@@ -1170,6 +1170,30 @@ const ProfileGarage = () => {
                                                     </div>
                                                 </div>
                                             </div>
+                                            {subscription?.status ===
+                                                'Vencido' && (
+                                                <div className="flex justify-end mt-2">
+                                                    <button
+                                                        onClick={() =>
+                                                            setDialogOpensub(true)
+                                                        }
+                                                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
+                                                    >
+                                                        Elegir Plan
+                                                    </button>
+                                                </div>
+                                            )}
+                                            {subscription?.status ===
+                                                'Aprobado' && (
+                                                <div className="flex justify-end mt-2">
+                                                    <button
+                                                        onClick={() => setDialogOpensub(true)}
+                                                        className="bg-blue-900 rounded-md p-2 text-white hover:bg-blue-700"
+                                                    >
+                                                        Renovar Pago
+                                                    </button>
+                                                </div>
+                                            )}
                                             {subscription?.status ===
                                                 'Por Aprobar' && (
                                                 <div className="flex justify-end mt-2">
@@ -1646,6 +1670,20 @@ const ProfileGarage = () => {
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleEditChange}
+                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                        // Prevenir escribir 0 al principio
+                                        if (e.currentTarget.value === '' && e.key === '0') {
+                                            e.preventDefault()
+                                        }
+                                    }}
+                                    onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                        // Remover 0 al principio si se pega texto
+                                        const target = e.target as HTMLInputElement
+                                        const value = target.value.replace(/^0+/, '')
+                                        if (value !== target.value) {
+                                            setFormData((prev) => ({ ...prev, phone: value }))
+                                        }
+                                    }}
                                 />
                             </label>
                             <label className="block">
@@ -1658,6 +1696,20 @@ const ProfileGarage = () => {
                                     name="whatsapp"
                                     value={formData.whatsapp}
                                     onChange={handleEditChange}
+                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                        // Prevenir escribir 0 al principio
+                                        if (e.currentTarget.value === '' && e.key === '0') {
+                                            e.preventDefault()
+                                        }
+                                    }}
+                                    onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                        // Remover 0 al principio si se pega texto
+                                        const target = e.target as HTMLInputElement
+                                        const value = target.value.replace(/^0+/, '')
+                                        if (value !== target.value) {
+                                            setFormData((prev) => ({ ...prev, whatsapp: value }))
+                                        }
+                                    }}
                                 />
                             </label>
                             <label className="flex flex-col">

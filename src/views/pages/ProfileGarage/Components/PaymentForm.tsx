@@ -125,7 +125,9 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
     const PagoMovilValidationSchema = Yup.object().shape({
         monto: Yup.number().required('El monto es obligatorio').positive('El monto debe ser positivo').min(1, 'El monto debe ser mayor a cero'),
         numReferencia: Yup.string().required('El número de referencia es obligatorio'),
-        telefono: Yup.string().required('El teléfono es obligatorio'),
+        telefono: Yup.string()
+            .required('El teléfono es obligatorio')
+            .matches(/^[1-9]\d*$/, 'El teléfono no puede comenzar con 0 y debe contener solo números'),
         bancoDestino: Yup.string().required('Selecciona un banco de destino'),
         bancoOrigen: Yup.string().required('Selecciona un banco de origen'),
         fechaPago: Yup.date().max(new Date(), 'La fecha no puede ser futura').required('La fecha es obligatoria'),
@@ -158,6 +160,64 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
         newLogoFile: null
     }
 
+    const validateDuplicatePayment = async (values: any, metodoPago: string) => {
+        try {
+            // Obtener todas las subscripciones para verificar duplicados
+            const subscripcionesRef = collection(db, 'Subscripciones')
+            const querySnapshot = await getDocs(subscripcionesRef)
+            
+            const fechaPago = new Date(values.fechaPago)
+            const fechaPagoFormateada = `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}-${String(fechaPago.getDate()).padStart(2, '0')}`
+            
+            for (const docSnapshot of querySnapshot.docs) {
+                const data = docSnapshot.data()
+                const comprobantePago = data.comprobante_pago
+                
+                if (!comprobantePago) continue
+                
+                // Verificar si la fecha coincide (solo día, mes, año)
+                if (comprobantePago.fechaPago) {
+                    const fechaExistente = comprobantePago.fechaPago.toDate()
+                    const fechaExistenteFormateada = `${fechaExistente.getFullYear()}-${String(fechaExistente.getMonth() + 1).padStart(2, '0')}-${String(fechaExistente.getDate()).padStart(2, '0')}`
+                    
+                    if (fechaExistenteFormateada === fechaPagoFormateada) {
+                        // Verificar duplicidad por número de referencia para Pago Móvil y Transferencia
+                        if ((metodoPago === 'Pago Móvil' || metodoPago === 'Transferencia') && 
+                            comprobantePago.numReferencia === values.numReferencia) {
+                            return {
+                                isDuplicate: true,
+                                message: `Ya existe un pago con el número de referencia ${values.numReferencia} en la fecha ${fechaPagoFormateada}`
+                            }
+                        }
+                        
+                        // Verificar duplicidad por correo para Zelle
+                        if (metodoPago === 'Zelle' && 
+                            comprobantePago.correo === values.correo) {
+                            return {
+                                isDuplicate: true,
+                                message: `Ya existe un pago con el correo ${values.correo} en la fecha ${fechaPagoFormateada}`
+                            }
+                        }
+                        
+                        // Verificar duplicidad por monto para Efectivo
+                        if (metodoPago === 'Efectivo' && 
+                            comprobantePago.monto === parseFloat(values.monto)) {
+                            return {
+                                isDuplicate: true,
+                                message: `Ya existe un pago en efectivo por el monto $${values.monto} en la fecha ${fechaPagoFormateada}`
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return { isDuplicate: false, message: '' }
+        } catch (error) {
+            console.error('Error al validar duplicidad:', error)
+            return { isDuplicate: false, message: '' }
+        }
+    }
+
     const handleSubmit = async (values: any) => {
         if (!subscriptionId) {
             console.error('Error: subscriptionId no está definido')
@@ -167,6 +227,17 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
         setCargando(true)
 
         try {
+            // Validar duplicidad antes de proceder
+            const validationResult = await validateDuplicatePayment(values, metodoPago)
+            if (validationResult.isDuplicate) {
+                toast.push(
+                    <Notification title="Error" type="danger">
+                        {validationResult.message}
+                    </Notification>
+                )
+                setCargando(false)
+                return
+            }
             let imageUrl = '';
             if (values.newLogoFile && metodoPago && talleruid) {
                 // Configura Firebase Storage
@@ -327,7 +398,23 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
 
                             {metodoPago === 'Pago Móvil' &&
                                 <>
-                                    <Field id="telefono" name="telefono" as={Input} placeholder="Teléfono" />
+                                    <Field 
+                                        id="telefono" 
+                                        name="telefono" 
+                                        as={Input} 
+                                        placeholder="Teléfono" 
+                                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                            // Prevenir escribir 0 al principio
+                                            if (e.currentTarget.value === '' && e.key === '0') {
+                                                e.preventDefault()
+                                            }
+                                        }}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                            // Remover 0 al principio si se pega texto
+                                            const value = e.target.value.replace(/^0+/, '')
+                                            setFieldValue('telefono', value)
+                                        }}
+                                    />
                                     <ErrorMessage name="telefono" component="div" className="text-red-500" />
                                 </>
                             }
