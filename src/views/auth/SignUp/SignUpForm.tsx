@@ -26,6 +26,7 @@ type SignUpFormSchema = {
     phone: string
     typeUser: string
     status: string
+    createdAt?: number
 }
 
 const validationSchema = Yup.object().shape({
@@ -84,6 +85,7 @@ const SignUpForm = (props: SignUpFormProps) => {
             phone: values.phone,
             typeUser: values.typeUser,
             status: 'Pendiente',
+            createdAt: Date.now(), // Timestamp en milisegundos
             ...(values.typeUser === 'Cliente'
                 ? { cedula: values.cedulaOrif }
                 : { rif: values.cedulaOrif }),

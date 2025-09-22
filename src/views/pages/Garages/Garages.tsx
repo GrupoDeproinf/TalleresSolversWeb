@@ -69,6 +69,7 @@ type Garage = {
     Direccion?: string
     ubicacion?: string
     certificador_nombre?: string
+    createdAt?: number | { seconds: number; nanoseconds?: number } | string
 
     id?: string
     status?: string
@@ -91,6 +92,8 @@ const Garages = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
     const [exportDialogIsOpen, setExportDialogIsOpen] = useState(false) // Estado para el modal de exportación
     const [showEliminados, setShowEliminados] = useState(false) // Estado para mostrar/ocultar talleres eliminados
+    const [dateFromFilter, setDateFromFilter] = useState('') // Estado para el filtro de fecha desde
+    const [dateToFilter, setDateToFilter] = useState('') // Estado para el filtro de fecha hasta
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
@@ -135,6 +138,7 @@ const Garages = () => {
             'phone',
             'status',
             'Direccion',
+            'createdAt',
         ]
 
         // Mapeo de encabezados en español
@@ -146,14 +150,39 @@ const Garages = () => {
             phone: 'Número Telefónico',
             status: 'Estado de Aprobación',
             Direccion: 'Dirección',
+            createdAt: 'Fecha de Creación',
         }
 
+        // Obtener los datos filtrados de la tabla
+        const filteredData = table.getFilteredRowModel().rows.map(row => row.original)
+
         // Preparar los datos para exportar
-        const tableData = dataGarages.map((row) => {
+        const tableData = filteredData.map((row) => {
             const rowData: Record<string, any> = {}
             camposDeseados.forEach((campo) => {
-                const value = row[campo as keyof Garage]
+                let value = row[campo as keyof Garage]
                 const header = encabezados[campo] || campo
+                
+                // Formatear la fecha de creación si es un timestamp
+                if (campo === 'createdAt' && value) {
+                    let timestampNumber: number
+                    if (typeof value === 'number') {
+                        timestampNumber = value
+                    } else if (typeof value === 'object' && (value as any).seconds) {
+                        // Si es un timestamp de Firestore
+                        timestampNumber = (value as any).seconds * 1000
+                    } else if (typeof value === 'string') {
+                        // Si es un string, intentar convertirlo
+                        timestampNumber = new Date(value).getTime()
+                    } else {
+                        timestampNumber = 0
+                    }
+                    
+                    if (timestampNumber > 0) {
+                        value = new Date(timestampNumber).toLocaleDateString('es-ES')
+                    }
+                }
+                
                 rowData[header] = value ?? ''
             })
             // Agregar columna Certificador con el email
@@ -164,21 +193,36 @@ const Garages = () => {
         if (tableData.length === 0) {
             toast.push(
                 <Notification title="Sin datos para exportar">
-                    No hay talleres disponibles para exportar.
+                    No hay talleres disponibles para exportar con los filtros aplicados.
                 </Notification>,
             )
             return
         }
 
+        // Generar nombre de archivo con información de filtros
+        let fileName = 'talleres'
+        if (searchTerm) {
+            fileName += `_filtro_${selectedColumn}_${searchTerm}`
+        }
+        if (dateFromFilter || dateToFilter) {
+            const fromDate = dateFromFilter ? new Date(dateFromFilter).toLocaleDateString('es-ES').replace(/\//g, '-') : ''
+            const toDate = dateToFilter ? new Date(dateToFilter).toLocaleDateString('es-ES').replace(/\//g, '-') : ''
+            fileName += `_fecha_${fromDate}_${toDate}`
+        }
+        if (showEliminados) {
+            fileName += '_incluye_eliminados'
+        }
+        fileName += '.xlsx'
+
         // Crear el archivo Excel
         const worksheet = XLSX.utils.json_to_sheet(tableData)
         const workbook = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Talleres')
-        XLSX.writeFile(workbook, 'talleres.xlsx')
+        XLSX.writeFile(workbook, fileName)
 
         toast.push(
             <Notification title="Exportación exitosa">
-                El archivo Excel se ha descargado correctamente.
+                El archivo Excel se ha descargado correctamente con {tableData.length} registros.
             </Notification>,
         )
         setExportDialogIsOpen(false) // Cerrar el modal
@@ -296,6 +340,7 @@ const Garages = () => {
     
             // Crear documento en Firestore
             const docRef = doc(userRef, user.uid);
+            const currentTimestamp = Date.now(); // Timestamp en milisegundos
             await setDoc(docRef, {
                 uid: user.uid,
                 nombre: values.nombre,
@@ -308,6 +353,7 @@ const Garages = () => {
                 ubicacion: coordenadas === null ? '' : coordenadas.latiLng,
                 estado: values.estado,
                 image_perfil: '', // Inicialmente vacío, se actualiza más tarde
+                createdAt: currentTimestamp,
             });
     
             let logoDownloadUrl = '';
@@ -354,14 +400,30 @@ const Garages = () => {
         const value = event.target.value
         setSearchTerm(value)
 
-        // Aplica el filtro dinámico según la columna seleccionada
-        const newFilters = [
-            {
-                id: selectedColumn, // Usar la columna seleccionada
+        // Aplicar filtros combinados: búsqueda de texto + filtros de fecha
+        const filters = []
+        
+        // Agregar filtro de búsqueda de texto si hay valor
+        if (value) {
+            filters.push({
+                id: selectedColumn,
                 value,
-            },
-        ]
-        setFiltering(newFilters)
+            })
+        }
+        
+        // Agregar filtro de fecha si hay fechas seleccionadas
+        if (dateFromFilter || dateToFilter) {
+            const dateRange = {
+                from: dateFromFilter || '',
+                to: dateToFilter || ''
+            }
+            filters.push({
+                id: 'createdAt',
+                value: JSON.stringify(dateRange),
+            })
+        }
+        
+        setFiltering(filters)
     }
 
     const handleSelectChange = (
@@ -370,16 +432,81 @@ const Garages = () => {
         const value = event.target.value
         setSelectedColumn(value)
 
-        // Aplicar filtro vacío cuando se cambia la columna
-        if (searchTerm !== '') {
-            const newFilters = [
-                {
-                    id: value, // La columna seleccionada
-                    value: searchTerm, // Filtrar por el término de búsqueda actual
-                },
-            ]
-            setFiltering(newFilters)
+        // Limpiar solo el término de búsqueda cuando se cambia la columna
+        // Los filtros de fecha se mantienen fijos
+        setSearchTerm('')
+        
+        // Si no hay filtros de fecha activos, limpiar todos los filtros
+        if (!dateFromFilter && !dateToFilter) {
+            setFiltering([])
+        } else {
+            // Mantener los filtros de fecha activos
+            applyDateRangeFilter(dateFromFilter, dateToFilter)
         }
+    }
+
+    const handleDateFromFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setDateFromFilter(value)
+        
+        // Validar que la fecha desde no sea mayor que la fecha hasta
+        if (value && dateToFilter && new Date(value) > new Date(dateToFilter)) {
+            toast.push(
+                <Notification title="Error de validación">
+                    La fecha "Desde" no puede ser mayor que la fecha "Hasta".
+                </Notification>
+            )
+            return
+        }
+        
+        applyCombinedFilters(value, dateToFilter, searchTerm)
+    }
+
+    const handleDateToFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const value = event.target.value
+        setDateToFilter(value)
+        
+        // Validar que la fecha hasta no sea menor que la fecha desde
+        if (value && dateFromFilter && new Date(value) < new Date(dateFromFilter)) {
+            toast.push(
+                <Notification title="Error de validación">
+                    La fecha "Hasta" no puede ser menor que la fecha "Desde".
+                </Notification>
+            )
+            return
+        }
+        
+        applyCombinedFilters(dateFromFilter, value, searchTerm)
+    }
+
+    const applyCombinedFilters = (fromDate: string, toDate: string, searchValue: string) => {
+        const filters = []
+        
+        // Agregar filtro de búsqueda de texto si hay valor
+        if (searchValue) {
+            filters.push({
+                id: selectedColumn,
+                value: searchValue,
+            })
+        }
+        
+        // Agregar filtro de fecha si hay fechas seleccionadas
+        if (fromDate || toDate) {
+            const dateRange = {
+                from: fromDate || '',
+                to: toDate || ''
+            }
+            filters.push({
+                id: 'createdAt',
+                value: JSON.stringify(dateRange),
+            })
+        }
+        
+        setFiltering(filters)
+    }
+
+    const applyDateRangeFilter = (fromDate: string, toDate: string) => {
+        applyCombinedFilters(fromDate, toDate, searchTerm)
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
@@ -534,6 +661,92 @@ const Garages = () => {
             },
         },
         {
+            header: 'Fecha de Creación',
+            accessorKey: 'createdAt',
+            cell: ({ getValue }) => {
+                const timestamp = getValue()
+                
+                if (!timestamp) return 'N/A'
+                
+                // Convertir el timestamp a número si es necesario
+                let timestampNumber: number
+                if (typeof timestamp === 'number') {
+                    timestampNumber = timestamp
+                } else if (typeof timestamp === 'object' && (timestamp as any).seconds) {
+                    // Si es un timestamp de Firestore
+                    timestampNumber = (timestamp as any).seconds * 1000
+                } else if (typeof timestamp === 'string') {
+                    // Si es un string, intentar convertirlo
+                    timestampNumber = new Date(timestamp).getTime()
+                } else {
+                    return 'N/A'
+                }
+                
+                return new Date(timestampNumber).toLocaleDateString('es-ES')
+            },
+            filterFn: (row, columnId, value) => {
+                if (!value) return true
+                
+                try {
+                    const dateRange = JSON.parse(value)
+                    const rowTimestamp = row.getValue(columnId)
+                    
+                    // Debug: ver qué tipo de dato tenemos
+                    console.log('Row timestamp:', rowTimestamp, 'Type:', typeof rowTimestamp)
+                    console.log('Date range filter:', dateRange)
+                    
+                    if (!rowTimestamp) return false
+                    
+                    // Convertir el timestamp a número si es necesario
+                    let timestampNumber: number
+                    if (typeof rowTimestamp === 'number') {
+                        timestampNumber = rowTimestamp
+                    } else if (typeof rowTimestamp === 'object' && (rowTimestamp as any).seconds) {
+                        // Si es un timestamp de Firestore
+                        timestampNumber = (rowTimestamp as any).seconds * 1000
+                    } else if (typeof rowTimestamp === 'string') {
+                        // Si es un string, intentar convertirlo
+                        timestampNumber = new Date(rowTimestamp).getTime()
+                    } else {
+                        console.log('Unknown timestamp format:', rowTimestamp)
+                        return false
+                    }
+                    
+                    // Convertir las fechas del filtro a timestamps (inicio y fin del día)
+                    const fromDate = dateRange.from ? new Date(dateRange.from + 'T00:00:00') : null
+                    const toDate = dateRange.to ? new Date(dateRange.to + 'T23:59:59.999') : null
+                    
+                    // Si solo hay fecha desde (comparar desde el inicio del día)
+                    if (fromDate && !toDate) {
+                        const fromTimestamp = fromDate.getTime()
+                        console.log('Filtering from:', fromTimestamp, 'Row:', timestampNumber, 'Result:', timestampNumber >= fromTimestamp)
+                        return timestampNumber >= fromTimestamp
+                    }
+                    
+                    // Si solo hay fecha hasta (comparar hasta el final del día)
+                    if (!fromDate && toDate) {
+                        const toTimestamp = toDate.getTime()
+                        console.log('Filtering to:', toTimestamp, 'Row:', timestampNumber, 'Result:', timestampNumber <= toTimestamp)
+                        console.log('To date formatted:', toDate.toISOString(), 'Row date formatted:', new Date(timestampNumber).toISOString())
+                        return timestampNumber <= toTimestamp
+                    }
+                    
+                    // Si hay ambas fechas
+                    if (fromDate && toDate) {
+                        const fromTimestamp = fromDate.getTime()
+                        const toTimestamp = toDate.getTime()
+                        console.log('Filtering range:', fromTimestamp, 'to', toTimestamp, 'Row:', timestampNumber, 'Result:', timestampNumber >= fromTimestamp && timestampNumber <= toTimestamp)
+                        return timestampNumber >= fromTimestamp && timestampNumber <= toTimestamp
+                    }
+                    
+                    return true
+                } catch (error) {
+                    console.error('Error parsing date range filter:', error)
+                    return true
+                }
+            },
+        },
+        {
             header: ' ',
             cell: ({ row }) => {
                 const person = row.original
@@ -668,6 +881,31 @@ const Garages = () => {
                 </h1>
                 <div className="flex justify-end">
                     <div className="flex items-center">
+                        {/* Filtros de fecha fijos */}
+                        <div className="flex items-center mr-4">
+                            <div className="flex gap-2">
+                                <div className="flex flex-col">
+                                    <input
+                                        type="date"
+                                        placeholder="Desde"
+                                        className="w-40 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
+                                        value={dateFromFilter}
+                                        onChange={handleDateFromFilterChange}
+                                    />
+                                    <label className="text-xs text-gray-500 mt-1">Desde</label>
+                                </div>
+                                <div className="flex flex-col">
+                                    <input
+                                        type="date"
+                                        placeholder="Hasta"
+                                        className="w-40 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
+                                        value={dateToFilter}
+                                        onChange={handleDateToFilterChange}
+                                    />
+                                    <label className="text-xs text-gray-500 mt-1">Hasta</label>
+                                </div>
+                            </div>
+                        </div>
                         {/* Toggle para mostrar/ocultar talleres eliminados */}
                         <div className="flex items-center mr-4">
                             <label className="flex items-center cursor-pointer">
@@ -1079,14 +1317,30 @@ const Garages = () => {
                                             // Prevenir escribir 0 al principio
                                             if (e.currentTarget.value === '' && e.key === '0') {
                                                 e.preventDefault()
+                                                return
+                                            }
+                                            
+                                            // Permitir solo números y teclas de control
+                                            const allowedKeys = [
+                                                'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
+                                                'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+                                                'Home', 'End', 'PageUp', 'PageDown'
+                                            ]
+                                            
+                                            // Si es una tecla de control, permitir
+                                            if (allowedKeys.includes(e.key)) {
+                                                return
+                                            }
+                                            
+                                            // Si no es un número, prevenir
+                                            if (!/[0-9]/.test(e.key)) {
+                                                e.preventDefault()
                                             }
                                         }}
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                            // Remover 0 al principio si se pega texto
-                                            const value = e.target.value.replace(/^0+/, '')
-                                            if (value !== e.target.value) {
-                                                e.target.value = value
-                                            }
+                                            // Remover 0 al principio y mantener solo números
+                                            const value = e.target.value.replace(/^0+/, '').replace(/[^0-9]/g, '')
+                                            setFieldValue('phone', value)
                                         }}
                                     />
                                     <ErrorMessage
