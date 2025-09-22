@@ -1,0 +1,1 @@
+import{r,c as u,j as s}from"./index-zN_cMCXj.js";import{ac as m}from"./index.esm-Wztopsom.js";const b=r.forwardRef((t,o)=>{const{absolute:e,className:a,defaultStyle:l,...c}=t,n=u("close-btn",l&&"close-btn-default",e&&"absolute z-10",a);return s.jsx("span",{className:n,role:"button",...c,ref:o,children:s.jsx(m,{})})});b.displayName="CloseButton";export{b as C};
