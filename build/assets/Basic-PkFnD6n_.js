@@ -1,0 +1,1 @@
+const a="data:text/markdown;base64,YGBganN4CmltcG9ydCBUaW1lSW5wdXQgZnJvbSAnQC9jb21wb25lbnRzL3VpL1RpbWVJbnB1dCcKCmNvbnN0IEJhc2ljID0gKCkgPT4gewogICAgcmV0dXJuIDxUaW1lSW5wdXQgLz4KfQoKZXhwb3J0IGRlZmF1bHQgQmFzaWMKYGBgCg==";export{a as default};

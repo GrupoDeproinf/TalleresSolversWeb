@@ -67,6 +67,7 @@ import {
 import MapsProfile from './Components/MapsProfile'
 import MapsEdit from './Components/MapsEdit'
 import EditServiceDrawer from './Components/EditServiceDrawer'
+import axios from 'axios'
 
 type Service = {
     nombre_servicio: string
@@ -118,6 +119,7 @@ const ProfileGarage = () => {
     const [dialogOpen, setDialogOpen] = useState(false)
     const [dialogOpensub, setDialogOpensub] = useState(false)
     const [editModalOpen, setEditModalOpen] = useState(false)
+    const [dataOrigin, setdataOrigin] = useState<DocumentData | null>(null)
     const [diasRestantes, setDiasRestantes] = useState<number | null>(null)
     const [subscription, setSubscription] = useState({
         fecha_fin: Timestamp,
@@ -198,6 +200,8 @@ const ProfileGarage = () => {
             const docRef = doc(db, 'Usuarios', path) // `path` es el ID del usuario o taller
             const resp = await getDoc(docRef)
             const dataFinal = resp.data() || null
+
+            setdataOrigin(dataFinal)
 
             const paymentMethodsData = dataFinal?.metodos_pago || {}
             setPaymentMethodsState((prevState) => ({
@@ -622,6 +626,26 @@ const ProfileGarage = () => {
             setData({ ...formData, image_perfil: newImageUrl })
             setEditModalOpen(false)
             getData()
+
+            console.log('Datos actualizados correctamente', formData)
+            console.log('Datos originales', dataOrigin)
+
+            if (formData?.status !== dataOrigin?.status) {
+                console.log('Cambio de estado kelfsklflksflks')
+
+                try {
+                    await axios.post('https://apisolvers.solversapp.com/api/usuarios/sendNotification', {
+                        token: dataOrigin?.token,
+                        title: 'Contacto de Usuario',
+                        body: "Hola, su usuario ha cambiado de estado a " + formData?.status + ".",
+                        secretCode: "Cambio de estado",
+                    });
+                } catch (error) {
+                    console.error('Error al enviar notificación:', error);
+                }
+
+            }
+
 
             // Notifica éxito
             toast.push(
