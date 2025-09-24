@@ -636,7 +636,7 @@ const ProfileGarage = () => {
                 try {
                     await axios.post('https://apisolvers.solversapp.com/api/usuarios/sendNotification', {
                         token: dataOrigin?.token,
-                        title: 'Contacto de Usuario',
+                        title: 'Cambio de estatus',
                         body: "Hola, su usuario ha cambiado de estado a " + formData?.status + ".",
                         secretCode: "Cambio de estado",
                     });
