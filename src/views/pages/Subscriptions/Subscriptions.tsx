@@ -35,6 +35,7 @@ import { Dialog, Drawer, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as XLSX from 'xlsx'
 import { resolve } from 'path'
+import axios from 'axios'
 
 type Subscriptions = {
     nombre?: string
@@ -139,6 +140,8 @@ const Subscriptions = () => {
         if (selectedPerson) {
             try {
                 let updateData
+                console.log('selectedPerson', selectedPerson)
+
                 if (selectedPerson.status === 'Por Aprobar') {
                     // Datos para limpiar fechas
                     updateData = {
@@ -158,6 +161,24 @@ const Subscriptions = () => {
                             doc(db, 'Usuarios', selectedPerson.taller_uid),
                             { subscripcion_actual: updateData },
                         )
+
+                        // Buscar el documento en Usuarios después de la actualización
+                        const userDoc = await getDoc(doc(db, 'Usuarios', selectedPerson.taller_uid));
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data()
+                            console.log('userData', userData)
+
+                            try {
+                                await axios.post('https://apisolvers.solversapp.com/api/usuarios/sendNotification', {
+                                    token: userData?.token,
+                                    title: 'Codigo Validado',
+                                    body: "Hola, se ha rechazado su pago",
+                                    secretCode: "Validar codigo",
+                                });
+                            } catch (error) {
+                                console.error('Error al enviar notificación:', error);
+                            }
+                        }
                     }
 
                     // Notificación de éxito
@@ -170,6 +191,26 @@ const Subscriptions = () => {
                     setDrawerIsOpen(false)
                     getData()
                     return
+                } else {
+                    if (selectedPerson.taller_uid) {
+                        // Buscar el documento en Usuarios después de la actualización
+                        const userDoc = await getDoc(doc(db, 'Usuarios', selectedPerson.taller_uid));
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data()
+                            console.log('userData', userData)
+
+                            try {
+                                await axios.post('https://apisolvers.solversapp.com/api/usuarios/sendNotification', {
+                                    token: userData?.token,
+                                    title: 'Codigo Validado',
+                                    body: "Hola, se ha validado su pago exitosamente",
+                                    secretCode: "Validar codigo",
+                                });
+                            } catch (error) {
+                                console.error('Error al enviar notificación:', error);
+                            }
+                        }
+                    }
                 }
 
                 const fechaInicio = new Date()
@@ -253,12 +294,12 @@ const Subscriptions = () => {
             try {
                 // Eliminar la suscripción de la colección Subscripciones
                 await deleteDoc(doc(db, 'Subscripciones', subscriptionToDelete.uid))
-                
+
                 // Si tiene taller_uid, verificar si el usuario existe antes de actualizar
                 if (subscriptionToDelete.taller_uid) {
                     const userDocRef = doc(db, 'Usuarios', subscriptionToDelete.taller_uid)
                     const userDoc = await getDoc(userDocRef)
-                    
+
                     if (userDoc.exists()) {
                         await updateDoc(userDocRef, { subscripcion_actual: null })
                     }
@@ -474,7 +515,7 @@ const Subscriptions = () => {
             header: 'Taller Subscrito',
             accessorKey: 'nombre_taller',
         },
-        {  
+        {
             header: 'Correo Taller',
             accessorKey: 'correo_taller',
         },
@@ -754,21 +795,21 @@ const Subscriptions = () => {
                                     selectedPerson.comprobante_pago
                                         .fechaPago instanceof Timestamp
                                         ? // Si es un Timestamp de Firebase, usar .toDate() para convertirlo a un objeto Date
-                                          new Date(
-                                              selectedPerson.comprobante_pago.fechaPago.toDate(),
-                                          ).toLocaleDateString('es-ES', {
-                                              year: 'numeric',
-                                              month: 'long',
-                                              day: 'numeric',
-                                          })
+                                        new Date(
+                                            selectedPerson.comprobante_pago.fechaPago.toDate(),
+                                        ).toLocaleDateString('es-ES', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                        })
                                         : // Si es un string ISO, lo convertimos a Date y usamos toLocaleDateString
-                                          new Date(
-                                              selectedPerson.comprobante_pago.fechaPago,
-                                          ).toLocaleDateString('es-ES', {
-                                              year: 'numeric',
-                                              month: 'long',
-                                              day: 'numeric',
-                                          })
+                                        new Date(
+                                            selectedPerson.comprobante_pago.fechaPago,
+                                        ).toLocaleDateString('es-ES', {
+                                            year: 'numeric',
+                                            month: 'long',
+                                            day: 'numeric',
+                                        })
                                 }
                                 readOnly
                                 className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
@@ -954,7 +995,7 @@ const Subscriptions = () => {
                     </div>
                 </div>
             </Dialog>
-            
+
             {/* Modal de confirmación para eliminar suscripción */}
             <Dialog isOpen={deleteModalIsOpen} onClose={cancelDeleteSubscription}>
                 <div className="p-6">
