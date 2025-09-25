@@ -339,28 +339,32 @@ const Users = () => {
                 )
                 const phoneSnapshot = await getDocs(phoneQuery)
 
-                if (
-                    !cedulaSnapshot.empty &&
-                    cedulaSnapshot.docs[0].data().uid !== selectedPerson.uid
-                ) {
-                    toast.push(
-                        <Notification title="Error">
-                            ¡La cédula ya está registrada!
-                        </Notification>,
-                    )
-                    return
+                // Validar cédula: debe ser única o la misma que ya tenía el usuario
+                if (!cedulaSnapshot.empty) {
+                    const existingUser = cedulaSnapshot.docs[0].data()
+                    // Si la cédula existe y pertenece a otro usuario (diferente UID), es un error
+                    if (existingUser.uid !== selectedPerson.uid) {
+                        toast.push(
+                            <Notification title="Error">
+                                ¡La cédula ya está registrada por otro usuario!
+                            </Notification>,
+                        )
+                        return
+                    }
                 }
 
-                if (
-                    !phoneSnapshot.empty &&
-                    phoneSnapshot.docs[0].data().uid !== selectedPerson.uid
-                ) {
-                    toast.push(
-                        <Notification title="Error">
-                            ¡El número de teléfono ya está registrado!
-                        </Notification>,
-                    )
-                    return
+                // Validar teléfono: debe ser único o el mismo que ya tenía el usuario
+                if (!phoneSnapshot.empty) {
+                    const existingUser = phoneSnapshot.docs[0].data()
+                    // Si el teléfono existe y pertenece a otro usuario (diferente UID), es un error
+                    if (existingUser.uid !== selectedPerson.uid) {
+                        toast.push(
+                            <Notification title="Error">
+                                ¡El número de teléfono ya está registrado por otro usuario!
+                            </Notification>,
+                        )
+                        return
+                    }
                 }
 
                 const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
@@ -855,12 +859,21 @@ const Users = () => {
                         <input
                             type="text"
                             value={selectedPerson?.phone || ''}
-                            onChange={(e) =>
+                            placeholder="Ejem (4142611966)"
+                            onChange={(e) => {
+                                // Remover 0 al principio si se pega texto
+                                const value = e.target.value.replace(/^0+/, '')
                                 setSelectedPerson((prev: any) => ({
                                     ...prev,
-                                    phone: e.target.value,
+                                    phone: value,
                                 }))
-                            }
+                            }}
+                            onKeyDown={(e) => {
+                                // Prevenir escribir 0 al principio
+                                if (e.currentTarget.value === '' && e.key === '0') {
+                                    e.preventDefault()
+                                }
+                            }}
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         />
                     </label>
@@ -1084,9 +1097,8 @@ const Users = () => {
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                         // Remover 0 al principio si se pega texto
                                         const value = e.target.value.replace(/^0+/, '')
-                                        if (value !== e.target.value) {
-                                            e.target.value = value
-                                        }
+                                        // Actualizar el valor del campo usando Formik
+                                        setFieldValue('phone', value)
                                     }}
                                 />
                                 <ErrorMessage
