@@ -32,7 +32,7 @@ import ServecesxGarage from '@/components/icons/servicesxgaregeicon'
 import PlansIcon from '@/components/icons/plansicon'
 import AnalyticsUpIcon from '@/components/icons/dashtboardicon'
 import { IoIosContacts } from 'react-icons/io'
-import { FaRegStar } from 'react-icons/fa'
+import { FaRegStar, FaListAlt } from 'react-icons/fa'
 
 export type NavigationIcons = Record<string, JSX.Element>
 
@@ -73,6 +73,7 @@ const navigationIcon: NavigationIcons = {
     subscriptions: <CustomIcon></CustomIcon>,
     ServiceContact: <IoIosContacts ></IoIosContacts>,
     Puntuacion: <FaRegStar></FaRegStar>,
+    servicesList: <FaListAlt />,
 }
 
 export default navigationIcon

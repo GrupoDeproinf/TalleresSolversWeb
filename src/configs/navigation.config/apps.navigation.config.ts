@@ -79,6 +79,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
+                key: 'apps.servicesList',
+                path: `${APP_PREFIX_PATH}/services-list`,
+                title: 'Lista de Servicios',
+                translateKey: 'Lista de Servicios',
+                icon: 'servicesList',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN, USER],
+                subMenu: [],
+            },
+            {
                 key: 'apps.services',
                 path: `${APP_PREFIX_PATH}/services`,
                 title: 'Plantillas Servicios',
@@ -148,6 +158,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN],
                 subMenu: [],
             },
+            
         ],
     },
 ]
