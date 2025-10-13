@@ -747,6 +747,33 @@ const Garages = () => {
             },
         },
         {
+            header: 'Fecha de Visita',
+            accessorKey: 'scheduled_visit',
+            cell: ({ getValue }) => {
+                const timestamp = getValue()
+                
+                if (!timestamp) return 'N/A'
+                
+                // Convertir el timestamp a número si es necesario
+                let timestampNumber: number
+                if (typeof timestamp === 'number') {
+                    timestampNumber = timestamp
+                } else if (typeof timestamp === 'object' && (timestamp as any).seconds) {
+                    // Si es un timestamp de Firestore
+                    timestampNumber = (timestamp as any).seconds * 1000
+                } else if (typeof timestamp === 'string') {
+                    // Si es un string, intentar convertirlo
+                    timestampNumber = new Date(timestamp).getTime()
+                } else {
+                    return 'N/A'
+                }
+                
+                return new Date(timestampNumber).toLocaleDateString('es-ES')
+            },
+            filterFn: 'includesString',
+            footer: (props) => props.column.id,
+        },
+        {
             header: ' ',
             cell: ({ row }) => {
                 const person = row.original
@@ -868,108 +895,114 @@ const Garages = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    {' '}
-                    <span className="text-[#000B7E]">Talleres</span>
-                    <button
-                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
-                        onClick={handleRefresh}
-                    >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
-                    </button>
-                </h1>
-                <div className="flex justify-end">
-                    <div className="flex items-center">
-                        {/* Filtros de fecha fijos */}
-                        <div className="flex items-center mr-4">
-                            <div className="flex gap-2">
-                                <div className="flex flex-col">
-                                    <input
-                                        type="date"
-                                        placeholder="Desde"
-                                        className="w-40 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
-                                        value={dateFromFilter}
-                                        onChange={handleDateFromFilterChange}
-                                    />
-                                    <label className="text-xs text-gray-500 mt-1">Desde</label>
-                                </div>
-                                <div className="flex flex-col">
-                                    <input
-                                        type="date"
-                                        placeholder="Hasta"
-                                        className="w-40 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
-                                        value={dateToFilter}
-                                        onChange={handleDateToFilterChange}
-                                    />
-                                    <label className="text-xs text-gray-500 mt-1">Hasta</label>
-                                </div>
-                            </div>
-                        </div>
-                        {/* Toggle para mostrar/ocultar talleres eliminados */}
-                        <div className="flex items-center mr-4">
-                            <label className="flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={showEliminados}
-                                    onChange={(e) => {
-                                        setShowEliminados(e.target.checked)
-                                    }}
-                                    className="sr-only"
-                                />
-                                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                    showEliminados ? 'bg-blue-600' : 'bg-gray-300'
-                                }`}>
-                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                        showEliminados ? 'translate-x-6' : 'translate-x-1'
-                                    }`} />
-                                </div>
-                                <span className="ml-2 text-sm text-gray-700">
-                                    Mostrar eliminados
-                                </span>
-                            </label>
-                        </div>
-                        <div className="relative w-32">
-                            {' '}
-                            <select
-                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onChange={handleSelectChange}
-                                value={selectedColumn}
-                            >
-                                <option value="" disabled>
-                                    Seleccionar columna...
-                                </option>
-                                <option value="nombre">Nombre</option>
-                                <option value="rif">Rif</option>
-                                <option value="email">Email</option>
-                                <option value="status">Estado</option>
-                            </select>
-                        </div>
-                        <div className="relative w-80 ml-4">
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
-                        </div>
-                        <Button
-                            className="w-40 ml-4 text-white hover:opacity-80"
-                            style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)}
-                        >
-                            Crear Taller
-                        </Button>
+            <div className="mb-6">
+                {/* Fila del título */}
+                <div className="flex justify-between items-center mb-4">
+                    <h1 className="flex justify-start items-center space-x-4">
+                        <span className="text-[#000B7E] text-2xl font-bold">Talleres</span>
                         <button
-                            style={{ backgroundColor: '#10B981' }}
-                            className="w-40 ml-4 p-2 text-white rounded-md shadow-md hover:bg-green-600 active:bg-green-700 transition duration-200 hover:opacity-80"
-                            onClick={handleOpenExportDialog}
+                            className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                            onClick={handleRefresh}
                         >
-                            Exportar a Excel
+                            <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                         </button>
+                    </h1>
+                </div>
+                
+                {/* Fila de filtros y acciones */}
+                <div className="flex flex-wrap gap-3 items-start justify-end">
+                    {/* Filtros de fecha */}
+                    <div className="flex items-start gap-2">
+                        <div className="flex flex-col">
+                            <input
+                                type="date"
+                                placeholder="Desde"
+                                className="w-36 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
+                                value={dateFromFilter}
+                                onChange={handleDateFromFilterChange}
+                            />
+                            <label className="text-xs text-gray-500 mt-1">Desde</label>
+                        </div>
+                        <div className="flex flex-col">
+                            <input
+                                type="date"
+                                placeholder="Hasta"
+                                className="w-36 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
+                                value={dateToFilter}
+                                onChange={handleDateToFilterChange}
+                            />
+                            <label className="text-xs text-gray-500 mt-1">Hasta</label>
+                        </div>
                     </div>
+                    
+                    {/* Toggle para mostrar/ocultar talleres eliminados */}
+                    <div className="flex items-center">
+                        <label className="flex items-center cursor-pointer whitespace-nowrap">
+                            <input
+                                type="checkbox"
+                                checked={showEliminados}
+                                onChange={(e) => {
+                                    setShowEliminados(e.target.checked)
+                                }}
+                                className="sr-only"
+                            />
+                            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                showEliminados ? 'bg-blue-600' : 'bg-gray-300'
+                            }`}>
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    showEliminados ? 'translate-x-6' : 'translate-x-1'
+                                }`} />
+                            </div>
+                            <span className="ml-2 text-sm text-gray-700">
+                                Mostrar eliminados
+                            </span>
+                        </label>
+                    </div>
+                    
+                    {/* Select de columna */}
+                    <select
+                        className="h-10 w-32 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        onChange={handleSelectChange}
+                        value={selectedColumn}
+                    >
+                        <option value="" disabled>
+                            Seleccionar columna...
+                        </option>
+                        <option value="nombre">Nombre</option>
+                        <option value="rif">Rif</option>
+                        <option value="email">Email</option>
+                        <option value="status">Estado</option>
+                    </select>
+                    
+                    {/* Campo de búsqueda */}
+                    <div className="relative w-64">
+                        <input
+                            type="text"
+                            placeholder="Buscar..."
+                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                        />
+                        <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                    </div>
+                    
+                    {/* Botón Crear Taller */}
+                    <Button
+                        className="w-36 text-white hover:opacity-80 text-sm"
+                        style={{ backgroundColor: '#000B7E' }}
+                        onClick={() => setDrawerCreateIsOpen(true)}
+                    >
+                        Crear Taller
+                    </Button>
+                    
+                    {/* Botón Exportar */}
+                    <button
+                        style={{ backgroundColor: '#10B981' }}
+                        className="w-36 h-10 px-3 text-white rounded-md shadow-md hover:bg-green-600 active:bg-green-700 transition duration-200 hover:opacity-80 text-sm"
+                        onClick={handleOpenExportDialog}
+                    >
+                        Exportar a Excel
+                    </button>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">
