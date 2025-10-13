@@ -750,25 +750,8 @@ const Garages = () => {
             header: 'Fecha de Visita',
             accessorKey: 'scheduled_visit',
             cell: ({ getValue }) => {
-                const timestamp = getValue()
-                
-                if (!timestamp) return 'N/A'
-                
-                // Convertir el timestamp a número si es necesario
-                let timestampNumber: number
-                if (typeof timestamp === 'number') {
-                    timestampNumber = timestamp
-                } else if (typeof timestamp === 'object' && (timestamp as any).seconds) {
-                    // Si es un timestamp de Firestore
-                    timestampNumber = (timestamp as any).seconds * 1000
-                } else if (typeof timestamp === 'string') {
-                    // Si es un string, intentar convertirlo
-                    timestampNumber = new Date(timestamp).getTime()
-                } else {
-                    return 'N/A'
-                }
-                
-                return new Date(timestampNumber).toLocaleDateString('es-ES')
+                const value = getValue()
+                return value || 'N/A'
             },
             filterFn: 'includesString',
             footer: (props) => props.column.id,
