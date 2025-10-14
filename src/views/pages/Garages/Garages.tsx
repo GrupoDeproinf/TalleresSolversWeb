@@ -70,6 +70,7 @@ type Garage = {
     ubicacion?: string
     certificador_nombre?: string
     createdAt?: number | { seconds: number; nanoseconds?: number } | string
+    scheduled_visit?: string
 
     id?: string
     status?: string
@@ -83,7 +84,9 @@ const Garages = () => {
         null,
     )
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
-    const [sorting, setSorting] = useState<ColumnSort[]>([])
+    const [sorting, setSorting] = useState<ColumnSort[]>([
+        { id: 'scheduled_visit', desc: false } // Ordenar por fecha de visita ascendente (más cercanas primero)
+    ])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
     const [searchTerm, setSearchTerm] = useState('')
@@ -552,6 +555,26 @@ const Garages = () => {
         return color
     }
 
+    // Función para convertir fecha "dd-mm-yyyy" a timestamp
+    const parseDateString = (dateString: string | undefined): number => {
+        if (!dateString) return 0
+        const parts = dateString.split('-')
+        if (parts.length !== 3) return 0
+        const day = parseInt(parts[0], 10)
+        const month = parseInt(parts[1], 10) - 1 // Los meses en JS van de 0 a 11
+        const year = parseInt(parts[2], 10)
+        return new Date(year, month, day).getTime()
+    }
+
+    // Función para verificar si la fecha ya pasó
+    const isDatePast = (dateString: string | undefined): boolean => {
+        if (!dateString) return false
+        const dateTimestamp = parseDateString(dateString)
+        const today = new Date()
+        today.setHours(0, 0, 0, 0) // Resetear horas para comparar solo la fecha
+        return dateTimestamp < today.getTime()
+    }
+
     const columns: ColumnDef<Garage>[] = [
         {
             header: 'Nombre',
@@ -594,6 +617,14 @@ const Garages = () => {
         {
             header: 'Certificador',
             accessorKey: 'certificador_nombre',
+        },
+        {
+            header: 'Email',
+            accessorKey: 'email',
+            filterFn: (row, columnId, filterValue) => {
+                const email = row.getValue(columnId) as string
+                return email?.toLowerCase().includes(filterValue.toLowerCase()) || false
+            },
         },
         {
             header: 'Numero Telefonico',
@@ -752,6 +783,22 @@ const Garages = () => {
             cell: ({ getValue }) => {
                 const value = getValue()
                 return value || 'N/A'
+            },
+            sortingFn: (rowA, rowB, columnId) => {
+                const valueA = rowA.getValue(columnId) as string
+                const valueB = rowB.getValue(columnId) as string
+                
+                // Si A no tiene fecha pero B sí, B va primero
+                if (!valueA && valueB) return 1
+                // Si B no tiene fecha pero A sí, A va primero
+                if (valueA && !valueB) return -1
+                // Si ninguno tiene fecha, son iguales
+                if (!valueA && !valueB) return 0
+                
+                // Si ambos tienen fecha, ordenar por fecha
+                const dateA = parseDateString(valueA)
+                const dateB = parseDateString(valueB)
+                return dateA - dateB
             },
             filterFn: 'includesString',
             footer: (props) => props.column.id,
@@ -1029,16 +1076,33 @@ const Garages = () => {
                             .rows.slice(startIndex, endIndex)
                             .map((row) => {
                                 const isEliminado = row.original.status === 'Eliminado'
+                                const isPastVisit = isDatePast(row.original.scheduled_visit)
+                                
+                                // Determinar el estilo de la fila
+                                let rowClassName = ''
+                                if (isEliminado) {
+                                    rowClassName = 'opacity-50 bg-gray-50'
+                                } else if (isPastVisit) {
+                                    rowClassName = 'bg-red-100 hover:bg-red-200'
+                                }
+                                
                                 return (
                                     <Tr 
                                         key={row.id}
-                                        className={isEliminado ? 'opacity-50 bg-gray-50' : ''}
+                                        className={rowClassName}
                                     >
                                         {row.getVisibleCells().map((cell) => {
+                                            let cellClassName = ''
+                                            if (isEliminado) {
+                                                cellClassName = 'line-through text-gray-500'
+                                            } else if (isPastVisit) {
+                                                cellClassName = 'text-red-900 font-medium'
+                                            }
+                                            
                                             return (
                                                 <Td 
                                                     key={cell.id}
-                                                    className={isEliminado ? 'line-through text-gray-500' : ''}
+                                                    className={cellClassName}
                                                 >
                                                     {flexRender(
                                                         cell.column.columnDef
