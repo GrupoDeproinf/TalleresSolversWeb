@@ -370,6 +370,10 @@ const ProfileGarage = () => {
                 fechaCreacion: Timestamp.fromDate(new Date()),
             })
 
+            const fechaInicio = new Date()
+            const fechaFin = new Date(fechaInicio)
+            fechaFin.setMonth(fechaFin.getMonth() + 1)
+
             await updateDoc(usuarioDocRef, {
                 subscripcion_actual: {
                     uid: newSubscriptionRef.id,
@@ -378,6 +382,8 @@ const ProfileGarage = () => {
                     vigencia: plan.vigencia,
                     cantidad_servicios: plan.cantidad_servicios,
                     status: 'Por Aprobar',
+                    fecha_inicio: Timestamp.fromDate(fechaInicio),
+                    fecha_fin: Timestamp.fromDate(fechaFin),
                 },
             })
 

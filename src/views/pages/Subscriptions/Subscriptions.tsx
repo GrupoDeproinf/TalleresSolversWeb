@@ -70,6 +70,7 @@ const Subscriptions = () => {
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [selectedColumn, setSelectedColumn] = useState<string>('nombre') // Establecer 'nombre' como valor por defecto
     const [searchTerm, setSearchTerm] = useState('') // Estado para el término de búsqueda
+    const [selectedStatus, setSelectedStatus] = useState<string>('') // Estado para el filtro de estados
     const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
         null,
     )
@@ -369,6 +370,28 @@ const Subscriptions = () => {
             setFiltering(newFilters)
         }
     }
+
+    const handleStatusChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const value = event.target.value
+        setSelectedStatus(value)
+
+        // Aplicar filtro de estado
+        if (value === '') {
+            // Si no hay estado seleccionado, limpiar filtros de estado
+            const newFilters = filtering.filter(filter => filter.id !== 'status')
+            setFiltering(newFilters)
+        } else {
+            // Aplicar filtro de estado
+            const newFilters = filtering.filter(filter => filter.id !== 'status')
+            newFilters.push({
+                id: 'status',
+                value: value,
+            })
+            setFiltering(newFilters)
+        }
+    }
     const handleExportToExcel = () => {
         if (!startDate || !endDate) {
             toast.push(
@@ -635,18 +658,30 @@ const Subscriptions = () => {
                 </h1>
                 <div className="flex justify-end">
                     <div className="flex items-center">
-                        <div className="relative w-24">
+                        <div className="relative w-32">
                             <select
-                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="h-11 w-full py-2.5 px-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 cursor-pointer text-sm font-medium text-gray-700"
                                 onChange={handleSelectChange}
                                 value={selectedColumn}
                             >
-                                <option value="" disabled>
+                                <option value="" disabled className="text-gray-400">
                                     Seleccionar columna...
                                 </option>
-                                <option value="nombre">Plan</option>
-                                <option value="nombre_taller">Taller</option>
-                                <option value="status">Estado</option>
+                                <option value="nombre" className="text-gray-700">Plan</option>
+                                <option value="nombre_taller" className="text-gray-700">Taller</option>
+                            </select>
+                        </div>
+                        <div className="relative w-48 ml-4">
+                            <select
+                                className="h-11 w-full py-2.5 px-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 cursor-pointer text-sm font-medium text-gray-700"
+                                onChange={handleStatusChange}
+                                value={selectedStatus}
+                            >
+                                <option value="" className="text-gray-700">
+                                    Todos los estados
+                                </option>
+                                <option value="Aprobado" className="text-green-700 font-semibold">Aprobados</option>
+                                <option value="Por Aprobar" className="text-yellow-500 font-semibold">Por Aprobar</option>
                             </select>
                         </div>
                         <div className="relative w-80 ml-4">

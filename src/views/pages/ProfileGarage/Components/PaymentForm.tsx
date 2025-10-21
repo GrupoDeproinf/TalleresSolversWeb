@@ -180,31 +180,36 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                     const fechaExistente = comprobantePago.fechaPago.toDate()
                     const fechaExistenteFormateada = `${fechaExistente.getFullYear()}-${String(fechaExistente.getMonth() + 1).padStart(2, '0')}-${String(fechaExistente.getDate()).padStart(2, '0')}`
                     
-                    if (fechaExistenteFormateada === fechaPagoFormateada) {
-                        // Verificar duplicidad por número de referencia para Pago Móvil y Transferencia
-                        if ((metodoPago === 'Pago Móvil' || metodoPago === 'Transferencia') && 
-                            comprobantePago.numReferencia === values.numReferencia) {
-                            return {
-                                isDuplicate: true,
-                                message: `Ya existe un pago con el número de referencia ${values.numReferencia} en la fecha ${fechaPagoFormateada}`
-                            }
-                        }
+                    // Verificar si la fecha y el monto coinciden
+                    if (fechaExistenteFormateada === fechaPagoFormateada && 
+                        comprobantePago.monto === parseFloat(values.monto)) {
                         
-                        // Verificar duplicidad por correo para Zelle
-                        if (metodoPago === 'Zelle' && 
-                            comprobantePago.correo === values.correo) {
-                            return {
-                                isDuplicate: true,
-                                message: `Ya existe un pago con el correo ${values.correo} en la fecha ${fechaPagoFormateada}`
+                        // Verificar si es el mismo taller
+                        if (data.taller_uid === talleruid) {
+                            // Verificar duplicidad por número de referencia para Pago Móvil y Transferencia
+                            if ((metodoPago === 'Pago Móvil' || metodoPago === 'Transferencia') && 
+                                comprobantePago.numReferencia === values.numReferencia) {
+                                return {
+                                    isDuplicate: true,
+                                    message: `Ya existe un pago con el número de referencia ${values.numReferencia} en la fecha ${fechaPagoFormateada} para este taller`
+                                }
                             }
-                        }
-                        
-                        // Verificar duplicidad por monto para Efectivo
-                        if (metodoPago === 'Efectivo' && 
-                            comprobantePago.monto === parseFloat(values.monto)) {
-                            return {
-                                isDuplicate: true,
-                                message: `Ya existe un pago en efectivo por el monto $${values.monto} en la fecha ${fechaPagoFormateada}`
+                            
+                            // Verificar duplicidad por correo para Zelle
+                            if (metodoPago === 'Zelle' && 
+                                comprobantePago.correo === values.correo) {
+                                return {
+                                    isDuplicate: true,
+                                    message: `Ya existe un pago con el correo ${values.correo} en la fecha ${fechaPagoFormateada} para este taller`
+                                }
+                            }
+                            
+                            // Verificar duplicidad por monto para Efectivo
+                            if (metodoPago === 'Efectivo') {
+                                return {
+                                    isDuplicate: true,
+                                    message: `Ya existe un pago en efectivo por el monto $${values.monto} en la fecha ${fechaPagoFormateada} para este taller`
+                                }
                             }
                         }
                     }
