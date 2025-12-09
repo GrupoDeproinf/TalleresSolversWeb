@@ -23,6 +23,10 @@ import {
     FaRegEye,
     FaTimesCircle,
     FaTrash,
+    FaFileUpload,
+    FaFilePdf,
+    FaImage,
+    FaTimes,
 } from 'react-icons/fa'
 import {
     collection,
@@ -240,6 +244,7 @@ const Garages = () => {
     }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
+    const [isCreating, setIsCreating] = useState(false)
     const [newGarage, setNewGarage] = useState<Garage | null>({
         nombre: '',
         email: '',
@@ -297,8 +302,6 @@ const Garages = () => {
     const [showPassword, setShowPassword] = useState(false)
 
     const handleCreateGarage = async (values: any, coordenadas: any) => {
-        console.log('Datos del garage a crear', values);
-    
         if (values.password !== values.confirmPassword) {
             toast.push(
                 <Notification title="Error">
@@ -307,7 +310,8 @@ const Garages = () => {
             );
             return;
         }
-        console.log(coordenadas)
+
+        setIsCreating(true);
 
         try {
             const userRef = collection(db, 'Usuarios');
@@ -317,6 +321,7 @@ const Garages = () => {
             const emailQuery = query(userRef, where('email', '==', emailLower));
             const emailSnapshot = await getDocs(emailQuery);
             if (!emailSnapshot.empty) {
+                setIsCreating(false);
                 toast.push(<Notification title="Error">¡El correo electrónico ya está registrado!</Notification>);
                 return;
             }
@@ -325,6 +330,7 @@ const Garages = () => {
             const rifQuery = query(userRef, where('rif', '==', values.rif));
             const rifSnapshot = await getDocs(rifQuery);
             if (!rifSnapshot.empty) {
+                setIsCreating(false);
                 toast.push(<Notification title="Error">¡El RIF ya está registrado!</Notification>);
                 return;
             }
@@ -333,6 +339,7 @@ const Garages = () => {
             const phoneQuery = query(userRef, where('phone', '==', values.phone));
             const phoneSnapshot = await getDocs(phoneQuery);
             if (!phoneSnapshot.empty) {
+                setIsCreating(false);
                 toast.push(<Notification title="Error">¡El número de teléfono ya está registrado!</Notification>);
                 return;
             }
@@ -343,8 +350,10 @@ const Garages = () => {
     
             // Crear documento en Firestore
             const docRef = doc(userRef, user.uid);
-            const currentTimestamp = Date.now(); // Timestamp en milisegundos
-            await setDoc(docRef, {
+            const currentTimestamp = Date.now();
+            
+            // Preparar datos iniciales del documento
+            const initialData: Record<string, any> = {
                 uid: user.uid,
                 nombre: values.nombre,
                 email: emailLower,
@@ -355,46 +364,127 @@ const Garages = () => {
                 Direccion: values.Direccion,
                 ubicacion: coordenadas === null ? '' : coordenadas.latiLng,
                 estado: values.estado,
-                image_perfil: '', // Inicialmente vacío, se actualiza más tarde
+                image_perfil: '',
                 createdAt: currentTimestamp,
-            });
-    
-            let logoDownloadUrl = '';
-    
-            // Subir imagen si se proporciona
-            if (values.image_file) {
-                // Obtener la extensión del archivo
-                const fileType = values.image_file.name.split('.').pop()?.toLowerCase();
-    
-                // Validar si el archivo es una imagen válida
-                if (!fileType || !['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
-                    toast.push(
-                        <Notification title="Error">
-                            Tipo de archivo no soportado. Solo se permiten imágenes.
-                        </Notification>
-                    );
-                    return;
-                }
-    
-                // Subir la imagen al Storage
-                const newImageName = `${user.uid}_1.${fileType}`; // Usar la extensión del archivo
-                const storageRef = ref(storage, `profileImages/${newImageName}`);
-                const imageFile = values.image_file; // Asegúrate de que sea un archivo `File`
-                await uploadBytes(storageRef, imageFile);
-    
-                // Obtener la URL de la imagen subida
-                logoDownloadUrl = await getDownloadURL(storageRef);
-    
-                // Actualizar la URL de la imagen en Firestore
-                await updateDoc(docRef, { image_perfil: logoDownloadUrl });
-            }
-    
-            toast.push(<Notification title="Éxito">Taller creado y autenticado con éxito.</Notification>);
+            };
+
+            await setDoc(docRef, initialData);
+
+            // Cerrar drawer inmediatamente después de crear el usuario
             setDrawerCreateIsOpen(false);
-            getData(); // Refrescar lista
-        } catch (error) {
+            setSelectedPlace(null);
+            setIsCreating(false);
+            
+            // Mostrar notificación de éxito
+            toast.push(
+                <Notification title="Éxito">
+                    Taller creado exitosamente. Los documentos se están subiendo en segundo plano.
+                </Notification>
+            );
+            
+            // Refrescar lista
+            getData();
+    
+            // Función helper para subir documentos (en segundo plano)
+            const uploadDocument = async (file: File | null, fieldName: string): Promise<string | null> => {
+                if (!file) return null;
+
+                try {
+                    // Obtener la extensión del archivo
+                    const fileType = file.name.split('.').pop()?.toLowerCase();
+                    if (!fileType) {
+                        console.warn(`No se pudo obtener la extensión del archivo: ${fieldName}`);
+                        return null;
+                    }
+
+                    // Crear el nombre del archivo: {nombreCampo}.{extension}
+                    const fileName = `${fieldName}.${fileType}`;
+                    const storageRef = ref(storage, `documents/${user.uid}/${fileName}`);
+                    
+                    // Subir el archivo
+                    await uploadBytes(storageRef, file);
+                    
+                    // Obtener la URL del archivo subido
+                    const downloadUrl = await getDownloadURL(storageRef);
+                    return downloadUrl;
+                } catch (error) {
+                    console.error(`Error subiendo ${fieldName}:`, error);
+                    return null;
+                }
+            };
+
+            // Subir logo del perfil en segundo plano
+            if (values.image_file) {
+                (async () => {
+                    try {
+                        const fileType = values.image_file.name.split('.').pop()?.toLowerCase();
+                        // Aceptar jpg, jpeg, png, webp
+                        if (fileType && ['png', 'jpg', 'jpeg', 'webp'].includes(fileType)) {
+                            const newImageName = `${user.uid}_1.${fileType}`;
+                            const storageRef = ref(storage, `profileImages/${newImageName}`);
+                            await uploadBytes(storageRef, values.image_file);
+                            const logoDownloadUrl = await getDownloadURL(storageRef);
+                            await updateDoc(docRef, { image_perfil: logoDownloadUrl });
+                        }
+                    } catch (error) {
+                        console.error('Error subiendo logo:', error);
+                    }
+                })();
+            }
+
+            // Subir documentos opcionales en segundo plano (no bloquea)
+            (async () => {
+                try {
+                    const documentPromises = [
+                        uploadDocument(values.rifIdFiscal_file, 'rifIdFiscal'),
+                        uploadDocument(values.permisoOperacion_file, 'permisoOperacion'),
+                        uploadDocument(values.logotipoNegocio_file, 'logotipoNegocio'),
+                        uploadDocument(values.fotoFrenteTaller_file, 'fotoFrenteTaller'),
+                        uploadDocument(values.fotoInternaTaller_file, 'fotoInternaTaller'),
+                    ];
+
+                    const documentResults = await Promise.all(documentPromises);
+                    
+                    // Preparar actualizaciones para Firestore
+                    const documentUpdates: Record<string, string> = {};
+                    const fieldNames = ['rifIdFiscal', 'permisoOperacion', 'logotipoNegocio', 'fotoFrenteTaller', 'fotoInternaTaller'];
+                    
+                    fieldNames.forEach((fieldName, index) => {
+                        if (documentResults[index]) {
+                            documentUpdates[fieldName] = documentResults[index] as string;
+                        }
+                    });
+
+                    // Actualizar Firestore con las URLs de los documentos (solo si existen)
+                    if (Object.keys(documentUpdates).length > 0) {
+                        await updateDoc(docRef, documentUpdates);
+                        console.log('Documentos actualizados en Firestore:', documentUpdates);
+                        // Refrescar lista después de subir documentos
+                        getData();
+                    }
+                } catch (error) {
+                    console.error('Error subiendo documentos:', error);
+                }
+            })();
+            
+        } catch (error: any) {
             console.error('Error creando el taller:', error);
-            toast.push(<Notification title="Error">Hubo un error al crear el Taller.</Notification>);
+            setIsCreating(false);
+            
+            let errorMessage = 'Hubo un error al crear el Taller.';
+            if (error.code === 'auth/email-already-in-use') {
+                errorMessage = 'El correo electrónico ya está en uso.';
+            } else if (error.code === 'auth/weak-password') {
+                errorMessage = 'La contraseña es muy débil.';
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+            
+            toast.push(
+                <Notification title="Error">
+                    {errorMessage}
+                </Notification>
+            );
         }
     };
        
@@ -1195,6 +1285,11 @@ const Garages = () => {
         image_perfil: '',
         estado: '',
         image_file: null, // Añadimos el campo `image_file` en los valores de Formik
+        rifIdFiscal_file: null,
+        permisoOperacion_file: null,
+        logotipoNegocio_file: null,
+        fotoFrenteTaller_file: null,
+        fotoInternaTaller_file: null,
     }}
     validationSchema={validationSchema}
                     onSubmit={(values, { setSubmitting }) => {
@@ -1231,7 +1326,7 @@ const Garages = () => {
                                     id="logo-upload"
                                     name="logo-upload"
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp"
                                     className="sr-only"
                                     onChange={(e) => {
                                         const file = e.target.files?.[0];
@@ -1464,6 +1559,301 @@ const Garages = () => {
                                     />
                                 </label>
 
+                                {/* Campos opcionales de documentos */}
+                                <div className="border-t pt-4 mt-4">
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                                        Documentos (Opcional)
+                                    </h3>
+                                    
+                                    {/* RIF ID Fiscal */}
+                                    <div className="mb-4">
+                                        <label className="block font-semibold text-gray-700 mb-2">
+                                            RIF ID Fiscal:
+                                        </label>
+                                        {!values.rifIdFiscal_file ? (
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/webp,.pdf"
+                                                    id="rifIdFiscal-upload"
+                                                    className="sr-only"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setFieldValue('rifIdFiscal_file', file);
+                                                        }
+                                                    }}
+                                                />
+                                                <label
+                                                    htmlFor="rifIdFiscal-upload"
+                                                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                                >
+                                                    <div className="flex flex-col items-center justify-center pt-2">
+                                                        <FaFileUpload className="w-8 h-8 text-gray-400 mb-2" />
+                                                        <p className="text-sm text-gray-600">
+                                                            <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">Imágenes o PDF</p>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    {(values.rifIdFiscal_file as File).type.includes('pdf') ? (
+                                                        <FaFilePdf className="w-6 h-6 text-red-500" />
+                                                    ) : (
+                                                        <FaImage className="w-6 h-6 text-blue-500" />
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {(values.rifIdFiscal_file as File).name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {((values.rifIdFiscal_file as File).size / 1024).toFixed(2)} KB
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFieldValue('rifIdFiscal_file', null)}
+                                                    className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                                >
+                                                    <FaTimes className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Permisos de Operación */}
+                                    <div className="mb-4">
+                                        <label className="block font-semibold text-gray-700 mb-2">
+                                            Permisos de Operación:
+                                        </label>
+                                        {!values.permisoOperacion_file ? (
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/webp,.pdf"
+                                                    id="permisoOperacion-upload"
+                                                    className="sr-only"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setFieldValue('permisoOperacion_file', file);
+                                                        }
+                                                    }}
+                                                />
+                                                <label
+                                                    htmlFor="permisoOperacion-upload"
+                                                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                                >
+                                                    <div className="flex flex-col items-center justify-center pt-2">
+                                                        <FaFileUpload className="w-8 h-8 text-gray-400 mb-2" />
+                                                        <p className="text-sm text-gray-600">
+                                                            <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">Imágenes o PDF</p>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    {(values.permisoOperacion_file as File).type.includes('pdf') ? (
+                                                        <FaFilePdf className="w-6 h-6 text-red-500" />
+                                                    ) : (
+                                                        <FaImage className="w-6 h-6 text-blue-500" />
+                                                    )}
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {(values.permisoOperacion_file as File).name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {((values.permisoOperacion_file as File).size / 1024).toFixed(2)} KB
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFieldValue('permisoOperacion_file', null)}
+                                                    className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                                >
+                                                    <FaTimes className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Logotipo Negocio */}
+                                    <div className="mb-4">
+                                        <label className="block font-semibold text-gray-700 mb-2">
+                                            Logotipo Negocio:
+                                        </label>
+                                        {!values.logotipoNegocio_file ? (
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                    id="logotipoNegocio-upload"
+                                                    className="sr-only"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setFieldValue('logotipoNegocio_file', file);
+                                                        }
+                                                    }}
+                                                />
+                                                <label
+                                                    htmlFor="logotipoNegocio-upload"
+                                                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                                >
+                                                    <div className="flex flex-col items-center justify-center pt-2">
+                                                        <FaImage className="w-8 h-8 text-gray-400 mb-2" />
+                                                        <p className="text-sm text-gray-600">
+                                                            <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <FaImage className="w-6 h-6 text-blue-500" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {(values.logotipoNegocio_file as File).name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {((values.logotipoNegocio_file as File).size / 1024).toFixed(2)} KB
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFieldValue('logotipoNegocio_file', null)}
+                                                    className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                                >
+                                                    <FaTimes className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Foto Frente Taller */}
+                                    <div className="mb-4">
+                                        <label className="block font-semibold text-gray-700 mb-2">
+                                            Foto Frente Taller:
+                                        </label>
+                                        {!values.fotoFrenteTaller_file ? (
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                    id="fotoFrenteTaller-upload"
+                                                    className="sr-only"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setFieldValue('fotoFrenteTaller_file', file);
+                                                        }
+                                                    }}
+                                                />
+                                                <label
+                                                    htmlFor="fotoFrenteTaller-upload"
+                                                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                                >
+                                                    <div className="flex flex-col items-center justify-center pt-2">
+                                                        <FaCamera className="w-8 h-8 text-gray-400 mb-2" />
+                                                        <p className="text-sm text-gray-600">
+                                                            <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <FaImage className="w-6 h-6 text-blue-500" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {(values.fotoFrenteTaller_file as File).name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {((values.fotoFrenteTaller_file as File).size / 1024).toFixed(2)} KB
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFieldValue('fotoFrenteTaller_file', null)}
+                                                    className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                                >
+                                                    <FaTimes className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Foto Interna Taller */}
+                                    <div className="mb-4">
+                                        <label className="block font-semibold text-gray-700 mb-2">
+                                            Foto Interna Taller:
+                                        </label>
+                                        {!values.fotoInternaTaller_file ? (
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                    id="fotoInternaTaller-upload"
+                                                    className="sr-only"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) {
+                                                            setFieldValue('fotoInternaTaller_file', file);
+                                                        }
+                                                    }}
+                                                />
+                                                <label
+                                                    htmlFor="fotoInternaTaller-upload"
+                                                    className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                                >
+                                                    <div className="flex flex-col items-center justify-center pt-2">
+                                                        <FaCamera className="w-8 h-8 text-gray-400 mb-2" />
+                                                        <p className="text-sm text-gray-600">
+                                                            <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <FaImage className="w-6 h-6 text-blue-500" />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                                            {(values.fotoInternaTaller_file as File).name}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {((values.fotoInternaTaller_file as File).size / 1024).toFixed(2)} KB
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFieldValue('fotoInternaTaller_file', null)}
+                                                    className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                                >
+                                                    <FaTimes className="w-5 h-5" />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 {/* Contraseña */}
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
@@ -1510,10 +1900,21 @@ const Garages = () => {
                                     </Button>
                                     <Button
                                         type="submit"
+                                        disabled={isCreating}
                                         style={{ backgroundColor: '#000B7E' }}
-                                        className="text-white hover:opacity-80"
+                                        className="text-white hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        Crear Taller
+                                        {isCreating ? (
+                                            <span className="flex items-center gap-2">
+                                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                Creando...
+                                            </span>
+                                        ) : (
+                                            'Crear Taller'
+                                        )}
                                     </Button>
                                 </div>
                             </div>

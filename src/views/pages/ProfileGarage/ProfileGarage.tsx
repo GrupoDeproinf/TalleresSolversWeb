@@ -27,6 +27,11 @@ import {
     FaArrowLeft,
     FaTiktok,
     FaWhatsapp,
+    FaFileUpload,
+    FaFilePdf,
+    FaImage,
+    FaTimes,
+    FaRegEye,
 } from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
 import { db, storage } from '@/configs/firebaseAssets.config'
@@ -150,6 +155,16 @@ const ProfileGarage = () => {
         estado: string
         whatsapp: string
         newLogoFile?: File | null
+        rifIdFiscal?: string
+        permisoOperacion?: string
+        logotipoNegocio?: string
+        fotoFrenteTaller?: string
+        fotoInternaTaller?: string
+        rifIdFiscal_file?: File | null
+        permisoOperacion_file?: File | null
+        logotipoNegocio_file?: File | null
+        fotoFrenteTaller_file?: File | null
+        fotoInternaTaller_file?: File | null
     }>({
         image_perfil: '',
         nombre: '',
@@ -164,7 +179,17 @@ const ProfileGarage = () => {
         LinkInstagram: '',
         estado: '',
         whatsapp: '',
-        newLogoFile: null, // Inicializa como null
+        newLogoFile: null,
+        rifIdFiscal: '',
+        permisoOperacion: '',
+        logotipoNegocio: '',
+        fotoFrenteTaller: '',
+        fotoInternaTaller: '',
+        rifIdFiscal_file: null,
+        permisoOperacion_file: null,
+        logotipoNegocio_file: null,
+        fotoFrenteTaller_file: null,
+        fotoInternaTaller_file: null,
     })
 
     const [selectedPlace, setSelectedPlace] = useState<{
@@ -316,6 +341,16 @@ const ProfileGarage = () => {
                       }
                     : { lat: 0, lng: 0 },
                 newLogoFile: dataFinal?.newLogoFile ?? null,
+                rifIdFiscal: dataFinal?.rifIdFiscal ?? '',
+                permisoOperacion: dataFinal?.permisoOperacion ?? '',
+                logotipoNegocio: dataFinal?.logotipoNegocio ?? '',
+                fotoFrenteTaller: dataFinal?.fotoFrenteTaller ?? '',
+                fotoInternaTaller: dataFinal?.fotoInternaTaller ?? '',
+                rifIdFiscal_file: null,
+                permisoOperacion_file: null,
+                logotipoNegocio_file: null,
+                fotoFrenteTaller_file: null,
+                fotoInternaTaller_file: null,
             })
         } catch (error) {
             console.error('Error al obtener los datos del cliente:', error)
@@ -352,6 +387,46 @@ const ProfileGarage = () => {
         const month = String(date.getMonth() + 1).padStart(2, '0')
         const year = date.getFullYear()
         return `${day}/${month}/${year}`
+    }
+
+    // Función helper para extraer el nombre del archivo de una URL
+    const getFileNameFromUrl = (url: string | undefined): string => {
+        if (!url) return 'Documento existente'
+        try {
+            // Decodificar la URL para manejar caracteres especiales
+            const decodedUrl = decodeURIComponent(url)
+            
+            // Intentar extraer el nombre del archivo de diferentes formatos de URL
+            // Formato 1: .../documents/{uid}/{fieldName}.{extension}?...
+            // Formato 2: .../o/documents%2F{uid}%2F{fieldName}.{extension}?...
+            
+            // Buscar el patrón /documents/ o documents%2F
+            const documentsMatch = decodedUrl.match(/\/documents\/[^\/]+\/([^?]+)/) || 
+                                  decodedUrl.match(/documents%2F[^%]+%2F([^?%]+)/)
+            
+            if (documentsMatch && documentsMatch[1]) {
+                const fileName = documentsMatch[1]
+                // Si el nombre tiene extensión, devolverlo
+                if (fileName.includes('.')) {
+                    return fileName
+                }
+            }
+            
+            // Si no se encontró con el patrón anterior, intentar extraer de la última parte de la URL
+            const urlParts = decodedUrl.split('/')
+            const lastPart = urlParts[urlParts.length - 1]
+            const fileName = lastPart.split('?')[0]
+            
+            // Si el nombre tiene extensión, devolverlo
+            if (fileName && fileName.includes('.')) {
+                return fileName
+            }
+            
+            return 'Documento existente'
+        } catch (error) {
+            console.error('Error extrayendo nombre del archivo:', error)
+            return 'Documento existente'
+        }
     }
 
     const handleSubscribe = async (plan: any) => {
@@ -621,10 +696,136 @@ const ProfileGarage = () => {
                 newImageUrl = await getDownloadURL(storageRef)
             }
 
+            // Función helper para eliminar documento del storage
+            const deleteDocumentFromStorage = async (url: string, fieldName: string) => {
+                try {
+                    // Extraer el nombre del archivo de la URL
+                    const urlParts = url.split('/')
+                    const fileNameWithQuery = urlParts[urlParts.length - 1]
+                    const fileName = fileNameWithQuery.split('?')[0]
+                    const oldDocRef = ref(storage, `documents/${path}/${fileName}`)
+                    await deleteObject(oldDocRef)
+                    console.log(`Documento ${fieldName} eliminado del storage`)
+                } catch (error) {
+                    console.error(`Error eliminando documento ${fieldName} del storage:`, error)
+                }
+            }
+
+            // Función helper para subir/actualizar documentos
+            const uploadDocument = async (
+                file: File | null,
+                fieldName: string,
+                currentUrl: string | undefined,
+                shouldDelete: boolean = false
+            ): Promise<string | null> => {
+                // Si se debe eliminar y hay una URL actual, eliminar del storage
+                if (shouldDelete && currentUrl) {
+                    await deleteDocumentFromStorage(currentUrl, fieldName)
+                    return null
+                }
+
+                // Si no hay archivo nuevo, mantener la URL actual
+                if (!file) {
+                    return currentUrl || null
+                }
+
+                try {
+                    // Eliminar documento anterior si existe
+                    if (currentUrl) {
+                        await deleteDocumentFromStorage(currentUrl, fieldName)
+                    }
+
+                    // Obtener la extensión del archivo
+                    const fileType = file.name.split('.').pop()?.toLowerCase()
+                    if (!fileType) {
+                        console.warn(`No se pudo obtener la extensión del archivo: ${fieldName}`)
+                        return currentUrl || null
+                    }
+
+                    // Crear el nombre del archivo: {nombreCampo}.{extension}
+                    const fileName = `${fieldName}.${fileType}`
+                    const storageRef = ref(storage, `documents/${path}/${fileName}`)
+                    
+                    // Subir el archivo
+                    await uploadBytes(storageRef, file)
+                    
+                    // Obtener la URL del archivo subido
+                    const downloadUrl = await getDownloadURL(storageRef)
+                    return downloadUrl
+                } catch (error) {
+                    console.error(`Error subiendo ${fieldName}:`, error)
+                    return currentUrl || null
+                }
+            }
+
+            // Determinar qué documentos deben eliminarse (campo vacío en formData pero había URL en dataOrigin)
+            const shouldDeleteRifIdFiscal = !formData.rifIdFiscal_file && !formData.rifIdFiscal && !!dataOrigin?.rifIdFiscal
+            const shouldDeletePermisoOperacion = !formData.permisoOperacion_file && !formData.permisoOperacion && !!dataOrigin?.permisoOperacion
+            const shouldDeleteLogotipoNegocio = !formData.logotipoNegocio_file && !formData.logotipoNegocio && !!dataOrigin?.logotipoNegocio
+            const shouldDeleteFotoFrenteTaller = !formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller && !!dataOrigin?.fotoFrenteTaller
+            const shouldDeleteFotoInternaTaller = !formData.fotoInternaTaller_file && !formData.fotoInternaTaller && !!dataOrigin?.fotoInternaTaller
+
+            // Subir/actualizar documentos
+            const documentPromises = [
+                uploadDocument(
+                    formData.rifIdFiscal_file || null,
+                    'rifIdFiscal',
+                    formData.rifIdFiscal || dataOrigin?.rifIdFiscal || undefined,
+                    shouldDeleteRifIdFiscal
+                ),
+                uploadDocument(
+                    formData.permisoOperacion_file || null,
+                    'permisoOperacion',
+                    formData.permisoOperacion || dataOrigin?.permisoOperacion || undefined,
+                    shouldDeletePermisoOperacion
+                ),
+                uploadDocument(
+                    formData.logotipoNegocio_file || null,
+                    'logotipoNegocio',
+                    formData.logotipoNegocio || dataOrigin?.logotipoNegocio || undefined,
+                    shouldDeleteLogotipoNegocio
+                ),
+                uploadDocument(
+                    formData.fotoFrenteTaller_file || null,
+                    'fotoFrenteTaller',
+                    formData.fotoFrenteTaller || dataOrigin?.fotoFrenteTaller || undefined,
+                    shouldDeleteFotoFrenteTaller
+                ),
+                uploadDocument(
+                    formData.fotoInternaTaller_file || null,
+                    'fotoInternaTaller',
+                    formData.fotoInternaTaller || dataOrigin?.fotoInternaTaller || undefined,
+                    shouldDeleteFotoInternaTaller
+                ),
+            ]
+
+            const documentResults = await Promise.all(documentPromises)
+            
+            // Preparar actualizaciones para Firestore
+            const documentUpdates: Record<string, string | null> = {}
+            const fieldNames = ['rifIdFiscal', 'permisoOperacion', 'logotipoNegocio', 'fotoFrenteTaller', 'fotoInternaTaller']
+            
+            fieldNames.forEach((fieldName, index) => {
+                // Si el resultado es null, significa que se eliminó, así que establecer como null
+                // Si hay un resultado, actualizar con la nueva URL
+                if (documentResults[index] !== undefined) {
+                    documentUpdates[fieldName] = documentResults[index]
+                }
+            })
+
             // Actualiza los datos
             const docRef = doc(db, 'Usuarios', path)
-            const updatedData = { ...formData, image_perfil: newImageUrl }
+            const updatedData = { 
+                ...formData, 
+                image_perfil: newImageUrl,
+                ...documentUpdates
+            }
             delete updatedData.newLogoFile // Elimina cualquier campo no deseado antes de actualizar
+            delete updatedData.rifIdFiscal_file
+            delete updatedData.permisoOperacion_file
+            delete updatedData.logotipoNegocio_file
+            delete updatedData.fotoFrenteTaller_file
+            delete updatedData.fotoInternaTaller_file
 
             await updateDoc(docRef, updatedData)
 
@@ -908,9 +1109,21 @@ const ProfileGarage = () => {
     const [isMapOpen, setIsMapOpen] = useState(false) // Estado para controlar el modal del mapa
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false) // Estado para controlar el drawer de edición
     const [selectedService, setSelectedService] = useState<Service | null>(null) // Servicio seleccionado para editar
+    const [documentModalOpen, setDocumentModalOpen] = useState(false) // Estado para controlar el modal de documentos
+    const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string; type: 'image' | 'pdf' } | null>(null) // Documento seleccionado para mostrar en el modal
 
     const toggleMapModal = () => {
         setIsMapOpen((prev) => !prev) // Alternar la visibilidad del modal
+    }
+
+    const openDocumentModal = (url: string, name: string, type: 'image' | 'pdf') => {
+        setSelectedDocument({ url, name, type })
+        setDocumentModalOpen(true)
+    }
+
+    const closeDocumentModal = () => {
+        setDocumentModalOpen(false)
+        setSelectedDocument(null)
     }
 
     const handleEditService = (service: Service) => {
@@ -941,6 +1154,7 @@ const ProfileGarage = () => {
                     </button>
                 </div>
             )}
+            {/* Aqui empieza el card del taller */}
             <div className="flex flex-col xl:flex-row gap-4 pb-8">
                 <Card>
                     {/* Botón Editar */}
@@ -1111,6 +1325,7 @@ const ProfileGarage = () => {
                         <TabList>
                             <TabNav value="tab1">Planes</TabNav>
                             <TabNav value="tab2">Servicios</TabNav>
+                            <TabNav value="tab3">Documentos</TabNav>
                         </TabList>
                         <div className="w-full">
                         <TabContent value="tab1">
@@ -1473,6 +1688,159 @@ const ProfileGarage = () => {
                                     rowsPerPage={rowsPerPage}
                                 />
                             </div>
+                        </div>
+                    </TabContent>
+                    <TabContent value="tab3">
+                        <div className="w-full h-full p-4">
+                            <h6 className="mb-6 flex justify-start mt-4">
+                                Documentos del Taller
+                            </h6>
+                            <div className="grid grid-cols-3 gap-4">
+                                {/* Todos los documentos en un grid de 3 columnas */}
+                                {data?.rifIdFiscal && (
+                                    <div
+                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                                        onClick={() => openDocumentModal(
+                                            data.rifIdFiscal,
+                                            'RIF ID Fiscal',
+                                            data.rifIdFiscal.includes('.pdf') ? 'pdf' : 'image'
+                                        )}
+                                    >
+                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                                            {data.rifIdFiscal.includes('.pdf') ? (
+                                                <div className="text-center">
+                                                    <FaFilePdf className="w-16 h-16 text-red-500 mx-auto mb-2" />
+                                                    <p className="text-sm font-semibold text-gray-700">RIF ID Fiscal</p>
+                                                    <p className="text-xs text-gray-500">PDF</p>
+                                                </div>
+                                            ) : (
+                                                <img
+                                                    src={data.rifIdFiscal}
+                                                    alt="RIF ID Fiscal"
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none'
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
+                                        </div>
+                                    </div>
+                                )}
+                                {data?.permisoOperacion && (
+                                    <div
+                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                                        onClick={() => openDocumentModal(
+                                            data.permisoOperacion,
+                                            'Permiso de Operación',
+                                            data.permisoOperacion.includes('.pdf') ? 'pdf' : 'image'
+                                        )}
+                                    >
+                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                                            {data.permisoOperacion.includes('.pdf') ? (
+                                                <div className="text-center">
+                                                    <FaFilePdf className="w-16 h-16 text-red-500 mx-auto mb-2" />
+                                                    <p className="text-sm font-semibold text-gray-700">Permiso de Operación</p>
+                                                    <p className="text-xs text-gray-500">PDF</p>
+                                                </div>
+                                            ) : (
+                                                <img
+                                                    src={data.permisoOperacion}
+                                                    alt="Permiso de Operación"
+                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none'
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
+                                        </div>
+                                    </div>
+                                )}
+                                {data?.logotipoNegocio && (
+                                    <div
+                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                                        onClick={() => openDocumentModal(
+                                            data.logotipoNegocio,
+                                            'Logotipo Negocio',
+                                            'image'
+                                        )}
+                                    >
+                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                                            <img
+                                                src={data.logotipoNegocio}
+                                                alt="Logotipo Negocio"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none'
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
+                                        </div>
+                                    </div>
+                                )}
+                                {data?.fotoFrenteTaller && (
+                                    <div
+                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                                        onClick={() => openDocumentModal(
+                                            data.fotoFrenteTaller,
+                                            'Foto Frente Taller',
+                                            'image'
+                                        )}
+                                    >
+                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                                            <img
+                                                src={data.fotoFrenteTaller}
+                                                alt="Foto Frente Taller"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none'
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
+                                        </div>
+                                    </div>
+                                )}
+                                {data?.fotoInternaTaller && (
+                                    <div
+                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                                        onClick={() => openDocumentModal(
+                                            data.fotoInternaTaller,
+                                            'Foto Interna Taller',
+                                            'image'
+                                        )}
+                                    >
+                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                                            <img
+                                                src={data.fotoInternaTaller}
+                                                alt="Foto Interna Taller"
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).style.display = 'none'
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
+                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            {(!data?.rifIdFiscal && !data?.permisoOperacion && !data?.logotipoNegocio && !data?.fotoFrenteTaller && !data?.fotoInternaTaller) && (
+                                <div className="text-center py-12 text-gray-500">
+                                    <FaFileUpload className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                                    <p className="text-lg font-semibold">No hay documentos disponibles</p>
+                                    <p className="text-sm">Los documentos aparecerán aquí una vez que se suban</p>
+                                </div>
+                            )}
                         </div>
                     </TabContent>
                 </Tabs>
@@ -1981,6 +2349,368 @@ const ProfileGarage = () => {
                                 )}
                             </label>
                         </div>
+
+                        {/* Campos opcionales de documentos */}
+                        <div className="border-t pt-4 mt-4 col-span-2">
+                            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+                                Documentos (Opcional)
+                            </h3>
+                            
+                            {/* RIF ID Fiscal */}
+                            <div className="mb-4">
+                                <label className="block font-semibold text-gray-700 mb-2">
+                                    RIF ID Fiscal:
+                                </label>
+                                {!formData.rifIdFiscal_file && !formData.rifIdFiscal ? (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp,.pdf"
+                                            id="rifIdFiscal-upload"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        rifIdFiscal_file: file
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor="rifIdFiscal-upload"
+                                            className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                        >
+                                            <div className="flex flex-col items-center justify-center pt-2">
+                                                <FaFileUpload className="w-8 h-8 text-gray-400 mb-2" />
+                                                <p className="text-sm text-gray-600">
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">Imágenes o PDF</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center gap-3 flex-1">
+                                            {formData.rifIdFiscal_file ? (
+                                                (formData.rifIdFiscal_file as File).type.includes('pdf') ? (
+                                                    <FaFilePdf className="w-6 h-6 text-red-500" />
+                                                ) : (
+                                                    <FaImage className="w-6 h-6 text-blue-500" />
+                                                )
+                                            ) : formData.rifIdFiscal?.includes('.pdf') ? (
+                                                <FaFilePdf className="w-6 h-6 text-red-500" />
+                                            ) : (
+                                                <FaImage className="w-6 h-6 text-blue-500" />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                    {formData.rifIdFiscal_file 
+                                                        ? (formData.rifIdFiscal_file as File).name
+                                                        : getFileNameFromUrl(formData.rifIdFiscal)}
+                                                </p>
+                                                {formData.rifIdFiscal_file && (
+                                                    <p className="text-xs text-gray-500">
+                                                        {((formData.rifIdFiscal_file as File).size / 1024).toFixed(2)} KB
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData((prev) => ({
+                                                ...prev,
+                                                rifIdFiscal_file: null,
+                                                rifIdFiscal: ''
+                                            }))}
+                                            className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                        >
+                                            <FaTimes className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Permisos de Operación */}
+                            <div className="mb-4">
+                                <label className="block font-semibold text-gray-700 mb-2">
+                                    Permisos de Operación:
+                                </label>
+                                {!formData.permisoOperacion_file && !formData.permisoOperacion ? (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp,.pdf"
+                                            id="permisoOperacion-upload"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        permisoOperacion_file: file
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor="permisoOperacion-upload"
+                                            className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                        >
+                                            <div className="flex flex-col items-center justify-center pt-2">
+                                                <FaFileUpload className="w-8 h-8 text-gray-400 mb-2" />
+                                                <p className="text-sm text-gray-600">
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">Imágenes o PDF</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center gap-3 flex-1">
+                                            {formData.permisoOperacion_file ? (
+                                                (formData.permisoOperacion_file as File).type.includes('pdf') ? (
+                                                    <FaFilePdf className="w-6 h-6 text-red-500" />
+                                                ) : (
+                                                    <FaImage className="w-6 h-6 text-blue-500" />
+                                                )
+                                            ) : formData.permisoOperacion?.includes('.pdf') ? (
+                                                <FaFilePdf className="w-6 h-6 text-red-500" />
+                                            ) : (
+                                                <FaImage className="w-6 h-6 text-blue-500" />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                    {formData.permisoOperacion_file 
+                                                        ? (formData.permisoOperacion_file as File).name
+                                                        : getFileNameFromUrl(formData.permisoOperacion)}
+                                                </p>
+                                                {formData.permisoOperacion_file && (
+                                                    <p className="text-xs text-gray-500">
+                                                        {((formData.permisoOperacion_file as File).size / 1024).toFixed(2)} KB
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData((prev) => ({
+                                                ...prev,
+                                                permisoOperacion_file: null,
+                                                permisoOperacion: ''
+                                            }))}
+                                            className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                        >
+                                            <FaTimes className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Logotipo Negocio */}
+                            <div className="mb-4">
+                                <label className="block font-semibold text-gray-700 mb-2">
+                                    Logotipo Negocio:
+                                </label>
+                                {!formData.logotipoNegocio_file && !formData.logotipoNegocio ? (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                                            id="logotipoNegocio-upload"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        logotipoNegocio_file: file
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor="logotipoNegocio-upload"
+                                            className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                        >
+                                            <div className="flex flex-col items-center justify-center pt-2">
+                                                <FaImage className="w-8 h-8 text-gray-400 mb-2" />
+                                                <p className="text-sm text-gray-600">
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center gap-3 flex-1">
+                                            <FaImage className="w-6 h-6 text-blue-500" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                    {formData.logotipoNegocio_file 
+                                                        ? (formData.logotipoNegocio_file as File).name
+                                                        : getFileNameFromUrl(formData.logotipoNegocio)}
+                                                </p>
+                                                {formData.logotipoNegocio_file && (
+                                                    <p className="text-xs text-gray-500">
+                                                        {((formData.logotipoNegocio_file as File).size / 1024).toFixed(2)} KB
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData((prev) => ({
+                                                ...prev,
+                                                logotipoNegocio_file: null,
+                                                logotipoNegocio: ''
+                                            }))}
+                                            className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                        >
+                                            <FaTimes className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Foto Frente Taller */}
+                            <div className="mb-4">
+                                <label className="block font-semibold text-gray-700 mb-2">
+                                    Foto Frente Taller:
+                                </label>
+                                {!formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller ? (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                                            id="fotoFrenteTaller-upload"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        fotoFrenteTaller_file: file
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor="fotoFrenteTaller-upload"
+                                            className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                        >
+                                            <div className="flex flex-col items-center justify-center pt-2">
+                                                <FaCamera className="w-8 h-8 text-gray-400 mb-2" />
+                                                <p className="text-sm text-gray-600">
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center gap-3 flex-1">
+                                            <FaImage className="w-6 h-6 text-blue-500" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                    {formData.fotoFrenteTaller_file 
+                                                        ? (formData.fotoFrenteTaller_file as File).name
+                                                        : getFileNameFromUrl(formData.fotoFrenteTaller)}
+                                                </p>
+                                                {formData.fotoFrenteTaller_file && (
+                                                    <p className="text-xs text-gray-500">
+                                                        {((formData.fotoFrenteTaller_file as File).size / 1024).toFixed(2)} KB
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData((prev) => ({
+                                                ...prev,
+                                                fotoFrenteTaller_file: null,
+                                                fotoFrenteTaller: ''
+                                            }))}
+                                            className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                        >
+                                            <FaTimes className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Foto Interna Taller */}
+                            <div className="mb-4">
+                                <label className="block font-semibold text-gray-700 mb-2">
+                                    Foto Interna Taller:
+                                </label>
+                                {!formData.fotoInternaTaller_file && !formData.fotoInternaTaller ? (
+                                    <div className="relative">
+                                        <input
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                                            id="fotoInternaTaller-upload"
+                                            className="sr-only"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setFormData((prev) => ({
+                                                        ...prev,
+                                                        fotoInternaTaller_file: file
+                                                    }));
+                                                }
+                                            }}
+                                        />
+                                        <label
+                                            htmlFor="fotoInternaTaller-upload"
+                                            className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-blue-400 transition-colors duration-200"
+                                        >
+                                            <div className="flex flex-col items-center justify-center pt-2">
+                                                <FaCamera className="w-8 h-8 text-gray-400 mb-2" />
+                                                <p className="text-sm text-gray-600">
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                </p>
+                                                <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                            </div>
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center gap-3 flex-1">
+                                            <FaImage className="w-6 h-6 text-blue-500" />
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                    {formData.fotoInternaTaller_file 
+                                                        ? (formData.fotoInternaTaller_file as File).name
+                                                        : getFileNameFromUrl(formData.fotoInternaTaller)}
+                                                </p>
+                                                {formData.fotoInternaTaller_file && (
+                                                    <p className="text-xs text-gray-500">
+                                                        {((formData.fotoInternaTaller_file as File).size / 1024).toFixed(2)} KB
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData((prev) => ({
+                                                ...prev,
+                                                fotoInternaTaller_file: null,
+                                                fotoInternaTaller: ''
+                                            }))}
+                                            className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                        >
+                                            <FaTimes className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </ConfirmDialog>
             )}
@@ -1992,6 +2722,65 @@ const ProfileGarage = () => {
                 service={selectedService}
                 onServiceUpdated={handleServiceUpdated}
             />
+
+            {/* Modal para visualizar documentos */}
+            {documentModalOpen && selectedDocument && (
+                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" onClick={closeDocumentModal}>
+                    <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-between items-center p-4 border-b">
+                            <h2 className="text-xl font-semibold text-gray-800">
+                                {selectedDocument.name}
+                            </h2>
+                            <button
+                                onClick={closeDocumentModal}
+                                className="text-gray-500 hover:text-gray-700 focus:outline-none transition-colors"
+                            >
+                                <FaTimes className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-auto p-4 bg-gray-100 flex items-center justify-center">
+                            {selectedDocument.type === 'pdf' ? (
+                                <iframe
+                                    src={selectedDocument.url}
+                                    className="w-full h-full min-h-[600px] border-0"
+                                    title={selectedDocument.name}
+                                />
+                            ) : (
+                                <img
+                                    src={selectedDocument.url}
+                                    alt={selectedDocument.name}
+                                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+                                    onError={(e) => {
+                                        const imgElement = e.target as HTMLImageElement
+                                        imgElement.style.display = 'none'
+                                        const errorDiv = document.createElement('div')
+                                        errorDiv.className = 'text-center text-gray-500 p-8'
+                                        errorDiv.innerHTML = `
+                                            <FaFilePdf class="w-16 h-16 mx-auto mb-4 text-gray-400" />
+                                            <p class="text-lg font-semibold">Error al cargar la imagen</p>
+                                            <p class="text-sm">No se pudo mostrar el documento</p>
+                                        `
+                                        const parent = imgElement.parentElement
+                                        if (parent) {
+                                            parent.appendChild(errorDiv)
+                                        }
+                                    }}
+                                />
+                            )}
+                        </div>
+                        <div className="p-4 border-t bg-gray-50 flex justify-end">
+                            <a
+                                href={selectedDocument.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            >
+                                Abrir en nueva pestaña
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Container>
     )
 }
