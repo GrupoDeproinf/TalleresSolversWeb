@@ -297,6 +297,12 @@ const Garages = () => {
             .oneOf([Yup.ref('password')], 'Las contraseñas no coinciden')
             .required('Por favor confirme su contraseña'),
         estado: Yup.string().required('El estado es obligatorio'),
+        rifIdFiscal_file: Yup.mixed()
+            .required('El RIF ID Fiscal es obligatorio'),
+        fotoFrenteTaller_file: Yup.mixed()
+            .required('La foto del frente del taller es obligatoria'),
+        fotoInternaTaller_file: Yup.mixed()
+            .required('La foto interna del taller es obligatoria'),
     })
 
     const [showPassword, setShowPassword] = useState(false)
@@ -1559,16 +1565,16 @@ const Garages = () => {
                                     />
                                 </label>
 
-                                {/* Campos opcionales de documentos */}
+                                {/* Campos de documentos */}
                                 <div className="border-t pt-4 mt-4">
                                     <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                                        Documentos (Opcional)
+                                        Documentos
                                     </h3>
                                     
                                     {/* RIF ID Fiscal */}
                                     <div className="mb-4">
                                         <label className="block font-semibold text-gray-700 mb-2">
-                                            RIF ID Fiscal:
+                                            RIF ID Fiscal: <span className="text-red-500">*</span>
                                         </label>
                                         {!values.rifIdFiscal_file ? (
                                             <div className="relative">
@@ -1623,6 +1629,11 @@ const Garages = () => {
                                                 </button>
                                             </div>
                                         )}
+                                        <ErrorMessage
+                                            name="rifIdFiscal_file"
+                                            component="div"
+                                            className="text-red-500 text-sm mt-1"
+                                        />
                                     </div>
 
                                     {/* Permisos de Operación */}
@@ -1744,7 +1755,7 @@ const Garages = () => {
                                     {/* Foto Frente Taller */}
                                     <div className="mb-4">
                                         <label className="block font-semibold text-gray-700 mb-2">
-                                            Foto Frente Taller:
+                                            Foto Frente Taller: <span className="text-red-500">*</span>
                                         </label>
                                         {!values.fotoFrenteTaller_file ? (
                                             <div className="relative">
@@ -1795,12 +1806,17 @@ const Garages = () => {
                                                 </button>
                                             </div>
                                         )}
+                                        <ErrorMessage
+                                            name="fotoFrenteTaller_file"
+                                            component="div"
+                                            className="text-red-500 text-sm mt-1"
+                                        />
                                     </div>
 
                                     {/* Foto Interna Taller */}
                                     <div className="mb-4">
                                         <label className="block font-semibold text-gray-700 mb-2">
-                                            Foto Interna Taller:
+                                            Foto Interna Taller: <span className="text-red-500">*</span>
                                         </label>
                                         {!values.fotoInternaTaller_file ? (
                                             <div className="relative">
@@ -1851,6 +1867,11 @@ const Garages = () => {
                                                 </button>
                                             </div>
                                         )}
+                                        <ErrorMessage
+                                            name="fotoInternaTaller_file"
+                                            component="div"
+                                            className="text-red-500 text-sm mt-1"
+                                        />
                                     </div>
                                 </div>
 

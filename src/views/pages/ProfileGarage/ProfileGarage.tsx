@@ -623,6 +623,34 @@ const ProfileGarage = () => {
             return
         }
 
+        // Validar que los documentos obligatorios existan (archivo nuevo o URL existente)
+        if (!formData.rifIdFiscal_file && !formData.rifIdFiscal) {
+            toast.push(
+                <Notification title="Error">
+                    El RIF ID Fiscal es obligatorio. Debes subir un archivo o mantener el existente.
+                </Notification>,
+            )
+            return
+        }
+
+        if (!formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller) {
+            toast.push(
+                <Notification title="Error">
+                    La foto del frente del taller es obligatoria. Debes subir un archivo o mantener el existente.
+                </Notification>,
+            )
+            return
+        }
+
+        if (!formData.fotoInternaTaller_file && !formData.fotoInternaTaller) {
+            toast.push(
+                <Notification title="Error">
+                    La foto interna del taller es obligatoria. Debes subir un archivo o mantener el existente.
+                </Notification>,
+            )
+            return
+        }
+
         try {
             // Referencia a la colección 'Usuarios'
             const usuariosRef = collection(db, 'Usuarios')
@@ -2350,16 +2378,16 @@ const ProfileGarage = () => {
                             </label>
                         </div>
 
-                        {/* Campos opcionales de documentos */}
+                        {/* Campos de documentos */}
                         <div className="border-t pt-4 mt-4 col-span-2">
                             <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                                Documentos (Opcional)
+                                Documentos
                             </h3>
                             
                             {/* RIF ID Fiscal */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    RIF ID Fiscal:
+                                    RIF ID Fiscal: <span className="text-red-500">*</span>
                                 </label>
                                 {!formData.rifIdFiscal_file && !formData.rifIdFiscal ? (
                                     <div className="relative">
@@ -2580,7 +2608,7 @@ const ProfileGarage = () => {
                             {/* Foto Frente Taller */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    Foto Frente Taller:
+                                    Foto Frente Taller: <span className="text-red-500">*</span>
                                 </label>
                                 {!formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller ? (
                                     <div className="relative">
@@ -2647,7 +2675,7 @@ const ProfileGarage = () => {
                             {/* Foto Interna Taller */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    Foto Interna Taller:
+                                    Foto Interna Taller: <span className="text-red-500">*</span>
                                 </label>
                                 {!formData.fotoInternaTaller_file && !formData.fotoInternaTaller ? (
                                     <div className="relative">
