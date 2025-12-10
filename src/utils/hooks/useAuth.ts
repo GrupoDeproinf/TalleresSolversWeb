@@ -59,7 +59,7 @@ function useAuth() {
         if (!usuariosSnapshot.empty) {
             // Si el usuario está en la colección Usuarios
             const potentialUser = usuariosSnapshot.docs[0].data()
-            if (potentialUser.typeUser === 'Taller') {
+            if (potentialUser.typeUser === 'Taller' || potentialUser.typeUser === 'Certificador') {
                 collectionToCheck = 'Usuarios'
                 userData = potentialUser
             } else {
@@ -113,13 +113,15 @@ function useAuth() {
                 if (userDoc.exists()) {
                     const userInfo = userDoc.data()
                     localStorage.setItem('nombre', userInfo?.nombre)
+                    // Los usuarios Certificador tienen los mismos permisos que Admin
+                    const userAuthority = userInfo?.typeUser === 'Certificador' ? 'Admin' : userInfo?.typeUser
                     dispatch(
                         setUser({
                             avatar: '',
                             userName: userInfo?.nombre,
                             email: userInfo?.email,
                             key: userDoc.id,
-                            authority: [userInfo?.typeUser], // ['user'] o ['admin']
+                            authority: [userAuthority], // ['Taller'], ['Admin'], o ['Admin'] para Certificador
                         }),
                     )
                     const redirectUrl = queryRedirect.get(REDIRECT_URL_KEY)
