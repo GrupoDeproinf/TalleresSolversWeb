@@ -160,8 +160,8 @@ const Garages = () => {
             createdAt: 'Fecha de Creación',
         }
 
-        // Obtener los datos filtrados de la tabla
-        const filteredData = table.getFilteredRowModel().rows.map(row => row.original)
+        // Obtener los datos filtrados Y ordenados de la tabla (mantiene el orden por fecha de creación)
+        const filteredData = table.getRowModel().rows.map(row => row.original)
 
         // Preparar los datos para exportar
         const tableData = filteredData.map((row) => {
