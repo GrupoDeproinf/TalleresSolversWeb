@@ -89,7 +89,7 @@ const Garages = () => {
     )
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([
-        { id: 'scheduled_visit', desc: false } // Ordenar por fecha de visita ascendente (más cercanas primero)
+        { id: 'createdAt', desc: true } // Ordenar por fecha de creación descendente (más recientes primero)
     ])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
@@ -810,6 +810,32 @@ const Garages = () => {
                 }
                 
                 return new Date(timestampNumber).toLocaleDateString('es-ES')
+            },
+            sortingFn: (rowA, rowB, columnId) => {
+                const timestampA = rowA.getValue(columnId)
+                const timestampB = rowB.getValue(columnId)
+                
+                // Función helper para convertir timestamp a número
+                const getTimestampNumber = (timestamp: any): number => {
+                    if (!timestamp) return 0
+                    
+                    if (typeof timestamp === 'number') {
+                        return timestamp
+                    } else if (typeof timestamp === 'object' && (timestamp as any).seconds) {
+                        // Si es un timestamp de Firestore
+                        return (timestamp as any).seconds * 1000
+                    } else if (typeof timestamp === 'string') {
+                        // Si es un string, intentar convertirlo
+                        return new Date(timestamp).getTime()
+                    }
+                    return 0
+                }
+                
+                const timestampNumberA = getTimestampNumber(timestampA)
+                const timestampNumberB = getTimestampNumber(timestampB)
+                
+                // Ordenar descendente: más recientes primero (mayor timestamp primero)
+                return timestampNumberB - timestampNumberA
             },
             filterFn: (row, columnId, value) => {
                 if (!value) return true
