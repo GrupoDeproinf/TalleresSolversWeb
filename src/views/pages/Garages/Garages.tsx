@@ -37,6 +37,7 @@ import {
     where,
     setDoc,
     updateDoc,
+    Timestamp,
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -61,6 +62,16 @@ interface SelectedPlace {
     latiLng: { lat: number; lng: number }
     zoom: number
 }
+type Subscripcion = {
+    cantidad_servicios?: number
+    fecha_fin?: Timestamp | { seconds: number; nanoseconds?: number } | string
+    fecha_inicio?: Timestamp | { seconds: number; nanoseconds?: number } | string
+    monto?: number
+    nombre?: string
+    status?: string
+    vigencia?: string
+}
+
 type Garage = {
     nombre?: string
     email?: string
@@ -75,7 +86,7 @@ type Garage = {
     certificador_nombre?: string
     createdAt?: number | { seconds: number; nanoseconds?: number } | string
     scheduled_visit?: string
-
+    subscripcion_actual?: Subscripcion
     id?: string
     status?: string
     password?: string
@@ -743,7 +754,7 @@ const Garages = () => {
             },
         },
         {
-            header: 'Estado',
+            header: 'Status',
             accessorKey: 'status',
             cell: ({ row }) => {
                 const status = row.getValue('status') as string // Aserción de tipo
@@ -783,6 +794,53 @@ const Garages = () => {
                     <div className={`flex items-center ${color}`}>
                         {icon}
                         <span>{status}</span>
+                    </div>
+                )
+            },
+        },
+        {
+            header: 'Estado Subscripción',
+            accessorKey: 'subscripcion_actual',
+            cell: ({ row }) => {
+                const subscripcion = row.original.subscripcion_actual
+                
+                if (!subscripcion) {
+                    return (
+                        <div className="flex items-center text-gray-400">
+                            <span>Sin suscripción</span>
+                        </div>
+                    )
+                }
+
+                const statusSub = subscripcion.status || 'Sin estado'
+                const nombreSub = subscripcion.nombre || ''
+                let icon
+                let color
+
+                switch (statusSub) {
+                    case 'Aprobado':
+                        icon = <FaCheckCircle className="text-green-500 mr-1" />
+                        color = 'text-green-500'
+                        break
+                    case 'Rechazado':
+                        icon = <FaTimesCircle className="text-red-500 mr-1" />
+                        color = 'text-red-500'
+                        break
+                    case 'Pendiente':
+                        icon = (
+                            <FaExclamationCircle className="text-yellow-500 mr-1" />
+                        )
+                        color = 'text-yellow-500'
+                        break
+                    default:
+                        icon = <FaQuestionCircle className="text-gray-500 mr-1" />
+                        color = 'text-gray-500'
+                }
+
+                return (
+                    <div className={`flex items-center ${color}`}>
+                        {icon}
+                        <span>{nombreSub ? `${nombreSub} - ${statusSub}` : statusSub}</span>
                     </div>
                 )
             },
