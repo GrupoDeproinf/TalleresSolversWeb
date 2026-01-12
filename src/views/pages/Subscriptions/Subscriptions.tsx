@@ -481,10 +481,23 @@ const Subscriptions = () => {
             camposDeseados.forEach((campo) => {
                 const value = row[campo as keyof Subscriptions]
                 const header = encabezados[campo] || campo
-                rowData[header] =
-                    value instanceof Timestamp
-                        ? value.toDate().toISOString().split('T')[0]
-                        : value ?? ''
+                
+                // Si es el campo monto, verificar si es gratuito
+                if (campo === 'monto') {
+                    const montoNum = typeof value === 'string' ? parseFloat(value) : (typeof value === 'number' ? value : 0)
+                    if (isNaN(montoNum) || montoNum < 0.0001) {
+                        rowData[header] = 'GRATIS'
+                    } else {
+                        rowData[header] = value instanceof Timestamp
+                            ? value.toDate().toISOString().split('T')[0]
+                            : value ?? ''
+                    }
+                } else {
+                    rowData[header] =
+                        value instanceof Timestamp
+                            ? value.toDate().toISOString().split('T')[0]
+                            : value ?? ''
+                }
             })
 
             if (row.comprobante_pago) {
@@ -549,6 +562,24 @@ const Subscriptions = () => {
         {
             header: 'Monto',
             accessorKey: 'monto',
+            cell: ({ row }) => {
+                const monto = row.getValue('monto') as string | number | undefined
+                
+                if (!monto) {
+                    return <span>-</span>
+                }
+                
+                // Convertir a número si es string
+                const montoNum = typeof monto === 'string' ? parseFloat(monto) : monto
+                
+                // Verificar si es un plan gratuito (monto muy pequeño, como 1e-16 o 0)
+                if (isNaN(montoNum) || montoNum < 0.0001) {
+                    return <span className="font-semibold text-green-600">GRATIS</span>
+                }
+                
+                // Formatear el monto con separador de miles
+                return <span>${montoNum.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            },
         },
         {
             header: 'Fecha de Aprobacion',
