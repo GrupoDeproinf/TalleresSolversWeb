@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { APP_PREFIX_PATH } from '@/constants/route.constant'
 import Switcher from '@/components/ui/Switcher'
 import { ChangeEvent } from 'react'
@@ -434,20 +434,33 @@ const ProfileGarage = () => {
             const usuarioDocRef = doc(db, 'Usuarios', path)
             const newSubscriptionRef = doc(collection(db, 'Subscripciones'))
 
-            await setDoc(newSubscriptionRef, {
+            // Determinar si el plan es gratuito
+            const isFreePlan = plan.monto === 0 || (plan.monto < 0.01 && plan.monto > -0.01)
+            
+            // Si es plan gratuito, aprobar automáticamente; si no, dejar pendiente
+            const subscriptionStatus = isFreePlan ? 'Aprobado' : 'Por Aprobar'
+
+            const fechaInicio = new Date()
+            const vigenciaDias = parseInt(plan.vigencia, 10) || 30 // Si no hay vigencia, usar 30 días por defecto
+            const fechaFin = new Date(fechaInicio)
+            fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
+
+            const subscriptionData = {
                 uid: newSubscriptionRef.id,
                 nombre: plan.nombre,
                 monto: plan.monto,
                 vigencia: plan.vigencia,
                 cantidad_servicios: plan.cantidad_servicios,
-                status: 'Por Aprobar',
+                status: subscriptionStatus,
                 taller_uid: path,
                 fechaCreacion: Timestamp.fromDate(new Date()),
-            })
+                ...(isFreePlan && {
+                    fecha_inicio: Timestamp.fromDate(fechaInicio),
+                    fecha_fin: Timestamp.fromDate(fechaFin),
+                }),
+            }
 
-            const fechaInicio = new Date()
-            const fechaFin = new Date(fechaInicio)
-            fechaFin.setMonth(fechaFin.getMonth() + 1)
+            await setDoc(newSubscriptionRef, subscriptionData)
 
             await updateDoc(usuarioDocRef, {
                 subscripcion_actual: {
@@ -456,7 +469,7 @@ const ProfileGarage = () => {
                     monto: plan.monto,
                     vigencia: plan.vigencia,
                     cantidad_servicios: plan.cantidad_servicios,
-                    status: 'Por Aprobar',
+                    status: subscriptionStatus,
                     fecha_inicio: Timestamp.fromDate(fechaInicio),
                     fecha_fin: Timestamp.fromDate(fechaFin),
                 },
@@ -471,7 +484,9 @@ const ProfileGarage = () => {
             )
             toast.push(
                 <Notification title="Éxito" type="success">
-                    Se ha subscrito correctamente a este plan.
+                    {isFreePlan 
+                        ? 'Se ha subscrito correctamente al plan gratuito. Tu plan está activo.'
+                        : 'Se ha subscrito correctamente a este plan. Espera la aprobación del pago.'}
                 </Notification>,
             )
         } catch (error) {
@@ -962,7 +977,12 @@ const ProfileGarage = () => {
 
     const { TabNav, TabList, TabContent } = Tabs
 
-    const columns: ColumnDef<Service>[] = [
+    const handleEditService = (service: Service) => {
+        setSelectedService(service)
+        setIsEditDrawerOpen(true)
+    }
+
+    const columns: ColumnDef<Service>[] = useMemo(() => [
         {
             header: 'Nombre del Servicio',
             accessorKey: 'nombre_servicio',
@@ -983,6 +1003,21 @@ const ProfileGarage = () => {
                     row.original.estatus ?? false,
                 )
                 const handleStatusChange = async (val: boolean) => {
+                    // Si intenta encender el servicio, verificar que el plan esté activo y aprobado
+                    if (val === true) {
+                        if (subscription?.status !== 'Aprobado') {
+                            toast.push(
+                                <Notification
+                                    title="Plan no activo"
+                                    type="warning"
+                                >
+                                    No puedes encender servicios. Tu plan debe estar activo y aprobado.
+                                </Notification>,
+                            )
+                            return
+                        }
+                    }
+
                     setEstatus(val)
 
                     const updatedServices = services.map((service) =>
@@ -1036,7 +1071,7 @@ const ProfileGarage = () => {
                 )
             },
         },
-    ]
+    ], [subscription, services, handleEditService])
 
     const columns2: ColumnDef<Planes>[] = [
         {
@@ -1046,6 +1081,13 @@ const ProfileGarage = () => {
         {
             header: 'Monto',
             accessorKey: 'monto',
+            cell: ({ getValue }) => {
+                const value = getValue() as number;
+                if (value === 0 || (value < 0.01 && value > -0.01)) {
+                    return 'Gratis';
+                }
+                return value;
+            },
         },
         {
             header: 'Descripcion',
@@ -1152,11 +1194,6 @@ const ProfileGarage = () => {
     const closeDocumentModal = () => {
         setDocumentModalOpen(false)
         setSelectedDocument(null)
-    }
-
-    const handleEditService = (service: Service) => {
-        setSelectedService(service)
-        setIsEditDrawerOpen(true)
     }
 
     const handleCloseEditDrawer = () => {
@@ -1413,9 +1450,11 @@ const ProfileGarage = () => {
                                                         <p className="text-xs text-gray-600">
                                                             Monto mensual:{' '}
                                                             <span className="font-bold text-gray-800">
-                                                                $
-                                                                {subscription?.monto ??
-                                                                    '---'}
+                                                                {subscription?.monto !== undefined && subscription?.monto !== null
+                                                                    ? (subscription.monto === 0 || (subscription.monto < 0.01 && subscription.monto > -0.01))
+                                                                        ? 'Gratis'
+                                                                        : `$${subscription.monto}`
+                                                                    : '---'}
                                                             </span>
                                                         </p>
                                                         {subscription?.status ===
@@ -1445,7 +1484,7 @@ const ProfileGarage = () => {
                                             </div>
                                             {subscription?.status ===
                                                 'Vencido' && (
-                                                <div className="flex justify-end mt-2">
+                                                <div className="flex justify-end gap-2 mt-2">
                                                     <button
                                                         onClick={() =>
                                                             setDialogOpensub(true)
@@ -1454,6 +1493,14 @@ const ProfileGarage = () => {
                                                     >
                                                         Elegir Plan
                                                     </button>
+                                                    {subscription?.uid && (
+                                                        <PaymentDrawer
+                                                            talleruid={path}
+                                                            subscriptionId={
+                                                                subscription?.uid || ''
+                                                            }
+                                                        />
+                                                    )}
                                                 </div>
                                             )}
                                             {subscription?.status ===
@@ -1473,8 +1520,7 @@ const ProfileGarage = () => {
                                                     <PaymentDrawer
                                                         talleruid={path}
                                                         subscriptionId={
-                                                            subscripcionestable[0]
-                                                                ?.uid
+                                                            subscription?.uid || ''
                                                         }
                                                     />
                                                 </div>
