@@ -316,7 +316,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                         </h5>
                         <div className="flex items-center justify-between mt-3">
                             <p className="text-4xl font-bold text-gray-900">
-                                {tallerCount}
+                                {talleresStats.aprobados + talleresStats.pendientes + talleresStats.rechazados + talleresStats.espera}
                             </p>
                             <span className="text-base font-semibold text-red-700 bg-red-100 px-3 py-1 rounded-full">
                                 {talleresStats.espera} en espera
