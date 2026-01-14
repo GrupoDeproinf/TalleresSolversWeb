@@ -1,0 +1,1 @@
+import{av as t}from"./index-0JW14Cl4.js";function n(){const{themeColor:r,primaryColorLevel:o}=t(),e=`${r}-${o}`;return{ringTheme:`ring-${e}`,borderTheme:`border-${e}`,bgTheme:`bg-${e}`,textTheme:`text-${e}`}}export{n as u};
