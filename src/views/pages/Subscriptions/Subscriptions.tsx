@@ -598,36 +598,39 @@ const Subscriptions = () => {
             },
         },
         {
-            header: 'Estado',
+            header: 'Estado Subscripción',
             accessorKey: 'status',
             cell: ({ row }) => {
-                const status = row.getValue('status') as string
-                let icon
-                let color
-
-                switch (status) {
-                    case 'Aprobado':
-                        icon = <FaCheckCircle className="text-green-500 mr-1" />
-                        color = 'text-green-500'
-                        break
-                    case 'Vencido':
-                        icon = <FaTimesCircle className="text-red-500 mr-1" />
-                        color = 'text-red-500'
-                        break
-                    case 'Por Aprobar':
-                        icon = (
-                            <FaExclamationCircle className="text-yellow-500 mr-1" />
-                        )
-                        color = 'text-yellow-500'
-                        break
-                    default:
-                        icon = null
+                const fechaFin = row.original.fecha_fin
+                
+                // Verificar si la fecha de vigencia ya pasó
+                let isVencido = false
+                if (fechaFin) {
+                    const fechaFinDate = fechaFin instanceof Timestamp 
+                        ? fechaFin.toDate() 
+                        : new Date(fechaFin as any)
+                    const fechaActual = new Date()
+                    // Comparar solo fechas (sin horas)
+                    fechaActual.setHours(0, 0, 0, 0)
+                    fechaFinDate.setHours(0, 0, 0, 0)
+                    isVencido = fechaFinDate < fechaActual
                 }
 
+                // Si está vencido, mostrar "Vencido" en rojo
+                if (isVencido) {
+                    return (
+                        <div className="flex items-center text-red-500">
+                            <FaTimesCircle className="text-red-500 mr-1" />
+                            <span>Vencido</span>
+                        </div>
+                    )
+                }
+
+                // Si no está vencido, mostrar "Vigente" en verde
                 return (
-                    <div className={`flex items-center ${color}`}>
-                        {icon}
-                        <span>{status}</span>
+                    <div className="flex items-center text-green-500">
+                        <FaCheckCircle className="text-green-500 mr-1" />
+                        <span>Vigente</span>
                     </div>
                 )
             },

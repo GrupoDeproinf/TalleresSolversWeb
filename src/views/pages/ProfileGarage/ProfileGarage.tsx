@@ -32,6 +32,9 @@ import {
     FaImage,
     FaTimes,
     FaRegEye,
+    FaSearchPlus,
+    FaSearchMinus,
+    FaExpand,
 } from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
 import { db, storage } from '@/configs/firebaseAssets.config'
@@ -1181,6 +1184,10 @@ const ProfileGarage = () => {
     const [selectedService, setSelectedService] = useState<Service | null>(null) // Servicio seleccionado para editar
     const [documentModalOpen, setDocumentModalOpen] = useState(false) // Estado para controlar el modal de documentos
     const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string; type: 'image' | 'pdf' } | null>(null) // Documento seleccionado para mostrar en el modal
+    const [zoomLevel, setZoomLevel] = useState(1) // Nivel de zoom (1 = 100%)
+    const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 }) // Posición de arrastre
+    const [isDragging, setIsDragging] = useState(false) // Si está arrastrando
+    const [dragStart, setDragStart] = useState({ x: 0, y: 0 }) // Posición inicial del mouse al comenzar arrastre
 
     const toggleMapModal = () => {
         setIsMapOpen((prev) => !prev) // Alternar la visibilidad del modal
@@ -1189,12 +1196,88 @@ const ProfileGarage = () => {
     const openDocumentModal = (url: string, name: string, type: 'image' | 'pdf') => {
         setSelectedDocument({ url, name, type })
         setDocumentModalOpen(true)
+        setZoomLevel(1) // Resetear zoom al abrir un nuevo documento
+        setDragPosition({ x: 0, y: 0 }) // Resetear posición de arrastre
     }
 
     const closeDocumentModal = () => {
         setDocumentModalOpen(false)
         setSelectedDocument(null)
+        setZoomLevel(1) // Resetear zoom al cerrar
+        setDragPosition({ x: 0, y: 0 }) // Resetear posición de arrastre
+        setIsDragging(false)
     }
+
+    const handleZoomIn = () => {
+        setZoomLevel((prev) => Math.min(prev + 0.25, 3)) // Máximo 300%
+    }
+
+    const handleZoomOut = () => {
+        setZoomLevel((prev) => Math.max(prev - 0.25, 0.5)) // Mínimo 50%
+    }
+
+    const handleZoomReset = () => {
+        setZoomLevel(1)
+        setDragPosition({ x: 0, y: 0 }) // Resetear posición al resetear zoom
+    }
+
+    const handleWheelZoom = (e: React.WheelEvent) => {
+        if (e.ctrlKey || e.metaKey) {
+            e.preventDefault()
+            const delta = e.deltaY > 0 ? -0.1 : 0.1
+            setZoomLevel((prev) => Math.max(0.5, Math.min(3, prev + delta)))
+        }
+    }
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (zoomLevel > 1 && selectedDocument?.type === 'image') {
+            setIsDragging(true)
+            setDragStart({ x: e.clientX - dragPosition.x, y: e.clientY - dragPosition.y })
+            e.preventDefault()
+        }
+    }
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (isDragging && zoomLevel > 1) {
+            const newX = e.clientX - dragStart.x
+            const newY = e.clientY - dragStart.y
+            setDragPosition({ x: newX, y: newY })
+        }
+    }
+
+    const handleMouseUp = () => {
+        setIsDragging(false)
+    }
+
+    // Resetear posición cuando el zoom vuelve a 1
+    useEffect(() => {
+        if (zoomLevel === 1) {
+            setDragPosition({ x: 0, y: 0 })
+        }
+    }, [zoomLevel])
+
+    // Manejar eventos globales para el arrastre
+    useEffect(() => {
+        if (isDragging) {
+            const handleGlobalMouseMove = (e: MouseEvent) => {
+                const newX = e.clientX - dragStart.x
+                const newY = e.clientY - dragStart.y
+                setDragPosition({ x: newX, y: newY })
+            }
+
+            const handleGlobalMouseUp = () => {
+                setIsDragging(false)
+            }
+
+            document.addEventListener('mousemove', handleGlobalMouseMove)
+            document.addEventListener('mouseup', handleGlobalMouseUp)
+
+            return () => {
+                document.removeEventListener('mousemove', handleGlobalMouseMove)
+                document.removeEventListener('mouseup', handleGlobalMouseUp)
+            }
+        }
+    }, [isDragging, dragStart])
 
     const handleCloseEditDrawer = () => {
         setIsEditDrawerOpen(false)
@@ -2805,25 +2888,82 @@ const ProfileGarage = () => {
                             <h2 className="text-xl font-semibold text-gray-800">
                                 {selectedDocument.name}
                             </h2>
-                            <button
-                                onClick={closeDocumentModal}
-                                className="text-gray-500 hover:text-gray-700 focus:outline-none transition-colors"
-                            >
-                                <FaTimes className="w-6 h-6" />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                {/* Controles de zoom */}
+                                <div className="flex items-center gap-2 mr-4 border-r pr-4">
+                                    <button
+                                        onClick={handleZoomOut}
+                                        disabled={zoomLevel <= 0.5}
+                                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Alejar (Ctrl + Rueda del mouse)"
+                                    >
+                                        <FaSearchMinus className="w-5 h-5" />
+                                    </button>
+                                    <span className="text-sm font-medium text-gray-700 min-w-[60px] text-center">
+                                        {Math.round(zoomLevel * 100)}%
+                                    </span>
+                                    <button
+                                        onClick={handleZoomIn}
+                                        disabled={zoomLevel >= 3}
+                                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Acercar (Ctrl + Rueda del mouse)"
+                                    >
+                                        <FaSearchPlus className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={handleZoomReset}
+                                        className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                                        title="Restablecer zoom"
+                                    >
+                                        <FaExpand className="w-5 h-5" />
+                                    </button>
+                                </div>
+                                <button
+                                    onClick={closeDocumentModal}
+                                    className="text-gray-500 hover:text-gray-700 focus:outline-none transition-colors"
+                                >
+                                    <FaTimes className="w-6 h-6" />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex-1 overflow-auto p-4 bg-gray-100 flex items-center justify-center">
+                        <div 
+                            className="flex-1 overflow-hidden p-4 bg-gray-100 flex items-center justify-center relative"
+                            onWheel={handleWheelZoom}
+                        >
                             {selectedDocument.type === 'pdf' ? (
-                                <iframe
-                                    src={selectedDocument.url}
-                                    className="w-full h-full min-h-[600px] border-0"
-                                    title={selectedDocument.name}
-                                />
+                                <div 
+                                    style={{ 
+                                        transform: `scale(${zoomLevel})`,
+                                        transformOrigin: 'center center',
+                                        transition: zoomLevel === 1 ? 'transform 0.2s ease-in-out' : 'none',
+                                        width: `${100 / zoomLevel}%`,
+                                        height: `${100 / zoomLevel}%`
+                                    }}
+                                >
+                                    <iframe
+                                        src={selectedDocument.url}
+                                        className="w-full h-full min-h-[600px] border-0"
+                                        title={selectedDocument.name}
+                                    />
+                                </div>
                             ) : (
                                 <img
                                     src={selectedDocument.url}
                                     alt={selectedDocument.name}
-                                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+                                    style={{
+                                        transform: `scale(${zoomLevel}) translate3d(${dragPosition.x / zoomLevel}px, ${dragPosition.y / zoomLevel}px, 0)`,
+                                        transformOrigin: 'center center',
+                                        transition: isDragging ? 'none' : (zoomLevel === 1 && dragPosition.x === 0 && dragPosition.y === 0 ? 'transform 0.2s ease-in-out' : 'none'),
+                                        maxWidth: '100%',
+                                        maxHeight: '70vh',
+                                        cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                                    }}
+                                    className="object-contain rounded-lg shadow-lg select-none"
+                                    onMouseDown={handleMouseDown}
+                                    onMouseMove={handleMouseMove}
+                                    onMouseUp={handleMouseUp}
+                                    onMouseLeave={handleMouseUp}
+                                    draggable={false}
                                     onError={(e) => {
                                         const imgElement = e.target as HTMLImageElement
                                         imgElement.style.display = 'none'
