@@ -1109,6 +1109,13 @@ const ProfileGarage = () => {
         {
             header: 'Monto',
             accessorKey: 'monto',
+            cell: ({ getValue }) => {
+                const value = getValue() as number;
+                if (value === 0 || (value < 0.01 && value > -0.01)) {
+                    return 'Gratuito';
+                }
+                return `$${value}`;
+            },
         },
         {
             header: 'vigencia',
