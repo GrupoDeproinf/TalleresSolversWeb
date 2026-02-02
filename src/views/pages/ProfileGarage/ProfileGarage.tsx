@@ -35,6 +35,10 @@ import {
     FaSearchPlus,
     FaSearchMinus,
     FaExpand,
+    FaRedo,
+    FaUndo,
+    FaArrowsAltH,
+    FaArrowsAltV,
 } from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
 import { db, storage } from '@/configs/firebaseAssets.config'
@@ -1194,6 +1198,9 @@ const ProfileGarage = () => {
     const [zoomLevel, setZoomLevel] = useState(1) // Nivel de zoom (1 = 100%)
     const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 }) // Posición de arrastre
     const [isDragging, setIsDragging] = useState(false) // Si está arrastrando
+    const [imageRotation, setImageRotation] = useState(0) // Rotación en grados (0, 90, 180, 270)
+    const [flipHorizontal, setFlipHorizontal] = useState(false)
+    const [flipVertical, setFlipVertical] = useState(false)
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 }) // Posición inicial del mouse al comenzar arrastre
 
     const toggleMapModal = () => {
@@ -1205,6 +1212,9 @@ const ProfileGarage = () => {
         setDocumentModalOpen(true)
         setZoomLevel(1) // Resetear zoom al abrir un nuevo documento
         setDragPosition({ x: 0, y: 0 }) // Resetear posición de arrastre
+        setImageRotation(0)
+        setFlipHorizontal(false)
+        setFlipVertical(false)
     }
 
     const closeDocumentModal = () => {
@@ -1213,6 +1223,9 @@ const ProfileGarage = () => {
         setZoomLevel(1) // Resetear zoom al cerrar
         setDragPosition({ x: 0, y: 0 }) // Resetear posición de arrastre
         setIsDragging(false)
+        setImageRotation(0)
+        setFlipHorizontal(false)
+        setFlipVertical(false)
     }
 
     const handleZoomIn = () => {
@@ -1227,6 +1240,17 @@ const ProfileGarage = () => {
         setZoomLevel(1)
         setDragPosition({ x: 0, y: 0 }) // Resetear posición al resetear zoom
     }
+
+    const handleRotateRight = () => {
+        setImageRotation((prev) => (prev + 90) % 360)
+    }
+
+    const handleRotateLeft = () => {
+        setImageRotation((prev) => (prev - 90 + 360) % 360)
+    }
+
+    const handleFlipHorizontal = () => setFlipHorizontal((prev) => !prev)
+    const handleFlipVertical = () => setFlipVertical((prev) => !prev)
 
     const handleWheelZoom = (e: React.WheelEvent) => {
         if (e.ctrlKey || e.metaKey) {
@@ -2925,6 +2949,39 @@ const ProfileGarage = () => {
                                         <FaExpand className="w-5 h-5" />
                                     </button>
                                 </div>
+                                {/* Controles de rotar/voltear (solo para imágenes) */}
+                                {selectedDocument.type === 'image' && (
+                                    <div className="flex items-center gap-2 mr-4 border-r pr-4">
+                                        <button
+                                            onClick={handleRotateLeft}
+                                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                                            title="Rotar 90° a la izquierda"
+                                        >
+                                            <FaUndo className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={handleRotateRight}
+                                            className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                                            title="Rotar 90° a la derecha"
+                                        >
+                                            <FaRedo className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={handleFlipHorizontal}
+                                            className={`p-2 rounded-md transition-colors ${flipHorizontal ? 'bg-gray-200 text-gray-800' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                                            title="Voltear horizontal"
+                                        >
+                                            <FaArrowsAltH className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={handleFlipVertical}
+                                            className={`p-2 rounded-md transition-colors ${flipVertical ? 'bg-gray-200 text-gray-800' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                                            title="Voltear vertical"
+                                        >
+                                            <FaArrowsAltV className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
                                 <button
                                     onClick={closeDocumentModal}
                                     className="text-gray-500 hover:text-gray-700 focus:outline-none transition-colors"
@@ -2958,9 +3015,9 @@ const ProfileGarage = () => {
                                     src={selectedDocument.url}
                                     alt={selectedDocument.name}
                                     style={{
-                                        transform: `scale(${zoomLevel}) translate3d(${dragPosition.x / zoomLevel}px, ${dragPosition.y / zoomLevel}px, 0)`,
+                                        transform: `rotate(${imageRotation}deg) scaleX(${flipHorizontal ? -1 : 1}) scaleY(${flipVertical ? -1 : 1}) scale(${zoomLevel}) translate3d(${dragPosition.x / zoomLevel}px, ${dragPosition.y / zoomLevel}px, 0)`,
                                         transformOrigin: 'center center',
-                                        transition: isDragging ? 'none' : (zoomLevel === 1 && dragPosition.x === 0 && dragPosition.y === 0 ? 'transform 0.2s ease-in-out' : 'none'),
+                                        transition: isDragging ? 'none' : (zoomLevel === 1 && dragPosition.x === 0 && dragPosition.y === 0 && imageRotation === 0 && !flipHorizontal && !flipVertical ? 'transform 0.2s ease-in-out' : 'none'),
                                         maxWidth: '100%',
                                         maxHeight: '70vh',
                                         cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
@@ -2996,7 +3053,7 @@ const ProfileGarage = () => {
                                 rel="noopener noreferrer"
                                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                             >
-                                Abrir en nueva pestaña
+                                Abrir en una nueva pestaña
                             </a>
                         </div>
                     </div>
