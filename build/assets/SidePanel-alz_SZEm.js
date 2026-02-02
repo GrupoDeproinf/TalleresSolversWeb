@@ -1,0 +1,1 @@
+import{a,u as t,j as s}from"./index-JmHojjZF.js";import{w as p}from"./withHeaderItem-SP2Gq6IW.js";const r=o=>(a(),t(e=>e.theme.panelExpand),t(e=>e.theme.direction),s.jsx(s.Fragment,{})),m=p(r);export{m as S};

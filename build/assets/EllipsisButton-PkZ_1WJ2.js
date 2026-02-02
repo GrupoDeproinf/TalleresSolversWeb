@@ -1,1 +1,0 @@
-import{j as t}from"./index-h29nTG28.js";import{B as n}from"./Button-HN7QplVb.js";import{c as a}from"./index.esm-dJM_6jPq.js";const e=s=>{const{shape:i="circle",variant:o="plain",size:r="xs"}=s;return t.jsx(n,{shape:i,variant:o,size:r,icon:t.jsx(a,{}),...s})};export{e as E};
