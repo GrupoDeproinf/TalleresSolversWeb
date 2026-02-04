@@ -92,7 +92,7 @@ const ServicesList = () => {
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage] = useState(10)
+    const [rowsPerPage, setRowsPerPage] = useState(10)
     const [selectedService, setSelectedService] = useState<Service | null>(null)
     const [modalIsOpen, setModalIsOpen] = useState(false)
 
@@ -497,6 +497,11 @@ const ServicesList = () => {
         setCurrentPage(page)
     }
 
+    const onRowsPerPageChange = (newRowsPerPage: number) => {
+        setRowsPerPage(newRowsPerPage)
+        setCurrentPage(1)
+    }
+
     // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
@@ -623,6 +628,7 @@ const ServicesList = () => {
                     currentPage={currentPage}
                     totalRows={totalRows}
                     rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={onRowsPerPageChange}
                 />
             </div>
 

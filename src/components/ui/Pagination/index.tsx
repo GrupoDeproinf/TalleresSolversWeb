@@ -1,11 +1,15 @@
 import React, { useMemo } from 'react';
 import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 
+const DEFAULT_ROWS_PER_PAGE_OPTIONS = [10, 20, 30, 40, 50];
+
 interface PaginationProps {
     onChange: (page: number) => void;
     currentPage: number;
     totalRows: number;
     rowsPerPage: number;
+    rowsPerPageOptions?: number[];
+    onRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
 const Pagination: React.FC<PaginationProps> = ({
@@ -13,6 +17,8 @@ const Pagination: React.FC<PaginationProps> = ({
     currentPage,
     totalRows,
     rowsPerPage,
+    rowsPerPageOptions = DEFAULT_ROWS_PER_PAGE_OPTIONS,
+    onRowsPerPageChange,
 }) => {
     const totalPages = Math.ceil(totalRows / rowsPerPage);
     const maxVisiblePages = 20; // Número máximo de páginas visibles
@@ -72,8 +78,33 @@ const Pagination: React.FC<PaginationProps> = ({
         return pages;
     }, [currentPage, totalPages, maxVisiblePages]);
 
+    const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = Number(e.target.value);
+        onRowsPerPageChange?.(value);
+    };
+
     return (
-        <div className="flex items-center justify-center p-4 bg-white border-t border-gray-200">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white border-t border-gray-200">
+            {onRowsPerPageChange && (
+                <div className="flex items-center gap-2">
+                    <label htmlFor="rows-per-page" className="text-sm text-gray-600 whitespace-nowrap">
+                        Registros por página:
+                    </label>
+                    <select
+                        id="rows-per-page"
+                        value={rowsPerPage}
+                        onChange={handleRowsPerPageChange}
+                        className="h-8 min-w-[4rem] py-1.5 px-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#000B7E] focus:border-transparent"
+                    >
+                        {rowsPerPageOptions.map((opt) => (
+                            <option key={opt} value={opt}>
+                                {opt}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+            <div className="flex items-center justify-center flex-1">
             <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
@@ -117,6 +148,7 @@ const Pagination: React.FC<PaginationProps> = ({
             >
                 <FaArrowRight />
             </button>
+            </div>
         </div>
     );
 };

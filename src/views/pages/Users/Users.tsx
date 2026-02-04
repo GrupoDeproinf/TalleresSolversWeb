@@ -601,7 +601,7 @@ const Users = () => {
     })
 
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6
+    const [rowsPerPage, setRowsPerPage] = useState(10)
 
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -609,8 +609,12 @@ const Users = () => {
     const totalRows = data.length
 
     const onPaginationChange = (page: number) => {
-        console.log('onPaginationChange', page)
         setCurrentPage(page)
+    }
+
+    const onRowsPerPageChange = (newRowsPerPage: number) => {
+        setRowsPerPage(newRowsPerPage)
+        setCurrentPage(1)
     }
 
     const startIndex = (currentPage - 1) * rowsPerPage
@@ -733,6 +737,7 @@ const Users = () => {
                     currentPage={currentPage}
                     totalRows={totalRows}
                     rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={onRowsPerPageChange}
                 />
             </div>
             <Dialog

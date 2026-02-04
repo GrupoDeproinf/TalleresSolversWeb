@@ -723,7 +723,7 @@ const Users = () => {
     })
 
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6 // Puedes cambiar esto si deseas un número diferente
+    const [rowsPerPage, setRowsPerPage] = useState(10)
 
     const [showPassword, setShowPassword] = useState(false)
     // Suponiendo que tienes un array de datos
@@ -731,8 +731,12 @@ const Users = () => {
     const totalRows = data.length
 
     const onPaginationChange = (page: number) => {
-        console.log('onPaginationChange', page)
-        setCurrentPage(page) // Actualiza la página actual
+        setCurrentPage(page)
+    }
+
+    const onRowsPerPageChange = (newRowsPerPage: number) => {
+        setRowsPerPage(newRowsPerPage)
+        setCurrentPage(1)
     }
 
     // Calcular el índice de inicio y fin para la paginación
@@ -859,6 +863,7 @@ const Users = () => {
                     currentPage={currentPage}
                     totalRows={totalRows}
                     rowsPerPage={rowsPerPage}
+                    onRowsPerPageChange={onRowsPerPageChange}
                 />
             </div>
 

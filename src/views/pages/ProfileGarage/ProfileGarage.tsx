@@ -1178,14 +1178,18 @@ const ProfileGarage = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
     const [currentPage, setCurrentPage] = useState(1)
-    const rowsPerPage = 6
+    const [rowsPerPage, setRowsPerPage] = useState(10)
 
     const dataservice = table.getRowModel().rows
     const totalRows = dataservice.length
 
     const onPaginationChange = (page: number) => {
-        console.log('onPaginationChange', page)
         setCurrentPage(page)
+    }
+
+    const onRowsPerPageChange = (newRowsPerPage: number) => {
+        setRowsPerPage(newRowsPerPage)
+        setCurrentPage(1)
     }
 
     //console.log('data del taller', formData)
@@ -1738,6 +1742,7 @@ const ProfileGarage = () => {
                                             currentPage={currentPage}
                                             totalRows={totalRows}
                                             rowsPerPage={rowsPerPage}
+                                            onRowsPerPageChange={onRowsPerPageChange}
                                         />
                                     </div>
                                 </div>
@@ -1874,6 +1879,7 @@ const ProfileGarage = () => {
                                     currentPage={currentPage}
                                     totalRows={totalRows}
                                     rowsPerPage={rowsPerPage}
+                                    onRowsPerPageChange={onRowsPerPageChange}
                                 />
                             </div>
                         </div>
