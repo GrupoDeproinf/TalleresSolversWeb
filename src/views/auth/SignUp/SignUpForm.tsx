@@ -84,7 +84,7 @@ const SignUpForm = (props: SignUpFormProps) => {
             password: values.password,
             phone: values.phone,
             typeUser: values.typeUser,
-            status: 'Pendiente',
+            status: 'En espera por aprobación',
             createdAt: Date.now(), // Timestamp en milisegundos
             ...(values.typeUser === 'Cliente'
                 ? { cedula: values.cedulaOrif }
@@ -141,7 +141,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                     cedulaOrif: '',
                     phone: '',
                     typeUser: 'Cliente',
-                    status: 'Pendiente', // Inicializamos status como 'Pendiente'
+                    status: 'En espera por aprobación', // Inicializamos status como "En espera por aprobación"
                 }}
                 validationSchema={validationSchema}
                 validateOnChange={false}

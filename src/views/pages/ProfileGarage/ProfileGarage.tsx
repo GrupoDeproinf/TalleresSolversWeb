@@ -2473,7 +2473,6 @@ const ProfileGarage = () => {
                                     onChange={handleEditChange}
                                 >
                                     <option value="Aprobado">Aprobado</option>
-                                    <option value="Pendiente">Pendiente</option>
                                     <option value="Rechazado">Rechazado</option>
                                     <option value="En espera por aprobación">
                                         En espera por aprobación

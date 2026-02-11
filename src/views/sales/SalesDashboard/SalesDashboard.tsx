@@ -49,7 +49,6 @@ const fetchDashboardData = async () => {
     let tallerCount = 0
     let talleresStats = {
         aprobados: 0,
-        pendientes: 0,
         rechazados: 0,
         espera: 0,
     }
@@ -67,9 +66,6 @@ const fetchDashboardData = async () => {
             switch (data.status) {
                 case 'Aprobado':
                     talleresStats.aprobados++
-                    break
-                case 'Pendiente':
-                    talleresStats.pendientes++
                     break
                 case 'Rechazado':
                     talleresStats.rechazados++
@@ -105,7 +101,6 @@ const SalesDashboard = () => {
         tallerCount: 0,
         talleresStats: {
             aprobados: 0,
-            pendientes: 0,
             rechazados: 0,
             espera: 0,
         },
@@ -277,19 +272,9 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
 
     // Datos para el gráfico
     const chartData = {
-        labels: [
-            'Aprobados',
-            'Pendientes',
-            'Rechazados',
-            'En espera por aprobación',
-        ],
-        data: [
-            talleresStats.aprobados,
-            talleresStats.pendientes,
-            talleresStats.rechazados,
-            talleresStats.espera,
-        ],
-        colors: ['#15803D', '#FFC107', '#C22F1C', '#2196F3'],
+        labels: ['Aprobados', 'Rechazados', 'En espera por aprobación'],
+        data: [talleresStats.aprobados, talleresStats.rechazados, talleresStats.espera],
+        colors: ['#15803D', '#C22F1C', '#2196F3'],
     }
 
     return (
@@ -320,7 +305,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                         </h5>
                         <div className="flex items-center justify-between mt-3">
                             <p className="text-4xl font-bold text-gray-900">
-                                {talleresStats.aprobados + talleresStats.pendientes + talleresStats.rechazados + talleresStats.espera}
+                                {talleresStats.aprobados + talleresStats.rechazados + talleresStats.espera}
                             </p>
                             <span className="text-base font-semibold text-red-700 bg-red-100 px-3 py-1 rounded-full">
                                 {talleresStats.espera} en espera
