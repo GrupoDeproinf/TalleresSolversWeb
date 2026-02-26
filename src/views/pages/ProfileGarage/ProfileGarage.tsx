@@ -48,7 +48,6 @@ import { HiFire } from 'react-icons/hi'
 import Table from '@/components/ui/Table'
 import { Dialog, Notification, Pagination, toast } from '@/components/ui'
 import { FaEdit, FaStar, FaStarHalfAlt } from 'react-icons/fa'
-import Tabs from '@/components/ui/Tabs'
 import {
     flexRender,
     getCoreRowModel,
@@ -79,6 +78,8 @@ import {
 import MapsProfile from './Components/MapsProfile'
 import MapsEdit from './Components/MapsEdit'
 import EditServiceDrawer from './Components/EditServiceDrawer'
+import EditPromotionDrawer from './Components/EditPromotionDrawer'
+import ProfileGarageTabs from './Components/ProfileGarageTabs'
 import axios from 'axios'
 
 type Service = {
@@ -97,6 +98,57 @@ type Service = {
     typeService: string
     service_image: string[]
 }
+
+type Promotion = {
+    uid_promocion: string
+    nombre_servicio: string
+    descripcion: string
+    precio: string
+    taller: string
+    uid_taller: string
+    estatus: boolean
+    uid_categoria: string
+    nombre_categoria: string
+    subcategoria: any[]
+    garantia: string
+    typeService: string
+    service_image: string[]
+}
+
+// Data estática para promociones (de momento sin BD)
+const MOCK_PROMOCIONES: Promotion[] = [
+    {
+        uid_promocion: 'promo-1',
+        nombre_servicio: 'Cambio de aceite + filtro',
+        descripcion: 'Promoción cambio de aceite con filtro incluido.',
+        precio: '25.00',
+        taller: '',
+        uid_taller: '',
+        estatus: true,
+        uid_categoria: '',
+        nombre_categoria: '',
+        subcategoria: [],
+        garantia: '30 días',
+        typeService: 'local',
+        service_image: [],
+    },
+    {
+        uid_promocion: 'promo-2',
+        nombre_servicio: 'Alineación y balanceo',
+        descripcion: 'Combo alineación y balanceo a precio especial.',
+        precio: '45.00',
+        taller: '',
+        uid_taller: '',
+        estatus: false,
+        uid_categoria: '',
+        nombre_categoria: '',
+        subcategoria: [],
+        garantia: '30 días',
+        typeService: 'local',
+        service_image: [],
+    },
+]
+
 type Planes = {
     uid: string
     nombre: string
@@ -125,6 +177,7 @@ const ProfileGarage = () => {
     const [isSuscrito, setIsSuscrito] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null)
     const [services, setServices] = useState<Service[]>([])
+    const [promociones, setPromociones] = useState<Promotion[]>(MOCK_PROMOCIONES)
 
     const [planes, setPlanes] = useState<Planes[]>([])
     const [loading, setLoading] = useState(true)
@@ -300,6 +353,12 @@ const ProfileGarage = () => {
                 }
             })
 
+            // Promociones: de momento con data estática (MOCK_PROMOCIONES en estado inicial)
+            // Cuando se conecte la BD: descomentar fetch y setPromociones(promociones)
+            // const promocionesQuery = query(collection(db, 'Promociones'), where('uid_taller', '==', path))
+            // const promocionesSnapshot = await getDocs(promocionesQuery)
+            // const promociones = ...
+
             // Obtener todos los planes desde la colección 'Planes'
             const planesSnapshot = await getDocs(collection(db, 'Planes'))
             const planes = planesSnapshot.docs.map((doc) => ({
@@ -314,7 +373,7 @@ const ProfileGarage = () => {
 
             setData(dataFinal)
             setServices(services)
-            //console.log(services)
+            // setPromociones(promociones) // descomentar cuando se use BD
             setPlanes(planes)
             setSubscription(subscripcionActual)
             setSubscriptionHistory(subscripciones)
@@ -982,12 +1041,13 @@ const ProfileGarage = () => {
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
 
-    const { TabNav, TabList, TabContent } = Tabs
-
     const handleEditService = (service: Service) => {
         setSelectedService(service)
         setIsEditDrawerOpen(true)
     }
+
+    const [isPromoDrawerOpen, setIsPromoDrawerOpen] = useState(false)
+    const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null)
 
     const columns: ColumnDef<Service>[] = useMemo(() => [
         {
@@ -1135,6 +1195,66 @@ const ProfileGarage = () => {
         },
     ]
 
+    const handleEditPromotion = (promotion: Promotion) => {
+        setSelectedPromotion(promotion)
+        setIsPromoDrawerOpen(true)
+    }
+
+    const columnsPromo: ColumnDef<Promotion>[] = useMemo(() => [
+        {
+            header: 'Nombre de la promoción',
+            accessorKey: 'nombre_servicio',
+        },
+        {
+            header: 'Precio',
+            accessorKey: 'precio',
+            cell: ({ row }) => {
+                const precio = parseFloat(row.original.precio)
+                return `$${precio.toFixed(2)}`
+            },
+        },
+        {
+            header: 'Estatus',
+            accessorKey: 'estatus',
+            cell: ({ row }) => {
+                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false)
+                const handleStatusChange = (val: boolean) => {
+                    setEstatus(val)
+                    const updated = promociones.map((p) =>
+                        p.uid_promocion === row.original.uid_promocion ? { ...p, estatus: val } : p,
+                    )
+                    setPromociones(updated)
+                    // Con data estática solo actualizamos estado; cuando haya BD descomentar:
+                    // try {
+                    //     const docRef = doc(db, 'Promociones', row.original.uid_promocion)
+                    //     await updateDoc(docRef, { estatus: val })
+                    // } catch (error) { ... }
+                }
+                return (
+                    <div>
+                        <Switcher checked={estatus} onChange={() => handleStatusChange(!estatus)} />
+                    </div>
+                )
+            },
+        },
+        {
+            header: 'Acciones',
+            id: 'actions',
+            cell: ({ row }) => (
+                <div className="">
+                    <Button
+                        size="sm"
+                        variant="solid"
+                        onClick={() => handleEditPromotion(row.original)}
+                        className="text-blue-900 hover:bg-blue-700"
+                    >
+                        <FaEdit />
+                    </Button>
+                </div>
+            ),
+        },
+    ], [promociones])
+
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
     const table = useReactTable({
@@ -1177,11 +1297,28 @@ const ProfileGarage = () => {
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
     })
+    const table4 = useReactTable({
+        data: promociones,
+        columns: columnsPromo,
+        state: {
+            sorting,
+            columnFilters: filtering,
+        },
+        onSortingChange: setSorting,
+        onColumnFiltersChange: setFiltering,
+        getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+    })
     const [currentPage, setCurrentPage] = useState(1)
+    const [currentPagePromo, setCurrentPagePromo] = useState(1)
     const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [rowsPerPagePromo, setRowsPerPagePromo] = useState(10)
 
     const dataservice = table.getRowModel().rows
     const totalRows = dataservice.length
+    const dataPromo = table4.getRowModel().rows
+    const totalRowsPromo = dataPromo.length
 
     const onPaginationChange = (page: number) => {
         setCurrentPage(page)
@@ -1190,6 +1327,30 @@ const ProfileGarage = () => {
     const onRowsPerPageChange = (newRowsPerPage: number) => {
         setRowsPerPage(newRowsPerPage)
         setCurrentPage(1)
+    }
+
+    const onPaginationChangePromo = (page: number) => setCurrentPagePromo(page)
+    const onRowsPerPageChangePromo = (newRowsPerPage: number) => {
+        setRowsPerPagePromo(newRowsPerPage)
+        setCurrentPagePromo(1)
+    }
+
+    const handleClosePromoDrawer = () => {
+        setIsPromoDrawerOpen(false)
+        setSelectedPromotion(null)
+    }
+
+    const handleOpenCreatePromotion = () => {
+        setSelectedPromotion(null)
+        setIsPromoDrawerOpen(true)
+    }
+
+    const handlePromotionCreated = (newPromotion: Promotion) => {
+        setPromociones((prev) => [...prev, newPromotion])
+    }
+
+    const handlePromotionUpdated = () => {
+        getData()
     }
 
     //console.log('data del taller', formData)
@@ -1502,544 +1663,36 @@ const ProfileGarage = () => {
                         </div>
                     </div>
                 </Card>
-                {/* Aqui empieza el tab */}
-                <div className="flex-1 min-w-0">
-                    <Tabs defaultValue="tab1">
-                        <TabList>
-                            <TabNav value="tab1">Planes</TabNav>
-                            <TabNav value="tab2">Servicios</TabNav>
-                            <TabNav value="tab3">Documentos</TabNav>
-                        </TabList>
-                        <div className="w-full">
-                        <TabContent value="tab1">
-                            <div className="mb-8 mt-4">
-                                <h6 className="mb-4">Subscripción</h6>
-                                <Card bordered className="mb-4">
-                                    {!isSuscrito ? (
-                                        <div className="flex justify-end">
-                                            <p className="text-xs mr-64 mt-3">
-                                                Puede visualizar y suscribirse a
-                                                un plan para su taller...
-                                            </p>
-                                            <button
-                                                onClick={() =>
-                                                    setDialogOpensub(true)
-                                                }
-                                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
-                                            >
-                                                Ver Planes
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border rounded-lg shadow-md bg-white">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar
-                                                    className="bg-transparent"
-                                                    shape="circle"
-                                                    icon={<HiFire className="text-blue-600" />}
-                                                />
-                                                <div>
-                                                    <div className="flex items-center">
-                                                        <h3 className="text-lg font-semibold text-gray-800">
-                                                            {subscription?.nombre ||
-                                                                'Cargando...'}
-                                                        </h3>
-                                                        <Tag
-                                                            className={`rounded-md border-0 mx-2 ${
-                                                                subscription?.status ===
-                                                                'Aprobado'
-                                                                    ? 'bg-green-100 text-green-400'
-                                                                    : subscription?.status === 'Vencido'
-                                                                    ? 'bg-red-100 text-red-400'
-                                                                    : 'bg-yellow-100 text-yellow-400'
-                                                            }`}
-                                                        >
-                                                            {subscription?.status ||
-                                                                'Pendiente'}
-                                                        </Tag>
-                                                    </div>
-                                                    <div className="grid grid-cols-4">
-                                                        <p className="text-xs text-gray-500">
-                                                            Vigencia:{' '}
-                                                            {subscription?.vigencia ??
-                                                                '---'}{' '}
-                                                            días
-                                                        </p>
-                                                        <p className="text-xs text-gray-600">
-                                                            Monto mensual:{' '}
-                                                            <span className="font-bold text-gray-800">
-                                                                {subscription?.monto !== undefined && subscription?.monto !== null
-                                                                    ? (subscription.monto === 0 || (subscription.monto < 0.01 && subscription.monto > -0.01))
-                                                                        ? 'Gratis'
-                                                                        : `$${subscription.monto}`
-                                                                    : '---'}
-                                                            </span>
-                                                        </p>
-                                                        {subscription?.status ===
-                                                            'Aprobado' && (
-                                                            <>
-                                                                <p className="text-xs ml-2 text-gray-600">
-                                                                    {diasRestantes ??
-                                                                        '---'}{' '}
-                                                                    días
-                                                                    restantes
-                                                                </p>
-                                                                <p className="text-xs ml-2 text-gray-600">
-                                                                    Fecha de
-                                                                    vencimiento:{' '}
-                                                                    <span className="text-xs text-gray-600">
-                                                                        {subscription.fecha_fin
-                                                                            ? formatDate(
-                                                                                  subscription.fecha_fin,
-                                                                              )
-                                                                            : 'Fecha no disponible'}
-                                                                    </span>
-                                                                </p>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {subscription?.status ===
-                                                'Vencido' && (
-                                                <div className="flex justify-end gap-2 mt-2">
-                                                    <button
-                                                        onClick={() =>
-                                                            setDialogOpensub(true)
-                                                        }
-                                                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
-                                                    >
-                                                        Elegir Plan
-                                                    </button>
-                                                    {subscription?.uid && (
-                                                        <PaymentDrawer
-                                                            talleruid={path}
-                                                            subscriptionId={
-                                                                subscription?.uid || ''
-                                                            }
-                                                        />
-                                                    )}
-                                                </div>
-                                            )}
-                                            {subscription?.status ===
-                                                'Aprobado' && (
-                                                <div className="flex justify-end mt-2">
-                                                    <button
-                                                        onClick={() => setDialogOpensub(true)}
-                                                        className="bg-blue-900 rounded-md p-2 text-white hover:bg-blue-700"
-                                                    >
-                                                        Renovar Pago
-                                                    </button>
-                                                </div>
-                                            )}
-                                            {subscription?.status ===
-                                                'Por Aprobar' && (
-                                                <div className="flex justify-end mt-2">
-                                                    <PaymentDrawer
-                                                        talleruid={path}
-                                                        subscriptionId={
-                                                            subscription?.uid || ''
-                                                        }
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </Card>
-                                <div>
-                                    <div className="p-4 rounded-lg shadow">
-                                        <h6 className="mb-6 flex justify-start mt-4">
-                                            Historial de Subscripciones
-                                        </h6>
-                                        <Table className="w-full rounded-lg">
-                                            <THead>
-                                                {table3
-                                                    .getHeaderGroups()
-                                                    .map((headerGroup) => (
-                                                        <Tr
-                                                            key={headerGroup.id}
-                                                        >
-                                                            {headerGroup.headers.map(
-                                                                (header) => {
-                                                                    return (
-                                                                        <Th
-                                                                            key={
-                                                                                header.id
-                                                                            }
-                                                                            colSpan={
-                                                                                header.colSpan
-                                                                            }
-                                                                        >
-                                                                            {header.isPlaceholder ? null : (
-                                                                                <div
-                                                                                    {...{
-                                                                                        className:
-                                                                                            header.column.getCanSort()
-                                                                                                ? 'cursor-pointer select-none'
-                                                                                                : '',
-                                                                                        onClick:
-                                                                                            header.column.getToggleSortingHandler(),
-                                                                                    }}
-                                                                                >
-                                                                                    {flexRender(
-                                                                                        header
-                                                                                            .column
-                                                                                            .columnDef
-                                                                                            .header,
-                                                                                        header.getContext(),
-                                                                                    )}
-                                                                                </div>
-                                                                            )}
-                                                                        </Th>
-                                                                    )
-                                                                },
-                                                            )}
-                                                        </Tr>
-                                                    ))}
-                                            </THead>
-                                            <TBody>
-                                                {table3
-                                                    .getRowModel()
-                                                    .rows.slice(
-                                                        (currentPage - 1) *
-                                                            rowsPerPage,
-                                                        currentPage *
-                                                            rowsPerPage,
-                                                    )
-                                                    .map((row) => {
-                                                        return (
-                                                            <Tr key={row.id}>
-                                                                {row
-                                                                    .getVisibleCells()
-                                                                    .map(
-                                                                        (
-                                                                            cell,
-                                                                        ) => {
-                                                                            return (
-                                                                                <Td
-                                                                                    key={
-                                                                                        cell.id
-                                                                                    }
-                                                                                >
-                                                                                    {flexRender(
-                                                                                        cell
-                                                                                            .column
-                                                                                            .columnDef
-                                                                                            .cell,
-                                                                                        cell.getContext(),
-                                                                                    )}
-                                                                                </Td>
-                                                                            )
-                                                                        },
-                                                                    )}
-                                                            </Tr>
-                                                        )
-                                                    })}
-                                            </TBody>
-                                        </Table>
-                                        <Pagination
-                                            onChange={onPaginationChange}
-                                            currentPage={currentPage}
-                                            totalRows={totalRows}
-                                            rowsPerPage={rowsPerPage}
-                                            onRowsPerPageChange={onRowsPerPageChange}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="border-t border-gray-300 my-4" />
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
-                                    {paymentMethods.map((method) => (
-                                        <div
-                                            key={method.name}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <Checkbox
-                                                checked={
-                                                    paymentMethodsState[
-                                                        method.dbKey
-                                                    ] || false
-                                                }
-                                                onChange={(
-                                                    checked: boolean,
-                                                ) => {
-                                                    setPaymentMethodsState(
-                                                        (prevState) => ({
-                                                            ...prevState,
-                                                            [method.dbKey]:
-                                                                checked,
-                                                        }),
-                                                    )
-                                                }}
-                                            />
-                                            <span>{method.icon}</span>
-                                            <span>{method.name}</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="flex justify-end mt-4">
-                                    <button
-                                        onClick={handleSavePaymentMethods}
-                                        className="px-4 py-2 bg-[#1d1e56] text-white rounded-md hover:bg-blue-900 focus:outline-none"
-                                    >
-                                        Guardar
-                                    </button>
-                                </div>
-                            </div>
-                        </TabContent>
-                    </div>
-                    <TabContent value="tab2">
-                        <div className="w-full h-full">
-                            <div className="p-4 rounded-lg">
-                                <h6 className="mb-6 flex justify-start mt-4">
-                                    Lista de Servicios
-                                </h6>
-                                <Table
-                                    className="w-full rounded-lg"
-                                >
-                                    <THead>
-                                        {table
-                                            .getHeaderGroups()
-                                            .map((headerGroup) => (
-                                                <Tr key={headerGroup.id}>
-                                                    {headerGroup.headers.map(
-                                                        (header) => {
-                                                            return (
-                                                                <Th
-                                                                    key={
-                                                                        header.id
-                                                                    }
-                                                                    colSpan={
-                                                                        header.colSpan
-                                                                    }
-                                                                >
-                                                                    {header.isPlaceholder ? null : (
-                                                                        <div
-                                                                            {...{
-                                                                                className:
-                                                                                    header.column.getCanSort()
-                                                                                        ? 'cursor-pointer select-none'
-                                                                                        : '',
-                                                                                onClick:
-                                                                                    header.column.getToggleSortingHandler(),
-                                                                            }}
-                                                                        >
-                                                                            {flexRender(
-                                                                                header
-                                                                                    .column
-                                                                                    .columnDef
-                                                                                    .header,
-                                                                                header.getContext(),
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </Th>
-                                                            )
-                                                        },
-                                                    )}
-                                                </Tr>
-                                            ))}
-                                    </THead>
-                                    <TBody>
-                                        {table
-                                            .getRowModel()
-                                            .rows.slice(
-                                                (currentPage - 1) * rowsPerPage,
-                                                currentPage * rowsPerPage,
-                                            )
-                                            .map((row) => {
-                                                return (
-                                                    <Tr key={row.id}>
-                                                        {row
-                                                            .getVisibleCells()
-                                                            .map((cell) => {
-                                                                return (
-                                                                    <Td
-                                                                        key={
-                                                                            cell.id
-                                                                        }
-                                                                    >
-                                                                        {flexRender(
-                                                                            cell
-                                                                                .column
-                                                                                .columnDef
-                                                                                .cell,
-                                                                            cell.getContext(),
-                                                                        )}
-                                                                    </Td>
-                                                                )
-                                                            })}
-                                                    </Tr>
-                                                )
-                                            })}
-                                    </TBody>
-                                </Table>
-                                <Pagination
-                                    onChange={onPaginationChange}
-                                    currentPage={currentPage}
-                                    totalRows={totalRows}
-                                    rowsPerPage={rowsPerPage}
-                                    onRowsPerPageChange={onRowsPerPageChange}
-                                />
-                            </div>
-                        </div>
-                    </TabContent>
-                    <TabContent value="tab3">
-                        <div className="w-full h-full p-4">
-                            <h6 className="mb-6 flex justify-start mt-4">
-                                Documentos del Taller
-                            </h6>
-                            <div className="grid grid-cols-3 gap-4">
-                                {/* Todos los documentos en un grid de 3 columnas */}
-                                {data?.rifIdFiscal && (
-                                    <div
-                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                        onClick={() => openDocumentModal(
-                                            data.rifIdFiscal,
-                                            'RIF ID Fiscal',
-                                            data.rifIdFiscal.includes('.pdf') ? 'pdf' : 'image'
-                                        )}
-                                    >
-                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                                            {data.rifIdFiscal.includes('.pdf') ? (
-                                                <div className="text-center">
-                                                    <FaFilePdf className="w-16 h-16 text-red-500 mx-auto mb-2" />
-                                                    <p className="text-sm font-semibold text-gray-700">RIF ID Fiscal</p>
-                                                    <p className="text-xs text-gray-500">PDF</p>
-                                                </div>
-                                            ) : (
-                                                <img
-                                                    src={data.rifIdFiscal}
-                                                    alt="RIF ID Fiscal"
-                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                                    onError={(e) => {
-                                                        (e.target as HTMLImageElement).style.display = 'none'
-                                                    }}
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
-                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
-                                        </div>
-                                    </div>
-                                )}
-                                {data?.permisoOperacion && (
-                                    <div
-                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                        onClick={() => openDocumentModal(
-                                            data.permisoOperacion,
-                                            'Permiso de Operación',
-                                            data.permisoOperacion.includes('.pdf') ? 'pdf' : 'image'
-                                        )}
-                                    >
-                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                                            {data.permisoOperacion.includes('.pdf') ? (
-                                                <div className="text-center">
-                                                    <FaFilePdf className="w-16 h-16 text-red-500 mx-auto mb-2" />
-                                                    <p className="text-sm font-semibold text-gray-700">Permiso de Operación</p>
-                                                    <p className="text-xs text-gray-500">PDF</p>
-                                                </div>
-                                            ) : (
-                                                <img
-                                                    src={data.permisoOperacion}
-                                                    alt="Permiso de Operación"
-                                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                                    onError={(e) => {
-                                                        (e.target as HTMLImageElement).style.display = 'none'
-                                                    }}
-                                                />
-                                            )}
-                                        </div>
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
-                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
-                                        </div>
-                                    </div>
-                                )}
-                                {data?.logotipoNegocio && (
-                                    <div
-                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                        onClick={() => openDocumentModal(
-                                            data.logotipoNegocio,
-                                            'Logotipo Negocio',
-                                            'image'
-                                        )}
-                                    >
-                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                                            <img
-                                                src={data.logotipoNegocio}
-                                                alt="Logotipo Negocio"
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none'
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
-                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
-                                        </div>
-                                    </div>
-                                )}
-                                {data?.fotoFrenteTaller && (
-                                    <div
-                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                        onClick={() => openDocumentModal(
-                                            data.fotoFrenteTaller,
-                                            'Foto Frente Taller',
-                                            'image'
-                                        )}
-                                    >
-                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                                            <img
-                                                src={data.fotoFrenteTaller}
-                                                alt="Foto Frente Taller"
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none'
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
-                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
-                                        </div>
-                                    </div>
-                                )}
-                                {data?.fotoInternaTaller && (
-                                    <div
-                                        className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                        onClick={() => openDocumentModal(
-                                            data.fotoInternaTaller,
-                                            'Foto Interna Taller',
-                                            'image'
-                                        )}
-                                    >
-                                        <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                                            <img
-                                                src={data.fotoInternaTaller}
-                                                alt="Foto Interna Taller"
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none'
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-200 flex items-center justify-center">
-                                            <FaRegEye className="text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200 w-8 h-8" />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            {(!data?.rifIdFiscal && !data?.permisoOperacion && !data?.logotipoNegocio && !data?.fotoFrenteTaller && !data?.fotoInternaTaller) && (
-                                <div className="text-center py-12 text-gray-500">
-                                    <FaFileUpload className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                    <p className="text-lg font-semibold">No hay documentos disponibles</p>
-                                    <p className="text-sm">Los documentos aparecerán aquí una vez que se suban</p>
-                                </div>
-                            )}
-                        </div>
-                    </TabContent>
-                </Tabs>
-                    </div>
-                </div>
+                <ProfileGarageTabs
+                    table={table as Parameters<typeof ProfileGarageTabs>[0]['table']}
+                    table3={table3 as Parameters<typeof ProfileGarageTabs>[0]['table3']}
+                    tablePromociones={table4 as Parameters<typeof ProfileGarageTabs>[0]['tablePromociones']}
+                    currentPage={currentPage}
+                    rowsPerPage={rowsPerPage}
+                    totalRows={totalRows}
+                    onPaginationChange={onPaginationChange}
+                    onRowsPerPageChange={onRowsPerPageChange}
+                    currentPagePromo={currentPagePromo}
+                    rowsPerPagePromo={rowsPerPagePromo}
+                    totalRowsPromo={totalRowsPromo}
+                    onPaginationChangePromo={onPaginationChangePromo}
+                    onRowsPerPageChangePromo={onRowsPerPageChangePromo}
+                    onEditPromotion={handleEditPromotion as (p: unknown) => void}
+                    onOpenCreatePromotion={handleOpenCreatePromotion}
+                    subscription={subscription}
+                    isSuscrito={isSuscrito}
+                    onOpenPlansDialog={() => setDialogOpensub(true)}
+                    tallerUid={path}
+                    formatDate={formatDate}
+                    diasRestantes={diasRestantes}
+                    paymentMethods={paymentMethods}
+                    paymentMethodsState={paymentMethodsState}
+                    setPaymentMethodsState={setPaymentMethodsState}
+                    onSavePaymentMethods={handleSavePaymentMethods}
+                    data={data}
+                    openDocumentModal={openDocumentModal}
+                />
+            </div>
 
             <Dialog
                 width={1000}
@@ -2914,6 +2567,17 @@ const ProfileGarage = () => {
                 onClose={handleCloseEditDrawer}
                 service={selectedService}
                 onServiceUpdated={handleServiceUpdated}
+            />
+
+            {/* Drawer para editar promoción */}
+            <EditPromotionDrawer
+                isOpen={isPromoDrawerOpen}
+                onClose={handleClosePromoDrawer}
+                promotion={selectedPromotion}
+                onPromotionUpdated={handlePromotionUpdated}
+                tallerUid={path}
+                tallerName={(data as any)?.nombre ?? ''}
+                onPromotionCreated={handlePromotionCreated}
             />
 
             {/* Modal para visualizar documentos */}
