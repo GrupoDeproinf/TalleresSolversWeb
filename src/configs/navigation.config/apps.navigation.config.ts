@@ -139,6 +139,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
+                key: 'apps.paymentValidation',
+                path: `${APP_PREFIX_PATH}/paymentValidation`,
+                title: 'Validación de pagos',
+                translateKey: 'Validación de pagos',
+                icon: 'payments',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [ADMIN],
+                subMenu: [],
+            },
+            {
                 key: 'apps.ServiceContact',
                 path: `${APP_PREFIX_PATH}/ServiceContact`,
                 title: 'Servicios Solicitados',
@@ -158,7 +168,6 @@ const appsNavigationConfig: NavigationTree[] = [
                 authority: [ADMIN],
                 subMenu: [],
             },
-            
         ],
     },
 ]

@@ -141,6 +141,12 @@ const appsRoute: Routes = [
         },
     },
     {
+        key: 'appsPaymentValidation.paymentValidation',
+        path: `${APP_PREFIX_PATH}/paymentValidation`,
+        component: lazy(() => import('@/views/pages/PaymentValidation/PaymentValidation')),
+        authority: [ADMIN, USER],
+    },
+    {
         key: 'appsCrm.mail',
         path: `${APP_PREFIX_PATH}/crm/mail`,
         component: lazy(() => import('@/views/crm/Mail')),

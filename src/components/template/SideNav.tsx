@@ -107,15 +107,11 @@ const SideNav = () => {
                             </>
                         )}
                     </div>
-                    {sideNavCollapse ? (
-                        menuContent
-                    ) : (
-                        <div className="side-nav-content">
-                            <ScrollBar autoHide direction={direction}>
-                                {menuContent}
-                            </ScrollBar>
-                        </div>
-                    )}
+                    <div className="side-nav-content">
+                        <ScrollBar autoHide direction={direction} style={{ height: '100%' }}>
+                            {menuContent}
+                        </ScrollBar>
+                    </div>
                 </div>
             )}
         </>

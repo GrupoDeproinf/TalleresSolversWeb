@@ -22,6 +22,7 @@ import {
     HiOutlineShare,
     HiOutlineVariable,
     HiOutlineCode,
+    HiOutlineCreditCard,
 } from 'react-icons/hi'
 import CustomIcon from '@/components/icons/subscriptionicon'
 import UserListIcon from '@/components/icons/Userlisticon'
@@ -74,6 +75,7 @@ const navigationIcon: NavigationIcons = {
     ServiceContact: <IoIosContacts ></IoIosContacts>,
     Puntuacion: <FaRegStar></FaRegStar>,
     servicesList: <FaListAlt />,
+    payments: <HiOutlineCreditCard />,
 }
 
 export default navigationIcon

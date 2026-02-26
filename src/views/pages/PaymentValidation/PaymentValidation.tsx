@@ -9,12 +9,21 @@ import {
     useReactTable,
 } from '@tanstack/react-table'
 import type { ColumnDef, ColumnFiltersState } from '@tanstack/react-table'
-import { FaRegEye, FaCheckCircle, FaTimesCircle } from 'react-icons/fa'
+import {
+    FaRegEye,
+    FaCheckCircle,
+    FaExclamationCircle,
+    FaTimesCircle,
+    FaTrash,
+} from 'react-icons/fa'
 import {
     collection,
     getDocs,
     query,
+    where,
     doc,
+    updateDoc,
+    deleteDoc,
     Timestamp,
     getDoc,
 } from 'firebase/firestore'
@@ -22,9 +31,12 @@ import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
-import { Dialog, Drawer } from '@/components/ui'
+import type { MouseEvent } from 'react'
+import { Dialog, Drawer, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import * as XLSX from 'xlsx'
+import { resolve } from 'path'
+import axios from 'axios'
 
 type Subscriptions = {
     nombre?: string
@@ -59,16 +71,20 @@ const Subscriptions = () => {
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [selectedColumn, setSelectedColumn] = useState<string>('nombre') // Establecer 'nombre' como valor por defecto
     const [searchTerm, setSearchTerm] = useState('') // Estado para el término de búsqueda
-    const [selectedStatus, setSelectedStatus] = useState<string>('') // Estado para el filtro de estados
     const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
         null,
     )
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
     const [startDate, setStartDate] = useState<string>('')
     const [endDate, setEndDate] = useState<string>('')
+    const [deleteModalIsOpen, setDeleteModalIsOpen] = useState(false)
+    const [subscriptionToDelete, setSubscriptionToDelete] = useState<Subscriptions | null>(null)
 
     const getData = async () => {
-        const q = query(collection(db, 'Subscripciones'))
+        const q = query(
+            collection(db, 'Subscripciones'),
+            where('status', '==', 'Por Aprobar'),
+        )
         const querySnapshot = await getDocs(q)
         const subcripciones: Subscriptions[] = []
 
@@ -92,8 +108,18 @@ const Subscriptions = () => {
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
-        //console.log('Data de suscripciones:', resolvedSubcripciones) // Agrega este console.log
-        setDataSubs(resolvedSubcripciones)
+        // Solo mostrar suscripciones de pago (excluir gratuitas, no requieren validación)
+        const soloPago = resolvedSubcripciones.filter((sub) => {
+            const monto = sub.monto
+            const montoNum =
+                typeof monto === 'string'
+                    ? parseFloat(monto)
+                    : typeof monto === 'number'
+                      ? monto
+                      : 0
+            return !isNaN(montoNum) && montoNum >= 0.0001
+        })
+        setDataSubs(soloPago)
     }
 
     useEffect(() => {
@@ -124,6 +150,138 @@ const Subscriptions = () => {
         setDrawerIsOpen(true)
     }
 
+    const handleSaveChanges = async () => {
+        if (selectedPerson) {
+            try {
+                let updateData
+                console.log('selectedPerson', selectedPerson)
+
+                if (selectedPerson.status === 'Por Aprobar') {
+                    // Datos para limpiar fechas
+                    updateData = {
+                        status: selectedPerson.status,
+                        fecha_inicio: null,
+                        fecha_fin: null,
+                        monto: selectedPerson.monto ?? '',
+                        nombre: selectedPerson.nombre,
+                        vigencia: selectedPerson.vigencia,
+                    }
+                    await updateDoc(
+                        doc(db, 'Subscripciones', selectedPerson.uid),
+                        updateData,
+                    )
+                    if (selectedPerson.taller_uid) {
+                        await updateDoc(
+                            doc(db, 'Usuarios', selectedPerson.taller_uid),
+                            { subscripcion_actual: updateData },
+                        )
+
+                        // Buscar el documento en Usuarios después de la actualización
+                        const userDoc = await getDoc(doc(db, 'Usuarios', selectedPerson.taller_uid));
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data()
+                            console.log('userData', userData)
+
+                            try {
+                                await axios.post('https://apisolvers.solversapp.com/api/usuarios/sendNotification', {
+                                    token: userData?.token,
+                                    title: 'Codigo Validado',
+                                    body: "Hola, se ha rechazado su pago",
+                                    secretCode: "Validar codigo",
+                                });
+                            } catch (error) {
+                                console.error('Error al enviar notificación:', error);
+                            }
+                        }
+                    }
+
+                    // Notificación de éxito
+                    toast.push(
+                        <Notification title="Éxito">
+                            Subscripción actualizada con éxito.
+                        </Notification>,
+                    )
+
+                    setDrawerIsOpen(false)
+                    getData()
+                    return
+                } else {
+                    if (selectedPerson.taller_uid) {
+                        // Buscar el documento en Usuarios después de la actualización
+                        const userDoc = await getDoc(doc(db, 'Usuarios', selectedPerson.taller_uid));
+                        if (userDoc.exists()) {
+                            const userData = userDoc.data()
+                            console.log('userData', userData)
+
+                            try {
+                                await axios.post('https://apisolvers.solversapp.com/api/usuarios/sendNotification', {
+                                    token: userData?.token,
+                                    title: 'Codigo Validado',
+                                    body: "Hola, se ha validado su pago exitosamente",
+                                    secretCode: "Validar codigo",
+                                });
+                            } catch (error) {
+                                console.error('Error al enviar notificación:', error);
+                            }
+                        }
+                    }
+                }
+
+                const fechaInicio = new Date()
+                const vigenciaDias = parseInt(selectedPerson.vigencia, 10)
+
+                if (isNaN(vigenciaDias)) {
+                    toast.push(
+                        <Notification title="Error">
+                            La vigencia proporcionada no es válida.
+                        </Notification>,
+                    )
+                    return
+                }
+
+                const fechaFin = new Date(fechaInicio)
+                fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
+
+                // Datos de actualización
+                updateData = {
+                    nombre: selectedPerson.nombre,
+                    vigencia: selectedPerson.vigencia,
+                    fecha_inicio: Timestamp.fromDate(fechaInicio),
+                    fecha_fin: Timestamp.fromDate(fechaFin),
+                    status: selectedPerson.status,
+                    cantidad_servicios: selectedPerson.cantidad_servicios,
+                    monto: selectedPerson.monto,
+                }
+                await updateDoc(
+                    doc(db, 'Subscripciones', selectedPerson.uid),
+                    updateData,
+                )
+                if (selectedPerson.taller_uid) {
+                    await updateDoc(
+                        doc(db, 'Usuarios', selectedPerson.taller_uid),
+                        { subscripcion_actual: updateData },
+                    )
+                }
+
+                toast.push(
+                    <Notification title="Éxito">
+                        Subscripción actualizada con éxito.
+                    </Notification>,
+                )
+
+                setDrawerIsOpen(false)
+                getData()
+            } catch (error) {
+                console.error('Error actualizando la subscripción:', error)
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al actualizar la subscripción.
+                    </Notification>,
+                )
+            }
+        }
+    }
+
     const formatDate = (timestamp: unknown): string => {
         if (timestamp instanceof Timestamp) {
             const dateObj = timestamp.toDate()
@@ -134,9 +292,56 @@ const Subscriptions = () => {
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    const handleDrawerClose = () => {
+    const handleDrawerClose = (e: MouseEvent) => {
+        console.log('Drawer cerrado', e)
         setDrawerIsOpen(false)
-        setSelectedPerson(null)
+        setSelectedPerson(null) // Limpiar la selección
+    }
+
+    const handleDeleteSubscription = (subscription: Subscriptions) => {
+        setSubscriptionToDelete(subscription)
+        setDeleteModalIsOpen(true)
+    }
+
+    const confirmDeleteSubscription = async () => {
+        if (subscriptionToDelete) {
+            try {
+                // Eliminar la suscripción de la colección Subscripciones
+                await deleteDoc(doc(db, 'Subscripciones', subscriptionToDelete.uid))
+
+                // Si tiene taller_uid, verificar si el usuario existe antes de actualizar
+                if (subscriptionToDelete.taller_uid) {
+                    const userDocRef = doc(db, 'Usuarios', subscriptionToDelete.taller_uid)
+                    const userDoc = await getDoc(userDocRef)
+
+                    if (userDoc.exists()) {
+                        await updateDoc(userDocRef, { subscripcion_actual: null })
+                    }
+                }
+
+                toast.push(
+                    <Notification title="Suscripción eliminada">
+                        La suscripción ha sido eliminada exitosamente.
+                    </Notification>,
+                )
+
+                setDeleteModalIsOpen(false)
+                setSubscriptionToDelete(null)
+                getData() // Recargar los datos
+            } catch (error) {
+                console.error('Error eliminando la suscripción:', error)
+                toast.push(
+                    <Notification title="Error">
+                        Hubo un error al eliminar la suscripción.
+                    </Notification>,
+                )
+            }
+        }
+    }
+
+    const cancelDeleteSubscription = () => {
+        setDeleteModalIsOpen(false)
+        setSubscriptionToDelete(null)
     }
 
     const [currentPage, setCurrentPage] = useState(1)
@@ -183,27 +388,6 @@ const Subscriptions = () => {
         }
     }
 
-    const handleStatusChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedStatus(value)
-
-        // Aplicar filtro de estado
-        if (value === '') {
-            // Si no hay estado seleccionado, limpiar filtros de estado
-            const newFilters = filtering.filter(filter => filter.id !== 'status')
-            setFiltering(newFilters)
-        } else {
-            // Aplicar filtro de estado
-            const newFilters = filtering.filter(filter => filter.id !== 'status')
-            newFilters.push({
-                id: 'status',
-                value: value,
-            })
-            setFiltering(newFilters)
-        }
-    }
     const handleExportToExcel = () => {
         if (!startDate || !endDate) {
             toast.push(
@@ -247,35 +431,20 @@ const Subscriptions = () => {
             status: 'Estado',
         }
 
-        // Filtrar los datos para las fechas dentro del rango
+        // Filtrar los datos para las fechas dentro del rango (pendientes usan fecha de pago del comprobante)
         const filteredData = dataSubs.filter((row) => {
-            // Convertir `fecha_inicio` a Date si es un Timestamp
-            const fechaInicio =
+            const fechaRef =
                 row.fecha_inicio instanceof Timestamp
-                    ? row.fecha_inicio.toDate() // Si es Timestamp, convertir a Date
-                    : new Date(row.fecha_inicio) // Si ya es Date, dejarlo como está
-
-            // Asegurarse de que `fechaInicio` sea una fecha válida
-            if (
-                !(fechaInicio instanceof Date) ||
-                isNaN(fechaInicio.getTime())
-            ) {
-                return false // Si no es una fecha válida, no lo incluimos
+                    ? row.fecha_inicio.toDate()
+                    : row.comprobante_pago?.fechaPago instanceof Timestamp
+                      ? row.comprobante_pago.fechaPago.toDate()
+                      : null
+            if (!fechaRef || !(fechaRef instanceof Date) || isNaN(fechaRef.getTime())) {
+                return false
             }
-
-            console.log(
-                'Fecha Inicio:',
-                fechaInicio,
-                'Inicio Range:',
-                adjustedStartDate,
-                'End Range:',
-                adjustedEndDate,
-            )
-
-            // Comparar las fechas
             return (
-                fechaInicio.getTime() >= adjustedStartDate.getTime() && // Fecha dentro del rango de inicio
-                fechaInicio.getTime() <= adjustedEndDate.getTime() // Fecha dentro del rango de fin
+                fechaRef.getTime() >= adjustedStartDate.getTime() &&
+                fechaRef.getTime() <= adjustedEndDate.getTime()
             )
         })
 
@@ -447,15 +616,22 @@ const Subscriptions = () => {
                 const person = row.original
                 return (
                     <div className="flex gap-2">
-                        {person.comprobante_pago && (
+                        {person.status !== 'Vencido' && person.comprobante_pago && (
                             <button
                                 onClick={() => openDrawer(person)}
                                 className="text-blue-900 hover:text-blue-700 transition-colors duration-200 p-1 rounded hover:bg-blue-50"
-                                title="Ver detalles del pago (solo consulta)"
+                                title="Ver detalles"
                             >
                                 <FaRegEye />
                             </button>
                         )}
+                        <button
+                            onClick={() => handleDeleteSubscription(person)}
+                            className="text-red-600 hover:text-red-800 transition-colors duration-200 p-1 rounded hover:bg-red-50"
+                            title="Eliminar suscripción"
+                        >
+                            <FaTrash />
+                        </button>
                     </div>
                 )
             },
@@ -481,7 +657,7 @@ const Subscriptions = () => {
         <>
             <div className="grid grid-cols-2">
                 <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    <span className="text-[#000B7E]">Histórico de Subscripciones</span>
+                    <span className="text-[#000B7E]">Validación de pagos</span>
                     <button
                         className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
                         onClick={handleRefresh}
@@ -502,19 +678,6 @@ const Subscriptions = () => {
                                 </option>
                                 <option value="nombre" className="text-gray-700">Plan</option>
                                 <option value="nombre_taller" className="text-gray-700">Taller</option>
-                            </select>
-                        </div>
-                        <div className="relative w-48 ml-4">
-                            <select
-                                className="h-11 w-full py-2.5 px-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 cursor-pointer text-sm font-medium text-gray-700"
-                                onChange={handleStatusChange}
-                                value={selectedStatus}
-                            >
-                                <option value="" className="text-gray-700">
-                                    Todos los estados
-                                </option>
-                                <option value="Aprobado" className="text-green-700 font-semibold">Aprobados</option>
-                                <option value="Por Aprobar" className="text-yellow-500 font-semibold">Por Aprobar</option>
                             </select>
                         </div>
                         <div className="relative w-80 ml-4">
@@ -605,33 +768,51 @@ const Subscriptions = () => {
                 className="rounded-md shadow"
             >
                 <div className="mb-4">
-                    <h2 className="text-xl font-bold text-gray-800">
-                        Detalles del pago
+                    <h2 className="text-xl font-bold mb-2">
+                        Revisión de Pago
                     </h2>
-                    <p className="text-sm text-gray-500 mt-1">
-                        Solo consulta — no se pueden aprobar ni rechazar pagos desde aquí.
-                    </p>
-                    {selectedPerson?.status && (
-                        <p className="text-sm font-medium text-gray-700 mt-2">
-                            Estado: <span className="capitalize">{selectedPerson.status}</span>
+                    {selectedPerson?.comprobante_pago && (
+                        <p className="text-gray-700">
+                            <span className="font-semibold">Tipo de pago: </span>
+                            <span>
+                                {selectedPerson.comprobante_pago.metodo || 'No especificado'}
+                            </span>
                         </p>
                     )}
                 </div>
+                <div className="grid grid-cols-2 mb-4">
+                    <div />
+                    <div className="flex items-center">
+                        <Switcher
+                            defaultChecked={
+                                selectedPerson?.status === 'Aprobado'
+                            }
+                            onChange={(e) =>
+                                setSelectedPerson((prev: any) => ({
+                                    ...(prev ?? {
+                                        nombre: '',
+                                        cantidad_servicios: '',
+                                        monto: '',
+                                        uid: '',
+                                        vigencia: '',
+                                        id: '',
+                                        status: '',
+                                    }),
+                                    status: e ? 'Aprobado' : 'Por Aprobar',
+                                }))
+                            }
+                            color={
+                                selectedPerson?.status === 'Aprobado'
+                                    ? 'green-500'
+                                    : 'red-500'
+                            }
+                        />
+                        <span className="ml-2 text-gray-700">
+                            {selectedPerson?.status}
+                        </span>{' '}
+                    </div>
+                </div>
                 <div className="flex flex-col space-y-6">
-                    {' '}
-                    {selectedPerson?.comprobante_pago.metodo && (
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Metodo de Pago:
-                            </span>
-                            <input
-                                type="text"
-                                value={selectedPerson.comprobante_pago.metodo}
-                                readOnly
-                                className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
-                            />
-                        </label>
-                    )}
                     {selectedPerson?.comprobante_pago.fechaPago && (
                         <label className="flex flex-col">
                             <span className="font-semibold text-gray-700">
@@ -787,6 +968,15 @@ const Subscriptions = () => {
                         </label>
                     )}
                 </div>
+                <div className="text-center mt-6 ">
+                    <Button
+                        onClick={handleSaveChanges}
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                    >
+                        Guardar Cambios
+                    </Button>
+                </div>
             </Drawer>
             <Dialog isOpen={dialogIsOpen} onClose={handleCloseDialog}>
                 <div className="p-4">
@@ -831,6 +1021,49 @@ const Subscriptions = () => {
                         >
                             Exportar
                         </Button>
+                    </div>
+                </div>
+            </Dialog>
+
+            {/* Modal de confirmación para eliminar suscripción */}
+            <Dialog isOpen={deleteModalIsOpen} onClose={cancelDeleteSubscription}>
+                <div className="p-6">
+                    <div className="flex items-center mb-4">
+                        <div className="flex-shrink-0 w-10 h-10 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+                            <FaTrash className="w-6 h-6 text-red-600" />
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            ¿Eliminar suscripción?
+                        </h3>
+                        <p className="text-sm text-gray-500 mb-6">
+                            Esta acción no se puede deshacer. Se eliminará permanentemente la suscripción de{' '}
+                            <span className="font-semibold text-gray-900">
+                                {subscriptionToDelete?.nombre}
+                            </span>{' '}
+                            para el taller{' '}
+                            <span className="font-semibold text-gray-900">
+                                {subscriptionToDelete?.nombre_taller}
+                            </span>.
+                        </p>
+                        <div className="flex justify-center space-x-4">
+                            <Button
+                                onClick={cancelDeleteSubscription}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={confirmDeleteSubscription}
+                                className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                                style={{ backgroundColor: '#dc2626' }}
+                                onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#991b1b'}
+                                onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#dc2626'}
+                            >
+                                Eliminar
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </Dialog>
