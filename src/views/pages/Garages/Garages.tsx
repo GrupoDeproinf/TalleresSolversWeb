@@ -103,8 +103,8 @@ const Garages = () => {
         { id: 'createdAt', desc: true } // Ordenar por fecha de creación descendente (más recientes primero)
     ])
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
     const [searchTerm, setSearchTerm] = useState('')
+    const [statusFilter, setStatusFilter] = useState<string>('') // '' = Todos, 'Aprobado', 'En espera por aprobación'
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
@@ -220,7 +220,10 @@ const Garages = () => {
         // Generar nombre de archivo con información de filtros
         let fileName = 'talleres'
         if (searchTerm) {
-            fileName += `_filtro_${selectedColumn}_${searchTerm}`
+            fileName += `_filtro_${searchTerm}`
+        }
+        if (statusFilter) {
+            fileName += `_estado_${statusFilter}`
         }
         if (dateFromFilter || dateToFilter) {
             const fromDate = dateFromFilter ? new Date(dateFromFilter).toLocaleDateString('es-ES').replace(/\//g, '-') : ''
@@ -506,53 +509,33 @@ const Garages = () => {
     };
        
 
+    const buildColumnFilters = (overrides?: { dateFrom?: string; dateTo?: string; status?: string }) => {
+        const filters: ColumnFiltersState = []
+        const status = overrides?.status ?? statusFilter
+        if (status) {
+            filters.push({ id: 'status', value: status })
+        }
+        const from = overrides?.dateFrom ?? dateFromFilter
+        const to = overrides?.dateTo ?? dateToFilter
+        if (from || to) {
+            filters.push({
+                id: 'createdAt',
+                value: JSON.stringify({ from: from || '', to: to || '' }),
+            })
+        }
+        return filters
+    }
+
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value
         setSearchTerm(value)
-
-        // Aplicar filtros combinados: búsqueda de texto + filtros de fecha
-        const filters = []
-        
-        // Agregar filtro de búsqueda de texto si hay valor
-        if (value) {
-            filters.push({
-                id: selectedColumn,
-                value,
-            })
-        }
-        
-        // Agregar filtro de fecha si hay fechas seleccionadas
-        if (dateFromFilter || dateToFilter) {
-            const dateRange = {
-                from: dateFromFilter || '',
-                to: dateToFilter || ''
-            }
-            filters.push({
-                id: 'createdAt',
-                value: JSON.stringify(dateRange),
-            })
-        }
-        
-        setFiltering(filters)
+        setFiltering(buildColumnFilters())
     }
 
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
+    const handleStatusFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const value = event.target.value
-        setSelectedColumn(value)
-
-        // Limpiar solo el término de búsqueda cuando se cambia la columna
-        // Los filtros de fecha se mantienen fijos
-        setSearchTerm('')
-        
-        // Si no hay filtros de fecha activos, limpiar todos los filtros
-        if (!dateFromFilter && !dateToFilter) {
-            setFiltering([])
-        } else {
-            // Mantener los filtros de fecha activos
-            applyDateRangeFilter(dateFromFilter, dateToFilter)
-        }
+        setStatusFilter(value)
+        setFiltering(buildColumnFilters({ status: value }))
     }
 
     const handleDateFromFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -569,7 +552,7 @@ const Garages = () => {
             return
         }
         
-        applyCombinedFilters(value, dateToFilter, searchTerm)
+        setFiltering(buildColumnFilters({ dateFrom: value }))
     }
 
     const handleDateToFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -586,37 +569,11 @@ const Garages = () => {
             return
         }
         
-        applyCombinedFilters(dateFromFilter, value, searchTerm)
+        setFiltering(buildColumnFilters({ dateTo: value }))
     }
 
-    const applyCombinedFilters = (fromDate: string, toDate: string, searchValue: string) => {
-        const filters = []
-        
-        // Agregar filtro de búsqueda de texto si hay valor
-        if (searchValue) {
-            filters.push({
-                id: selectedColumn,
-                value: searchValue,
-            })
-        }
-        
-        // Agregar filtro de fecha si hay fechas seleccionadas
-        if (fromDate || toDate) {
-            const dateRange = {
-                from: fromDate || '',
-                to: toDate || ''
-            }
-            filters.push({
-                id: 'createdAt',
-                value: JSON.stringify(dateRange),
-            })
-        }
-        
-        setFiltering(filters)
-    }
-
-    const applyDateRangeFilter = (fromDate: string, toDate: string) => {
-        applyCombinedFilters(fromDate, toDate, searchTerm)
+    const applyDateRangeFilter = () => {
+        setFiltering(buildColumnFilters())
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
@@ -756,6 +713,10 @@ const Garages = () => {
         {
             header: 'Status',
             accessorKey: 'status',
+            filterFn: (row, columnId, filterValue) => {
+                if (!filterValue) return true
+                return row.getValue(columnId) === filterValue
+            },
             cell: ({ row }) => {
                 const status = row.getValue('status') as string // Aserción de tipo
                 let icon
@@ -1079,9 +1040,23 @@ const Garages = () => {
         state: {
             sorting,
             columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const g = row.original
+            const nombre = (g.nombre ?? '').toLowerCase()
+            const rif = (g.rif ?? '').toLowerCase()
+            const email = (g.email ?? '').toLowerCase()
+            return nombre.includes(term) || rif.includes(term) || email.includes(term)
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -1172,27 +1147,23 @@ const Garages = () => {
                             </span>
                         </label>
                     </div>
-                    
-                    {/* Select de columna */}
+
+                    {/* Selector de estado */}
                     <select
-                        className="h-10 w-32 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        onChange={handleSelectChange}
-                        value={selectedColumn}
+                        className="h-10 w-44 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        onChange={handleStatusFilterChange}
+                        value={statusFilter}
                     >
-                        <option value="" disabled>
-                            Seleccionar columna...
-                        </option>
-                        <option value="nombre">Nombre</option>
-                        <option value="rif">Rif</option>
-                        <option value="email">Email</option>
-                        <option value="status">Estado</option>
+                        <option value="">Todos</option>
+                        <option value="Aprobado">Aprobado</option>
+                        <option value="En espera por aprobación">En espera por aprobación</option>
                     </select>
-                    
-                    {/* Campo de búsqueda */}
+
+                    {/* Campo de búsqueda general (nombre, rif, email) */}
                     <div className="relative w-64">
                         <input
                             type="text"
-                            placeholder="Buscar..."
+                            placeholder="Buscar por nombre, RIF o email..."
                             className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
                             value={searchTerm}
                             onChange={handleSearchChange}

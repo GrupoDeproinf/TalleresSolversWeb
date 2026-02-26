@@ -48,7 +48,6 @@ const Services = () => {
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedServicesContact, setSelectedServicesContact] =
         useState<ServicesContact | null>(null)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre_servicio')
     const [searchTerm, setSearchTerm] = useState('')
     const [dataServicesContact, setDataServicesContact] = useState<
         ServicesContact[]
@@ -89,35 +88,7 @@ const Services = () => {
     }
         
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setSearchTerm(value)
-
-        // Aplica el filtro dinámico según la columna seleccionada
-        const newFilters = [
-            {
-                id: selectedColumn, // Usar la columna seleccionada
-                value,
-            },
-        ]
-        setFiltering(newFilters)
-    }
-
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedColumn(value)
-
-        // Aplicar filtro vacío cuando se cambia la columna
-        if (searchTerm !== '') {
-            const newFilters = [
-                {
-                    id: value, // La columna seleccionada
-                    value: searchTerm, // Filtrar por el término de búsqueda actual
-                },
-            ]
-            setFiltering(newFilters)
-        }
+        setSearchTerm(event.target.value)
     }
 
     const [dialogIsOpen, setIsOpen] = useState(false)
@@ -182,10 +153,24 @@ const Services = () => {
         columns,
         state: {
             sorting,
-            columnFilters: filtering, // Usar el array de filtros
+            columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const r = row.original
+            const nombre = (r.nombre_servicio ?? '').toLowerCase()
+            const taller = (r.taller ?? '').toLowerCase()
+            const precio = String(r.precio ?? '')
+            return nombre.includes(term) || taller.includes(term) || precio.includes(term)
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -298,38 +283,24 @@ const Services = () => {
                             <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                         </button>
                     </h1>
-                    <div className="flex justify-end">
-                        <div className="flex items-center">
-                            <div className="relative w-32">
-                                {' '}
-                                <select
-                                    className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    onChange={handleSelectChange}
-                                    value={selectedColumn} // Se mantiene el valor predeterminado
-                                >
-                                    <option value="nombre_servicio">Servicio</option>
-                                    <option value="taller">Taller</option>
-                                    <option value="precio">Precio</option>                                    
-                                </select>
-                            </div>
-                            <div className="relative w-80 ml-4">
-                                <input
-                                    type="text"
-                                    placeholder="Buscar..."
-                                    className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                    value={searchTerm}
-                                    onChange={handleSearchChange}
-                                />
-                                <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
-                            </div>
-                            <button
+                    <div className="flex justify-end items-center gap-4 flex-nowrap">
+                        <div className="relative w-80 flex-shrink-0">
+                            <input
+                                type="text"
+                                placeholder="Buscar por servicio, taller o precio..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                        <button
                             style={{ backgroundColor: '#000B7E' }}
-                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
+                            className="p-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80 flex-shrink-0"
                             onClick={handleOpenDialog}
                         >
                             Exportar a Excel
                         </button>
-                        </div>
                     </div>
                 </div>
                 <div className="p-1 rounded-lg shadow">

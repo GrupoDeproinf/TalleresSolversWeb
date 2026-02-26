@@ -86,9 +86,9 @@ const ServicesList = () => {
 
     const [dataServices, setDataServices] = useState<Service[]>([])
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre_servicio')
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState<string>('todos')
+    const [typeServiceFilter, setTypeServiceFilter] = useState<string>('todos') // 'todos' | 'local' | 'domicilio'
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [currentPage, setCurrentPage] = useState(1)
@@ -129,10 +129,10 @@ const ServicesList = () => {
         fetchData()
     }, [])
 
-    // Aplicar filtros cuando cambien los valores
+    // Aplicar filtros de estado y tipo de servicio cuando cambien
     useEffect(() => {
         applyFilters()
-    }, [searchTerm, statusFilter, selectedColumn])
+    }, [statusFilter, typeServiceFilter])
 
     const handleRefresh = async () => {
         await fetchData()
@@ -144,47 +144,35 @@ const ServicesList = () => {
     }
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setSearchTerm(value)
-    }
-
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedColumn(value)
-
-        // Limpiar filtros cuando se cambia la columna
-        setSearchTerm('')
+        setSearchTerm(event.target.value)
     }
 
     const handleStatusFilterChange = (
         event: React.ChangeEvent<HTMLSelectElement>,
     ) => {
-        const value = event.target.value
-        setStatusFilter(value)
+        setStatusFilter(event.target.value)
+    }
+
+    const handleTypeServiceFilterChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        setTypeServiceFilter(event.target.value)
     }
 
     const applyFilters = () => {
-        const filters: any[] = []
-
-        // Aplicar filtro de búsqueda si existe
-        if (searchTerm.trim()) {
-            filters.push({
-                id: selectedColumn,
-                value: searchTerm.toLowerCase(),
-            })
-        }
-
-        // Aplicar filtro de estado si no es "todos"
+        const filters: ColumnFiltersState = []
         if (statusFilter !== 'todos') {
             filters.push({
                 id: 'estatus',
                 value: statusFilter === 'activo' ? true : false,
             })
         }
-
-        console.log('Aplicando filtros:', filters)
+        if (typeServiceFilter !== 'todos') {
+            filters.push({
+                id: 'typeService',
+                value: typeServiceFilter, // 'local' | 'domicilio'
+            })
+        }
         setFiltering(filters)
     }
 
@@ -387,6 +375,13 @@ const ServicesList = () => {
         {
             header: 'Tipo de Servicio',
             accessorKey: 'typeService',
+            filterFn: (row, columnId, filterValue) => {
+                if (!filterValue || filterValue === 'todos') return true
+                const typeService = (row.getValue(columnId) as string) || 'local'
+                if (filterValue === 'local') return typeService === 'local'
+                if (filterValue === 'domicilio') return typeService !== 'local'
+                return true
+            },
             cell: ({ row }) => {
                 const service = row.original
                 return getTypeServiceIcon(service.typeService || 'local')
@@ -395,6 +390,10 @@ const ServicesList = () => {
         {
             header: 'Estado',
             accessorKey: 'estatus',
+            filterFn: (row, columnId, filterValue) => {
+                const cellValue = row.getValue(columnId)
+                return Boolean(cellValue) === Boolean(filterValue)
+            },
             cell: ({ row }) => {
                 const service = row.original
                 return getStatusIcon(service.estatus || false)
@@ -437,57 +436,74 @@ const ServicesList = () => {
         state: {
             sorting,
             columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const r = row.original
+            const nombre = (r.nombre_servicio ?? '').toLowerCase()
+            const taller = (r.taller ?? '').toLowerCase()
+            const categoria = (r.categoria ?? r.nombre_categoria ?? '').toString().toLowerCase()
+            const precio = String(r.precio ?? '')
+            const subcategoria = r.subcategoria
+            let subcatMatch = false
+            if (typeof subcategoria === 'string') {
+                subcatMatch = subcategoria.toLowerCase().includes(term)
+            } else if (Array.isArray(subcategoria)) {
+                subcatMatch = subcategoria.some((item: any) => {
+                    if (item && typeof item === 'object') {
+                        return Object.values(item).some((val: any) =>
+                            String(val).toLowerCase().includes(term)
+                        )
+                    }
+                    return String(item).toLowerCase().includes(term)
+                })
+            }
+            return (
+                nombre.includes(term) ||
+                taller.includes(term) ||
+                categoria.includes(term) ||
+                precio.includes(term) ||
+                subcatMatch
+            )
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         filterFns: {
-            // Filtro personalizado para manejar diferentes tipos de datos
             customFilter: (row, columnId, filterValue) => {
                 const cellValue = row.getValue(columnId)
-                
-                if (cellValue === null || cellValue === undefined) {
-                    return false
-                }
-                
-                // Manejo especial para el campo estatus (booleano)
+                if (cellValue === null || cellValue === undefined) return false
                 if (columnId === 'estatus') {
-                    const cellBool = Boolean(cellValue)
-                    const filterBool = Boolean(filterValue)
-                    console.log(`Filtro estatus - cellValue: ${cellValue}, cellBool: ${cellBool}, filterValue: ${filterValue}, filterBool: ${filterBool}, resultado: ${cellBool === filterBool}`)
-                    return cellBool === filterBool
+                    return Boolean(cellValue) === Boolean(filterValue)
                 }
-                
-                // Convertir a string para comparación
                 const stringValue = String(cellValue).toLowerCase()
                 const searchValue = String(filterValue).toLowerCase()
-                
-                // Para arrays (como subcategorías)
                 if (Array.isArray(cellValue)) {
-                    return cellValue.some(item => {
+                    return cellValue.some((item: any) => {
                         if (typeof item === 'object' && item !== null) {
-                            return Object.values(item).some(val => 
+                            return Object.values(item).some((val: any) =>
                                 String(val).toLowerCase().includes(searchValue)
                             )
                         }
                         return String(item).toLowerCase().includes(searchValue)
                     })
                 }
-                
-                // Para objetos
                 if (typeof cellValue === 'object' && cellValue !== null) {
-                    return Object.values(cellValue).some(val => 
+                    return Object.values(cellValue).some((val: any) =>
                         String(val).toLowerCase().includes(searchValue)
                     )
                 }
-                
-                // Para strings y números
                 return stringValue.includes(searchValue)
             },
         },
-        globalFilterFn: 'customFilter' as any,
     })
 
     const data = table.getRowModel().rows
@@ -520,44 +536,51 @@ const ServicesList = () => {
                         <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                     </button>
                 </h1>
-                <div className="flex justify-end">
-                    <div className="flex items-center">
-                        <div className="relative w-32">
-                            <select
-                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onChange={handleSelectChange}
-                                value={selectedColumn}
-                            >
-                                <option value="" disabled>
-                                    Seleccionar columna...
-                                </option>
-                                <option value="nombre_servicio">Nombre del Servicio</option>
-                                <option value="taller">Taller</option>
-                                <option value="categoria">Categoría</option>
-                                <option value="subcategoria">Subcategoría</option>
-                                <option value="precio">Precio</option>
-                            </select>
-                        </div>
-                        <div className="relative w-32 ml-4">
-                            <select
-                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onChange={handleStatusFilterChange}
-                                value={statusFilter}
-                            >
-                                <option value="todos">Todos</option>
-                                <option value="activo">Activo</option>
-                                <option value="inactivo">Inactivo</option>
-                            </select>
-                        </div>
-                        <div className="relative w-70 ml-4">
+                <div className="flex justify-end items-end gap-4 flex-nowrap">
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                        <label htmlFor="filter-estado" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            Estado
+                        </label>
+                        <select
+                            id="filter-estado"
+                            className="h-10 w-32 py-2 px-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
+                            onChange={handleStatusFilterChange}
+                            value={statusFilter}
+                        >
+                            <option value="todos">Todos</option>
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                        <label htmlFor="filter-tipo-servicio" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            Tipo de servicio
+                        </label>
+                        <select
+                            id="filter-tipo-servicio"
+                            className="h-10 w-40 py-2 px-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
+                            onChange={handleTypeServiceFilterChange}
+                            value={typeServiceFilter}
+                        >
+                            <option value="todos">Todos</option>
+                            <option value="domicilio">A Domicilio</option>
+                            <option value="local">En el Local</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                        <label htmlFor="filter-buscar" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            Buscar
+                        </label>
+                        <div className="relative">
                             <input
+                                id="filter-buscar"
                                 type="text"
-                                placeholder="Buscar..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                placeholder="Nombre, taller, categoría..."
+                                className="w-80 py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10 text-sm"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                            <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
                         </div>
                     </div>
                 </div>

@@ -69,8 +69,7 @@ const Subscriptions = () => {
     const [dataSubs, setDataSubs] = useState<Subscriptions[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre') // Establecer 'nombre' como valor por defecto
-    const [searchTerm, setSearchTerm] = useState('') // Estado para el término de búsqueda
+    const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
         null,
     )
@@ -360,32 +359,7 @@ const Subscriptions = () => {
     const endIndex = startIndex + rowsPerPage
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setSearchTerm(value)
-
-        const newFilters = [
-            {
-                id: selectedColumn,
-                value,
-            },
-        ]
-        setFiltering(newFilters)
-    }
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedColumn(value)
-
-        if (searchTerm !== '') {
-            const newFilters = [
-                {
-                    id: value,
-                    value: searchTerm,
-                },
-            ]
-            setFiltering(newFilters)
-        }
+        setSearchTerm(event.target.value)
     }
 
     const handleExportToExcel = () => {
@@ -643,8 +617,20 @@ const Subscriptions = () => {
         columns,
         state: {
             columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const nombre = (row.original.nombre ?? '').toLowerCase()
+            const nombre_taller = (row.original.nombre_taller ?? '').toLowerCase()
+            return nombre.includes(term) || nombre_taller.includes(term)
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -667,23 +653,10 @@ const Subscriptions = () => {
                 </h1>
                 <div className="flex justify-end">
                     <div className="flex items-center">
-                        <div className="relative w-32">
-                            <select
-                                className="h-11 w-full py-2.5 px-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 cursor-pointer text-sm font-medium text-gray-700"
-                                onChange={handleSelectChange}
-                                value={selectedColumn}
-                            >
-                                <option value="" disabled className="text-gray-400">
-                                    Seleccionar columna...
-                                </option>
-                                <option value="nombre" className="text-gray-700">Plan</option>
-                                <option value="nombre_taller" className="text-gray-700">Taller</option>
-                            </select>
-                        </div>
-                        <div className="relative w-80 ml-4">
+                        <div className="relative w-80">
                             <input
                                 type="text"
-                                placeholder="Buscar..."
+                                placeholder="Buscar por plan o taller..."
                                 className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
                                 value={searchTerm}
                                 onChange={handleSearchChange}

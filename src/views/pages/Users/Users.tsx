@@ -62,9 +62,8 @@ type Person = {
 const Users = () => {
     const [dataUsers, setDataUsers] = useState<Person[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
@@ -292,33 +291,7 @@ const Users = () => {
     }
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setSearchTerm(value)
-
-        const newFilters = [
-            {
-                id: selectedColumn,
-                value,
-            },
-        ]
-        setFiltering(newFilters)
-    }
-
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedColumn(value)
-
-        if (searchTerm !== '') {
-            const newFilters = [
-                {
-                    id: value,
-                    value: searchTerm,
-                },
-            ]
-            setFiltering(newFilters)
-        }
+        setSearchTerm(event.target.value)
     }
 
     const handleSaveChanges = async () => {
@@ -592,9 +565,29 @@ const Users = () => {
         state: {
             sorting,
             columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const r = row.original
+            const nombre = (r.nombre ?? '').toLowerCase()
+            const cedula = (r.cedula ?? '').toLowerCase()
+            const email = (r.email ?? '').toLowerCase()
+            const typeUser = (r.typeUser ?? '').toLowerCase()
+            return (
+                nombre.includes(term) ||
+                cedula.includes(term) ||
+                email.includes(term) ||
+                typeUser.includes(term)
+            )
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -638,44 +631,24 @@ const Users = () => {
                         <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                     </button>
                 </h1>
-                <div className="flex justify-end">
-                    <div className="flex items-center">
-                        <div className="relative w-32">
-                            {' '}
-                            <select
-                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onChange={handleSelectChange}
-                                value={selectedColumn}
-                            >
-                                <option value="" disabled>
-                                    Seleccionar columna...
-                                </option>
-                                <option value="nombre">Nombre</option>
-                                <option value="cedula">Cedula</option>
-                                <option value="email">Email</option>
-                                <option value="typeUser">
-                                    Tipo de Usuario
-                                </option>
-                            </select>
-                        </div>
-                        <div className="relative w-80 ml-4">
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
-                        </div>
-                        <Button
-                            className="w-40 ml-4 text-white hover:opacity-80"
-                            style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)}
-                        >
-                            Crear Usuario
-                        </Button>
+                <div className="flex justify-end items-center gap-4 flex-nowrap">
+                    <div className="relative w-80 flex-shrink-0">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre, cédula, email o tipo..."
+                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                        />
+                        <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
                     </div>
+                    <Button
+                        className="w-40 text-white hover:opacity-80 flex-shrink-0"
+                        style={{ backgroundColor: '#000B7E' }}
+                        onClick={() => setDrawerCreateIsOpen(true)}
+                    >
+                        Crear Usuario
+                    </Button>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">

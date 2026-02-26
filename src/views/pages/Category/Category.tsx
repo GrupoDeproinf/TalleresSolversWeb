@@ -70,9 +70,8 @@ type Category = {
 const Users = () => {
     const [dataCategorys, setdataCategorys] = useState<Category[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [filtering, setFiltering] = useState<ColumnFiltersState>([]) // Cambiar a ColumnFiltersState
+    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedCategory, setSelectedCategory] = useState<Category | null>(
         null,
@@ -324,35 +323,7 @@ const Users = () => {
     
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setSearchTerm(value)
-
-        // Aplica el filtro dinámico según la columna seleccionada
-        const newFilters = [
-            {
-                id: selectedColumn, // Usar la columna seleccionada
-                value,
-            },
-        ]
-        setFiltering(newFilters)
-    }
-
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedColumn(value)
-
-        // Aplicar filtro vacío cuando se cambia la columna
-        if (searchTerm !== '') {
-            const newFilters = [
-                {
-                    id: value, // La columna seleccionada
-                    value: searchTerm, // Filtrar por el término de búsqueda actual
-                },
-            ]
-            setFiltering(newFilters)
-        }
+        setSearchTerm(event.target.value)
     }
 
     const handleSaveChanges = async (values: any) => {
@@ -713,10 +684,23 @@ const Users = () => {
         columns,
         state: {
             sorting,
-            columnFilters: filtering, // Usar el array de filtros
+            columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const r = row.original
+            const nombre = (r.nombre ?? '').toLowerCase()
+            const descripcion = (r.descripcion ?? '').toLowerCase()
+            return nombre.includes(term) || descripcion.includes(term)
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -767,40 +751,24 @@ const Users = () => {
                         <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                     </button>
                 </h1>
-                <div className="flex justify-end">
-                    <div className="flex items-center">
-                        <div className="relative w-32">
-                            {' '}
-                            <select
-                                className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                onChange={handleSelectChange}
-                                value={selectedColumn} // Se mantiene el valor predeterminado
-                            >
-                                <option value="" disabled>
-                                    Seleccionar columna...
-                                </option>
-                                <option value="nombre">Nombre</option>
-                                <option value="descripcion">Descripcion</option>
-                            </select>
-                        </div>
-                        <div className="relative w-80 ml-4">
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
-                        </div>
-                        <Button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="w-40 ml-4 text-white hover:opacity-80"
-                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
-                        >
-                            Crear Categoría
-                        </Button>
+                <div className="flex justify-end items-center gap-4 flex-nowrap">
+                    <div className="relative w-80 flex-shrink-0">
+                        <input
+                            type="text"
+                            placeholder="Buscar por nombre o descripción..."
+                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                        />
+                        <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
                     </div>
+                    <Button
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="w-40 text-white hover:opacity-80 flex-shrink-0"
+                        onClick={() => setDrawerCreateIsOpen(true)}
+                    >
+                        Crear Categoría
+                    </Button>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">

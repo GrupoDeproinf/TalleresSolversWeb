@@ -52,8 +52,8 @@ const Puntuacion = () => {
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPuntuacion, setSelectedPuntuacion] =
         useState<Calificacion | null>(null)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre_taller')
     const [searchTerm, setSearchTerm] = useState('')
+    const [starFilter, setStarFilter] = useState<number | null>(null) // null = Todas, 1-5 = esa cantidad de estrellas
     const [dataPuntuacion, setDataPuntuacion] = useState<
     Calificacion[]
     >([])
@@ -120,36 +120,20 @@ const Puntuacion = () => {
     }
         
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setSearchTerm(value)
-
-        // Aplica el filtro dinámico según la columna seleccionada
-        const newFilters = [
-            {
-                id: selectedColumn, // Usar la columna seleccionada
-                value,
-            },
-        ]
-        setFiltering(newFilters)
+        setSearchTerm(event.target.value)
     }
 
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedColumn(value)
-
-        // Aplicar filtro vacío cuando se cambia la columna
-        if (searchTerm !== '') {
-            const newFilters = [
-                {
-                    id: value, // La columna seleccionada
-                    value: searchTerm, // Filtrar por el término de búsqueda actual
-                },
-            ]
-            setFiltering(newFilters)
-        }
+    const handleStarFilterClick = (stars: number | null) => {
+        setStarFilter((prev) => (prev === stars ? null : stars))
     }
+
+    useEffect(() => {
+        setFiltering(
+            starFilter !== null && starFilter >= 1 && starFilter <= 5
+                ? [{ id: 'puntuacion', value: starFilter }]
+                : []
+        )
+    }, [starFilter])
 
     const [dialogIsOpen, setIsOpen] = useState(false)
     
@@ -198,6 +182,13 @@ const Puntuacion = () => {
         },
         {
             header: 'Puntuación',
+            accessorKey: 'puntuacion',
+            filterFn: (row, columnId, filterValue) => {
+                if (filterValue == null || filterValue === '') return true
+                const val = row.getValue(columnId) as number | undefined
+                const num = typeof val === 'number' ? val : Number(val)
+                return num === Number(filterValue)
+            },
             cell: ({ row }) => {
                 const puntuacion = row.original.puntuacion || 0;
                 const maxPuntuacion = 5;
@@ -226,10 +217,22 @@ const Puntuacion = () => {
         columns,
         state: {
             sorting,
-            columnFilters: filtering, // Usar el array de filtros
+            columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const nombre_taller = (row.original.nombre_taller ?? '').toLowerCase()
+            const nombre_servicio = ((row.original as { nombre_servicio?: string }).nombre_servicio ?? '').toLowerCase()
+            return nombre_taller.includes(term) || nombre_servicio.includes(term)
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -341,36 +344,62 @@ const Puntuacion = () => {
                             <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                         </button>
                     </h1>
-                    <div className="flex justify-end">
-                        <div className="flex items-center">
-                            <div className="relative w-32">
-                                {' '}
-                                <select
-                                    className="h-10 w-full py-2 px-4 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    onChange={handleSelectChange}
-                                    value={selectedColumn} // Se mantiene el valor predeterminado
-                                >
-                                    <option value="nombre_taller">Taller</option>                                  
-                                </select>
-                            </div>
-                            <div className="relative w-80 ml-4">
-                                <input
-                                    type="text"
-                                    placeholder="Buscar..."
-                                    className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                    value={searchTerm}
-                                    onChange={handleSearchChange}
-                                />
-                                <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
-                            </div>
+                    <div className="flex justify-end items-center gap-4 flex-nowrap">
+                        {/* 1. Filtro por estrellas */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-600">Estrellas:</span>
                             <button
+                                type="button"
+                                onClick={() => handleStarFilterClick(null)}
+                                className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                                    starFilter === null
+                                        ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-400 shadow-sm'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                            >
+                                Todas
+                            </button>
+                            {[1, 2, 3, 4, 5].map((num) => (
+                                <button
+                                    key={num}
+                                    type="button"
+                                    onClick={() => handleStarFilterClick(num)}
+                                    className={`flex items-center gap-0.5 p-1.5 rounded-lg transition-all hover:scale-105 ${
+                                        starFilter === num
+                                            ? 'bg-amber-100 ring-1 ring-amber-400'
+                                            : 'hover:bg-amber-50'
+                                    }`}
+                                    title={`${num} estrella${num > 1 ? 's' : ''}`}
+                                >
+                                    {Array.from({ length: num }, (_, i) => (
+                                        starFilter === num ? (
+                                            <FaStar key={i} className="w-4 h-4 text-amber-500" />
+                                        ) : (
+                                            <FaRegStar key={i} className="w-4 h-4 text-gray-400" />
+                                        )
+                                    ))}
+                                </button>
+                            ))}
+                        </div>
+                        {/* 2. Buscador */}
+                        <div className="relative w-80 flex-shrink-0">
+                            <input
+                                type="text"
+                                placeholder="Buscar por taller o servicio..."
+                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        </div>
+                        {/* 3. Botón Exportar */}
+                        <button
                             style={{ backgroundColor: '#000B7E' }}
-                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
+                            className="p-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
                             onClick={handleOpenDialog}
                         >
                             Exportar a Excel
                         </button>
-                        </div>
                     </div>
                 </div>
                 <div className="p-1 rounded-lg shadow">

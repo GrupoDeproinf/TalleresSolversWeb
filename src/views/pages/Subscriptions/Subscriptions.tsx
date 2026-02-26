@@ -57,9 +57,8 @@ const Subscriptions = () => {
     const [dataSubs, setDataSubs] = useState<Subscriptions[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [selectedColumn, setSelectedColumn] = useState<string>('nombre') // Establecer 'nombre' como valor por defecto
-    const [searchTerm, setSearchTerm] = useState('') // Estado para el término de búsqueda
-    const [selectedStatus, setSelectedStatus] = useState<string>('') // Estado para el filtro de estados
+    const [searchTerm, setSearchTerm] = useState('')
+    const [selectedStatus, setSelectedStatus] = useState<string>('')
     const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
         null,
     )
@@ -155,32 +154,7 @@ const Subscriptions = () => {
     const endIndex = startIndex + rowsPerPage
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setSearchTerm(value)
-
-        const newFilters = [
-            {
-                id: selectedColumn,
-                value,
-            },
-        ]
-        setFiltering(newFilters)
-    }
-    const handleSelectChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const value = event.target.value
-        setSelectedColumn(value)
-
-        if (searchTerm !== '') {
-            const newFilters = [
-                {
-                    id: value,
-                    value: searchTerm,
-                },
-            ]
-            setFiltering(newFilters)
-        }
+        setSearchTerm(event.target.value)
     }
 
     const handleStatusChange = (
@@ -188,21 +162,7 @@ const Subscriptions = () => {
     ) => {
         const value = event.target.value
         setSelectedStatus(value)
-
-        // Aplicar filtro de estado
-        if (value === '') {
-            // Si no hay estado seleccionado, limpiar filtros de estado
-            const newFilters = filtering.filter(filter => filter.id !== 'status')
-            setFiltering(newFilters)
-        } else {
-            // Aplicar filtro de estado
-            const newFilters = filtering.filter(filter => filter.id !== 'status')
-            newFilters.push({
-                id: 'status',
-                value: value,
-            })
-            setFiltering(newFilters)
-        }
+        setFiltering(value === '' ? [] : [{ id: 'status', value }])
     }
     const handleExportToExcel = () => {
         if (!startDate || !endDate) {
@@ -406,6 +366,10 @@ const Subscriptions = () => {
         {
             header: 'Estado Subscripción',
             accessorKey: 'status',
+            filterFn: (row, columnId, filterValue) => {
+                if (!filterValue) return true
+                return row.getValue(columnId) === filterValue
+            },
             cell: ({ row }) => {
                 const fechaFin = row.original.fecha_fin
                 
@@ -467,8 +431,20 @@ const Subscriptions = () => {
         columns,
         state: {
             columnFilters: filtering,
+            globalFilter: searchTerm,
         },
         onColumnFiltersChange: setFiltering,
+        onGlobalFilterChange: (updater) => {
+            const next = typeof updater === 'function' ? updater(searchTerm) : updater
+            setSearchTerm(next ?? '')
+        },
+        globalFilterFn: (row, _columnId, filterValue) => {
+            const term = (filterValue ?? '').toString().toLowerCase().trim()
+            if (!term) return true
+            const nombre = (row.original.nombre ?? '').toLowerCase()
+            const nombre_taller = (row.original.nombre_taller ?? '').toLowerCase()
+            return nombre.includes(term) || nombre_taller.includes(term)
+        },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -489,52 +465,37 @@ const Subscriptions = () => {
                         <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
                     </button>
                 </h1>
-                <div className="flex justify-end">
-                    <div className="flex items-center">
-                        <div className="relative w-32">
-                            <select
-                                className="h-11 w-full py-2.5 px-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 cursor-pointer text-sm font-medium text-gray-700"
-                                onChange={handleSelectChange}
-                                value={selectedColumn}
-                            >
-                                <option value="" disabled className="text-gray-400">
-                                    Seleccionar columna...
-                                </option>
-                                <option value="nombre" className="text-gray-700">Plan</option>
-                                <option value="nombre_taller" className="text-gray-700">Taller</option>
-                            </select>
-                        </div>
-                        <div className="relative w-48 ml-4">
-                            <select
-                                className="h-11 w-full py-2.5 px-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 cursor-pointer text-sm font-medium text-gray-700"
-                                onChange={handleStatusChange}
-                                value={selectedStatus}
-                            >
-                                <option value="" className="text-gray-700">
-                                    Todos los estados
-                                </option>
-                                <option value="Aprobado" className="text-green-700 font-semibold">Aprobados</option>
-                                <option value="Por Aprobar" className="text-yellow-500 font-semibold">Por Aprobar</option>
-                            </select>
-                        </div>
-                        <div className="relative w-80 ml-4">
-                            <input
-                                type="text"
-                                placeholder="Buscar..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
-                        </div>
-                        <button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
-                            onClick={handleOpenDialog}
+                <div className="flex justify-end items-center gap-4 flex-nowrap">
+                    <div className="relative w-48 flex-shrink-0">
+                        <select
+                            className="h-11 w-full py-2.5 px-4 bg-white border-2 border-gray-200 rounded-xl shadow-sm hover:border-blue-300 focus:outline-none focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 cursor-pointer text-sm font-medium text-gray-700"
+                            onChange={handleStatusChange}
+                            value={selectedStatus}
                         >
-                            Exportar a Excel
-                        </button>
+                            <option value="" className="text-gray-700">
+                                Todos los estados
+                            </option>
+                            <option value="Aprobado" className="text-green-700 font-semibold">Aprobados</option>
+                            <option value="Por Aprobar" className="text-yellow-500 font-semibold">Por Aprobar</option>
+                        </select>
                     </div>
+                    <div className="relative w-80 flex-shrink-0">
+                        <input
+                            type="text"
+                            placeholder="Buscar por plan o taller..."
+                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                            value={searchTerm}
+                            onChange={handleSearchChange}
+                        />
+                        <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                    </div>
+                    <button
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="p-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80 flex-shrink-0"
+                        onClick={handleOpenDialog}
+                    >
+                        Exportar a Excel
+                    </button>
                 </div>
             </div>
             <div className="p-1 rounded-lg shadow">
