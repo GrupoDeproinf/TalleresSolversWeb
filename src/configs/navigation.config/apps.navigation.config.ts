@@ -131,8 +131,8 @@ const appsNavigationConfig: NavigationTree[] = [
             {
                 key: 'apps.subscriptions',
                 path: `${APP_PREFIX_PATH}/subscriptions`,
-                title: 'Subscripciones',
-                translateKey: 'Subscriptions',
+                title: 'Histórico de Subscripciones',
+                translateKey: 'Histórico de Subscripciones',
                 icon: 'subscriptions',
                 type: NAV_ITEM_TYPE_COLLAPSE,
                 authority: [ADMIN],

@@ -22,6 +22,7 @@ import {
     FaEyeSlash,
     FaUserCircle,
     FaUserShield,
+    FaCar,
 } from 'react-icons/fa'
 import {
     collection,
@@ -45,6 +46,7 @@ import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
+import * as XLSX from 'xlsx'
 
 type Person = {
     nombre?: string
@@ -59,6 +61,54 @@ type Person = {
     estado?: string | string[]
 }
 
+/** Datos de vehículo (estático/ficticio por ahora). Un usuario puede tener varios. */
+type VehicleData = {
+    id: string
+    placa: string
+    marcaModelo: string
+    kmVehiculo: string
+    proximoCambioAceite: string
+    kmCorreaTiempo: string
+    ultimoCambioBujiasFiltros: string
+    ultimoCambioPilaGasolina: string
+    kmUltimaRotacionCauchos: string
+    ultimoLavadoCompleto: string
+    rcvPlus: string
+    servicioGruaPlus: string
+}
+
+/** Datos ficticios de vehículos para el popup (estático). */
+const VEHICULOS_FICTICIOS: VehicleData[] = [
+    {
+        id: 'v1',
+        placa: 'ABC-12D',
+        marcaModelo: 'Toyota Corolla 2022',
+        kmVehiculo: '45.230 km',
+        proximoCambioAceite: '50.000 km',
+        kmCorreaTiempo: '80.000 km',
+        ultimoCambioBujiasFiltros: '15/01/2024',
+        ultimoCambioPilaGasolina: '20/02/2024',
+        kmUltimaRotacionCauchos: '42.100 km',
+        ultimoLavadoCompleto: '10/02/2025',
+        rcvPlus: 'Sí',
+        servicioGruaPlus: 'No',
+    },
+    {
+        id: 'v2',
+        placa: 'XYZ-98E',
+        marcaModelo: 'Chevrolet Onix 2023',
+        kmVehiculo: '12.500 km',
+        proximoCambioAceite: '15.000 km',
+        kmCorreaTiempo: '90.000 km',
+        ultimoCambioBujiasFiltros: '—',
+        ultimoCambioPilaGasolina: '—',
+        kmUltimaRotacionCauchos: '—',
+        ultimoLavadoCompleto: '05/01/2025',
+        rcvPlus: 'Sí',
+        servicioGruaPlus: 'Sí',
+    },
+]
+
 const Users = () => {
     const [dataUsers, setDataUsers] = useState<Person[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
@@ -67,6 +117,9 @@ const Users = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
+    const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false)
+    const [selectedPersonForVehicle, setSelectedPersonForVehicle] = useState<Person | null>(null)
+    const [selectedVehicleIndex, setSelectedVehicleIndex] = useState(0)
 
     // Opciones para el select de estados
     const estadoOptions = [
@@ -150,6 +203,20 @@ const Users = () => {
         setSelectedPerson(person)
         setDrawerIsOpen(true) // Abre el Drawer
     }
+
+    const openVehicleDialog = (person: Person) => {
+        setSelectedPersonForVehicle(person)
+        setVehicleDialogOpen(true)
+    }
+
+    const closeVehicleDialog = () => {
+        setVehicleDialogOpen(false)
+        setSelectedPersonForVehicle(null)
+        setSelectedVehicleIndex(0)
+    }
+
+    /** Vehículos del usuario (por ahora datos ficticios; puede haber más de uno). */
+    const userVehicles = VEHICULOS_FICTICIOS
 
     const validationSchema = Yup.object().shape({
         nombre: Yup.string()
@@ -292,6 +359,38 @@ const Users = () => {
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(event.target.value)
+    }
+
+    const handleExportExcel = () => {
+        const rows = table.getRowModel().rows.map((row) => {
+            const p = row.original
+            const estadoStr = Array.isArray(p.estado) ? (p.estado as string[]).join(', ') : (p.estado ?? '')
+            return {
+                Nombre: p.nombre ?? '',
+                Cédula: p.cedula ?? '',
+                Email: p.email ?? '',
+                'Número telefónico': p.phone ?? '',
+                Estado: estadoStr,
+                'Tipo de usuario': p.typeUser ?? '',
+            }
+        })
+        if (rows.length === 0) {
+            toast.push(
+                <Notification title="Sin datos">
+                    No hay usuarios para exportar.
+                </Notification>,
+            )
+            return
+        }
+        const worksheet = XLSX.utils.json_to_sheet(rows)
+        const workbook = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Usuarios')
+        XLSX.writeFile(workbook, 'Usuarios.xlsx')
+        toast.push(
+            <Notification title="Exportación exitosa">
+                El archivo Excel se ha descargado correctamente.
+            </Notification>,
+        )
     }
 
     const handleSaveChanges = async () => {
@@ -482,16 +581,25 @@ const Users = () => {
             cell: ({ row }) => {
                 const person = row.original
                 return (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                        <button
+                            onClick={() => openVehicleDialog(person)}
+                            className="text-amber-600 hover:text-amber-700"
+                            title="Ver vehículo"
+                        >
+                            <FaCar />
+                        </button>
                         <button
                             onClick={() => openDrawer(person)}
                             className="text-blue-900"
+                            title="Editar"
                         >
                             <FaEdit />
                         </button>
                         <button
                             onClick={() => openDialog(person)}
                             className="text-red-700"
+                            title="Eliminar"
                         >
                             <FaTrash />
                         </button>
@@ -649,6 +757,14 @@ const Users = () => {
                     >
                         Crear Usuario
                     </Button>
+                    <button
+                        type="button"
+                        style={{ backgroundColor: '#10B981' }}
+                        className="min-w-[180px] whitespace-nowrap px-4 py-2 text-white rounded-md shadow-md hover:opacity-80 transition duration-200 flex-shrink-0"
+                        onClick={handleExportExcel}
+                    >
+                        Exportar a Excel
+                    </button>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">
@@ -737,6 +853,102 @@ const Users = () => {
                         onClick={handleDelete}
                     >
                         Eliminar
+                    </Button>
+                </div>
+            </Dialog>
+
+            {/* Popup información del vehículo (datos estáticos/ficticios). Usuario puede tener más de un vehículo. */}
+            <Dialog
+                isOpen={vehicleDialogOpen}
+                onClose={closeVehicleDialog}
+                onRequestClose={closeVehicleDialog}
+            >
+                <div className="flex items-center gap-2 mb-2">
+                    <FaCar className="text-amber-600 w-5 h-5" />
+                    <h5 className="mb-0">Información del vehículo</h5>
+                </div>
+                <p className="text-gray-600 text-sm mb-4">
+                    Usuario: <span className="font-semibold text-gray-800">{selectedPersonForVehicle?.nombre ?? '—'}</span>
+                </p>
+
+                {/* Selector de vehículo cuando hay más de uno */}
+                {userVehicles.length > 1 && (
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Vehículo</label>
+                        <div className="flex gap-2 flex-wrap">
+                            {userVehicles.map((v, idx) => (
+                                <button
+                                    key={v.id}
+                                    type="button"
+                                    onClick={() => setSelectedVehicleIndex(idx)}
+                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                        selectedVehicleIndex === idx
+                                            ? 'bg-[#000B7E] text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                                >
+                                    {v.placa} — {v.marcaModelo}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {userVehicles[selectedVehicleIndex] && (
+                    <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                        <div className="flex justify-between border-b border-gray-200 pb-2 mb-2">
+                            <span className="text-gray-600">Vehículo</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].placa} — {userVehicles[selectedVehicleIndex].marcaModelo}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">KM del vehículo:</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].kmVehiculo}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Próximo cambio de aceite:</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].proximoCambioAceite}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">KM de correa de tiempo:</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].kmCorreaTiempo}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Último cambio de bujías y filtros:</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].ultimoCambioBujiasFiltros}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Último cambio de pila de gasolina:</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].ultimoCambioPilaGasolina}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">KM de la última rotación de cauchos:</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].kmUltimaRotacionCauchos}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Último lavado completo (chasis, motor, ducha marina):</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].ultimoLavadoCompleto}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Contratación de RCV (versión Plus):</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].rcvPlus}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-600">Contratación de servicio de grúa (versión Plus):</span>
+                            <span className="font-medium">{userVehicles[selectedVehicleIndex].servicioGruaPlus}</span>
+                        </div>
+                    </div>
+                )}
+
+                <p className="text-xs text-gray-500 mt-3">
+                    Datos de ejemplo. La información real se cargará cuando esté disponible.
+                </p>
+                <div className="text-right mt-6">
+                    <Button
+                        style={{ backgroundColor: '#000B7E' }}
+                        className="text-white hover:opacity-80"
+                        onClick={closeVehicleDialog}
+                    >
+                        Cerrar
                     </Button>
                 </div>
             </Dialog>

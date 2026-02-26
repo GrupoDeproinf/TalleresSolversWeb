@@ -1084,73 +1084,45 @@ const Garages = () => {
 
     return (
         <>
-            <div className="mb-6">
-                {/* Fila del título */}
-                <div className="flex justify-between items-center mb-4">
-                    <h1 className="flex justify-start items-center space-x-4">
-                        <span className="text-[#000B7E] text-2xl font-bold">Talleres</span>
-                        <button
-                            className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
-                            onClick={handleRefresh}
-                        >
-                            <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
-                        </button>
-                    </h1>
-                </div>
-                
-                {/* Fila de filtros y acciones */}
-                <div className="flex flex-wrap gap-3 items-start justify-end">
+            <div className="mb-6 flex flex-nowrap items-center justify-between gap-4">
+                {/* Título + refresh + filtros + búsqueda + botones en una sola línea */}
+                <h1 className="mb-6 flex justify-start items-center space-x-4">
+                    {' '}
+                    <span className="text-[#000B7E]">Talleres</span>
+                    <button
+                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        onClick={handleRefresh}
+                    >
+                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                    </button>
+                </h1>
+
+                <div className="flex flex-nowrap items-center gap-3 min-w-0">
                     {/* Filtros de fecha */}
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <div className="flex flex-col">
                             <input
                                 type="date"
-                                placeholder="Desde"
                                 className="w-36 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
                                 value={dateFromFilter}
                                 onChange={handleDateFromFilterChange}
                             />
-                            <label className="text-xs text-gray-500 mt-1">Desde</label>
+                            <label className="text-xs text-gray-500 mt-0.5">Desde</label>
                         </div>
                         <div className="flex flex-col">
                             <input
                                 type="date"
-                                placeholder="Hasta"
                                 className="w-36 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
                                 value={dateToFilter}
                                 onChange={handleDateToFilterChange}
                             />
-                            <label className="text-xs text-gray-500 mt-1">Hasta</label>
+                            <label className="text-xs text-gray-500 mt-0.5">Hasta</label>
                         </div>
-                    </div>
-                    
-                    {/* Toggle para mostrar/ocultar talleres eliminados */}
-                    <div className="flex items-center">
-                        <label className="flex items-center cursor-pointer whitespace-nowrap">
-                            <input
-                                type="checkbox"
-                                checked={showEliminados}
-                                onChange={(e) => {
-                                    setShowEliminados(e.target.checked)
-                                }}
-                                className="sr-only"
-                            />
-                            <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                showEliminados ? 'bg-blue-600' : 'bg-gray-300'
-                            }`}>
-                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    showEliminados ? 'translate-x-6' : 'translate-x-1'
-                                }`} />
-                            </div>
-                            <span className="ml-2 text-sm text-gray-700">
-                                Mostrar eliminados
-                            </span>
-                        </label>
                     </div>
 
                     {/* Selector de estado */}
                     <select
-                        className="h-10 w-44 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        className="h-10 w-44 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shrink-0"
                         onChange={handleStatusFilterChange}
                         value={statusFilter}
                     >
@@ -1159,31 +1131,32 @@ const Garages = () => {
                         <option value="En espera por aprobación">En espera por aprobación</option>
                     </select>
 
-                    {/* Campo de búsqueda general (nombre, rif, email) */}
-                    <div className="relative w-64">
+                    {/* Campo de búsqueda */}
+                    <div className="relative w-64 shrink-0">
                         <input
                             type="text"
                             placeholder="Buscar por nombre, RIF o email..."
-                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
                             value={searchTerm}
                             onChange={handleSearchChange}
                         />
-                        <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
                     </div>
-                    
+
                     {/* Botón Crear Taller */}
                     <Button
-                        className="w-36 text-white hover:opacity-80 text-sm"
+                        className="w-36 text-white hover:opacity-80 text-sm shrink-0 h-10"
                         style={{ backgroundColor: '#000B7E' }}
                         onClick={() => setDrawerCreateIsOpen(true)}
                     >
                         Crear Taller
                     </Button>
-                    
+
                     {/* Botón Exportar */}
                     <button
+                        type="button"
                         style={{ backgroundColor: '#10B981' }}
-                        className="w-36 h-10 px-3 text-white rounded-md shadow-md hover:bg-green-600 active:bg-green-700 transition duration-200 hover:opacity-80 text-sm"
+                        className="w-36 h-10 px-3 text-white rounded-md shadow-md hover:opacity-80 transition duration-200 text-sm shrink-0 whitespace-nowrap"
                         onClick={handleOpenExportDialog}
                     >
                         Exportar a Excel

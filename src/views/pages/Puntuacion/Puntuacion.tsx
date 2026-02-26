@@ -394,8 +394,8 @@ const Puntuacion = () => {
                         </div>
                         {/* 3. Botón Exportar */}
                         <button
-                            style={{ backgroundColor: '#000B7E' }}
-                            className="p-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
+                            style={{ backgroundColor: '#10B981' }}
+                            className="min-w-[120px] whitespace-nowrap px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
                             onClick={handleOpenDialog}
                         >
                             Exportar a Excel
@@ -509,7 +509,7 @@ const Puntuacion = () => {
                         <Button onClick={handleCloseDialog}>Cancelar</Button>
                         <Button onClick={handleExportToExcel} 
                         className="text-white hover:opacity-80"
-                        style={{ backgroundColor: '#000B7E' }}
+                        style={{ backgroundColor: '#10B981' }}
                         >
                             Exportar
                         </Button>
