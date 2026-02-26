@@ -74,8 +74,8 @@ const SplineArea = () => {
     }, [weekOffset]); // Ejecutar cada vez que cambie el desplazamiento de la semana
 
     return (
-        <div>
-            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between' }}>
+        <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex justify-between gap-2 mb-2 flex-none">
                 <Button 
                     onClick={() => setWeekOffset(weekOffset + 1)} 
                     style={{ backgroundColor: '#000B7E' }} 
@@ -98,9 +98,19 @@ const SplineArea = () => {
                         Semana Siguiente
                 </Button> 
             </div>
-            <Chart
-                options={{
-                    chart: { id: 'spline-area-chart' },
+            <div className="flex-1 min-h-0 pb-2">
+                <Chart
+                    options={{
+                        chart: { id: 'spline-area-chart' },
+                        legend: {
+                            position: 'bottom',
+                            offsetY: -6,
+                        },
+                        grid: {
+                            padding: {
+                                bottom: 12,
+                            },
+                        },
                     dataLabels: { enabled: false },
                     colors: COLORS,
                     stroke: { curve: 'smooth' },
@@ -121,11 +131,12 @@ const SplineArea = () => {
                     tooltip: {
                         x: { format: 'yyyy-MM-dd' },
                     },
-                }}
-                series={series}
-                type="area"
-                height={300}
-            />
+                    }}
+                    series={series}
+                    type="area"
+                    height={200}
+                />
+            </div>
         </div>
     );
 };

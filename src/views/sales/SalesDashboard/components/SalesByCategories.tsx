@@ -15,40 +15,44 @@ const SalesByCategories = ({
     data = { labels: [], data: [], colors: [] },
 }: SalesByCategoriesProps) => {
     return (
-        <Card>
-            <div className="mt-6">
+        <Card className="shadow-none border-0 p-0 h-full">
+            <div className="h-full">
                 {data.data.length > 0 && (
-                    <>
-                        <Chart
-                            donutTitle={`${data.data.reduce((a, b) => a + b, 0)}`}
-                            donutText="Cantidad de Talleres" // Texto personalizado
-                            series={data.data}
-                            customOptions={{
-                                labels: data.labels,
-                                colors: data.colors.length
-                                    ? data.colors
-                                    : COLORS, // Usa colores personalizados o predeterminados
-                            }}
-                            type="donut"
-                        />
+                    <div className="h-full grid grid-cols-[58%_42%] items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                            <Chart
+                                donutTitle={`${data.data.reduce((a, b) => a + b, 0)}`}
+                                donutText="Cantidad de Talleres"
+                                series={data.data}
+                                customOptions={{
+                                    labels: data.labels,
+                                    legend: { show: false },
+                                    colors: data.colors.length
+                                        ? data.colors
+                                        : COLORS,
+                                }}
+                                type="donut"
+                                height={190}
+                            />
+                        </div>
                         {data.data.length === data.labels.length && (
-                            <div className="mt-6 grid grid-cols-2 gap-4 max-w-[180px] mx-auto">
+                            <div className="min-w-0 space-y-2">
                                 {data.labels.map((value, index) => (
                                     <div
                                         key={value}
-                                        className="flex items-center gap-1"
+                                        className="flex items-center gap-1.5"
                                     >
                                         <Badge
                                             badgeStyle={{
                                                 backgroundColor: data.colors[index] || COLORS[index],
                                             }}
                                         />
-                                        <span className="font-semibold">{value}</span>
+                                        <span className="text-xs font-semibold">{value}</span>
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </>
+                    </div>
                 )}
             </div>
         </Card>

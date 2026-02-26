@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, Timestamp, } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
-import Card from '@/components/ui/Card'
 import SalesByCategories from './components/SalesByCategories'
-import SalesDashboardHeader from './components/SalesDashboardHeader'
 import SplineArea from './components/SplineArea'
 import { APP_PREFIX_PATH } from '@/constants/route.constant'
 import Pagination from '@/components/ui/Pagination'
@@ -20,7 +18,10 @@ import type {
     ColumnSort,
 } from '@tanstack/react-table'
 import { FaRegStar, FaStar, FaStarHalfAlt } from 'react-icons/fa'
+import { HiOutlineUserGroup, HiOutlineOfficeBuilding, HiOutlineCreditCard, HiChevronRight } from 'react-icons/hi'
 import Table from '@/components/ui/Table'
+import Dialog from '@/components/ui/Dialog'
+import Button from '@/components/ui/Button'
 
 type Calificacion = {
     taller?: string;
@@ -96,6 +97,8 @@ const fetchDashboardData = async () => {
 }
 
 const SalesDashboard = () => {
+    const [isResumenCriticoPopupOpen, setIsResumenCriticoPopupOpen] = useState(false)
+    const [isDashboardDataReady, setIsDashboardDataReady] = useState(false)
     const [dashboardData, setDashboardData] = useState({
         clientesCount: 0,
         tallerCount: 0,
@@ -113,16 +116,24 @@ const SalesDashboard = () => {
             try {
                 const data = await fetchDashboardData()
                 setDashboardData(data)
+                setIsDashboardDataReady(true)
             } catch (error) {
                 console.error(
                     'Error al obtener los datos del dashboard:',
                     error,
                 )
+                setIsDashboardDataReady(true)
             }
         }
 
         fetchData()
     }, [])
+
+    useEffect(() => {
+        if (isDashboardDataReady) {
+            setIsResumenCriticoPopupOpen(true)
+        }
+    }, [isDashboardDataReady])
 
     const [dataPuntuacion, setDataPuntuacion] = useState<
     { nombre_servicio: string; taller: string; promedio_puntuacion: number }[]
@@ -183,9 +194,9 @@ const getAllData = async () => {
     }
 };
 
-useEffect(() => {
-    getAllData();
-}, []);
+    useEffect(() => {
+        getAllData();
+    }, []);
 
 const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_puntuacion: number }>[] = [
     {
@@ -243,7 +254,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
     // console.log('Datos de servicios antes de renderizar:', dataPuntuacion) // Verifica el estado de los datos
 
     const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [rowsPerPage, setRowsPerPage] = useState(5)
 
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
@@ -270,6 +281,11 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
         totalMonto,
     } = dashboardData
 
+    // Resumen crítico del día (pagos y vencimientos se pueden conectar a BD después)
+    const [pagosPendientesValidar, setPagosPendientesValidar] = useState(3)
+    const [talleresVencidosHoy, setTalleresVencidosHoy] = useState(8)
+    const talleresNuevosEnEspera = talleresStats.espera
+
     // Datos para el gráfico
     const chartData = {
         labels: ['Aprobados', 'Rechazados', 'En espera por aprobación'],
@@ -277,149 +293,292 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
         colors: ['#15803D', '#C22F1C', '#2196F3'],
     }
 
+    const resumenDiaItems = [
+        {
+            concepto: 'Talleres en espera de revisión',
+            valor: talleresNuevosEnEspera,
+            Icono: HiOutlineOfficeBuilding,
+            colorBadge: 'bg-blue-100 text-blue-700',
+            emptyMessage: 'Sin talleres en espera hoy',
+            activeMessage: 'Talleres por revisar hoy',
+        },
+        {
+            concepto: 'Pagos pendientes por validar',
+            valor: pagosPendientesValidar,
+            Icono: HiOutlineCreditCard,
+            colorBadge: 'bg-amber-100 text-amber-700',
+            emptyMessage: 'Sin pagos pendientes hoy',
+            activeMessage: 'Validaciones por atender hoy',
+        },
+        {
+            concepto: 'Talleres que vencieron hoy',
+            valor: talleresVencidosHoy,
+            Icono: HiOutlineUserGroup,
+            colorBadge: 'bg-rose-100 text-rose-700',
+            emptyMessage: 'Sin talleres vencidos hoy',
+            activeMessage: 'Talleres por gestionar hoy',
+        },
+    ]
+
     return (
-        <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Card 1 */}
-                <a href={`${APP_PREFIX_PATH}/users`} className="hover:shadow-lg ease-in-out p-4">
-                    <Card className='bg-gray-50 shadow'>
-                        <h5 className="text-gray-500 text-base font-semibold">
-                            Clientes
-                        </h5>
-                        <div className="flex items-center justify-between mt-3">
-                            <p className="text-4xl font-bold text-gray-900">
-                                {clientesCount}
-                            </p>
-                        </div>
-                        <p className="text-base text-gray-500 mt-2">
-                            Total de clientes
-                        </p>
-                    </Card>
-                </a>
+        <div className="flex flex-col h-[calc(100vh-6rem)] bg-gray-100 min-h-0">
+            <Dialog
+                isOpen={isResumenCriticoPopupOpen}
+                onClose={() => setIsResumenCriticoPopupOpen(false)}
+                onRequestClose={() => setIsResumenCriticoPopupOpen(false)}
+                width={560}
+            >
+                <h4 className="mb-2 text-[#000B7E] font-bold">
+                    Buen dia, hoy tienes:
+                </h4>
+                <div className="space-y-2 text-sm text-gray-700">
+                    <p>
+                        <span className="font-semibold text-gray-900">
+                            {talleresNuevosEnEspera}
+                        </span>{' '}
+                        talleres nuevos registrados (esperando revision).
+                    </p>
+                    <p>
+                        <span className="font-semibold text-gray-900">
+                            {pagosPendientesValidar}
+                        </span>{' '}
+                        pagos pendientes por validar.
+                    </p>
+                    <p>
+                        <span className="font-semibold text-gray-900">
+                            {talleresVencidosHoy}
+                        </span>{' '}
+                        talleres que vencieron hoy.
+                    </p>
+                </div>
+                <div className="mt-5 flex justify-end">
+                    <Button
+                        variant="solid"
+                        style={{ backgroundColor: '#000B7E' }}
+                        onClick={() => setIsResumenCriticoPopupOpen(false)}
+                    >
+                        Entendido
+                    </Button>
+                </div>
+            </Dialog>
 
-                {/* Card 2 */}
-                <a href={`${APP_PREFIX_PATH}/garages`} className="hover:shadow-lg ease-in-out p-4">
-                    <Card className='bg-gray-50 shadow'>
-                        <h5 className="text-gray-500 text-base font-semibold">
-                            Talleres
-                        </h5>
-                        <div className="flex items-center justify-between mt-3">
-                            <p className="text-4xl font-bold text-gray-900">
-                                {talleresStats.aprobados + talleresStats.rechazados + talleresStats.espera}
-                            </p>
-                            <span className="text-base font-semibold text-red-700 bg-red-100 px-3 py-1 rounded-full">
-                                {talleresStats.espera} en espera
+            {/* Fila 1: 3 cards KPI */}
+            <section className="flex-none grid grid-cols-3 gap-3 mb-3">
+                <a
+                    href={`${APP_PREFIX_PATH}/users`}
+                    className="rounded-xl bg-[#000B7E] p-8 shadow-sm transition-all hover:shadow-md min-h-[132px] flex flex-col justify-between text-white overflow-hidden relative group"
+                >
+                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" aria-hidden />
+                    <div className="flex items-start justify-between gap-3 relative">
+                        <div className="flex items-center gap-3">
+                            <span className="flex items-center justify-center w-16 h-16 rounded-xl bg-white/20">
+                                <HiOutlineUserGroup className="text-6xl" />
                             </span>
+                            <div>
+                                <p className="text-sm font-medium uppercase tracking-wider text-white/90">
+                                    Clientes
+                                </p>
+                                <p className="text-3xl font-bold tabular-nums mt-1 leading-none">
+                                    {clientesCount}
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-base text-gray-500 mt-2">
-                            Total Talleres
-                        </p>
-                    </Card>
+                        <HiChevronRight className="text-2xl text-white/70 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                    </div>
+                    <p className="text-md text-white/80 mt-2 relative leading-snug">
+                        Total de clientes registrados en la plataforma
+                    </p>
                 </a>
-
-                {/* Card 3 */}
-                <a href={`${APP_PREFIX_PATH}/subscriptions`} className="hover:shadow-lg ease-in-out p-4">
-                    <Card className='bg-gray-50 shadow'>
-                        <h5 className="text-gray-500 text-base font-semibold">
-                            Subscripciones
-                        </h5>
-                        <div className="flex items-center justify-between mt-3">
-                            <p className="text-4xl font-bold text-gray-900">
-                                {subscripcionesCount}
-                            </p>
-                            <span className="text-base font-semibold text-green-700 bg-green-100 px-3 py-1 rounded-full">
-                                ${totalMonto.toFixed(2)} Total
+                <a
+                    href={`${APP_PREFIX_PATH}/garages`}
+                    className="rounded-xl bg-blue-800 p-8 shadow-sm transition-all hover:shadow-md min-h-[132px] flex flex-col justify-between text-white overflow-hidden relative group"
+                >
+                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" aria-hidden />
+                    <div className="flex items-start justify-between gap-3 relative">
+                        <div className="flex items-center gap-3">
+                            <span className="flex items-center justify-center w-16 h-16 rounded-xl bg-white/20">
+                                <HiOutlineOfficeBuilding className="text-6xl" />
                             </span>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-sm font-medium uppercase tracking-wider text-white/90">
+                                        Talleres
+                                    </p>
+                                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
+                                        {talleresStats.espera} en espera
+                                    </span>
+                                </div>
+                                <p className="text-3xl font-bold tabular-nums mt-1 leading-none">
+                                    {talleresStats.aprobados + talleresStats.rechazados + talleresStats.espera}
+                                </p>
+                            </div>
                         </div>
-                        <p className="text-base text-gray-500 mt-2">
-                            Subscripciones y monto total
-                        </p>
-                    </Card>
+                        <HiChevronRight className="text-2xl text-white/70 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                    </div>
+                    <p className="text-md text-white/80 mt-2 relative leading-snug">
+                        Aprobados, rechazados y pendientes de revisión
+                    </p>
                 </a>
-            </div>
+                <a
+                    href={`${APP_PREFIX_PATH}/subscriptions`}
+                    className="rounded-xl bg-blue-600 p-8 shadow-sm transition-all hover:shadow-md min-h-[132px] flex flex-col justify-between text-white overflow-hidden relative group"
+                >
+                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" aria-hidden />
+                    <div className="flex items-start justify-between gap-3 relative">
+                        <div className="flex items-center gap-3">
+                            <span className="flex items-center justify-center w-16 h-16 rounded-xl bg-white/20">
+                                <HiOutlineCreditCard className="text-6xl" />
+                            </span>
+                            <div>
+                                <p className="text-sm font-medium uppercase tracking-wider text-white/90">
+                                    Subscripciones
+                                </p>
+                                <p className="text-3xl font-bold tabular-nums mt-1 leading-none">
+                                    {subscripcionesCount}
+                                </p>
+                            </div>
+                        </div>
+                        <HiChevronRight className="text-2xl text-white/70 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                    </div>
+                    <p className="text-white/85 mt-2 relative leading-tight">
+                        <span className="text-lg font-bold tabular-nums">
+                            ${totalMonto.toFixed(0)}
+                        </span>{' '}
+                        <span className="text-md">total recaudado</span>
+                    </p>
+                </a>
+            </section>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
-                {/* Nuevo gráfico de área */}
-                <SplineArea />
+            {/* Fila 2: Gráfico + Resumen del día */}
+            <section className="flex-1 min-h-0 grid grid-cols-3 gap-3 mb-3">
+                <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm overflow-hidden flex flex-col min-h-0">
+                    <SplineArea />
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
+                    <div className="bg-[#000B7E] px-4 py-2">
+                        <h3 className="text-sm font-semibold text-white">
+                            Resumen del día
+                        </h3>
+                    </div>
+                    <div className="flex-1 min-h-0 p-2.5 bg-gray-50/70 grid grid-rows-3 gap-2.5">
+                        {resumenDiaItems.map((item) => {
+                            const isEmpty = item.valor === 0
 
-                {/* Gráfico de pastel */}
-                <SalesByCategories data={chartData} /> 
-            </div>
-            <div className="p-1 rounded-lg shadow">
-                <h2 className="mb-4">Calificaciones de los Servicios</h2>
-                    <Table className="w-full rounded-lg">
-                        <THead>
-                            {table.getHeaderGroups().map((headerGroup) => (
-                                <Tr key={headerGroup.id}>
-                                    {headerGroup.headers.map((header) => {
-                                        return (
-                                            <Th
-                                                key={header.id}
-                                                colSpan={header.colSpan}
-                                            >
+                            return (
+                                <div
+                                    key={item.concepto}
+                                    className="h-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 shadow-sm flex flex-col justify-between"
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-start gap-2">
+                                            <span className="mt-0.5 inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-100 text-gray-600">
+                                                <item.Icono className="text-sm" />
+                                            </span>
+                                            <p className="text-xs text-gray-600 leading-tight">
+                                                {item.concepto}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                                isEmpty
+                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    : item.colorBadge
+                                            }`}
+                                        >
+                                            {isEmpty ? 'Sin pendientes' : 'Pendiente'}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex-1 flex items-center gap-2 px-1">
+                                        <p className="flex-1 text-[11px] text-gray-500 leading-tight text-center">
+                                            {isEmpty ? item.emptyMessage : item.activeMessage}
+                                        </p>
+                                        <p className="text-xl font-bold text-gray-900 tabular-nums leading-none flex-shrink-0 order-first">
+                                            {item.valor}
+                                        </p>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </section>
+
+            {/* Fila 3: Gráfico de pastel + Tabla de calificaciones */}
+            <section className="flex-1 min-h-0 grid grid-cols-[30%_70%] gap-3">
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0 p-3">
+                    <div className="w-full h-full">
+                        <SalesByCategories data={chartData} />
+                    </div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
+                    <div className="bg-[#000B7E] px-4 py-2 flex-none">
+                        <h2 className="text-sm font-semibold text-white">
+                            Calificaciones de los servicios
+                        </h2>
+                        <p className="text-xs text-white/90 mt-0.5">
+                            Promedio por taller y servicio
+                        </p>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-auto">
+                        <Table className="w-full text-sm">
+                            <THead>
+                                {table.getHeaderGroups().map((headerGroup) => (
+                                    <Tr key={headerGroup.id}>
+                                        {headerGroup.headers.map((header) => (
+                                            <Th key={header.id} colSpan={header.colSpan} className="!bg-gray-100 !text-gray-700 !text-xs">
                                                 {header.isPlaceholder ? null : (
                                                     <div
                                                         {...{
-                                                            className:
-                                                                header.column.getCanSort()
-                                                                    ? 'cursor-pointer select-none'
-                                                                    : '',
-                                                            onClick:
-                                                                header.column.getToggleSortingHandler(),
+                                                            className: header.column.getCanSort()
+                                                                ? 'cursor-pointer select-none'
+                                                                : '',
+                                                            onClick: header.column.getToggleSortingHandler(),
                                                         }}
                                                     >
                                                         {flexRender(
-                                                            header.column
-                                                                .columnDef
-                                                                .header,
+                                                            header.column.columnDef.header,
                                                             header.getContext(),
                                                         )}
-                                                        
                                                     </div>
                                                 )}
                                             </Th>
-                                        )
-                                    })}
-                                </Tr>
-                            ))}
-                        </THead>
-                        <TBody>
-                            {table
-                                .getRowModel()
-                                .rows.slice(
-                                    (currentPage - 1) * rowsPerPage,
-                                    currentPage * rowsPerPage,
-                                )
-                                .map((row) => {
-                                    return (
-                                        <Tr key={row.id}>
-                                            {row
-                                                .getVisibleCells()
-                                                .map((cell) => {
-                                                    return (
-                                                        <Td key={cell.id}>
-                                                            {flexRender(
-                                                                cell.column
-                                                                    .columnDef
-                                                                    .cell,
-                                                                cell.getContext(),
-                                                            )}
-                                                        </Td>
-                                                    )
-                                                })}
-                                        </Tr>
+                                        ))}
+                                    </Tr>
+                                ))}
+                            </THead>
+                            <TBody>
+                                {table
+                                    .getRowModel()
+                                    .rows.slice(
+                                        (currentPage - 1) * rowsPerPage,
+                                        currentPage * rowsPerPage,
                                     )
-                                })}
-                        </TBody>
-                    </Table>
-                    <Pagination
-                        onChange={onPaginationChange}
-                        currentPage={currentPage}
-                        totalRows={totalRows}
-                        rowsPerPage={rowsPerPage}
-                        onRowsPerPageChange={onRowsPerPageChange}
-                    />
+                                    .map((row, rowIndex) => (
+                                        <Tr key={row.id} className={rowIndex % 2 === 1 ? 'bg-gray-50' : ''}>
+                                            {row.getVisibleCells().map((cell) => (
+                                                <Td key={cell.id} className="text-xs">
+                                                    {flexRender(
+                                                        cell.column.columnDef.cell,
+                                                        cell.getContext(),
+                                                    )}
+                                                </Td>
+                                            ))}
+                                        </Tr>
+                                    ))}
+                            </TBody>
+                        </Table>
+                    </div>
+                    <div className="border-t border-gray-200 px-3 py-2 flex-none">
+                        <Pagination
+                            onChange={onPaginationChange}
+                            currentPage={currentPage}
+                            totalRows={totalRows}
+                            rowsPerPage={rowsPerPage}
+                        />
+                    </div>
                 </div>
+            </section>
         </div>
     )
 }
