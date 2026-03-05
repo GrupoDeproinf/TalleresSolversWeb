@@ -46,7 +46,7 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
-import { Avatar } from '@/components/ui'
+import { Avatar, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
 import * as Yup from 'yup'
@@ -92,6 +92,7 @@ type Garage = {
     password?: string
     confirmPassword?: string
     estado?: string
+    LinkInstagram?: string
 }
 
 const Garages = () => {
@@ -121,8 +122,8 @@ const Garages = () => {
         querySnapshot.forEach((doc) => {
             const garageData = doc.data() as Garage
             if (garageData.typeUser === 'Taller') {
-                // Si showEliminados es false, filtrar los eliminados
-                if (showEliminados || garageData.status !== 'Eliminado') {
+                // Si showEliminados es true: solo eliminados; si es false: solo no eliminados
+                if (showEliminados ? garageData.status === 'Eliminado' : garageData.status !== 'Eliminado') {
                     talleres.push({ ...garageData, id: doc.id }) // Guardar el ID del documento
                 }
             }
@@ -157,6 +158,7 @@ const Garages = () => {
             'status',
             'Direccion',
             'createdAt',
+            'LinkInstagram',
         ]
 
         // Mapeo de encabezados en español
@@ -169,6 +171,7 @@ const Garages = () => {
             status: 'Estado de Aprobación',
             Direccion: 'Dirección',
             createdAt: 'Fecha de Creación',
+            LinkInstagram: 'Link Instagram',
         }
 
         // Obtener los datos filtrados Y ordenados de la tabla (mantiene el orden por fecha de creación)
@@ -292,7 +295,7 @@ const Garages = () => {
             .required('El nombre es obligatorio'),
         email: Yup.string()
             .email('Debe ser un email válido')
-            .required('El correo electrónico es obligatorio')
+            .required('El correo electrónico es obligatorio')  
             .test(
                 'termina-en-com',
                 'El email debe terminar en ".com"',
@@ -302,7 +305,7 @@ const Garages = () => {
             .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
             .required('El rif es obligatoria'),
         phone: Yup.string()
-            .matches(/^[1-9]\d{10}$/, 'El teléfono debe tener 11 dígitos y no puede comenzar con 0')
+            .matches(/^[1-9]\d{9}$/, 'El teléfono debe tener 10 dígitos y no puede comenzar con 0')
             .required('El teléfono es obligatorio'),        
         password: Yup.string()
             .required('Por favor ingrese una contraseña')
@@ -1141,6 +1144,17 @@ const Garages = () => {
                             onChange={handleSearchChange}
                         />
                         <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+                    </div>
+
+                    {/* Switch mostrar registros con status "Eliminado" */}
+                    <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm text-gray-600 whitespace-nowrap">
+                            Mostrar eliminados
+                        </span>
+                        <Switcher
+                            checked={showEliminados}
+                            onChange={() => setShowEliminados((prev) => !prev)}
+                        />
                     </div>
 
                     {/* Botón Crear Taller */}

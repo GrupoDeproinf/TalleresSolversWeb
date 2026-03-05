@@ -62,7 +62,7 @@ const validationSchema = Yup.object().shape({
                 .required('Este campo es obligatorio'),
     }),
     phone: Yup.string()
-        .matches(/^[1-9]\d{10}$/, 'El teléfono debe tener 11 dígitos y no puede comenzar con 0')
+        .matches(/^[1-9]\d{9}$/, 'El teléfono debe tener 10 dígitos y no puede comenzar con 0')
         .required('Por favor ingrese su número telefónico'),
 })
 

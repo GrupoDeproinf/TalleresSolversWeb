@@ -34,6 +34,7 @@ import {
     addDoc,
     where,
     deleteField,
+    Timestamp,
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
@@ -44,7 +45,7 @@ import type { MouseEvent } from 'react'
 import { Avatar, Drawer, Select } from '@/components/ui'
 import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
-import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineSearch, HiOutlinePlus, HiOutlineMinus } from 'react-icons/hi'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 import * as XLSX from 'xlsx'
 
@@ -61,53 +62,42 @@ type Person = {
     estado?: string | string[]
 }
 
-/** Datos de vehículo (estático/ficticio por ahora). Un usuario puede tener varios. */
+/** Documento de la subcolección Vehiculos (Usuarios/{uid}/Vehiculos). */
 type VehicleData = {
     id: string
-    placa: string
-    marcaModelo: string
-    kmVehiculo: string
-    proximoCambioAceite: string
-    kmCorreaTiempo: string
-    ultimoCambioBujiasFiltros: string
-    ultimoCambioPilaGasolina: string
-    kmUltimaRotacionCauchos: string
-    ultimoLavadoCompleto: string
-    rcvPlus: string
-    servicioGruaPlus: string
+    KM?: number
+    KM_correa_tiempo?: number
+    KM_ultima_rotacion_cauchos?: number
+    contratacion_RCV?: boolean
+    grua?: boolean
+    proximo_cambio_aceite?: Timestamp
+    tipo_vehiculo?: string
+    uid_tipo_vehiculo?: string
+    ultimo_cambio_bujias_filtro?: Timestamp
+    ultimo_cambio_pila_gasolina?: Timestamp
+    ultimo_lavado?: Timestamp
+    vehiculo_anio?: number
+    vehiculo_color?: string
+    vehiculo_marca?: string
+    vehiculo_modelo?: string
+    vehiculo_placa?: string
+    path?: string
+    ultima_vez_gasolina?: Timestamp | { seconds: number; nanoseconds?: number }
+    ultima_vez_alineacion?: Timestamp | { seconds: number; nanoseconds?: number }
+    activo?: boolean
+    por_defecto?: boolean
 }
 
-/** Datos ficticios de vehículos para el popup (estático). */
-const VEHICULOS_FICTICIOS: VehicleData[] = [
-    {
-        id: 'v1',
-        placa: 'ABC-12D',
-        marcaModelo: 'Toyota Corolla 2022',
-        kmVehiculo: '45.230 km',
-        proximoCambioAceite: '50.000 km',
-        kmCorreaTiempo: '80.000 km',
-        ultimoCambioBujiasFiltros: '15/01/2024',
-        ultimoCambioPilaGasolina: '20/02/2024',
-        kmUltimaRotacionCauchos: '42.100 km',
-        ultimoLavadoCompleto: '10/02/2025',
-        rcvPlus: 'Sí',
-        servicioGruaPlus: 'No',
-    },
-    {
-        id: 'v2',
-        placa: 'XYZ-98E',
-        marcaModelo: 'Chevrolet Onix 2023',
-        kmVehiculo: '12.500 km',
-        proximoCambioAceite: '15.000 km',
-        kmCorreaTiempo: '90.000 km',
-        ultimoCambioBujiasFiltros: '—',
-        ultimoCambioPilaGasolina: '—',
-        kmUltimaRotacionCauchos: '—',
-        ultimoLavadoCompleto: '05/01/2025',
-        rcvPlus: 'Sí',
-        servicioGruaPlus: 'Sí',
-    },
-]
+function formatVehicleTimestamp(
+    ts: Timestamp | { seconds: number; nanoseconds?: number } | undefined
+): string {
+    if (!ts) return '—'
+    const date =
+        ts && typeof (ts as Timestamp).toDate === 'function'
+            ? (ts as Timestamp).toDate()
+            : new Date((ts as { seconds: number }).seconds * 1000)
+    return date.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
+}
 
 const Users = () => {
     const [dataUsers, setDataUsers] = useState<Person[]>([])
@@ -120,6 +110,11 @@ const Users = () => {
     const [vehicleDialogOpen, setVehicleDialogOpen] = useState(false)
     const [selectedPersonForVehicle, setSelectedPersonForVehicle] = useState<Person | null>(null)
     const [selectedVehicleIndex, setSelectedVehicleIndex] = useState(0)
+    const [userVehicles, setUserVehicles] = useState<VehicleData[]>([])
+    const [vehiclesLoading, setVehiclesLoading] = useState(false)
+    const [imagePopupOpen, setImagePopupOpen] = useState(false)
+    const [imagePopupUrl, setImagePopupUrl] = useState<string | null>(null)
+    const [imageZoom, setImageZoom] = useState(1)
 
     // Opciones para el select de estados
     const estadoOptions = [
@@ -204,19 +199,54 @@ const Users = () => {
         setDrawerIsOpen(true) // Abre el Drawer
     }
 
-    const openVehicleDialog = (person: Person) => {
+    const openVehicleDialog = async (person: Person) => {
         setSelectedPersonForVehicle(person)
+        setSelectedVehicleIndex(0)
         setVehicleDialogOpen(true)
+        setVehiclesLoading(true)
+        setUserVehicles([])
+        try {
+            const vehiculosRef = collection(db, 'Usuarios', person.id, 'Vehiculos')
+            const snapshot = await getDocs(vehiculosRef)
+            const vehiculos: VehicleData[] = snapshot.docs.map((d) => ({
+                id: d.id,
+                ...(d.data() as Omit<VehicleData, 'id'>),
+            }))
+            setUserVehicles(vehiculos)
+        } catch (err) {
+            console.error('Error al cargar vehículos:', err)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    No se pudieron cargar los vehículos del usuario.
+                </Notification>,
+            )
+        } finally {
+            setVehiclesLoading(false)
+        }
     }
 
     const closeVehicleDialog = () => {
         setVehicleDialogOpen(false)
         setSelectedPersonForVehicle(null)
         setSelectedVehicleIndex(0)
+        setUserVehicles([])
     }
 
-    /** Vehículos del usuario (por ahora datos ficticios; puede haber más de uno). */
-    const userVehicles = VEHICULOS_FICTICIOS
+    const openImagePopup = (url: string) => {
+        setImagePopupUrl(url)
+        setImageZoom(1)
+        setImagePopupOpen(true)
+    }
+    const closeImagePopup = () => {
+        setImagePopupOpen(false)
+        setImagePopupUrl(null)
+        setImageZoom(1)
+    }
+    const ZOOM_MIN = 0.5
+    const ZOOM_MAX = 3
+    const ZOOM_STEP = 0.25
+    const handleZoomIn = () => setImageZoom((z) => Math.min(ZOOM_MAX, z + ZOOM_STEP))
+    const handleZoomOut = () => setImageZoom((z) => Math.max(ZOOM_MIN, z - ZOOM_STEP))
 
     const validationSchema = Yup.object().shape({
         nombre: Yup.string()
@@ -234,7 +264,7 @@ const Users = () => {
             .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
             .required('La cédula es obligatoria'),
         phone: Yup.string()
-            .matches(/^[1-9]\d{10}$/, 'El teléfono debe tener 11 dígitos y no puede comenzar con 0')
+            .matches(/^[1-9]\d{9}$/, 'El teléfono debe tener 10 dígitos y no puede comenzar con 0')
             .required('El teléfono es obligatorio'),
         typeUser: Yup.string()
             .oneOf(['Cliente', 'Certificador'], 'Tipo de usuario inválido')
@@ -857,7 +887,7 @@ const Users = () => {
                 </div>
             </Dialog>
 
-            {/* Popup información del vehículo (datos estáticos/ficticios). Usuario puede tener más de un vehículo. */}
+            {/* Popup información del vehículo. Datos desde subcolección Usuarios/{uid}/Vehiculos. */}
             <Dialog
                 isOpen={vehicleDialogOpen}
                 onClose={closeVehicleDialog}
@@ -871,77 +901,137 @@ const Users = () => {
                     Usuario: <span className="font-semibold text-gray-800">{selectedPersonForVehicle?.nombre ?? '—'}</span>
                 </p>
 
-                {/* Selector de vehículo cuando hay más de uno */}
-                {userVehicles.length > 1 && (
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Vehículo</label>
-                        <div className="flex gap-2 flex-wrap">
-                            {userVehicles.map((v, idx) => (
-                                <button
-                                    key={v.id}
-                                    type="button"
-                                    onClick={() => setSelectedVehicleIndex(idx)}
-                                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        selectedVehicleIndex === idx
-                                            ? 'bg-[#000B7E] text-white'
-                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                    }`}
-                                >
-                                    {v.placa} — {v.marcaModelo}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                {vehiclesLoading ? (
+                    <p className="text-gray-500 text-sm py-4">Cargando vehículos...</p>
+                ) : userVehicles.length === 0 ? (
+                    <p className="text-gray-500 text-sm py-4">Este usuario no tiene vehículos registrados.</p>
+                ) : (
+                    <>
+                        {/* Selector de vehículo (tabs): marca, modelo, año */}
+                        {userVehicles.length > 1 && (
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Vehículo</label>
+                                <div className="flex gap-2 flex-wrap">
+                                    {userVehicles.map((v, idx) => {
+                                        const tabLabel = [v.vehiculo_marca, v.vehiculo_modelo, v.vehiculo_anio]
+                                            .filter(Boolean)
+                                            .join(' ') || `Vehículo ${idx + 1}`
+                                        return (
+                                            <button
+                                                key={v.id}
+                                                type="button"
+                                                onClick={() => setSelectedVehicleIndex(idx)}
+                                                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                                    selectedVehicleIndex === idx
+                                                        ? 'bg-[#000B7E] text-white'
+                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                }`}
+                                            >
+                                                {tabLabel}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {userVehicles[selectedVehicleIndex] && (() => {
+                            const v = userVehicles[selectedVehicleIndex]
+                            const marcaModeloAnio = [v.vehiculo_marca, v.vehiculo_modelo, v.vehiculo_anio]
+                                .filter(Boolean)
+                                .join(' ') || '—'
+                            return (
+                                <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                    <div className="flex justify-between items-start gap-3 border-b border-gray-200 pb-2 mb-2">
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-gray-600 block">Vehículo</span>
+                                            <span className="font-medium">{marcaModeloAnio}{v.vehiculo_color ? ` — ${v.vehiculo_color}` : ''}</span>
+                                        </div>
+                                        {v.path && (
+                                            <button
+                                                type="button"
+                                                onClick={() => openImagePopup(v.path!)}
+                                                className="shrink-0 rounded overflow-hidden border border-gray-200 bg-white cursor-pointer hover:opacity-90 transition-opacity"
+                                                title="Ver imagen del vehículo"
+                                            >
+                                                <img
+                                                    src={v.path}
+                                                    alt="Vehículo"
+                                                    className="w-20 h-14 object-cover block"
+                                                />
+                                            </button>
+                                        )}
+                                    </div>
+                                    {(v.vehiculo_placa != null && v.vehiculo_placa !== '') && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Placa:</span>
+                                            <span className="font-medium">{v.vehiculo_placa}</span>
+                                        </div>
+                                    )}
+                                    {v.tipo_vehiculo != null && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-600">Tipo de vehículo:</span>
+                                            <span className="font-medium">{v.tipo_vehiculo}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">KM del vehículo:</span>
+                                        <span className="font-medium">{v.KM != null ? `${v.KM.toLocaleString('es-ES')} km` : '—'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Próximo cambio de aceite:</span>
+                                        <span className="font-medium">{formatVehicleTimestamp(v.proximo_cambio_aceite)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">KM de correa de tiempo:</span>
+                                        <span className="font-medium">{v.KM_correa_tiempo != null ? `${v.KM_correa_tiempo.toLocaleString('es-ES')} km` : '—'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Último cambio de bujías y filtros:</span>
+                                        <span className="font-medium">{formatVehicleTimestamp(v.ultimo_cambio_bujias_filtro)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Último cambio de pila de gasolina:</span>
+                                        <span className="font-medium">{formatVehicleTimestamp(v.ultimo_cambio_pila_gasolina)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">KM de la última rotación de cauchos:</span>
+                                        <span className="font-medium">{v.KM_ultima_rotacion_cauchos != null ? `${v.KM_ultima_rotacion_cauchos.toLocaleString('es-ES')} km` : '—'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Último lavado completo (chasis, motor, ducha marina):</span>
+                                        <span className="font-medium">{formatVehicleTimestamp(v.ultimo_lavado)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Contratación de RCV (versión Plus):</span>
+                                        <span className="font-medium">{v.contratacion_RCV == null ? '—' : v.contratacion_RCV ? 'Sí' : 'No'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Contratación de servicio de grúa (versión Plus):</span>
+                                        <span className="font-medium">{v.grua == null ? '—' : v.grua ? 'Sí' : 'No'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Última vez gasolina:</span>
+                                        <span className="font-medium">{formatVehicleTimestamp(v.ultima_vez_gasolina)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Última vez alineación:</span>
+                                        <span className="font-medium">{formatVehicleTimestamp(v.ultima_vez_alineacion)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Activo:</span>
+                                        <span className="font-medium">{v.activo == null ? '—' : v.activo ? 'Sí' : 'No'}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Por defecto:</span>
+                                        <span className="font-medium">{v.por_defecto == null ? '—' : v.por_defecto ? 'Sí' : 'No'}</span>
+                                    </div>
+                                </div>
+                            )
+                        })()}
+                    </>
                 )}
 
-                {userVehicles[selectedVehicleIndex] && (
-                    <div className="space-y-3 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                        <div className="flex justify-between border-b border-gray-200 pb-2 mb-2">
-                            <span className="text-gray-600">Vehículo</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].placa} — {userVehicles[selectedVehicleIndex].marcaModelo}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">KM del vehículo:</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].kmVehiculo}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Próximo cambio de aceite:</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].proximoCambioAceite}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">KM de correa de tiempo:</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].kmCorreaTiempo}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Último cambio de bujías y filtros:</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].ultimoCambioBujiasFiltros}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Último cambio de pila de gasolina:</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].ultimoCambioPilaGasolina}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">KM de la última rotación de cauchos:</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].kmUltimaRotacionCauchos}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Último lavado completo (chasis, motor, ducha marina):</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].ultimoLavadoCompleto}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Contratación de RCV (versión Plus):</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].rcvPlus}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-600">Contratación de servicio de grúa (versión Plus):</span>
-                            <span className="font-medium">{userVehicles[selectedVehicleIndex].servicioGruaPlus}</span>
-                        </div>
-                    </div>
-                )}
-
-                <p className="text-xs text-gray-500 mt-3">
-                    Datos de ejemplo. La información real se cargará cuando esté disponible.
-                </p>
                 <div className="text-right mt-6">
                     <Button
                         style={{ backgroundColor: '#000B7E' }}
@@ -952,6 +1042,63 @@ const Users = () => {
                     </Button>
                 </div>
             </Dialog>
+
+            {/* Popup imagen del vehículo con zoom */}
+            <Dialog
+                isOpen={imagePopupOpen}
+                onClose={closeImagePopup}
+                onRequestClose={closeImagePopup}
+                width={640}
+                className="overflow-hidden"
+            >
+                <div className="flex flex-col h-full max-h-[85vh] pr-8">
+                    <div className="flex items-center gap-4 mb-3">
+                        <h5 className="mb-0">Imagen del vehículo</h5>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                size="sm"
+                                variant="solid"
+                                onClick={handleZoomOut}
+                                disabled={imageZoom <= ZOOM_MIN}
+                                icon={<HiOutlineMinus className="text-lg" />}
+                                title="Alejar"
+                            />
+                            <span className="text-sm text-gray-600 min-w-[3rem] text-center">
+                                {Math.round(imageZoom * 100)}%
+                            </span>
+                            <Button
+                                size="sm"
+                                variant="solid"
+                                onClick={handleZoomIn}
+                                disabled={imageZoom >= ZOOM_MAX}
+                                icon={<HiOutlinePlus className="text-lg" />}
+                                title="Acercar"
+                            />
+                        </div>
+                    </div>
+                    <div className="flex-1 overflow-auto bg-gray-100 rounded-lg flex items-center justify-center p-2 min-h-[300px]">
+                        {imagePopupUrl && (
+                            <img
+                                src={imagePopupUrl}
+                                alt="Vehículo"
+                                className="max-w-full max-h-[70vh] object-contain transition-transform duration-150 select-none"
+                                style={{ transform: `scale(${imageZoom})` }}
+                                draggable={false}
+                            />
+                        )}
+                    </div>
+                    <div className="text-right mt-3">
+                        <Button
+                            style={{ backgroundColor: '#000B7E' }}
+                            className="text-white hover:opacity-80"
+                            onClick={closeImagePopup}
+                        >
+                            Cerrar
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
+
             <Drawer
                 isOpen={drawerIsOpen}
                 onClose={handleDrawerCloseEdit}

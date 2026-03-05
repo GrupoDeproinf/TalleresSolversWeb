@@ -147,6 +147,24 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER],
     },
     {
+        key: 'appsRequestList.requestList',
+        path: `${APP_PREFIX_PATH}/requestList`,
+        component: lazy(() => import('@/views/pages/RequestList/requestList')),
+        authority: [ADMIN, USER],
+    },
+    {
+        key: 'appsGruas.gruas',
+        path: `${APP_PREFIX_PATH}/gruas`,
+        component: lazy(() => import('@/views/pages/TruckList/truckList')),
+        authority: [ADMIN, USER],
+    },
+    {
+        key: 'appsVehicleTypes.vehicleTypes',
+        path: `${APP_PREFIX_PATH}/vehicle-types`,
+        component: lazy(() => import('@/views/pages/VehicleTypes')),
+        authority: [ADMIN, USER],
+    },
+    {
         key: 'appsCrm.mail',
         path: `${APP_PREFIX_PATH}/crm/mail`,
         component: lazy(() => import('@/views/crm/Mail')),

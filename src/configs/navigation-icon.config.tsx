@@ -23,6 +23,7 @@ import {
     HiOutlineVariable,
     HiOutlineCode,
     HiOutlineCreditCard,
+    HiOutlineTruck,
 } from 'react-icons/hi'
 import CustomIcon from '@/components/icons/subscriptionicon'
 import UserListIcon from '@/components/icons/Userlisticon'
@@ -76,6 +77,9 @@ const navigationIcon: NavigationIcons = {
     Puntuacion: <FaRegStar></FaRegStar>,
     servicesList: <FaListAlt />,
     payments: <HiOutlineCreditCard />,
+    requestList: <HiOutlineDocumentText />,
+    gruas: <HiOutlineTruck />,
+    vehicleTypes: <HiOutlineTruck />,
 }
 
 export default navigationIcon

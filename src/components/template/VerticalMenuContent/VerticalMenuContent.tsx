@@ -37,8 +37,6 @@ const VerticalMenuContent = (props: VerticalMenuContentProps) => {
         direction = themeConfig.direction,
     } = props
 
-    console.log("aqui ando",routeKey)
-
     const { t } = useTranslation()
 
     const [defaulExpandKey, setDefaulExpandKey] = useState<string[]>([])
