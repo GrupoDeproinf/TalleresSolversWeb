@@ -36,20 +36,25 @@ const SalesByCategories = ({
                             />
                         </div>
                         {data.data.length === data.labels.length && (
-                            <div className="min-w-0 space-y-2">
-                                {data.labels.map((value, index) => (
-                                    <div
-                                        key={value}
-                                        className="flex items-center gap-1.5"
-                                    >
-                                        <Badge
-                                            badgeStyle={{
-                                                backgroundColor: data.colors[index] || COLORS[index],
-                                            }}
-                                        />
-                                        <span className="text-xs font-semibold">{value}</span>
-                                    </div>
-                                ))}
+                            <div className="min-w-0">
+                                <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                                    {data.labels.map((value, index) => (
+                                        <div
+                                            key={value}
+                                            className="flex items-center gap-1.5"
+                                        >
+                                            <Badge
+                                                badgeStyle={{
+                                                    backgroundColor:
+                                                        data.colors[index] || COLORS[index],
+                                                }}
+                                            />
+                                            <span className="text-[11px] font-semibold truncate">
+                                                {value} ({data.data[index] ?? 0})
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>

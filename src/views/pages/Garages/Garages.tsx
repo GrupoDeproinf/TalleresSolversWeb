@@ -105,7 +105,7 @@ const Garages = () => {
     ])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
-    const [statusFilter, setStatusFilter] = useState<string>('') // '' = Todos, 'Aprobado', 'En espera por aprobación'
+    const [statusFilter, setStatusFilter] = useState<string>('') // '' = Todos, 'Aprobado', 'En espera por aprobación', 'Vencidos'
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
@@ -113,30 +113,53 @@ const Garages = () => {
     const [showEliminados, setShowEliminados] = useState(false) // Estado para mostrar/ocultar talleres eliminados
     const [dateFromFilter, setDateFromFilter] = useState('') // Estado para el filtro de fecha desde
     const [dateToFilter, setDateToFilter] = useState('') // Estado para el filtro de fecha hasta
+    const [isLoading, setIsLoading] = useState(false) // Estado para mostrar cargando al cambiar filtros pesados
+
+    const isSameDay = (dateA: Date, dateB: Date) => {
+        return (
+            dateA.getFullYear() === dateB.getFullYear() &&
+            dateA.getMonth() === dateB.getMonth() &&
+            dateA.getDate() === dateB.getDate()
+        )
+    }
 
     const getData = async () => {
+        setIsLoading(true)
         const q = query(collection(db, 'Usuarios'))
         const querySnapshot = await getDocs(q)
         const talleres: Garage[] = []
+        const hoy = new Date()
 
         querySnapshot.forEach((doc) => {
             const garageData = doc.data() as Garage
             if (garageData.typeUser === 'Taller') {
                 // Si showEliminados es true: solo eliminados; si es false: solo no eliminados
                 if (showEliminados ? garageData.status === 'Eliminado' : garageData.status !== 'Eliminado') {
-                    talleres.push({ ...garageData, id: doc.id }) // Guardar el ID del documento
+                    // Si el filtro de estado es "Vencidos", solo incluir talleres cuyo plan vence hoy
+                    if (statusFilter === 'Vencidos') {
+                        const subs = garageData.subscripcion_actual
+                        if (subs && subs.fecha_fin instanceof Timestamp) {
+                            const fechaFin = subs.fecha_fin.toDate()
+                            if (isSameDay(fechaFin, hoy)) {
+                                talleres.push({ ...garageData, id: doc.id }) // Guardar el ID del documento
+                            }
+                        }
+                    } else {
+                        talleres.push({ ...garageData, id: doc.id }) // Guardar el ID del documento
+                    }
                 }
             }
         })
 
         setDataGarages(talleres)
+        setIsLoading(false)
     }
 
     const navigate = useNavigate()
 
     useEffect(() => {
         getData()
-    }, [showEliminados])
+    }, [showEliminados, statusFilter])
 
     const handleRefresh = async () => {
         await getData()
@@ -515,7 +538,9 @@ const Garages = () => {
     const buildColumnFilters = (overrides?: { dateFrom?: string; dateTo?: string; status?: string }) => {
         const filters: ColumnFiltersState = []
         const status = overrides?.status ?? statusFilter
-        if (status) {
+        // Para "Vencidos" no aplicamos filtro por columna "status",
+        // porque la lógica se maneja al cargar los datos desde Firestore.
+        if (status && status !== 'Vencidos') {
             filters.push({ id: 'status', value: status })
         }
         const from = overrides?.dateFrom ?? dateFromFilter
@@ -1132,6 +1157,7 @@ const Garages = () => {
                         <option value="">Todos</option>
                         <option value="Aprobado">Aprobado</option>
                         <option value="En espera por aprobación">En espera por aprobación</option>
+                        <option value="Vencidos">Vencen hoy</option>
                     </select>
 
                     {/* Campo de búsqueda */}
@@ -1177,7 +1203,15 @@ const Garages = () => {
                     </button>
                 </div>
             </div>
-            <div className="p-3 rounded-lg shadow">
+            <div className="relative p-3 rounded-lg shadow min-h-[200px]">
+                {isLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 z-10">
+                        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
+                        <p className="text-sm font-medium text-gray-700">
+                            Cargando talleres, por favor espera...
+                        </p>
+                    </div>
+                )}
                 <Table className="w-full rounded-lg">
                     <THead>
                         {table.getHeaderGroups().map((headerGroup) => (
