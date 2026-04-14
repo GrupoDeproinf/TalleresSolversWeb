@@ -30,16 +30,51 @@ import * as XLSX from 'xlsx'
 import { FaRegStar, FaStar } from 'react-icons/fa'
 
 type Calificacion = {
-    nombre_taller?: string;
-    puntuacion?: number;
-    fecha_creacion?: Timestamp;
+    nombre_taller?: string
+    nombre_servicio?: string
+    comentario?: string
+    puntuacion?: number
+    fecha_creacion?: Timestamp
     usuario?: {
-        email?: string;
-        uid?: string;
-        nombre?: string;
-    };
-    id?: string; // ID de la calificación
-};
+        email?: string
+        uid?: string
+        nombre?: string
+    }
+    id?: string
+}
+
+function formatFechaCalificacion(ts: Timestamp | Date | undefined): string {
+    if (!ts) return ''
+    try {
+        if (typeof (ts as Timestamp).toDate === 'function') {
+            return (ts as Timestamp).toDate().toLocaleString('es-ES')
+        }
+        if (ts instanceof Date) return ts.toLocaleString('es-ES')
+    } catch {
+        /* ignorar */
+    }
+    return ''
+}
+
+function calificacionSearchableText(r: Calificacion): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(r.nombre_taller, r.nombre_servicio, r.comentario, r.id)
+    if (r.puntuacion !== undefined && r.puntuacion !== null) {
+        parts.push(String(r.puntuacion))
+    }
+    parts.push(formatFechaCalificacion(r.fecha_creacion))
+    const u = r.usuario
+    if (u) {
+        push(u.nombre, u.email, u.uid)
+    }
+    return parts.join(' ').toLowerCase()
+}
 
 type ServicioConCalificaciones = {
     nombre_servicio: string;
@@ -229,9 +264,7 @@ const Puntuacion = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const nombre_taller = (row.original.nombre_taller ?? '').toLowerCase()
-            const nombre_servicio = ((row.original as { nombre_servicio?: string }).nombre_servicio ?? '').toLowerCase()
-            return nombre_taller.includes(term) || nombre_servicio.includes(term)
+            return calificacionSearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -331,29 +364,32 @@ const Puntuacion = () => {
     return (
         <>
             <div>
-                <div className="grid grid-cols-2">
-                    <h1 className="mb-6 flex justify-start items-center space-x-4">
-                        {' '}
-                        <span className="text-[#000B7E]">
+                <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-4xl font-bold text-[#000B7E]">
                             Puntuación de talleres
-                        </span>
+                        </h1>
                         <button
-                            className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                            type="button"
+                            title="Actualizar datos desde el servidor"
+                            aria-label="Actualizar datos desde el servidor"
                             onClick={handleRefresh}
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                         >
-                            <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                            <HiOutlineRefresh className="h-5 w-5" />
                         </button>
-                    </h1>
-                    <div className="flex justify-end items-center gap-4 flex-nowrap">
-                        {/* 1. Filtro por estrellas */}
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-600">Estrellas:</span>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium text-gray-600">
+                                Estrellas:
+                            </span>
                             <button
                                 type="button"
                                 onClick={() => handleStarFilterClick(null)}
-                                className={`px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                                className={`rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all ${
                                     starFilter === null
-                                        ? 'bg-blue-100 text-blue-800 ring-1 ring-blue-400 shadow-sm'
+                                        ? 'bg-blue-100 text-blue-800 shadow-sm ring-1 ring-blue-400'
                                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                 }`}
                             >
@@ -364,38 +400,48 @@ const Puntuacion = () => {
                                     key={num}
                                     type="button"
                                     onClick={() => handleStarFilterClick(num)}
-                                    className={`flex items-center gap-0.5 p-1.5 rounded-lg transition-all hover:scale-105 ${
+                                    className={`flex items-center gap-0.5 rounded-lg p-1.5 transition-all hover:scale-105 ${
                                         starFilter === num
                                             ? 'bg-amber-100 ring-1 ring-amber-400'
                                             : 'hover:bg-amber-50'
                                     }`}
                                     title={`${num} estrella${num > 1 ? 's' : ''}`}
                                 >
-                                    {Array.from({ length: num }, (_, i) => (
+                                    {Array.from({ length: num }, (_, i) =>
                                         starFilter === num ? (
-                                            <FaStar key={i} className="w-4 h-4 text-amber-500" />
+                                            <FaStar
+                                                key={i}
+                                                className="h-4 w-4 text-amber-500"
+                                            />
                                         ) : (
-                                            <FaRegStar key={i} className="w-4 h-4 text-gray-400" />
+                                            <FaRegStar
+                                                key={i}
+                                                className="h-4 w-4 text-gray-400"
+                                            />
                                         )
-                                    ))}
+                                    )}
                                 </button>
                             ))}
                         </div>
-                        {/* 2. Buscador */}
-                        <div className="relative w-80 flex-shrink-0">
-                            <input
-                                type="text"
-                                placeholder="Buscar por taller o servicio..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                        <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
+                            <span className="mb-1 block text-xs font-medium text-gray-600">
+                                Buscar en la tabla
+                            </span>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Taller, servicio, usuario, correo, puntuación, comentario, id…"
+                                    className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                    value={searchTerm}
+                                    onChange={handleSearchChange}
+                                />
+                                <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                            </div>
                         </div>
-                        {/* 3. Botón Exportar */}
                         <button
+                            type="button"
                             style={{ backgroundColor: '#10B981' }}
-                            className="min-w-[120px] whitespace-nowrap px-4 py-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
+                            className="h-10 min-w-[120px] shrink-0 whitespace-nowrap rounded-md px-4 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90"
                             onClick={handleOpenDialog}
                         >
                             Exportar a Excel

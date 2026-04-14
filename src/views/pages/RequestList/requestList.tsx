@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
+import Select from '@/components/ui/Select'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
@@ -96,6 +97,53 @@ const formatFecha = (ts: Timestamp | undefined): string => {
     })
 }
 
+type UrgenciaFilterOption = { value: string; label: string }
+
+const URGENCY_FILTER_OPTIONS: UrgenciaFilterOption[] = [
+    { value: 'todos', label: 'Todas las urgencias' },
+    { value: 'Emergencia', label: 'Emergencia' },
+    { value: 'Normal', label: 'Normal' },
+]
+
+function solicitudSearchableText(s: Solicitud): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(
+        s.nombre_servicio,
+        s.nombre_usuario,
+        s.phone_usuario,
+        s.descripcion,
+        s.urgencia,
+        s.uid_usuario,
+        s.id,
+        s.categoriaId,
+    )
+    parts.push(formatFecha(s.fecha_solicitud))
+    const v = s.vehiculo
+    if (v) {
+        push(
+            v.vehiculo_marca,
+            v.vehiculo_modelo,
+            v.vehiculo_placa,
+            v.vehiculo_color,
+            v.tipo_vehiculo,
+            v.vehiculo_anio,
+            v.KM,
+        )
+    }
+    if (Array.isArray(s.solicitud_images)) {
+        for (const url of s.solicitud_images) {
+            if (url) parts.push(String(url))
+        }
+    }
+    return parts.join(' ').toLowerCase()
+}
+
 const RequestList = () => {
     const [dataSolicitudes, setDataSolicitudes] = useState<Solicitud[]>([])
     const [searchTerm, setSearchTerm] = useState('')
@@ -150,12 +198,6 @@ const RequestList = () => {
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(event.target.value)
-    }
-
-    const handleUrgenciaFilterChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        setUrgenciaFilter(event.target.value)
     }
 
     const getUrgenciaBadge = (urgencia: string) => {
@@ -431,27 +473,7 @@ const RequestList = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const r = row.original
-            const nombreServicio = (r.nombre_servicio ?? '').toLowerCase()
-            const nombreUsuario = (r.nombre_usuario ?? '').toLowerCase()
-            const descripcion = (r.descripcion ?? '').toLowerCase()
-            const phone = (r.phone_usuario ?? '').toLowerCase()
-            const urgencia = (r.urgencia ?? '').toLowerCase()
-            const v = r.vehiculo
-            const vehiculoStr = v
-                ? [v.vehiculo_marca, v.vehiculo_modelo, v.vehiculo_placa]
-                      .filter(Boolean)
-                      .join(' ')
-                      .toLowerCase()
-                : ''
-            return (
-                nombreServicio.includes(term) ||
-                nombreUsuario.includes(term) ||
-                descripcion.includes(term) ||
-                phone.includes(term) ||
-                urgencia.includes(term) ||
-                vehiculoStr.includes(term)
-            )
+            return solicitudSearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -501,55 +523,64 @@ const RequestList = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
+    const urgenciaFilterOption =
+        URGENCY_FILTER_OPTIONS.find((o) => o.value === urgenciaFilter) ??
+        URGENCY_FILTER_OPTIONS[0]
+
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    <span className="text-[#000B7E]">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">
                         Histórico de Solicitudes
-                    </span>
+                    </h1>
                     <button
-                        className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        type="button"
+                        title="Actualizar datos desde el servidor"
+                        aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                     >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                        <HiOutlineRefresh className="h-5 w-5" />
                     </button>
-                </h1>
-                <div className="flex justify-end items-end gap-4 flex-nowrap">
-                    <div className="flex flex-col gap-1 flex-shrink-0">
-                        <label htmlFor="filter-urgencia" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                </div>
+                <div className="flex flex-wrap items-end justify-end gap-3">
+                    <div className="flex min-w-[11rem] max-w-[14rem] shrink-0 flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-600">
                             Urgencia
-                        </label>
-                        <select
-                            id="filter-urgencia"
-                            className="h-10 w-36 py-2 px-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
-                            onChange={handleUrgenciaFilterChange}
-                            value={urgenciaFilter}
-                        >
-                            <option value="todos">Todos</option>
-                            <option value="Emergencia">Emergencia</option>
-                            <option value="Normal">Normal</option>
-                        </select>
+                        </span>
+                        <Select<UrgenciaFilterOption, false>
+                            size="sm"
+                            isSearchable={false}
+                            className="min-w-[11rem]"
+                            options={URGENCY_FILTER_OPTIONS}
+                            value={urgenciaFilterOption}
+                            onChange={(opt) =>
+                                setUrgenciaFilter(opt?.value ?? 'todos')
+                            }
+                            placeholder="Urgencia"
+                        />
                     </div>
-                    <div className="flex flex-col gap-1 flex-shrink-0">
-                        <label htmlFor="filter-buscar" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                            Buscar
-                        </label>
+                    <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
+                        <span className="mb-1 block text-xs font-medium text-gray-600">
+                            Buscar en la tabla
+                        </span>
                         <div className="relative">
                             <input
                                 id="filter-buscar"
                                 type="text"
-                                placeholder="Servicio, usuario, descripción, vehículo..."
-                                className="w-80 py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10 text-sm"
+                                placeholder="Servicio, usuario, teléfono, descripción, vehículo, ids, fecha…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
+                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
                         </div>
                     </div>
                     <button
+                        type="button"
                         style={{ backgroundColor: '#10B981' }}
-                        className="p-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80 flex-shrink-0"
+                        className="h-10 shrink-0 whitespace-nowrap rounded-md px-4 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90"
                         onClick={handleExportToExcel}
                     >
                         Exportar a Excel

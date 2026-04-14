@@ -50,6 +50,7 @@ type Subscriptions = {
     uid: string
     id: string
     nombre_taller: string
+    correo_taller?: string
     comprobante_pago: {
         monto?: number
         metodo?: string
@@ -63,6 +64,64 @@ type Subscriptions = {
         bancoOrigen?: string
         bancoDestino?: string
     }
+}
+
+function formatTsForSearchPayment(ts: unknown): string {
+    if (!ts) return ''
+    if (ts instanceof Timestamp) {
+        return ts.toDate().toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        })
+    }
+    return String(ts)
+}
+
+function paymentValidationSearchableText(
+    row: Subscriptions & { correo_taller?: string },
+): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(
+        row.nombre,
+        row.nombre_taller,
+        row.correo_taller,
+        row.taller_uid,
+        row.status,
+        row.cantidad_servicios,
+        row.monto,
+        row.vigencia,
+        row.uid,
+        row.id,
+    )
+    parts.push(
+        formatTsForSearchPayment(row.fecha_inicio),
+        formatTsForSearchPayment(row.fecha_fin),
+    )
+    const c = row.comprobante_pago
+    if (c) {
+        push(
+            c.metodo,
+            c.banco,
+            c.correo,
+            c.numReferencia,
+            c.receiptFile,
+            c.bancoOrigen,
+            c.bancoDestino,
+        )
+        if (c.monto !== undefined && c.monto !== null) push(String(c.monto))
+        if (c.cedula !== undefined && c.cedula !== null) push(String(c.cedula))
+        if (c.telefono !== undefined && c.telefono !== null)
+            push(String(c.telefono))
+        parts.push(formatTsForSearchPayment(c.fechaPago))
+    }
+    return parts.join(' ').toLowerCase()
 }
 
 const Subscriptions = () => {
@@ -627,9 +686,9 @@ const Subscriptions = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const nombre = (row.original.nombre ?? '').toLowerCase()
-            const nombre_taller = (row.original.nombre_taller ?? '').toLowerCase()
-            return nombre.includes(term) || nombre_taller.includes(term)
+            return paymentValidationSearchableText(
+                row.original as Subscriptions & { correo_taller?: string },
+            ).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -641,36 +700,45 @@ const Subscriptions = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    <span className="text-[#000B7E]">Validación de pagos</span>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">
+                        Validación de pagos
+                    </h1>
                     <button
-                        className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        type="button"
+                        title="Actualizar datos desde el servidor"
+                        aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                     >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                        <HiOutlineRefresh className="h-5 w-5" />
                     </button>
-                </h1>
-                <div className="flex justify-end">
-                    <div className="flex items-center">
-                        <div className="relative w-80">
+                </div>
+                <div className="flex flex-wrap items-end justify-end gap-3">
+                    <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
+                        <span className="mb-1 block text-xs font-medium text-gray-600">
+                            Buscar en la tabla
+                        </span>
+                        <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Buscar por plan o taller..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                placeholder="Plan, taller, correo, monto, fechas, comprobante, ids…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
                         </div>
-                        <button
-                            style={{ backgroundColor: '#10B981' }}
-                            className="p-2 ml-4 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80"
-                            onClick={handleOpenDialog}
-                        >
-                            Exportar a Excel
-                        </button>
                     </div>
+                    <button
+                        type="button"
+                        style={{ backgroundColor: '#10B981' }}
+                        className="h-10 shrink-0 whitespace-nowrap rounded-md px-4 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90"
+                        onClick={handleOpenDialog}
+                    >
+                        Exportar a Excel
+                    </button>
                 </div>
             </div>
             <div className="p-1 rounded-lg shadow">

@@ -67,6 +67,49 @@ type Category = {
     subcategorias?: any[]
 }
 
+function formatCategoryTimestamp(ts: Category['fechaCreacion']): string {
+    if (!ts) return ''
+    try {
+        if (typeof (ts as Timestamp).toDate === 'function') {
+            return (ts as Timestamp).toDate().toLocaleDateString('es-ES')
+        }
+    } catch {
+        /* ignorar */
+    }
+    return ''
+}
+
+function categorySearchableText(c: Category): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(c.nombre, c.descripcion, c.nombreUser, c.id, c.logoUrl, c.imageUrl)
+    if (c.estatus === true) parts.push('activo')
+    if (c.estatus === false) parts.push('inactivo')
+    parts.push(formatCategoryTimestamp(c.fechaCreacion))
+    const subs = c.subcategorias
+    if (Array.isArray(subs)) {
+        for (const sub of subs) {
+            if (sub == null) continue
+            if (typeof sub === 'object') {
+                const o = sub as Record<string, unknown>
+                push(
+                    String(o.nombre ?? ''),
+                    String(o.descripcion ?? ''),
+                    String(o.uid ?? ''),
+                )
+            } else {
+                parts.push(String(sub))
+            }
+        }
+    }
+    return parts.join(' ').toLowerCase()
+}
+
 const Users = () => {
     const [dataCategorys, setdataCategorys] = useState<Category[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
@@ -696,10 +739,7 @@ const Users = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const r = row.original
-            const nombre = (r.nombre ?? '').toLowerCase()
-            const descripcion = (r.descripcion ?? '').toLowerCase()
-            return nombre.includes(term) || descripcion.includes(term)
+            return categorySearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -740,31 +780,40 @@ const Users = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    {' '}
-                    <span className="text-[#000B7E]">Lista de Categorias</span>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">
+                        Lista de Categorias
+                    </h1>
                     <button
-                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        type="button"
+                        title="Actualizar datos desde el servidor"
+                        aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                     >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                        <HiOutlineRefresh className="h-5 w-5" />
                     </button>
-                </h1>
-                <div className="flex justify-end items-center gap-4 flex-nowrap">
-                    <div className="relative w-80 flex-shrink-0">
-                        <input
-                            type="text"
-                            placeholder="Buscar por nombre o descripción..."
-                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                        />
-                        <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                </div>
+                <div className="flex flex-wrap items-end justify-end gap-3">
+                    <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
+                        <span className="mb-1 block text-xs font-medium text-gray-600">
+                            Buscar en la tabla
+                        </span>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Nombre, descripción, creador, subcategorías, id…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                        </div>
                     </div>
                     <Button
                         style={{ backgroundColor: '#000B7E' }}
-                        className="w-40 text-white hover:opacity-80 flex-shrink-0"
+                        className="h-10 w-40 shrink-0 text-sm text-white hover:opacity-80"
                         onClick={() => setDrawerCreateIsOpen(true)}
                     >
                         Crear Categoría

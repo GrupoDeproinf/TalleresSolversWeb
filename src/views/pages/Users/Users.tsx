@@ -99,6 +99,25 @@ function formatVehicleTimestamp(
     return date.toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' })
 }
 
+function personSearchableText(p: Person): string {
+    const parts: string[] = []
+    const push = (...vals: (string | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(p.nombre, p.email, p.cedula, p.phone, p.typeUser, p.uid, p.id)
+    if (Array.isArray(p.estado)) {
+        for (const e of p.estado) {
+            if (e) parts.push(String(e))
+        }
+    } else {
+        push(p.estado)
+    }
+    return parts.join(' ').toLowerCase()
+}
+
 const Users = () => {
     const [dataUsers, setDataUsers] = useState<Person[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
@@ -714,17 +733,7 @@ const Users = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const r = row.original
-            const nombre = (r.nombre ?? '').toLowerCase()
-            const cedula = (r.cedula ?? '').toLowerCase()
-            const email = (r.email ?? '').toLowerCase()
-            const typeUser = (r.typeUser ?? '').toLowerCase()
-            return (
-                nombre.includes(term) ||
-                cedula.includes(term) ||
-                email.includes(term) ||
-                typeUser.includes(term)
-            )
+            return personSearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -758,30 +767,39 @@ const Users = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    {' '}
-                    <span className="text-[#000B7E]">Usuarios</span>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">
+                        Usuarios
+                    </h1>
                     <button
-                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        type="button"
+                        title="Actualizar datos desde el servidor"
+                        aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                     >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                        <HiOutlineRefresh className="h-5 w-5" />
                     </button>
-                </h1>
-                <div className="flex justify-end items-center gap-4 flex-nowrap">
-                    <div className="relative w-80 flex-shrink-0">
-                        <input
-                            type="text"
-                            placeholder="Buscar por nombre, cédula, email o tipo..."
-                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                        />
-                        <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                </div>
+                <div className="flex flex-wrap items-end justify-end gap-3">
+                    <div className="w-full min-w-[12rem] max-w-sm sm:w-80">
+                        <span className="mb-1 block text-xs font-medium text-gray-600">
+                            Buscar en la tabla
+                        </span>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Nombre, cédula, email, teléfono, estado, tipo, id…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                        </div>
                     </div>
                     <Button
-                        className="w-40 text-white hover:opacity-80 flex-shrink-0"
+                        className="h-10 w-40 shrink-0 text-sm text-white hover:opacity-80"
                         style={{ backgroundColor: '#000B7E' }}
                         onClick={() => setDrawerCreateIsOpen(true)}
                     >
@@ -790,7 +808,7 @@ const Users = () => {
                     <button
                         type="button"
                         style={{ backgroundColor: '#10B981' }}
-                        className="min-w-[180px] whitespace-nowrap px-4 py-2 text-white rounded-md shadow-md hover:opacity-80 transition duration-200 flex-shrink-0"
+                        className="h-10 min-w-[180px] shrink-0 whitespace-nowrap rounded-md px-4 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90"
                         onClick={handleExportExcel}
                     >
                         Exportar a Excel

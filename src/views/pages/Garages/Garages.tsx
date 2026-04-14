@@ -41,6 +41,7 @@ import {
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
+import Select from '@/components/ui/Select'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
@@ -57,6 +58,9 @@ import Password from '@/views/account/Settings/components/Password'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
 import * as XLSX from 'xlsx'
+import dayjs from 'dayjs'
+import DatePicker from '@/components/ui/DatePicker'
+import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -95,6 +99,106 @@ type Garage = {
     LinkInstagram?: string
 }
 
+type StatusFilterOption = { value: string; label: string }
+
+const GARAGE_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
+    { value: '', label: 'Todos los estados' },
+    { value: 'Aprobado', label: 'Aprobado' },
+    { value: 'En espera por aprobación', label: 'En espera por aprobación' },
+    { value: 'Vencidos', label: 'Vencen hoy' },
+]
+
+function timestampLikeToMs(value: unknown): number {
+    if (value == null) return 0
+    if (typeof value === 'number' && !Number.isNaN(value)) return value
+    if (value instanceof Timestamp) return value.toMillis()
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        'seconds' in value &&
+        typeof (value as { seconds: unknown }).seconds === 'number'
+    ) {
+        return (value as { seconds: number }).seconds * 1000
+    }
+    if (typeof value === 'string') {
+        const t = new Date(value).getTime()
+        return Number.isNaN(t) ? 0 : t
+    }
+    return 0
+}
+
+function formatEsDate(ms: number): string {
+    if (!ms) return ''
+    try {
+        return new Date(ms).toLocaleDateString('es-ES')
+    } catch {
+        return ''
+    }
+}
+
+/** Texto concatenado de todas las columnas visibles para búsqueda global */
+function garageSearchableText(g: Garage): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+
+    push(
+        g.nombre,
+        g.email,
+        g.rif,
+        g.phone,
+        g.estado,
+        g.certificador_nombre,
+        g.status,
+        g.Direccion,
+        g.ubicacion,
+        g.scheduled_visit,
+        g.uid,
+        g.id,
+        g.LinkInstagram,
+    )
+
+    const createdMs = timestampLikeToMs(g.createdAt)
+    if (createdMs) {
+        push(
+            formatEsDate(createdMs),
+            new Date(createdMs).toISOString().slice(0, 10),
+        )
+    }
+
+    const sub = g.subscripcion_actual
+    if (sub) {
+        push(sub.nombre, sub.status, sub.vigencia)
+        if (sub.monto !== undefined && sub.monto !== null)
+            parts.push(String(sub.monto))
+        const fi = timestampLikeToMs(sub.fecha_inicio)
+        const ff = timestampLikeToMs(sub.fecha_fin)
+        if (fi) {
+            push(formatEsDate(fi), new Date(fi).toISOString().slice(0, 10))
+        }
+        if (ff) {
+            push(formatEsDate(ff), new Date(ff).toISOString().slice(0, 10))
+        }
+    }
+
+    return parts.join(' ').toLowerCase()
+}
+
+function creationRangeToYmd(range: DatePickerRangeValue): {
+    from: string
+    to: string
+} {
+    const [start, end] = range
+    return {
+        from: start ? dayjs(start).format('YYYY-MM-DD') : '',
+        to: end ? dayjs(end).format('YYYY-MM-DD') : '',
+    }
+}
+
 const Garages = () => {
     const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(
         null,
@@ -111,8 +215,8 @@ const Garages = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
     const [exportDialogIsOpen, setExportDialogIsOpen] = useState(false) // Estado para el modal de exportación
     const [showEliminados, setShowEliminados] = useState(false) // Estado para mostrar/ocultar talleres eliminados
-    const [dateFromFilter, setDateFromFilter] = useState('') // Estado para el filtro de fecha desde
-    const [dateToFilter, setDateToFilter] = useState('') // Estado para el filtro de fecha hasta
+    const [creationDateRange, setCreationDateRange] =
+        useState<DatePickerRangeValue>([null, null])
     const [isLoading, setIsLoading] = useState(false) // Estado para mostrar cargando al cambiar filtros pesados
 
     const isSameDay = (dateA: Date, dateB: Date) => {
@@ -251,9 +355,14 @@ const Garages = () => {
         if (statusFilter) {
             fileName += `_estado_${statusFilter}`
         }
-        if (dateFromFilter || dateToFilter) {
-            const fromDate = dateFromFilter ? new Date(dateFromFilter).toLocaleDateString('es-ES').replace(/\//g, '-') : ''
-            const toDate = dateToFilter ? new Date(dateToFilter).toLocaleDateString('es-ES').replace(/\//g, '-') : ''
+        const { from: ymdFrom, to: ymdTo } = creationRangeToYmd(creationDateRange)
+        if (ymdFrom || ymdTo) {
+            const fromDate = ymdFrom
+                ? new Date(ymdFrom).toLocaleDateString('es-ES').replace(/\//g, '-')
+                : ''
+            const toDate = ymdTo
+                ? new Date(ymdTo).toLocaleDateString('es-ES').replace(/\//g, '-')
+                : ''
             fileName += `_fecha_${fromDate}_${toDate}`
         }
         if (showEliminados) {
@@ -543,8 +652,10 @@ const Garages = () => {
         if (status && status !== 'Vencidos') {
             filters.push({ id: 'status', value: status })
         }
-        const from = overrides?.dateFrom ?? dateFromFilter
-        const to = overrides?.dateTo ?? dateToFilter
+        const { from: rangeFrom, to: rangeTo } =
+            creationRangeToYmd(creationDateRange)
+        const from = overrides?.dateFrom ?? rangeFrom
+        const to = overrides?.dateTo ?? rangeTo
         if (from || to) {
             filters.push({
                 id: 'createdAt',
@@ -560,48 +671,10 @@ const Garages = () => {
         setFiltering(buildColumnFilters())
     }
 
-    const handleStatusFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const value = event.target.value
-        setStatusFilter(value)
-        setFiltering(buildColumnFilters({ status: value }))
-    }
-
-    const handleDateFromFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setDateFromFilter(value)
-        
-        // Validar que la fecha desde no sea mayor que la fecha hasta
-        if (value && dateToFilter && new Date(value) > new Date(dateToFilter)) {
-            toast.push(
-                <Notification title="Error de validación">
-                    La fecha "Desde" no puede ser mayor que la fecha "Hasta".
-                </Notification>
-            )
-            return
-        }
-        
-        setFiltering(buildColumnFilters({ dateFrom: value }))
-    }
-
-    const handleDateToFilterChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const value = event.target.value
-        setDateToFilter(value)
-        
-        // Validar que la fecha hasta no sea menor que la fecha desde
-        if (value && dateFromFilter && new Date(value) < new Date(dateFromFilter)) {
-            toast.push(
-                <Notification title="Error de validación">
-                    La fecha "Hasta" no puede ser menor que la fecha "Desde".
-                </Notification>
-            )
-            return
-        }
-        
-        setFiltering(buildColumnFilters({ dateTo: value }))
-    }
-
-    const applyDateRangeFilter = () => {
-        setFiltering(buildColumnFilters())
+    const handleCreationRangeChange = (value: DatePickerRangeValue) => {
+        setCreationDateRange(value)
+        const { from, to } = creationRangeToYmd(value)
+        setFiltering(buildColumnFilters({ dateFrom: from, dateTo: to }))
     }
 
     const handleDrawerClose = (e: MouseEvent) => {
@@ -886,62 +959,58 @@ const Garages = () => {
             },
             filterFn: (row, columnId, value) => {
                 if (!value) return true
-                
+
                 try {
-                    const dateRange = JSON.parse(value)
+                    const dateRange = JSON.parse(value as string) as {
+                        from?: string
+                        to?: string
+                    }
                     const rowTimestamp = row.getValue(columnId)
-                    
-                    // Debug: ver qué tipo de dato tenemos
-                    console.log('Row timestamp:', rowTimestamp, 'Type:', typeof rowTimestamp)
-                    console.log('Date range filter:', dateRange)
-                    
+
                     if (!rowTimestamp) return false
-                    
-                    // Convertir el timestamp a número si es necesario
+
                     let timestampNumber: number
                     if (typeof rowTimestamp === 'number') {
                         timestampNumber = rowTimestamp
-                    } else if (typeof rowTimestamp === 'object' && (rowTimestamp as any).seconds) {
-                        // Si es un timestamp de Firestore
-                        timestampNumber = (rowTimestamp as any).seconds * 1000
+                    } else if (
+                        typeof rowTimestamp === 'object' &&
+                        rowTimestamp !== null &&
+                        'seconds' in rowTimestamp
+                    ) {
+                        timestampNumber =
+                            (rowTimestamp as { seconds: number }).seconds * 1000
                     } else if (typeof rowTimestamp === 'string') {
-                        // Si es un string, intentar convertirlo
                         timestampNumber = new Date(rowTimestamp).getTime()
                     } else {
-                        console.log('Unknown timestamp format:', rowTimestamp)
                         return false
                     }
-                    
-                    // Convertir las fechas del filtro a timestamps (inicio y fin del día)
-                    const fromDate = dateRange.from ? new Date(dateRange.from + 'T00:00:00') : null
-                    const toDate = dateRange.to ? new Date(dateRange.to + 'T23:59:59.999') : null
-                    
-                    // Si solo hay fecha desde (comparar desde el inicio del día)
+
+                    const fromDate = dateRange.from
+                        ? new Date(dateRange.from + 'T00:00:00')
+                        : null
+                    const toDate = dateRange.to
+                        ? new Date(dateRange.to + 'T23:59:59.999')
+                        : null
+
                     if (fromDate && !toDate) {
-                        const fromTimestamp = fromDate.getTime()
-                        console.log('Filtering from:', fromTimestamp, 'Row:', timestampNumber, 'Result:', timestampNumber >= fromTimestamp)
-                        return timestampNumber >= fromTimestamp
+                        return timestampNumber >= fromDate.getTime()
                     }
-                    
-                    // Si solo hay fecha hasta (comparar hasta el final del día)
+
                     if (!fromDate && toDate) {
-                        const toTimestamp = toDate.getTime()
-                        console.log('Filtering to:', toTimestamp, 'Row:', timestampNumber, 'Result:', timestampNumber <= toTimestamp)
-                        console.log('To date formatted:', toDate.toISOString(), 'Row date formatted:', new Date(timestampNumber).toISOString())
-                        return timestampNumber <= toTimestamp
+                        return timestampNumber <= toDate.getTime()
                     }
-                    
-                    // Si hay ambas fechas
+
                     if (fromDate && toDate) {
                         const fromTimestamp = fromDate.getTime()
                         const toTimestamp = toDate.getTime()
-                        console.log('Filtering range:', fromTimestamp, 'to', toTimestamp, 'Row:', timestampNumber, 'Result:', timestampNumber >= fromTimestamp && timestampNumber <= toTimestamp)
-                        return timestampNumber >= fromTimestamp && timestampNumber <= toTimestamp
+                        return (
+                            timestampNumber >= fromTimestamp &&
+                            timestampNumber <= toTimestamp
+                        )
                     }
-                    
+
                     return true
-                } catch (error) {
-                    console.error('Error parsing date range filter:', error)
+                } catch {
                     return true
                 }
             },
@@ -1079,11 +1148,7 @@ const Garages = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const g = row.original
-            const nombre = (g.nombre ?? '').toLowerCase()
-            const rif = (g.rif ?? '').toLowerCase()
-            const email = (g.email ?? '').toLowerCase()
-            return nombre.includes(term) || rif.includes(term) || email.includes(term)
+            return garageSearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -1110,70 +1175,81 @@ const Garages = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
+    const statusFilterOption =
+        GARAGE_STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter) ??
+        GARAGE_STATUS_FILTER_OPTIONS[0]
+
     return (
         <>
-            <div className="mb-6 flex flex-nowrap items-center justify-between gap-4">
-                {/* Título + refresh + filtros + búsqueda + botones en una sola línea */}
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    {' '}
-                    <span className="text-[#000B7E]">Talleres</span>
+            <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">
+                        Talleres
+                    </h1>
                     <button
-                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        type="button"
+                        title="Actualizar datos desde el servidor"
+                        aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                     >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                        <HiOutlineRefresh className="h-5 w-5" />
                     </button>
-                </h1>
+                </div>
 
-                <div className="flex flex-nowrap items-center gap-3 min-w-0">
-                    {/* Filtros de fecha */}
-                    <div className="flex items-center gap-2 shrink-0">
-                        <div className="flex flex-col">
-                            <input
-                                type="date"
-                                className="w-36 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
-                                value={dateFromFilter}
-                                onChange={handleDateFromFilterChange}
-                            />
-                            <label className="text-xs text-gray-500 mt-0.5">Desde</label>
-                        </div>
-                        <div className="flex flex-col">
-                            <input
-                                type="date"
-                                className="w-36 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
-                                value={dateToFilter}
-                                onChange={handleDateToFilterChange}
-                            />
-                            <label className="text-xs text-gray-500 mt-0.5">Hasta</label>
-                        </div>
-                    </div>
-
-                    {/* Selector de estado */}
-                    <select
-                        className="h-10 w-44 py-2 px-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shrink-0"
-                        onChange={handleStatusFilterChange}
-                        value={statusFilter}
-                    >
-                        <option value="">Todos</option>
-                        <option value="Aprobado">Aprobado</option>
-                        <option value="En espera por aprobación">En espera por aprobación</option>
-                        <option value="Vencidos">Vencen hoy</option>
-                    </select>
-
-                    {/* Campo de búsqueda */}
-                    <div className="relative w-64 shrink-0">
-                        <input
-                            type="text"
-                            placeholder="Buscar por nombre, RIF o email..."
-                            className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10 text-sm"
-                            value={searchTerm}
-                            onChange={handleSearchChange}
+                <div className="flex flex-wrap items-end gap-3 min-w-0">
+                    <div className="flex min-w-[14rem] max-w-[20rem] shrink-0 flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-600">
+                            Fecha de creación
+                        </span>
+                        <DatePicker.DatePickerRange
+                            clearable
+                            className="w-full min-w-[14rem]"
+                            inputFormat="DD/MM/YYYY"
+                            placeholder="Desde — hasta"
+                            separator=" — "
+                            size="sm"
+                            value={creationDateRange}
+                            onChange={handleCreationRangeChange}
                         />
-                        <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
                     </div>
 
-                    {/* Switch mostrar registros con status "Eliminado" */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex min-w-[12rem] max-w-[16rem] shrink-0 flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-600">
+                            Vista rápida
+                        </span>
+                        <Select<StatusFilterOption, false>
+                            size="sm"
+                            isSearchable={false}
+                            className="min-w-[12rem]"
+                            options={GARAGE_STATUS_FILTER_OPTIONS}
+                            value={statusFilterOption}
+                            onChange={(opt) => {
+                                const v = opt?.value ?? ''
+                                setStatusFilter(v)
+                                setFiltering(buildColumnFilters({ status: v }))
+                            }}
+                            placeholder="Estado de aprobación"
+                        />
+                    </div>
+
+                    <div className="w-full min-w-[12rem] max-w-xs shrink-0 sm:w-72">
+                        <span className="mb-1 block text-xs font-medium text-gray-600">
+                            Buscar en la tabla
+                        </span>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                placeholder="Nombre, RIF, email, teléfono, suscripción…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                            />
+                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shrink-0">
                         <span className="text-sm text-gray-600 whitespace-nowrap">
                             Mostrar eliminados
                         </span>
@@ -1183,20 +1259,18 @@ const Garages = () => {
                         />
                     </div>
 
-                    {/* Botón Crear Taller */}
                     <Button
-                        className="w-36 text-white hover:opacity-80 text-sm shrink-0 h-10"
+                        className="h-10 w-36 shrink-0 text-sm text-white hover:opacity-80"
                         style={{ backgroundColor: '#000B7E' }}
                         onClick={() => setDrawerCreateIsOpen(true)}
                     >
                         Crear Taller
                     </Button>
 
-                    {/* Botón Exportar */}
                     <button
                         type="button"
                         style={{ backgroundColor: '#10B981' }}
-                        className="w-36 h-10 px-3 text-white rounded-md shadow-md hover:opacity-80 transition duration-200 text-sm shrink-0 whitespace-nowrap"
+                        className="h-10 w-36 shrink-0 rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 whitespace-nowrap"
                         onClick={handleOpenExportDialog}
                     >
                         Exportar a Excel

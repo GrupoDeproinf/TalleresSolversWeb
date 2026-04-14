@@ -43,6 +43,47 @@ type ServicesContact = {
     id?: string
 }
 
+function formatFechaCreacionContact(
+    ts: Timestamp | Date | undefined,
+): string {
+    if (!ts) return ''
+    try {
+        if (typeof (ts as Timestamp).toDate === 'function') {
+            return (ts as Timestamp).toDate().toLocaleString('es-ES')
+        }
+        if (ts instanceof Date) return ts.toLocaleString('es-ES')
+    } catch {
+        /* ignorar */
+    }
+    return ''
+}
+
+function serviceContactSearchableText(r: ServicesContact): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(
+        r.nombre_servicio,
+        r.taller,
+        r.uid_taller,
+        r.uid_servicio,
+        r.id,
+    )
+    if (r.precio !== undefined && r.precio !== null) {
+        parts.push(String(r.precio))
+    }
+    parts.push(formatFechaCreacionContact(r.fecha_creacion))
+    const u = r.usuario
+    if (u) {
+        push(u.nombre, u.email, u.id)
+    }
+    return parts.join(' ').toLowerCase()
+}
+
 const Services = () => {
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
@@ -165,11 +206,7 @@ const Services = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const r = row.original
-            const nombre = (r.nombre_servicio ?? '').toLowerCase()
-            const taller = (r.taller ?? '').toLowerCase()
-            const precio = String(r.precio ?? '')
-            return nombre.includes(term) || taller.includes(term) || precio.includes(term)
+            return serviceContactSearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -270,33 +307,41 @@ const Services = () => {
     return (
         <>
             <div>
-                <div className="grid grid-cols-2">
-                    <h1 className="mb-6 flex justify-start items-center space-x-4">
-                        {' '}
-                        <span className="text-[#000B7E]">
+                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                        <h1 className="text-4xl font-bold text-[#000B7E]">
                             Servicios Solicitados
-                        </span>
+                        </h1>
                         <button
-                            className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                            type="button"
+                            title="Actualizar datos desde el servidor"
+                            aria-label="Actualizar datos desde el servidor"
                             onClick={handleRefresh}
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                         >
-                            <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                            <HiOutlineRefresh className="h-5 w-5" />
                         </button>
-                    </h1>
-                    <div className="flex justify-end items-center gap-4 flex-nowrap">
-                        <div className="relative w-80 flex-shrink-0">
-                            <input
-                                type="text"
-                                placeholder="Buscar por servicio, taller o precio..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                            />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                    </div>
+                    <div className="flex flex-wrap items-end justify-end gap-3">
+                        <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
+                            <span className="mb-1 block text-xs font-medium text-gray-600">
+                                Buscar en la tabla
+                            </span>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Servicio, taller, precio, usuario, correo, ids, fecha…"
+                                    className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                    value={searchTerm}
+                                    onChange={handleSearchChange}
+                                />
+                                <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                            </div>
                         </div>
                         <button
+                            type="button"
                             style={{ backgroundColor: '#10B981' }}
-                            className="p-2 bg-blue-500 text-white rounded-md shadow-md hover:bg-blue-600 active:bg-blue-700 transition duration-200 hover:opacity-80 flex-shrink-0"
+                            className="h-10 shrink-0 whitespace-nowrap rounded-md px-4 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90"
                             onClick={handleOpenDialog}
                         >
                             Exportar a Excel

@@ -45,6 +45,21 @@ type Plans = {
     id: string
 }
 
+function planSearchableText(p: Plans): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(p.nombre, p.descripcion, p.monto, p.status, p.vigencia, p.uid, p.id)
+    if (p.cantidad_servicios !== undefined && p.cantidad_servicios !== null) {
+        parts.push(String(p.cantidad_servicios))
+    }
+    return parts.join(' ').toLowerCase()
+}
+
 const Plans = () => {
     const [dataPlans, setDataPlans] = useState<Plans[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
@@ -370,8 +385,7 @@ const Plans = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const nombre = (row.original.nombre ?? '').toLowerCase()
-            return nombre.includes(term)
+            return planSearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -401,37 +415,42 @@ const Plans = () => {
 
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    {' '}
-                    <span className="text-[#000B7E]">Planes</span>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">Planes</h1>
                     <button
-                        className="p-2  bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        type="button"
+                        title="Actualizar datos desde el servidor"
+                        aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                     >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                        <HiOutlineRefresh className="h-5 w-5" />
                     </button>
-                </h1>
-                <div className="flex justify-end">
-                    <div className="flex items-center">
-                        <div className="relative w-80">
+                </div>
+                <div className="flex flex-wrap items-end justify-end gap-3">
+                    <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
+                        <span className="mb-1 block text-xs font-medium text-gray-600">
+                            Buscar en la tabla
+                        </span>
+                        <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Buscar por nombre..."
-                                className="w-full py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 h-10"
+                                placeholder="Nombre, descripción, servicios, monto, vigencia, estado, id…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <HiOutlineSearch className="absolute left-3 top-5 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
                         </div>
-                        <Button
-                            className="w-40 ml-4 text-white hover:opacity-80"
-                            style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)} // Abre el Drawer de creación
-                        >
-                            Crear Plan
-                        </Button>
                     </div>
+                    <Button
+                        className="h-10 w-40 shrink-0 text-sm text-white hover:opacity-80"
+                        style={{ backgroundColor: '#000B7E' }}
+                        onClick={() => setDrawerCreateIsOpen(true)}
+                    >
+                        Crear Plan
+                    </Button>
                 </div>
             </div>
             <div className="p-3 rounded-lg shadow">

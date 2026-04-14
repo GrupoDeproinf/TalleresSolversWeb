@@ -3,6 +3,7 @@ import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { Drawer } from '@/components/ui'
 import Button from '@/components/ui/Button'
+import Select from '@/components/ui/Select'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
@@ -80,6 +81,92 @@ type Garage = {
     status?: string
 }
 
+type FilterSelectOption = { value: string; label: string }
+
+const STATUS_FILTER_OPTIONS: FilterSelectOption[] = [
+    { value: 'todos', label: 'Todos los estados' },
+    { value: 'activo', label: 'Activo' },
+    { value: 'inactivo', label: 'Inactivo' },
+]
+
+const TYPE_SERVICE_FILTER_OPTIONS: FilterSelectOption[] = [
+    { value: 'todos', label: 'Todos los tipos' },
+    { value: 'domicilio', label: 'A domicilio' },
+    { value: 'local', label: 'En el local' },
+]
+
+function subcategoriaToSearchParts(
+    sub: Service['subcategoria'],
+): string[] {
+    const out: string[] = []
+    if (sub == null) return out
+    if (typeof sub === 'string') {
+        out.push(sub)
+        return out
+    }
+    if (Array.isArray(sub)) {
+        for (const item of sub) {
+            if (item == null) continue
+            if (typeof item === 'object') {
+                const o = item as Record<string, unknown>
+                const name =
+                    (o.nombre_subcategoria as string) ||
+                    (o.nombre as string) ||
+                    ''
+                if (name) out.push(name)
+                else out.push(JSON.stringify(o))
+            } else {
+                out.push(String(item))
+            }
+        }
+        return out
+    }
+    if (typeof sub === 'object') {
+        const o = sub as Record<string, unknown>
+        out.push(
+            String(o.nombre_subcategoria ?? o.nombre ?? ''),
+        )
+    }
+    return out
+}
+
+function serviceSearchableText(s: Service): string {
+    const parts: string[] = []
+    const push = (...vals: (string | number | undefined | null)[]) => {
+        for (const v of vals) {
+            if (v === undefined || v === null) continue
+            parts.push(String(v))
+        }
+    }
+    push(
+        s.nombre_servicio,
+        s.descripcion,
+        s.taller,
+        s.categoria,
+        s.nombre_categoria,
+        s.precio,
+        s.typeService,
+        s.uid_taller,
+        s.uid_servicio,
+        s.uid_categoria,
+        s.uid_subcategoria,
+        s.id,
+        s.garantia,
+    )
+    parts.push(...subcategoriaToSearchParts(s.subcategoria))
+    if (s.estatus === true) parts.push('activo')
+    if (s.estatus === false) parts.push('inactivo')
+    if (s.puntuacion !== undefined && s.puntuacion !== null) {
+        parts.push(String(s.puntuacion))
+    }
+    if (Array.isArray(s.service_image)) {
+        for (const url of s.service_image) {
+            if (url) parts.push(String(url))
+        }
+    }
+    return parts.join(' ').toLowerCase()
+}
+
 const ServicesList = () => {
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
     const loggedInUserId = useAppSelector((state) => state.auth.user.key)
@@ -145,18 +232,6 @@ const ServicesList = () => {
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(event.target.value)
-    }
-
-    const handleStatusFilterChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        setStatusFilter(event.target.value)
-    }
-
-    const handleTypeServiceFilterChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        setTypeServiceFilter(event.target.value)
     }
 
     const applyFilters = () => {
@@ -447,32 +522,7 @@ const ServicesList = () => {
         globalFilterFn: (row, _columnId, filterValue) => {
             const term = (filterValue ?? '').toString().toLowerCase().trim()
             if (!term) return true
-            const r = row.original
-            const nombre = (r.nombre_servicio ?? '').toLowerCase()
-            const taller = (r.taller ?? '').toLowerCase()
-            const categoria = (r.categoria ?? r.nombre_categoria ?? '').toString().toLowerCase()
-            const precio = String(r.precio ?? '')
-            const subcategoria = r.subcategoria
-            let subcatMatch = false
-            if (typeof subcategoria === 'string') {
-                subcatMatch = subcategoria.toLowerCase().includes(term)
-            } else if (Array.isArray(subcategoria)) {
-                subcatMatch = subcategoria.some((item: any) => {
-                    if (item && typeof item === 'object') {
-                        return Object.values(item).some((val: any) =>
-                            String(val).toLowerCase().includes(term)
-                        )
-                    }
-                    return String(item).toLowerCase().includes(term)
-                })
-            }
-            return (
-                nombre.includes(term) ||
-                taller.includes(term) ||
-                categoria.includes(term) ||
-                precio.includes(term) ||
-                subcatMatch
-            )
+            return serviceSearchableText(row.original).includes(term)
         },
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
@@ -522,65 +572,77 @@ const ServicesList = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
+    const statusFilterOption =
+        STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter) ??
+        STATUS_FILTER_OPTIONS[0]
+    const typeServiceFilterOption =
+        TYPE_SERVICE_FILTER_OPTIONS.find((o) => o.value === typeServiceFilter) ??
+        TYPE_SERVICE_FILTER_OPTIONS[0]
+
     return (
         <>
-            <div className="grid grid-cols-2">
-                <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    <span className="text-[#000B7E]">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">
                         Servicios de Talleres
-                    </span>
+                    </h1>
                     <button
-                        className="p-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all duration-200 shadow-md transform hover:scale-105 rounded-md"
+                        type="button"
+                        title="Actualizar datos desde el servidor"
+                        aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
                     >
-                        <HiOutlineRefresh className="w-5 h-5 text-gray-700 hover:text-blue-500 transition-colors duration-200" />
+                        <HiOutlineRefresh className="h-5 w-5" />
                     </button>
-                </h1>
-                <div className="flex justify-end items-end gap-4 flex-nowrap">
-                    <div className="flex flex-col gap-1 flex-shrink-0">
-                        <label htmlFor="filter-estado" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                </div>
+                <div className="flex flex-wrap justify-end items-end gap-3">
+                    <div className="flex min-w-[10.5rem] max-w-[13rem] shrink-0 flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-600">
                             Estado
-                        </label>
-                        <select
-                            id="filter-estado"
-                            className="h-10 w-32 py-2 px-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
-                            onChange={handleStatusFilterChange}
-                            value={statusFilter}
-                        >
-                            <option value="todos">Todos</option>
-                            <option value="activo">Activo</option>
-                            <option value="inactivo">Inactivo</option>
-                        </select>
+                        </span>
+                        <Select<FilterSelectOption, false>
+                            size="sm"
+                            isSearchable={false}
+                            className="min-w-[10.5rem]"
+                            options={STATUS_FILTER_OPTIONS}
+                            value={statusFilterOption}
+                            onChange={(opt) =>
+                                setStatusFilter(opt?.value ?? 'todos')
+                            }
+                            placeholder="Estado"
+                        />
                     </div>
-                    <div className="flex flex-col gap-1 flex-shrink-0">
-                        <label htmlFor="filter-tipo-servicio" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                    <div className="flex min-w-[11rem] max-w-[14rem] shrink-0 flex-col gap-1">
+                        <span className="text-xs font-medium text-gray-600">
                             Tipo de servicio
-                        </label>
-                        <select
-                            id="filter-tipo-servicio"
-                            className="h-10 w-40 py-2 px-3 border border-gray-300 rounded-lg shadow-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-700"
-                            onChange={handleTypeServiceFilterChange}
-                            value={typeServiceFilter}
-                        >
-                            <option value="todos">Todos</option>
-                            <option value="domicilio">A Domicilio</option>
-                            <option value="local">En el Local</option>
-                        </select>
+                        </span>
+                        <Select<FilterSelectOption, false>
+                            size="sm"
+                            isSearchable={false}
+                            className="min-w-[11rem]"
+                            options={TYPE_SERVICE_FILTER_OPTIONS}
+                            value={typeServiceFilterOption}
+                            onChange={(opt) =>
+                                setTypeServiceFilter(opt?.value ?? 'todos')
+                            }
+                            placeholder="Tipo"
+                        />
                     </div>
-                    <div className="flex flex-col gap-1 flex-shrink-0">
-                        <label htmlFor="filter-buscar" className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                            Buscar
-                        </label>
+                    <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
+                        <span className="mb-1 block text-xs font-medium text-gray-600">
+                            Buscar en la tabla
+                        </span>
                         <div className="relative">
                             <input
                                 id="filter-buscar"
                                 type="text"
-                                placeholder="Nombre, taller, categoría..."
-                                className="w-80 py-2 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 h-10 text-sm"
+                                placeholder="Nombre, taller, categoría, precio, garantía, ids…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
+                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
                         </div>
                     </div>
                 </div>
