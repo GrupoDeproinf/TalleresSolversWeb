@@ -1,1 +1,0 @@
-import{a,u as t,j as s}from"./index-_ApK-q7i.js";import{w as p}from"./withHeaderItem-Xm4hw4ND.js";const r=o=>(a(),t(e=>e.theme.panelExpand),t(e=>e.theme.direction),s.jsx(s.Fragment,{})),m=p(r);export{m as S};
