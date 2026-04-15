@@ -48,6 +48,7 @@ import Password from '@/views/account/Settings/components/Password'
 import { HiOutlineRefresh, HiOutlineSearch, HiOutlinePlus, HiOutlineMinus } from 'react-icons/hi'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 import * as XLSX from 'xlsx'
+import { components as selectComponents } from 'react-select'
 
 type Person = {
     nombre?: string
@@ -60,6 +61,132 @@ type Person = {
     typeUser?: string
     id: string
     estado?: string | string[]
+}
+
+const TODOS_ESTADOS_LABEL = 'Todos los estados'
+const TODOS_ESTADOS_VALUE = '__TODOS_ESTADOS__'
+
+const estadoOptions = [
+    { value: 'Amazonas', label: 'Amazonas' },
+    { value: 'Anzoátegui', label: 'Anzoátegui' },
+    { value: 'Apure', label: 'Apure' },
+    { value: 'Aragua', label: 'Aragua' },
+    { value: 'Barinas', label: 'Barinas' },
+    { value: 'Bolívar', label: 'Bolívar' },
+    { value: 'Carabobo', label: 'Carabobo' },
+    { value: 'Cojedes', label: 'Cojedes' },
+    { value: 'Delta Amacuro', label: 'Delta Amacuro' },
+    { value: 'Distrito Capital', label: 'Distrito Capital' },
+    { value: 'Falcón', label: 'Falcón' },
+    { value: 'Guárico', label: 'Guárico' },
+    { value: 'Lara', label: 'Lara' },
+    { value: 'La Guaira', label: 'La Guaira' },
+    { value: 'Mérida', label: 'Mérida' },
+    { value: 'Miranda', label: 'Miranda' },
+    { value: 'Monagas', label: 'Monagas' },
+    { value: 'Nueva Esparta', label: 'Nueva Esparta' },
+    { value: 'Portuguesa', label: 'Portuguesa' },
+    { value: 'Sucre', label: 'Sucre' },
+    { value: 'Táchira', label: 'Táchira' },
+    { value: 'Trujillo', label: 'Trujillo' },
+    { value: 'Yaracuy', label: 'Yaracuy' },
+    { value: 'Zulia', label: 'Zulia' },
+]
+
+const TODOS_ESTADOS_OPTION = {
+    value: TODOS_ESTADOS_VALUE,
+    label: TODOS_ESTADOS_LABEL,
+}
+
+const certificadorEstadoSelectOptions = [TODOS_ESTADOS_OPTION, ...estadoOptions]
+
+function getAllEstadoValues(): string[] {
+    return estadoOptions.map((o) => o.value)
+}
+
+/** Normaliza lo que venga de Firestore (array, string con comas, espacios). */
+function toEstadoValuesList(estado: string | string[] | undefined): string[] {
+    if (estado === undefined || estado === null) return []
+    if (Array.isArray(estado)) {
+        return estado.map((e) => String(e).trim()).filter(Boolean)
+    }
+    if (typeof estado === 'string') {
+        const s = estado.trim()
+        if (!s) return []
+        if (s.includes(',')) {
+            return s.split(',').map((x) => x.trim()).filter(Boolean)
+        }
+        return [s]
+    }
+    return []
+}
+
+/** True si el usuario tiene al menos un valor por cada estado canónico (p. ej. duplicados en BD no impiden reconocerlo). */
+function isTodosLosEstados(estado: string | string[] | undefined): boolean {
+    const all = getAllEstadoValues()
+    if (all.length === 0) return false
+    const values = toEstadoValuesList(estado)
+    if (values.length === 0) return false
+    const set = new Set(values)
+    return all.every((v) => set.has(v))
+}
+
+function formatEstadoForTableExport(
+    estado: string | string[] | undefined,
+): string {
+    if (isTodosLosEstados(estado)) return TODOS_ESTADOS_LABEL
+    if (Array.isArray(estado)) return estado.join(', ')
+    return estado ?? ''
+}
+
+function getCertificadorMultiSelectValue(
+    estado: string | string[] | undefined,
+): { value: string; label: string }[] {
+    const list = toEstadoValuesList(estado)
+    if (list.length === 0) return []
+    if (isTodosLosEstados(estado)) return [TODOS_ESTADOS_OPTION]
+    return estadoOptions.filter((o) => list.includes(o.value))
+}
+
+function resolveCertificadorEstadoMultiOnChange(
+    prevEstado: string | string[] | undefined,
+    selectedOptions: readonly { value: string; label: string }[] | null,
+): string[] {
+    const all = getAllEstadoValues()
+    const opts = selectedOptions ?? []
+    const hasTodos = opts.some((o) => o.value === TODOS_ESTADOS_VALUE)
+    const indivVals = opts
+        .filter((o) => o.value !== TODOS_ESTADOS_VALUE)
+        .map((o) => o.value)
+    const wasTodos = isTodosLosEstados(
+        Array.isArray(prevEstado) ? prevEstado : undefined,
+    )
+
+    if (hasTodos && indivVals.length === 0) {
+        return [...all]
+    }
+    if (!hasTodos) {
+        return indivVals
+    }
+    if (wasTodos) {
+        return all.filter((v) => !indivVals.includes(v))
+    }
+    return [...all]
+}
+
+function CertificadorEstadosMultiValue(
+    estado: string | string[] | undefined,
+    props: any,
+) {
+    if (isTodosLosEstados(estado) && props.index > 0) return null
+    if (isTodosLosEstados(estado) && props.index === 0) {
+        return (
+            <selectComponents.MultiValue {...props} data={TODOS_ESTADOS_OPTION}>
+                {TODOS_ESTADOS_LABEL}
+            </selectComponents.MultiValue>
+        )
+    }
+    return <selectComponents.MultiValue {...props} />
 }
 
 /** Documento de la subcolección Vehiculos (Usuarios/{uid}/Vehiculos). */
@@ -109,9 +236,15 @@ function personSearchableText(p: Person): string {
     }
     push(p.nombre, p.email, p.cedula, p.phone, p.typeUser, p.uid, p.id)
     if (Array.isArray(p.estado)) {
-        for (const e of p.estado) {
-            if (e) parts.push(String(e))
+        if (isTodosLosEstados(p.estado)) {
+            push(TODOS_ESTADOS_LABEL)
+        } else {
+            for (const e of p.estado) {
+                if (e) parts.push(String(e))
+            }
         }
+    } else if (isTodosLosEstados(p.estado)) {
+        push(TODOS_ESTADOS_LABEL)
     } else {
         push(p.estado)
     }
@@ -134,34 +267,6 @@ const Users = () => {
     const [imagePopupOpen, setImagePopupOpen] = useState(false)
     const [imagePopupUrl, setImagePopupUrl] = useState<string | null>(null)
     const [imageZoom, setImageZoom] = useState(1)
-
-    // Opciones para el select de estados
-    const estadoOptions = [
-        { value: 'Amazonas', label: 'Amazonas' },
-        { value: 'Anzoátegui', label: 'Anzoátegui' },
-        { value: 'Apure', label: 'Apure' },
-        { value: 'Aragua', label: 'Aragua' },
-        { value: 'Barinas', label: 'Barinas' },
-        { value: 'Bolívar', label: 'Bolívar' },
-        { value: 'Carabobo', label: 'Carabobo' },
-        { value: 'Cojedes', label: 'Cojedes' },
-        { value: 'Delta Amacuro', label: 'Delta Amacuro' },
-        { value: 'Distrito Capital', label: 'Distrito Capital' },
-        { value: 'Falcón', label: 'Falcón' },
-        { value: 'Guárico', label: 'Guárico' },
-        { value: 'Lara', label: 'Lara' },
-        { value: 'La Guaira', label: 'La Guaira' },
-        { value: 'Mérida', label: 'Mérida' },
-        { value: 'Miranda', label: 'Miranda' },
-        { value: 'Monagas', label: 'Monagas' },
-        { value: 'Nueva Esparta', label: 'Nueva Esparta' },
-        { value: 'Portuguesa', label: 'Portuguesa' },
-        { value: 'Sucre', label: 'Sucre' },
-        { value: 'Táchira', label: 'Táchira' },
-        { value: 'Trujillo', label: 'Trujillo' },
-        { value: 'Yaracuy', label: 'Yaracuy' },
-        { value: 'Zulia', label: 'Zulia' },
-    ]
 
     const getData = async () => {
         const q = query(collection(db, 'Usuarios'))
@@ -413,7 +518,7 @@ const Users = () => {
     const handleExportExcel = () => {
         const rows = table.getRowModel().rows.map((row) => {
             const p = row.original
-            const estadoStr = Array.isArray(p.estado) ? (p.estado as string[]).join(', ') : (p.estado ?? '')
+            const estadoStr = formatEstadoForTableExport(p.estado)
             return {
                 Nombre: p.nombre ?? '',
                 Cédula: p.cedula ?? '',
@@ -578,6 +683,13 @@ const Users = () => {
             filterFn: 'includesString',
             cell: ({ row }) => {
                 const estado = row.original.estado
+                if (isTodosLosEstados(estado)) {
+                    return (
+                        <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            {TODOS_ESTADOS_LABEL}
+                        </span>
+                    )
+                }
                 if (Array.isArray(estado)) {
                     return (
                         <div className="flex flex-wrap gap-1">
@@ -1240,12 +1352,21 @@ const Users = () => {
                         </span>
                         <select
                             value={selectedPerson?.typeUser || 'Cliente'}
-                            onChange={(e) =>
-                                setSelectedPerson((prev: any) => ({
-                                    ...prev,
-                                    typeUser: e.target.value,
-                                }))
-                            }
+                            onChange={(e) => {
+                                const newTypeUser = e.target.value
+                                setSelectedPerson((prev: any) => {
+                                    if (!prev) return prev
+                                    if (prev.typeUser === newTypeUser) return prev
+                                    return {
+                                        ...prev,
+                                        typeUser: newTypeUser,
+                                        estado:
+                                            newTypeUser === 'Certificador'
+                                                ? []
+                                                : '',
+                                    }
+                                })
+                            }}
                             className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                         >
                             <option value="Cliente">Cliente</option>
@@ -1261,16 +1382,26 @@ const Users = () => {
                             {selectedPerson?.typeUser === 'Certificador' ? (
                                 <Select
                                     isMulti
-                                    options={estadoOptions}
-                                    value={estadoOptions.filter((option) => 
-                                        Array.isArray(selectedPerson?.estado) && selectedPerson.estado.includes(option.value)
+                                    options={certificadorEstadoSelectOptions}
+                                    value={getCertificadorMultiSelectValue(
+                                        selectedPerson?.estado,
                                     )}
                                     onChange={(selectedOptions) => {
-                                        const selectedValues = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
                                         setSelectedPerson((prev: any) => ({
                                             ...prev,
-                                            estado: selectedValues,
-                                        }));
+                                            estado:
+                                                resolveCertificadorEstadoMultiOnChange(
+                                                    prev?.estado,
+                                                    selectedOptions as any,
+                                                ),
+                                        }))
+                                    }}
+                                    components={{
+                                        MultiValue: (props: any) =>
+                                            CertificadorEstadosMultiValue(
+                                                selectedPerson?.estado,
+                                                props,
+                                            ),
                                     }}
                                     placeholder="Seleccione los estados..."
                                     className="mt-1"
@@ -1338,12 +1469,12 @@ const Users = () => {
                     {({ isSubmitting, setFieldValue, values }) => {
                         // Efecto para limpiar el estado cuando cambie el tipo de usuario
                         React.useEffect(() => {
-                            if (values.typeUser === 'Cliente' && Array.isArray(values.estado)) {
-                                setFieldValue('estado', '');
-                            } else if (values.typeUser === 'Certificador' && !Array.isArray(values.estado)) {
-                                setFieldValue('estado', []);
+                            if (values.typeUser === 'Certificador') {
+                                setFieldValue('estado', [])
+                            } else {
+                                setFieldValue('estado', '')
                             }
-                        }, [values.typeUser, setFieldValue]);
+                        }, [values.typeUser, setFieldValue])
 
                         return (
                         <Form className="flex flex-col space-y-6">
@@ -1495,13 +1626,23 @@ const Users = () => {
                     isMulti
                     field={field}
                     form={form}
-                    options={estadoOptions}
-                    value={estadoOptions.filter((option) => 
-                        Array.isArray(values.estado) && values.estado.includes(option.value)
-                    )}
+                    options={certificadorEstadoSelectOptions}
+                    value={getCertificadorMultiSelectValue(values.estado)}
                     onChange={(selectedOptions) => {
-                        const selectedValues = selectedOptions ? selectedOptions.map((option: any) => option.value) : [];
-                        form.setFieldValue(field.name, selectedValues);
+                        form.setFieldValue(
+                            field.name,
+                            resolveCertificadorEstadoMultiOnChange(
+                                values.estado,
+                                selectedOptions as any,
+                            ),
+                        )
+                    }}
+                    components={{
+                        MultiValue: (props: any) =>
+                            CertificadorEstadosMultiValue(
+                                values.estado,
+                                props,
+                            ),
                     }}
                     placeholder="Seleccione los estados..."
                     className="mt-1"
