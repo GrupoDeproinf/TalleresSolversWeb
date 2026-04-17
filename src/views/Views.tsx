@@ -1,7 +1,7 @@
 import { Suspense } from 'react'
 import Loading from '@/components/shared/Loading'
 import { protectedRoutes, publicRoutes } from '@/configs/routes.config'
-import appConfig from '@/configs/app.config'
+import { getAuthenticatedHomePath } from '@/utils/getAuthenticatedHomePath'
 import PageContainer from '@/components/template/PageContainer'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAppSelector } from '@/store'
@@ -18,17 +18,22 @@ interface ViewsProps {
 
 type AllRoutesProps = ViewsProps
 
-const { authenticatedEntryPath } = appConfig
-
 const AllRoutes = (props: AllRoutesProps) => {
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
+    const userKey = useAppSelector((state) => state.auth.user.key)
+    const sessionUid = useAppSelector((state) => state.auth.session.token)
+    const homePath = getAuthenticatedHomePath(
+        userAuthority,
+        userKey,
+        sessionUid,
+    )
 
     return (
         <Routes>
             <Route path="/" element={<ProtectedRoute />}>
                 <Route
                     path="/"
-                    element={<Navigate replace to={authenticatedEntryPath} />}
+                    element={<Navigate replace to={homePath} />}
                 />
                 {protectedRoutes.map((route, index) => (
                     <Route

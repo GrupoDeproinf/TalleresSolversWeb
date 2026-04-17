@@ -7,6 +7,11 @@ import {
     useAppDispatch,
 } from '@/store'
 import appConfig from '@/configs/app.config'
+import {
+    getAuthenticatedHomePath,
+    resolvePostSignInPath,
+} from '@/utils/getAuthenticatedHomePath'
+import { USER, ADMIN } from '@/constants/roles.constant'
 import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import useQuery from './useQuery'
@@ -113,23 +118,45 @@ function useAuth() {
                 if (userDoc.exists()) {
                     const userInfo = userDoc.data()
                     localStorage.setItem('nombre', userInfo?.nombre)
-                    // Los usuarios Certificador tienen los mismos permisos que Admin
-                    const userAuthority = userInfo?.typeUser === 'Certificador' ? 'Admin' : userInfo?.typeUser
+                    const trimmedType = String(userInfo?.typeUser ?? '').trim()
+                    let userAuthority: string =
+                        trimmedType === 'Certificador' ? ADMIN : trimmedType
+                    if (!userAuthority) {
+                        userAuthority =
+                            collectionToCheck === 'Admins' ? ADMIN : USER
+                    } else {
+                        const lower = userAuthority.toLowerCase()
+                        if (lower === 'admin' || lower === 'administrador') {
+                            userAuthority = ADMIN
+                        }
+                    }
+                    const authority = [userAuthority]
                     dispatch(
                         setUser({
                             avatar: '',
                             userName: userInfo?.nombre,
                             email: userInfo?.email,
                             key: userDoc.id,
-                            authority: [userAuthority], // ['Taller'], ['Admin'], o ['Admin'] para Certificador
+                            authority, // ['Taller'], ['Admin'], o ['Admin'] para Certificador
                         }),
                     )
                     const redirectUrl = queryRedirect.get(REDIRECT_URL_KEY)
-                    navigate(
-                        redirectUrl
-                            ? redirectUrl
-                            : appConfig.authenticatedEntryPath,
+                    const homePath = getAuthenticatedHomePath(
+                        authority,
+                        userDoc.id,
                     )
+                    // Taller: siempre entrada en Mi Perfil (no seguir redirect al dashboard u otras rutas admin).
+                    if (authority.includes(USER)) {
+                        navigate(homePath)
+                    } else {
+                        navigate(
+                            resolvePostSignInPath(
+                                redirectUrl,
+                                authority,
+                                userDoc.id,
+                            ),
+                        )
+                    }
                     return {
                         status: 'success',
                         message: '',
