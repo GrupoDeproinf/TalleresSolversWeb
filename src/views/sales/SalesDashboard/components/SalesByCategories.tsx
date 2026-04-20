@@ -37,7 +37,7 @@ const SalesByCategories = ({
                         </div>
                         {data.data.length === data.labels.length && (
                             <div className="min-w-0">
-                                <div className="grid grid-cols-3 gap-x-2 gap-y-1">
+                                <div className="flex max-h-[190px] flex-col gap-1 overflow-y-auto pr-1">
                                     {data.labels.map((value, index) => (
                                         <div
                                             key={value}
@@ -49,7 +49,7 @@ const SalesByCategories = ({
                                                         data.colors[index] || COLORS[index],
                                                 }}
                                             />
-                                            <span className="text-[11px] font-semibold truncate">
+                                            <span className="text-[11px] font-semibold whitespace-normal break-words leading-tight">
                                                 {value} ({data.data[index] ?? 0})
                                             </span>
                                         </div>

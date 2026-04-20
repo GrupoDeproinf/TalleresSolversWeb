@@ -1,18 +1,17 @@
 import appConfig from '@/configs/app.config'
+import { TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
 import { USER } from '@/constants/roles.constant'
 
 /**
- * Ruta por defecto tras autenticación: el taller va a su perfil; admin/certificador al dashboard.
- * `sessionUid` evita caer en el dashboard si `user.key` aún no hidrató en Redux.
+ * Ruta por defecto tras autenticación: el taller a su dashboard; admin/certificador al dashboard de ventas.
  */
 export function getAuthenticatedHomePath(
     authority: string[] | undefined,
-    userKey: string | undefined,
-    sessionUid?: string | null,
+    _userKey?: string | undefined,
+    _sessionUid?: string | null,
 ): string {
-    const garageId = (userKey?.trim() || sessionUid || '').trim()
-    if (authority?.includes(USER) && garageId) {
-        return `/profilegarage/${garageId}`
+    if (authority?.includes(USER)) {
+        return TALLER_DASHBOARD_PATH
     }
     return appConfig.authenticatedEntryPath
 }

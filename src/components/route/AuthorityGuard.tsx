@@ -1,7 +1,7 @@
 import { PropsWithChildren } from 'react'
 import { Navigate } from 'react-router-dom'
 import useAuthority from '@/utils/hooks/useAuthority'
-import { useAppSelector } from '@/store'
+import { TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
 import { USER } from '@/constants/roles.constant'
 
 type AuthorityGuardProps = PropsWithChildren<{
@@ -14,20 +14,15 @@ const AuthorityGuard = (props: AuthorityGuardProps) => {
 
     const roleMatched = useAuthority(userAuthority, authority)
 
-    const userKey = useAppSelector((state) => state.auth.user.key)
-    const sessionUid = useAppSelector((state) => state.auth.session.token)
-    const garageId = (userKey?.trim() || sessionUid || '').trim()
-
     const routeAllowsTaller = authority.includes(USER)
-    const tallerNeedsProfileInstead =
+    const tallerNeedsDashboardInstead =
         !roleMatched &&
         userAuthority.includes(USER) &&
         !routeAllowsTaller &&
-        authority.length > 0 &&
-        garageId
+        authority.length > 0
 
-    if (tallerNeedsProfileInstead) {
-        return <Navigate to={`/profilegarage/${garageId}`} replace />
+    if (tallerNeedsDashboardInstead) {
+        return <Navigate to={TALLER_DASHBOARD_PATH} replace />
     }
 
     return <>{roleMatched ? children : <Navigate to="/access-denied" />}</>

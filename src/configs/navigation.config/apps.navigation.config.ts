@@ -1,4 +1,4 @@
-import { APP_PREFIX_PATH } from '@/constants/route.constant'
+import { APP_PREFIX_PATH, TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
 import {
     NAV_ITEM_TYPE_TITLE,
     NAV_ITEM_TYPE_COLLAPSE,
@@ -56,6 +56,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 icon: 'user',
                 type: NAV_ITEM_TYPE_COLLAPSE,
                 authority: [ADMIN],
+                subMenu: [],
+            },
+            {
+                key: 'appsTaller.dashboard',
+                path: TALLER_DASHBOARD_PATH,
+                title: 'Dashboard',
+                translateKey: 'nav.appsTaller.dashboard',
+                icon: 'graph',
+                type: NAV_ITEM_TYPE_ITEM,
+                authority: [USER],
                 subMenu: [],
             },
             {

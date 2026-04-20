@@ -47,10 +47,52 @@ type TallerActivo = {
     id: string;
     nombre: string;
     image_perfil?: string;
-    serviciosActivos: number;
-    nombrePlan?: string;
-    diasRestantes: number;
+    solicitudesAtendidas: number;
 };
+
+type UsuarioActivo = {
+    id: string
+    nombre: string
+    image_perfil?: string
+    acciones: number
+}
+
+type PeriodoMeses = 1 | 3 | 6
+
+type FirestoreTimestampLike =
+    | Timestamp
+    | Date
+    | {
+          seconds?: number
+          nanoseconds?: number
+          _seconds?: number
+          _nanoseconds?: number
+      }
+    | null
+    | undefined
+
+const toDateFromUnknownTimestamp = (
+    value: FirestoreTimestampLike,
+): Date | null => {
+    if (!value) {
+        return null
+    }
+
+    if (value instanceof Timestamp) {
+        return value.toDate()
+    }
+
+    if (value instanceof Date) {
+        return value
+    }
+
+    const seconds = value.seconds ?? value._seconds
+    if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+        return new Date(seconds * 1000)
+    }
+
+    return null
+}
 
 const isSameDay = (dateA: Date, dateB: Date) => {
     return (
@@ -58,6 +100,12 @@ const isSameDay = (dateA: Date, dateB: Date) => {
         dateA.getMonth() === dateB.getMonth() &&
         dateA.getDate() === dateB.getDate()
     )
+}
+
+const getStartDateFromMonths = (months: PeriodoMeses) => {
+    const startDate = new Date()
+    startDate.setMonth(startDate.getMonth() - months)
+    return startDate
 }
 
 const fetchDashboardData = async () => {
@@ -249,73 +297,141 @@ const SalesDashboard = () => {
     }, []);
 
     const [topTalleresActivos, setTopTalleresActivos] = useState<TallerActivo[]>([])
+    const [usuariosMasActivos, setUsuariosMasActivos] = useState<UsuarioActivo[]>([])
+    const [talleresPeriodoMeses, setTalleresPeriodoMeses] =
+        useState<PeriodoMeses>(1)
+    const [usuariosPeriodoMeses, setUsuariosPeriodoMeses] =
+        useState<PeriodoMeses>(1)
+    const [responseMetrics, setResponseMetrics] = useState({
+        responseRate: 0,
+        averageMinutes: 0,
+        totalSolicitudes: 0,
+        totalAtendidas: 0,
+    })
 
     const fetchTopTalleresActivos = async () => {
         try {
             const usuariosSnapshot = await getDocs(collection(db, 'Usuarios'))
-            const serviciosSnapshot = await getDocs(collection(db, 'Servicios'))
+            const propuestasSnapshot = await getDocs(collection(db, 'Propuestas'))
 
-            const serviciosPorTaller: Record<string, number> = {}
+            const usuariosInfo = new Map<
+                string,
+                { nombre: string; image_perfil?: string; typeUser?: string }
+            >()
 
-            serviciosSnapshot.forEach((doc) => {
-                const data = doc.data()
-                if (data.estatus === true && data.uid_taller) {
-                    const uidTaller = data.uid_taller as string
-                    serviciosPorTaller[uidTaller] =
-                        (serviciosPorTaller[uidTaller] || 0) + 1
-                }
-            })
-
-            const talleresActivos: TallerActivo[] = []
-
-            usuariosSnapshot.forEach((doc) => {
-                const data = doc.data()
-
-                if (data.typeUser !== 'Taller') return
-                if (data.status !== 'Aprobado') return
-
-                const subscripcionActual = data.subscripcion_actual
-                const subsStatus = subscripcionActual?.status
-
-                if (subsStatus !== 'Aprobado') return
-
-                const uidTaller = doc.id
-                const cantidadServiciosActivos = serviciosPorTaller[uidTaller] || 0
-
-                if (cantidadServiciosActivos <= 0) return
-
-                const nombreTaller =
-                    (data.nombre_taller as string) ||
-                    (data.nombre as string) ||
-                    'Sin nombre'
-
-                const imagePerfil = data.image_perfil as string | undefined
-                const nombrePlan = subscripcionActual?.nombre as string | undefined
-
-                let diasRestantes = 0
-                const fechaFin = subscripcionActual?.fecha_fin
-                if (fechaFin && typeof fechaFin.toDate === 'function') {
-                    const fin = (fechaFin as Timestamp).toDate()
-                    const hoy = new Date()
-                    const diffMs = fin.getTime() - hoy.getTime()
-                    diasRestantes = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
-                }
-
-                talleresActivos.push({
-                    id: uidTaller,
-                    nombre: nombreTaller,
-                    image_perfil: imagePerfil,
-                    serviciosActivos: cantidadServiciosActivos,
-                    nombrePlan,
-                    diasRestantes,
+            usuariosSnapshot.forEach((userDoc) => {
+                const userData = userDoc.data()
+                usuariosInfo.set(userDoc.id, {
+                    nombre:
+                        (userData.nombre as string) ||
+                        (userData.nombre_taller as string) ||
+                        'Sin nombre',
+                    image_perfil: userData.image_perfil as string | undefined,
+                    typeUser: userData.typeUser as string | undefined,
                 })
             })
 
-            const talleresOrdenados = [...talleresActivos].sort(
-                (a, b) => b.serviciosActivos - a.serviciosActivos,
+            const solicitudesPorUsuario: Record<string, number> = {}
+            const solicitudesAtendidasPorTaller: Record<string, number> = {}
+            const nombreUsuarioPorUid: Record<string, string> = {}
+            const nombreTallerPorUid: Record<string, string> = {}
+            const fechaInicioUsuarios = getStartDateFromMonths(usuariosPeriodoMeses)
+            const fechaInicioTalleres = getStartDateFromMonths(talleresPeriodoMeses)
+
+            propuestasSnapshot.forEach((proposalDoc) => {
+                const proposalData = proposalDoc.data() as {
+                    uid_usuario?: string
+                    uid_taller?: string
+                    nombre_usuario?: string
+                    nombre_taller?: string
+                    status?: string
+                    fecha_propuesta?: FirestoreTimestampLike
+                    fecha_aceptada?: FirestoreTimestampLike
+                }
+
+                const fechaPropuesta = toDateFromUnknownTimestamp(
+                    proposalData.fecha_propuesta,
+                )
+                const uidUsuario = proposalData.uid_usuario
+                if (
+                    uidUsuario &&
+                    fechaPropuesta &&
+                    fechaPropuesta >= fechaInicioUsuarios
+                ) {
+                    solicitudesPorUsuario[uidUsuario] =
+                        (solicitudesPorUsuario[uidUsuario] || 0) + 1
+                    if (proposalData.nombre_usuario) {
+                        nombreUsuarioPorUid[uidUsuario] = proposalData.nombre_usuario
+                    }
+                }
+
+                const uidTaller = proposalData.uid_taller
+                if (!uidTaller) {
+                    return
+                }
+
+                const fechaAceptada = toDateFromUnknownTimestamp(
+                    proposalData.fecha_aceptada,
+                )
+                const statusNormalizado = String(proposalData.status || '').toLowerCase()
+                const solicitudAtendida =
+                    Boolean(fechaAceptada) || statusNormalizado.includes('acept')
+
+                if (!solicitudAtendida) {
+                    return
+                }
+
+                const fechaActividadTaller = fechaAceptada || fechaPropuesta
+                if (
+                    !fechaActividadTaller ||
+                    fechaActividadTaller < fechaInicioTalleres
+                ) {
+                    return
+                }
+
+                solicitudesAtendidasPorTaller[uidTaller] =
+                    (solicitudesAtendidasPorTaller[uidTaller] || 0) + 1
+                if (proposalData.nombre_taller) {
+                    nombreTallerPorUid[uidTaller] = proposalData.nombre_taller
+                }
+            })
+
+            const talleresOrdenados: TallerActivo[] = Object.entries(
+                solicitudesAtendidasPorTaller,
             )
+                .map(([uidTaller, solicitudesAtendidas]) => {
+                    const info = usuariosInfo.get(uidTaller)
+                    return {
+                        id: uidTaller,
+                        nombre:
+                            nombreTallerPorUid[uidTaller] ||
+                            info?.nombre ||
+                            'Sin nombre',
+                        image_perfil: info?.image_perfil,
+                        solicitudesAtendidas,
+                    }
+                })
+                .sort((a, b) => b.solicitudesAtendidas - a.solicitudesAtendidas)
+
+            const usuariosOrdenados: UsuarioActivo[] = Object.entries(
+                solicitudesPorUsuario,
+            )
+                .map(([uidUsuario, acciones]) => {
+                    const info = usuariosInfo.get(uidUsuario)
+                    return {
+                        id: uidUsuario,
+                        nombre:
+                            nombreUsuarioPorUid[uidUsuario] ||
+                            info?.nombre ||
+                            'Sin nombre',
+                        image_perfil: info?.image_perfil,
+                        acciones,
+                    }
+                })
+                .sort((a, b) => b.acciones - a.acciones)
 
             setTopTalleresActivos(talleresOrdenados)
+            setUsuariosMasActivos(usuariosOrdenados)
         } catch (error) {
             console.error('Error al obtener talleres más activos:', error)
         }
@@ -323,10 +439,85 @@ const SalesDashboard = () => {
 
     useEffect(() => {
         fetchTopTalleresActivos()
+    }, [talleresPeriodoMeses, usuariosPeriodoMeses])
+
+    useEffect(() => {
+        setTalleresPage(1)
+    }, [talleresPeriodoMeses])
+
+    useEffect(() => {
+        setUsuariosPage(1)
+    }, [usuariosPeriodoMeses])
+
+    const fetchResponseMetrics = async () => {
+        try {
+            const propuestasSnapshot = await getDocs(collection(db, 'Propuestas'))
+
+            let totalSolicitudes = 0
+            let totalAtendidas = 0
+            let totalResponseTimeMs = 0
+
+            propuestasSnapshot.forEach((propuestaDoc) => {
+                const propuestaData = propuestaDoc.data() as {
+                    fecha_propuesta?: FirestoreTimestampLike
+                    fecha_aceptada?: FirestoreTimestampLike
+                }
+
+                const fechaPropuesta = toDateFromUnknownTimestamp(
+                    propuestaData.fecha_propuesta,
+                )
+
+                if (!fechaPropuesta) {
+                    return
+                }
+
+                totalSolicitudes++
+
+                const fechaAceptada = toDateFromUnknownTimestamp(
+                    propuestaData.fecha_aceptada,
+                )
+
+                if (!fechaAceptada) {
+                    return
+                }
+
+                const diffMs = fechaAceptada.getTime() - fechaPropuesta.getTime()
+                if (diffMs < 0) {
+                    return
+                }
+
+                totalAtendidas++
+                totalResponseTimeMs += diffMs
+            })
+
+            const responseRate =
+                totalSolicitudes > 0 ? (totalAtendidas / totalSolicitudes) * 100 : 0
+
+            const averageMinutes =
+                totalAtendidas > 0
+                    ? totalResponseTimeMs / totalAtendidas / (1000 * 60)
+                    : 0
+
+            setResponseMetrics({
+                responseRate,
+                averageMinutes,
+                totalSolicitudes,
+                totalAtendidas,
+            })
+        } catch (error) {
+            console.error('Error al obtener métricas de respuesta:', error)
+        }
+    }
+
+    useEffect(() => {
+        fetchResponseMetrics()
     }, [])
 
     const [talleresPage, setTalleresPage] = useState(1)
     const talleresPerPage = 4
+    const [usuariosPage, setUsuariosPage] = useState(1)
+    const usuariosPerPage = 4
+    const periodosMeses: PeriodoMeses[] = [1, 3, 6]
 
 const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_puntuacion: number }>[] = [
     {
@@ -467,7 +658,15 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
         ),
     }
 
-    const usuariosMasActivos: { nombre: string; acciones: number }[] = []
+    const responseRateLabel = `${responseMetrics.responseRate.toFixed(1)}%`
+    const responseProgressWidth = `${Math.max(
+        0,
+        Math.min(100, responseMetrics.responseRate),
+    )}%`
+    const averageResponseLabel =
+        responseMetrics.totalAtendidas > 0
+            ? `${responseMetrics.averageMinutes.toFixed(1)} min`
+            : '— min'
 
     const topServicios = [...dataPuntuacion]
         .sort(
@@ -512,36 +711,54 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                 onRequestClose={() => setIsResumenCriticoPopupOpen(false)}
                 width={560}
             >
-                <h4 className="mb-2 text-[#000B7E] font-bold">
-                    Buen dia, hoy tienes:
-                </h4>
-                <div className="space-y-2 text-sm text-gray-700">
-                    <p>
-                        <span className="font-semibold text-gray-900">
-                            {talleresNuevosEnEspera}
-                        </span>{' '}
-                        talleres nuevos registrados (esperando revision).
+                <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-blue-50 to-sky-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                        Resumen diario
                     </p>
-                    <p>
-                        <span className="font-semibold text-gray-900">
-                            {pagosPendientesValidar}
-                        </span>{' '}
-                        pagos pendientes por validar.
-                    </p>
-                    <p>
-                        <span className="font-semibold text-gray-900">
-                            {talleresVencidosHoy}
-                        </span>{' '}
-                        talleres que vencieron hoy.
+                    <h4 className="mt-1 text-2xl font-extrabold text-[#000B7E] leading-tight">
+                        Buen día, estas son tus alertas clave
+                    </h4>
+                    <p className="mt-2 text-sm text-gray-600">
+                        Estado operativo del panel administrativo para hoy.
                     </p>
                 </div>
-                <div className="mt-5 flex justify-end">
+
+                <div className="mt-4 grid gap-3">
+                    <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 flex items-center justify-between">
+                        <p className="text-base font-semibold text-blue-900">
+                            Talleres nuevos en espera de revisión
+                        </p>
+                        <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-blue-700">
+                            {talleresNuevosEnEspera}
+                        </span>
+                    </div>
+
+                    <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5 flex items-center justify-between">
+                        <p className="text-base font-semibold text-amber-900">
+                            Pagos pendientes por validar
+                        </p>
+                        <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-amber-700">
+                            {pagosPendientesValidar}
+                        </span>
+                    </div>
+
+                    <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 flex items-center justify-between">
+                        <p className="text-base font-semibold text-rose-900">
+                            Talleres con vencimiento hoy
+                        </p>
+                        <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-rose-700">
+                            {talleresVencidosHoy}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="mt-5 flex justify-end border-t border-gray-100 pt-4">
                     <Button
                         variant="solid"
                         style={{ backgroundColor: '#000B7E' }}
                         onClick={() => setIsResumenCriticoPopupOpen(false)}
                     >
-                        Entendido
+                        <span className="text-sm font-semibold">Ver dashboard</span>
                     </Button>
                 </div>
             </Dialog>
@@ -846,18 +1063,22 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                         </p>
                                         <div className="mt-2 flex items-end gap-3">
                                             <p className="text-3xl font-bold tabular-nums">
-                                                —%
+                                                {responseRateLabel}
                                             </p>
                                             <span className="text-xs text-white/80">
                                                 de solicitudes atendidas
                                             </span>
                                         </div>
                                         <div className="mt-3 h-1.5 w-full rounded-full bg-white/20 overflow-hidden">
-                                            <div className="h-full w-1/3 rounded-full bg-emerald-300/90" />
+                                            <div
+                                                className="h-full rounded-full bg-emerald-300/90 transition-all"
+                                                style={{ width: responseProgressWidth }}
+                                            />
                                         </div>
                                         <p className="mt-2 text-[11px] text-white/80">
-                                            Este valor se calculará automáticamente al conectar los datos
-                                            de solicitudes y respuestas de cada taller.
+                                            {responseMetrics.totalAtendidas} de{' '}
+                                            {responseMetrics.totalSolicitudes} solicitudes tienen
+                                            respuesta registrada.
                                         </p>
                                     </div>
                                     <div className="border-t border-white/10 pt-4">
@@ -866,15 +1087,14 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                         </p>
                                         <div className="mt-2 flex items-end gap-3">
                                             <p className="text-3xl font-bold tabular-nums">
-                                                — min
+                                                {averageResponseLabel}
                                             </p>
                                             <span className="text-xs text-white/80">
                                                 desde que el cliente envía la solicitud
                                             </span>
                                         </div>
                                         <p className="mt-2 text-[11px] text-white/80">
-                                            Una vez disponible la fuente de datos, aquí verás el tiempo
-                                            medio de respuesta consolidado por taller.
+                                            Basado en las solicitudes para obtener el promedio.
                                         </p>
                                     </div>
                                 </div>
@@ -882,18 +1102,40 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
 
                             <section className="grid grid-cols-2 gap-3 flex-1 min-h-0">
                                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-                                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
-                                        <h3 className="text-sm font-semibold text-gray-800">
-                                            Talleres más activos
-                                        </h3>
-                                        <p className="text-xs text-gray-500">
-                                            Ranking según cantidad de servicios activos
-                                        </p>
+                                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-start justify-between gap-3">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-gray-800">
+                                                Talleres más activos
+                                            </h3>
+                                            <p className="text-xs text-gray-500">
+                                                Ranking según solicitudes atendidas
+                                            </p>
+                                        </div>
+                                        <div className="inline-flex rounded-full bg-gray-100 p-1 text-xs font-medium">
+                                            {periodosMeses.map((meses) => (
+                                                <button
+                                                    key={`talleres-${meses}`}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setTalleresPeriodoMeses(meses)
+                                                    }
+                                                    className={`px-2 py-1 rounded-full transition-colors ${
+                                                        talleresPeriodoMeses === meses
+                                                            ? 'bg-[#000B7E] text-white shadow-sm'
+                                                            : 'text-gray-600'
+                                                    }`}
+                                                >
+                                                    {meses === 1 ? '1 mes' : `${meses} meses`}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                     <div className="flex-1 min-h-0 p-3 overflow-auto">
                                         {topTalleresActivos.length === 0 ? (
                                             <p className="text-xs text-gray-500 text-center py-4">
-                                                No hay talleres activos con servicios publicados que cumplan los filtros.
+                                                Aún no hay talleres con solicitudes atendidas en los
+                                                últimos {talleresPeriodoMeses}{' '}
+                                                {talleresPeriodoMeses === 1 ? 'mes' : 'meses'}.
                                             </p>
                                         ) : (
                                             <>
@@ -925,20 +1167,11 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                                                             <p className="text-xs font-semibold text-gray-800 truncate">
                                                                                 {taller.nombre}
                                                                             </p>
-                                                                            {taller.nombrePlan && (
-                                                                                <p className="text-[11px] text-gray-600 truncate">
-                                                                                    Plan: {taller.nombrePlan}
-                                                                                </p>
-                                                                            )}
                                                                         </div>
                                                                         <div className="text-right sm:text-right text-[11px] text-gray-500">
                                                                             <p>
-                                                                                {taller.serviciosActivos} servicios activos
-                                                                            </p>
-                                                                            <p>
-                                                                                {taller.diasRestantes === 0
-                                                                                    ? 'Vence hoy'
-                                                                                    : `${taller.diasRestantes} día${taller.diasRestantes !== 1 ? 's' : ''} restante${taller.diasRestantes !== 1 ? 's' : ''}`}
+                                                                                {taller.solicitudesAtendidas}{' '}
+                                                                                solicitudes atendidas
                                                                             </p>
                                                                         </div>
                                                                     </div>
@@ -962,41 +1195,90 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                     </div>
                                 </div>
                                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-                                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50">
-                                        <h3 className="text-sm font-semibold text-gray-800">
-                                            Usuarios más activos
-                                        </h3>
-                                        <p className="text-xs text-gray-500">
-                                            Ranking según interacciones (pendiente de integrar)
-                                        </p>
+                                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-start justify-between gap-3">
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-gray-800">
+                                                Usuarios más activos
+                                            </h3>
+                                            <p className="text-xs text-gray-500">
+                                                Ranking según solicitudes creadas
+                                            </p>
+                                        </div>
+                                        <div className="inline-flex rounded-full bg-gray-100 p-1 text-xs font-medium">
+                                            {periodosMeses.map((meses) => (
+                                                <button
+                                                    key={`usuarios-${meses}`}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setUsuariosPeriodoMeses(meses)
+                                                    }
+                                                    className={`px-2 py-1 rounded-full transition-colors ${
+                                                        usuariosPeriodoMeses === meses
+                                                            ? 'bg-[#000B7E] text-white shadow-sm'
+                                                            : 'text-gray-600'
+                                                    }`}
+                                                >
+                                                    {meses === 1 ? '1 mes' : `${meses} meses`}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                     <div className="flex-1 min-h-0 p-3 overflow-auto">
                                         {usuariosMasActivos.length === 0 ? (
                                             <p className="text-xs text-gray-500 text-center py-4">
-                                                Cuando se conecte la fuente de datos de interacción,
-                                                aquí verás el ranking de usuarios más activos.
+                                                Aún no hay solicitudes registradas por usuarios en los
+                                                últimos {usuariosPeriodoMeses}{' '}
+                                                {usuariosPeriodoMeses === 1 ? 'mes' : 'meses'}.
                                             </p>
                                         ) : (
-                                            <ul className="space-y-2">
-                                                {usuariosMasActivos.map((usuario, index) => (
-                                                    <li
-                                                        key={`${usuario.nombre}-${index}`}
-                                                        className="rounded-lg border border-gray-200 px-3 py-2 flex items-center justify-between"
-                                                    >
-                                                        <div>
-                                                            <p className="text-xs font-semibold text-gray-800">
-                                                                {usuario.nombre}
-                                                            </p>
-                                                            <p className="text-[11px] text-gray-500">
-                                                                {usuario.acciones} acciones
-                                                            </p>
-                                                        </div>
-                                                        <span className="text-xs font-semibold text-[#000B7E]">
-                                                            #{index + 1}
-                                                        </span>
-                                                    </li>
-                                                ))}
-                                            </ul>
+                                            <>
+                                                <ul className="space-y-2">
+                                                    {usuariosMasActivos
+                                                        .slice(
+                                                            (usuariosPage - 1) * usuariosPerPage,
+                                                            usuariosPage * usuariosPerPage,
+                                                        )
+                                                        .map((usuario, index) => (
+                                                            <li
+                                                                key={usuario.id}
+                                                                className="rounded-lg border border-gray-200 px-3 py-2 flex items-center justify-between gap-3"
+                                                            >
+                                                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                    {usuario.image_perfil ? (
+                                                                        <img
+                                                                            src={usuario.image_perfil}
+                                                                            alt={usuario.nombre}
+                                                                            className="w-9 h-9 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-700 flex-shrink-0">
+                                                                            {usuario.nombre.charAt(0).toUpperCase()}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-xs font-semibold text-gray-800 truncate">
+                                                                            {usuario.nombre}
+                                                                        </p>
+                                                                        <p className="text-[11px] text-gray-500">
+                                                                            {usuario.acciones} solicitudes creadas
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <span className="text-xs font-semibold text-[#000B7E]">
+                                                                    #{(usuariosPage - 1) * usuariosPerPage + index + 1}
+                                                                </span>
+                                                            </li>
+                                                        ))}
+                                                </ul>
+                                                <div className="mt-3 border-t border-gray-200 pt-2">
+                                                    <Pagination
+                                                        currentPage={usuariosPage}
+                                                        totalRows={usuariosMasActivos.length}
+                                                        rowsPerPage={usuariosPerPage}
+                                                        onChange={setUsuariosPage}
+                                                    />
+                                                </div>
+                                            </>
                                         )}
                                     </div>
                                 </div>

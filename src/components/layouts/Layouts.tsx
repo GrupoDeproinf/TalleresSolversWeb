@@ -12,6 +12,7 @@ import {
 import useAuth from '@/utils/hooks/useAuth'
 import useDirection from '@/utils/hooks/useDirection'
 import useLocale from '@/utils/hooks/useLocale'
+import loadingSolversNew from '@/assets/loading/loadingSolversNew.gif'
 
 const layouts = {
     [LAYOUT_TYPE_CLASSIC]: lazy(() => import('./ClassicLayout')),
@@ -24,6 +25,7 @@ const layouts = {
 
 const Layout = () => {
     const layoutType = useAppSelector((state) => state.theme.layout.type)
+    const authLoading = useAppSelector((state) => state.auth.session.isLoading)
 
     const { authenticated } = useAuth()
 
@@ -37,6 +39,18 @@ const Layout = () => {
         }
         return lazy(() => import('./AuthLayout'))
     }, [layoutType, authenticated])
+
+    if (authLoading) {
+        return (
+            <div className="flex h-[100vh] w-full items-center justify-center bg-[#4c5955]">
+                <img
+                    src={loadingSolversNew}
+                    alt="Cargando"
+                    className="w-56 max-w-[70vw] object-contain"
+                />
+            </div>
+        )
+    }
 
     return (
         <Suspense

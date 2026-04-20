@@ -3,6 +3,7 @@ import {
     setUser,
     signInSuccess,
     signOutSuccess,
+    setSessionLoading,
     useAppSelector,
     useAppDispatch,
 } from '@/store'
@@ -53,6 +54,7 @@ function useAuth() {
     > => {
         let collectionToCheck: 'Usuarios' | 'Admins' | null = null
         let userData: any = null
+        let matchedUserKey = ''
     
         // Consultar en la colección Usuarios
         const queryUsuarios = query(
@@ -63,10 +65,12 @@ function useAuth() {
     
         if (!usuariosSnapshot.empty) {
             // Si el usuario está en la colección Usuarios
-            const potentialUser = usuariosSnapshot.docs[0].data()
+            const firstUserDoc = usuariosSnapshot.docs[0]
+            const potentialUser = firstUserDoc.data()
             if (potentialUser.typeUser === 'Taller' || potentialUser.typeUser === 'Certificador') {
                 collectionToCheck = 'Usuarios'
                 userData = potentialUser
+                matchedUserKey = firstUserDoc.id
             } else {
                 return {
                     status: 'failed',
@@ -83,8 +87,10 @@ function useAuth() {
     
             if (!adminsSnapshot.empty) {
                 // Si el usuario está en la colección Admins
+                const firstAdminDoc = adminsSnapshot.docs[0]
                 collectionToCheck = 'Admins'
-                userData = adminsSnapshot.docs[0].data()
+                userData = firstAdminDoc.data()
+                matchedUserKey = firstAdminDoc.id
             }
         }
     
@@ -97,6 +103,8 @@ function useAuth() {
         }
         
     
+        dispatch(setSessionLoading(true))
+
         // Intentar iniciar sesión con Firebase Auth
         try {
             const auth = getAuth()
@@ -108,59 +116,61 @@ function useAuth() {
     
             if (userCredential?.user?.uid) {
                 const token = userCredential.user.uid
-                dispatch(signInSuccess(token))
+                const userDocRef = doc(db, collectionToCheck, userCredential.user.uid)
     
                 // Obtener detalles del usuario desde la colección correspondiente
-                const userDoc = await getDoc(
-                    doc(db, collectionToCheck, userCredential.user.uid),
-                )
-    
-                if (userDoc.exists()) {
-                    const userInfo = userDoc.data()
-                    localStorage.setItem('nombre', userInfo?.nombre)
-                    const trimmedType = String(userInfo?.typeUser ?? '').trim()
-                    let userAuthority: string =
-                        trimmedType === 'Certificador' ? ADMIN : trimmedType
-                    if (!userAuthority) {
-                        userAuthority =
-                            collectionToCheck === 'Admins' ? ADMIN : USER
-                    } else {
-                        const lower = userAuthority.toLowerCase()
-                        if (lower === 'admin' || lower === 'administrador') {
-                            userAuthority = ADMIN
-                        }
-                    }
-                    const authority = [userAuthority]
-                    dispatch(
-                        setUser({
-                            avatar: '',
-                            userName: userInfo?.nombre,
-                            email: userInfo?.email,
-                            key: userDoc.id,
-                            authority, // ['Taller'], ['Admin'], o ['Admin'] para Certificador
-                        }),
-                    )
-                    const redirectUrl = queryRedirect.get(REDIRECT_URL_KEY)
-                    const homePath = getAuthenticatedHomePath(
-                        authority,
-                        userDoc.id,
-                    )
-                    // Taller: siempre entrada en Mi Perfil (no seguir redirect al dashboard u otras rutas admin).
-                    if (authority.includes(USER)) {
-                        navigate(homePath)
-                    } else {
-                        navigate(
-                            resolvePostSignInPath(
-                                redirectUrl,
-                                authority,
-                                userDoc.id,
-                            ),
-                        )
-                    }
+                const userDoc = await getDoc(userDocRef)
+                const userInfo = userDoc.exists() ? userDoc.data() : userData
+                const userKey = userDoc.exists() ? userDoc.id : matchedUserKey || token
+
+                if (!userInfo) {
                     return {
-                        status: 'success',
-                        message: '',
+                        status: 'failed',
+                        message: 'Error al obtener la información del usuario',
                     }
+                }
+
+                localStorage.setItem('nombre', userInfo?.nombre ?? '')
+                const trimmedType = String(userInfo?.typeUser ?? '').trim()
+                let userAuthority: string =
+                    trimmedType === 'Certificador' ? ADMIN : trimmedType
+                if (!userAuthority) {
+                    userAuthority =
+                        collectionToCheck === 'Admins' ? ADMIN : USER
+                } else {
+                    const lower = userAuthority.toLowerCase()
+                    if (lower === 'admin' || lower === 'administrador') {
+                        userAuthority = ADMIN
+                    }
+                }
+                const authority = [userAuthority]
+                dispatch(
+                    setUser({
+                        avatar: '',
+                        userName: userInfo?.nombre,
+                        email: userInfo?.email,
+                        key: userKey,
+                        authority, // ['Taller'], ['Admin'], o ['Admin'] para Certificador
+                    }),
+                )
+                dispatch(signInSuccess(token))
+                const redirectUrl = queryRedirect.get(REDIRECT_URL_KEY)
+                const homePath = getAuthenticatedHomePath(authority, userKey)
+                // Taller: siempre entrada en Mi Perfil (no seguir redirect al dashboard u otras rutas admin).
+                if (authority.includes(USER)) {
+                    navigate(homePath)
+                } else {
+                    navigate(
+                        resolvePostSignInPath(
+                            redirectUrl,
+                            authority,
+                            userKey,
+                        ),
+                    )
+                }
+                return {
+                    status: 'success',
+                    message: '',
                 }
             } else {
                 return {
@@ -173,6 +183,8 @@ function useAuth() {
                 status: 'failed',
                 message: 'Su contraseña es inválida',
             }
+        } finally {
+            dispatch(setSessionLoading(false))
         }
     }
     

@@ -1,9 +1,15 @@
 import { lazy } from 'react'
-import { APP_PREFIX_PATH } from '@/constants/route.constant'
+import { APP_PREFIX_PATH, TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
 import { ADMIN, USER } from '@/constants/roles.constant'
 import type { Routes } from '@/@types/routes'
 
 const appsRoute: Routes = [
+    {
+        key: 'appsTaller.dashboard',
+        path: TALLER_DASHBOARD_PATH,
+        component: lazy(() => import('@/views/pages/TallerDashboard')),
+        authority: [USER],
+    },
     {
         key: 'appsProject.dashboard',
         path: `${APP_PREFIX_PATH}/project/dashboard`,
