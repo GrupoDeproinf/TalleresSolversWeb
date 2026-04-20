@@ -170,6 +170,9 @@ function serviceSearchableText(s: Service): string {
 const ServicesList = () => {
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
     const loggedInUserId = useAppSelector((state) => state.auth.user.key)
+    const isTallerUser = (userAuthority || []).some(
+        (role) => String(role).toLowerCase() === 'taller',
+    )
 
     const [dataServices, setDataServices] = useState<Service[]>([])
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
@@ -185,8 +188,20 @@ const ServicesList = () => {
 
     const fetchData = async () => {
         try {
+            // Si es taller y aún no hay UID de sesión, evitamos traer servicios globales.
+            if (isTallerUser && !loggedInUserId) {
+                setDataServices([])
+                return
+            }
+
             // Consultas para obtener datos
-            const servicesQuery = query(collection(db, 'Servicios'))
+            const servicesQuery =
+                isTallerUser && loggedInUserId
+                    ? query(
+                          collection(db, 'Servicios'),
+                          where('uid_taller', '==', loggedInUserId),
+                      )
+                    : query(collection(db, 'Servicios'))
             const garagesQuery = query(collection(db, 'Usuarios'))
 
             // Ejecutar todas las consultas en paralelo
@@ -214,7 +229,7 @@ const ServicesList = () => {
 
     useEffect(() => {
         fetchData()
-    }, [])
+    }, [isTallerUser, loggedInUserId])
 
     // Aplicar filtros de estado y tipo de servicio cuando cambien
     useEffect(() => {
