@@ -22,71 +22,16 @@ import type { ReactNode } from 'react'
 const { TabNav, TabList, TabContent } = Tabs
 const { Tr, Th, Td, THead, TBody } = Table
 
-// Mock para Histórico de clientes (solo estructura visual, sin BD)
-type VisitaCliente = { fecha: string; servicios: string[] }
-type ClienteHistorico = {
+export type ClienteHistorico = {
     id: string
+    tipo: 'emergencia' | 'normal'
     nombre: string
     vehiculo: string
     contacto: string
-    frecuenciaVisitas: string
-    visitas: VisitaCliente[]
+    servicio: string
+    fecha: string
+    descripcion?: string
 }
-const MOCK_CLIENTES_HISTORICO: ClienteHistorico[] = [
-    {
-        id: '1',
-        nombre: 'Carlos Mendoza',
-        vehiculo: 'Toyota Corolla 2020',
-        contacto: 'carlos.m@email.com · 0412-1234567',
-        frecuenciaVisitas: 'Cada 3 meses',
-        visitas: [
-            {
-                fecha: '15/01/2025',
-                servicios: [
-                    'Cambio de aceite',
-                    'Filtro de aire',
-                    'Revisión frenos',
-                ],
-            },
-            { fecha: '20/10/2024', servicios: ['Alineación', 'Balanceo'] },
-        ],
-    },
-    {
-        id: '2',
-        nombre: 'María González',
-        vehiculo: 'Honda Civic 2019',
-        contacto: 'maria.g@email.com · 0424-7654321',
-        frecuenciaVisitas: 'Cada 2 meses',
-        visitas: [
-            {
-                fecha: '08/02/2025',
-                servicios: ['Cambio de aceite', 'Lavado de inyectores'],
-            },
-            {
-                fecha: '12/12/2024',
-                servicios: ['Revisión general', 'Cambio de bujías'],
-            },
-            { fecha: '05/10/2024', servicios: ['Cambio de aceite'] },
-        ],
-    },
-    {
-        id: '3',
-        nombre: 'Luis Pérez',
-        vehiculo: 'Ford Explorer 2021',
-        contacto: 'luis.p@email.com · 0416-9876543',
-        frecuenciaVisitas: 'Cada 4 meses',
-        visitas: [
-            {
-                fecha: '22/01/2025',
-                servicios: [
-                    'Cambio de aceite',
-                    'Filtro de combustible',
-                    'Revisión suspensión',
-                ],
-            },
-        ],
-    },
-]
 
 export type SubscriptionTab = {
     nombre?: string
@@ -132,6 +77,7 @@ export interface ProfileGarageTabsProps {
     >
     onSavePaymentMethods: () => void
     data: DocumentData | null
+    historicoClientes: ClienteHistorico[]
     openDocumentModal: (
         url: string,
         name: string,
@@ -166,23 +112,32 @@ export default function ProfileGarageTabs({
     setPaymentMethodsState,
     onSavePaymentMethods,
     data,
+    historicoClientes,
     openDocumentModal,
 }: ProfileGarageTabsProps) {
     const [historicoSearch, setHistoricoSearch] = useState('')
     const [historicoExpandedId, setHistoricoExpandedId] = useState<
         string | null
     >(null)
+    const [historicoTipo, setHistoricoTipo] = useState<
+        'ambos' | 'emergencia' | 'normal'
+    >('ambos')
 
     const clientesHistoricoFiltrados = useMemo(() => {
-        if (!historicoSearch.trim()) return MOCK_CLIENTES_HISTORICO
+        const list =
+            historicoTipo === 'ambos'
+                ? historicoClientes
+                : historicoClientes.filter((c) => c.tipo === historicoTipo)
+        if (!historicoSearch.trim()) return list
         const q = historicoSearch.toLowerCase().trim()
-        return MOCK_CLIENTES_HISTORICO.filter(
+        return list.filter(
             (c) =>
                 c.nombre.toLowerCase().includes(q) ||
                 c.vehiculo.toLowerCase().includes(q) ||
-                c.contacto.toLowerCase().includes(q),
+                c.contacto.toLowerCase().includes(q) ||
+                c.servicio.toLowerCase().includes(q),
         )
-    }, [historicoSearch])
+    }, [historicoClientes, historicoSearch, historicoTipo])
 
     return (
         <div className="flex-1 min-w-0">
@@ -192,7 +147,7 @@ export default function ProfileGarageTabs({
                     <TabNav value="tab2">Servicios</TabNav>
                     <TabNav value="tab3">Documentos</TabNav>
                     {/* <TabNav value="tab4">Promociones</TabNav> */}
-                    {/* <TabNav value="tab5">Histórico de clientes</TabNav> */}
+                    <TabNav value="tab5">Histórico de clientes</TabNav>
                 </TabList>
                 <div className="w-full">
                     <TabContent value="tab1">
@@ -862,17 +817,62 @@ export default function ProfileGarageTabs({
                         </h6>
                         <Card bordered className="mb-4 overflow-hidden">
                             <div className="p-4 border-b border-gray-200 bg-gray-50/50">
-                                <div className="relative max-w-sm">
-                                    <input
-                                        type="text"
-                                        placeholder="Buscar por nombre, vehículo o contacto..."
-                                        className="w-full py-2.5 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                                        value={historicoSearch}
-                                        onChange={(e) =>
-                                            setHistoricoSearch(e.target.value)
-                                        }
-                                    />
-                                    <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
+                                <div className="flex flex-col md:flex-row md:items-center gap-3">
+                                    <div className="relative max-w-sm w-full">
+                                        <input
+                                            type="text"
+                                            placeholder="Buscar por nombre, vehículo, contacto o servicio..."
+                                            className="w-full py-2.5 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                                            value={historicoSearch}
+                                            onChange={(e) =>
+                                                setHistoricoSearch(
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant={
+                                                historicoTipo === 'ambos'
+                                                    ? 'solid'
+                                                    : 'default'
+                                            }
+                                            onClick={() =>
+                                                setHistoricoTipo('ambos')
+                                            }
+                                        >
+                                            Ambos
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={
+                                                historicoTipo === 'emergencia'
+                                                    ? 'solid'
+                                                    : 'default'
+                                            }
+                                            onClick={() =>
+                                                setHistoricoTipo('emergencia')
+                                            }
+                                        >
+                                            Emergencia
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={
+                                                historicoTipo === 'normal'
+                                                    ? 'solid'
+                                                    : 'default'
+                                            }
+                                            onClick={() =>
+                                                setHistoricoTipo('normal')
+                                            }
+                                        >
+                                            Base
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
                             <div className="divide-y divide-gray-200">
@@ -942,12 +942,13 @@ export default function ProfileGarageTabs({
                                                             </div>
                                                             <div>
                                                                 <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                                                                    Frecuencia
+                                                                    Tipo
                                                                 </span>
                                                                 <p className="text-sm text-gray-700">
-                                                                    {
-                                                                        cliente.frecuenciaVisitas
-                                                                    }
+                                                                    {cliente.tipo ===
+                                                                    'emergencia'
+                                                                        ? 'Emergencia'
+                                                                        : 'Normal'}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -955,48 +956,35 @@ export default function ProfileGarageTabs({
                                                     {isOpen && (
                                                         <div className="bg-gray-50/70 border-t border-gray-100 px-4 pb-4 pt-2">
                                                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                                                                Visitas y
-                                                                servicios
-                                                                realizados
+                                                                Detalles del
+                                                                servicio
                                                             </p>
-                                                            <div className="space-y-4">
-                                                                {cliente.visitas.map(
-                                                                    (
-                                                                        visita,
-                                                                        idx,
-                                                                    ) => (
-                                                                        <div
-                                                                            key={
-                                                                                idx
-                                                                            }
-                                                                            className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
-                                                                        >
-                                                                            <p className="text-sm font-medium text-gray-800 mb-2">
-                                                                                Fecha:{' '}
-                                                                                {
-                                                                                    visita.fecha
-                                                                                }
-                                                                            </p>
-                                                                            <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                                                                                {visita.servicios.map(
-                                                                                    (
-                                                                                        s,
-                                                                                        i,
-                                                                                    ) => (
-                                                                                        <li
-                                                                                            key={
-                                                                                                i
-                                                                                            }
-                                                                                        >
-                                                                                            {
-                                                                                                s
-                                                                                            }
-                                                                                        </li>
-                                                                                    ),
-                                                                                )}
-                                                                            </ul>
-                                                                        </div>
-                                                                    ),
+                                                            <div className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm space-y-2">
+                                                                <p className="text-sm text-gray-800">
+                                                                    <span className="font-medium">
+                                                                        Fecha:
+                                                                    </span>{' '}
+                                                                    {
+                                                                        cliente.fecha
+                                                                    }
+                                                                </p>
+                                                                <p className="text-sm text-gray-800">
+                                                                    <span className="font-medium">
+                                                                        Servicio:
+                                                                    </span>{' '}
+                                                                    {
+                                                                        cliente.servicio
+                                                                    }
+                                                                </p>
+                                                                {cliente.descripcion && (
+                                                                    <p className="text-sm text-gray-700">
+                                                                        <span className="font-medium">
+                                                                            Descripción:
+                                                                        </span>{' '}
+                                                                        {
+                                                                            cliente.descripcion
+                                                                        }
+                                                                    </p>
                                                                 )}
                                                             </div>
                                                         </div>

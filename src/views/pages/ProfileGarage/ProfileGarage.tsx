@@ -79,7 +79,9 @@ import MapsProfile from './Components/MapsProfile'
 import MapsEdit from './Components/MapsEdit'
 import EditServiceDrawer from './Components/EditServiceDrawer'
 import EditPromotionDrawer from './Components/EditPromotionDrawer'
-import ProfileGarageTabs from './Components/ProfileGarageTabs'
+import ProfileGarageTabs, {
+    type ClienteHistorico,
+} from './Components/ProfileGarageTabs'
 import axios from 'axios'
 
 type Service = {
@@ -172,6 +174,8 @@ type SubscriptionHistory = {
     fechaCreacion: Timestamp
 }
 
+type HistoricoRecord = ClienteHistorico
+
 const ProfileGarage = () => {
     const [data, setData] = useState<DocumentData | null>(null)
     const [isSuscrito, setIsSuscrito] = useState(false)
@@ -201,6 +205,9 @@ const ProfileGarage = () => {
     const [subscripcionestable, setSubscriptionHistory] = useState<
         SubscriptionHistory[]
     >([])
+    const [historicoClientes, setHistoricoClientes] = useState<HistoricoRecord[]>(
+        [],
+    )
     const [formData, setFormData] = useState<{
         image_perfil: string
         nombre: string
@@ -357,6 +364,110 @@ const ProfileGarage = () => {
                 }
             })
 
+            const toText = (value: unknown) => {
+                if (value === null || value === undefined) return ''
+                return String(value).trim()
+            }
+            const formatDateValue = (value: unknown) => {
+                if (!value) return 'Sin fecha'
+                if (
+                    typeof value === 'object' &&
+                    value !== null &&
+                    'toDate' in (value as Record<string, unknown>) &&
+                    typeof (value as { toDate?: () => Date }).toDate ===
+                        'function'
+                ) {
+                    return (
+                        value as { toDate: () => Date }
+                    ).toDate().toLocaleString('es-VE')
+                }
+                if (value instanceof Date) {
+                    return value.toLocaleString('es-VE')
+                }
+                return toText(value)
+            }
+
+            const solicitudesSnapshot = await getDocs(collection(db, 'Solicitudes'))
+            const solicitudesHistorico: HistoricoRecord[] =
+                solicitudesSnapshot.docs
+                    .flatMap((docSnap) => {
+                        const raw = docSnap.data() as Record<string, any>
+                        const uidTaller = toText(
+                            raw.uid_taller ??
+                                raw.taller_uid ??
+                                raw.uid_taller_asignado ??
+                                raw.uid_taller_aceptado,
+                        )
+                        if (uidTaller && uidTaller !== path) return []
+                        const user = raw.usuario ?? {}
+                        const vehiculo = raw.vehiculo ?? {}
+                        return [{
+                            id: `sol-${docSnap.id}`,
+                            tipo: 'emergencia',
+                            nombre:
+                                toText(raw.nombre_usuario) ||
+                                toText(user.nombre) ||
+                                'Sin nombre',
+                            vehiculo:
+                                toText(vehiculo.vehiculo_marca) ||
+                                toText(vehiculo.tipo_vehiculo) ||
+                                'Sin vehículo',
+                            contacto:
+                                toText(raw.phone_usuario) ||
+                                toText(user.phone) ||
+                                toText(user.email) ||
+                                'Sin contacto',
+                            servicio:
+                                toText(raw.nombre_servicio) ||
+                                toText(raw.servicio) ||
+                                'Servicio de emergencia',
+                            fecha: formatDateValue(
+                                raw.fecha_solicitud ??
+                                    raw.fecha_creacion ??
+                                    raw.createdAt,
+                            ),
+                            descripcion: toText(raw.descripcion),
+                        } satisfies HistoricoRecord]
+                    })
+
+            const servicesContactSnapshot = await getDocs(
+                collection(db, 'servicesContact'),
+            )
+            const servicesContactHistorico: HistoricoRecord[] =
+                servicesContactSnapshot.docs
+                    .flatMap((docSnap) => {
+                        const raw = docSnap.data() as Record<string, any>
+                        const uidTaller = toText(raw.uid_taller ?? raw.taller_uid)
+                        if (uidTaller && uidTaller !== path) return []
+                        const user = raw.usuario ?? {}
+                        const vehiculo = raw.vehiculo ?? {}
+                        return [{
+                            id: `sc-${docSnap.id}`,
+                            tipo: 'normal',
+                            nombre:
+                                toText(user.nombre) ||
+                                toText(raw.nombre_usuario) ||
+                                'Sin nombre',
+                            vehiculo:
+                                toText(vehiculo.vehiculo_marca) ||
+                                toText(raw.vehiculo) ||
+                                'Sin vehículo',
+                            contacto:
+                                toText(user.email) ||
+                                toText(user.phone) ||
+                                toText(raw.phone_usuario) ||
+                                'Sin contacto',
+                            servicio:
+                                toText(raw.nombre_servicio) || 'Servicio normal',
+                            fecha: formatDateValue(
+                                raw.fecha_creacion ??
+                                    raw.fecha_solicitud ??
+                                    raw.createdAt,
+                            ),
+                            descripcion: toText(raw.descripcion),
+                        } satisfies HistoricoRecord]
+                    })
+
             // Promociones: de momento con data estática (MOCK_PROMOCIONES en estado inicial)
             // Cuando se conecte la BD: descomentar fetch y setPromociones(promociones)
             // const promocionesQuery = query(collection(db, 'Promociones'), where('uid_taller', '==', path))
@@ -381,6 +492,10 @@ const ProfileGarage = () => {
             setPlanes(planes)
             setSubscription(subscripcionActual)
             setSubscriptionHistory(subscripciones)
+            setHistoricoClientes([
+                ...solicitudesHistorico,
+                ...servicesContactHistorico,
+            ])
 
             const endDate = subscripcionActual?.fecha_fin
 
@@ -1782,6 +1897,7 @@ const ProfileGarage = () => {
                     setPaymentMethodsState={setPaymentMethodsState}
                     onSavePaymentMethods={handleSavePaymentMethods}
                     data={data}
+                    historicoClientes={historicoClientes}
                     openDocumentModal={openDocumentModal}
                 />
             </div>
