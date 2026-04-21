@@ -30,6 +30,7 @@ export type ClienteHistorico = {
     contacto: string
     servicio: string
     fecha: string
+    fechaTs?: number
     descripcion?: string
 }
 
@@ -122,12 +123,22 @@ export default function ProfileGarageTabs({
     const [historicoTipo, setHistoricoTipo] = useState<
         'ambos' | 'emergencia' | 'normal'
     >('ambos')
+    const [historicoDesde, setHistoricoDesde] = useState('')
+    const [historicoHasta, setHistoricoHasta] = useState('')
 
     const clientesHistoricoFiltrados = useMemo(() => {
-        const list =
+        let list =
             historicoTipo === 'ambos'
                 ? historicoClientes
                 : historicoClientes.filter((c) => c.tipo === historicoTipo)
+        if (historicoDesde) {
+            const start = new Date(`${historicoDesde}T00:00:00`).getTime()
+            list = list.filter((c) => (c.fechaTs ?? 0) >= start)
+        }
+        if (historicoHasta) {
+            const end = new Date(`${historicoHasta}T23:59:59`).getTime()
+            list = list.filter((c) => (c.fechaTs ?? 0) <= end)
+        }
         if (!historicoSearch.trim()) return list
         const q = historicoSearch.toLowerCase().trim()
         return list.filter(
@@ -137,7 +148,13 @@ export default function ProfileGarageTabs({
                 c.contacto.toLowerCase().includes(q) ||
                 c.servicio.toLowerCase().includes(q),
         )
-    }, [historicoClientes, historicoSearch, historicoTipo])
+    }, [
+        historicoClientes,
+        historicoSearch,
+        historicoTipo,
+        historicoDesde,
+        historicoHasta,
+    ])
 
     return (
         <div className="flex-1 min-w-0">
@@ -818,7 +835,7 @@ export default function ProfileGarageTabs({
                         <Card bordered className="mb-4 overflow-hidden">
                             <div className="p-4 border-b border-gray-200 bg-gray-50/50">
                                 <div className="flex flex-col md:flex-row md:items-center gap-3">
-                                    <div className="relative max-w-sm w-full">
+                                    <div className="relative w-full md:max-w-xs">
                                         <input
                                             type="text"
                                             placeholder="Buscar por nombre, vehículo, contacto o servicio..."
@@ -871,6 +888,39 @@ export default function ProfileGarageTabs({
                                             }
                                         >
                                             Base
+                                        </Button>
+                                    </div>
+                                    <div className="flex items-center gap-2 flex-nowrap">
+                                        <input
+                                            type="date"
+                                            className="py-2 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={historicoDesde}
+                                            onChange={(e) =>
+                                                setHistoricoDesde(
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <input
+                                            type="date"
+                                            className="py-2 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={historicoHasta}
+                                            onChange={(e) =>
+                                                setHistoricoHasta(
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        <Button
+                                            size="sm"
+                                            variant="default"
+                                            className="whitespace-nowrap"
+                                            onClick={() => {
+                                                setHistoricoDesde('')
+                                                setHistoricoHasta('')
+                                            }}
+                                        >
+                                            Limpiar
                                         </Button>
                                     </div>
                                 </div>

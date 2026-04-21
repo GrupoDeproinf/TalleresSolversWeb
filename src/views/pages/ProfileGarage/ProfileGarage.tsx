@@ -386,6 +386,21 @@ const ProfileGarage = () => {
                 }
                 return toText(value)
             }
+            const toMillis = (value: unknown): number => {
+                if (!value) return 0
+                if (
+                    typeof value === 'object' &&
+                    value !== null &&
+                    'toDate' in (value as Record<string, unknown>) &&
+                    typeof (value as { toDate?: () => Date }).toDate ===
+                        'function'
+                ) {
+                    return (value as { toDate: () => Date }).toDate().getTime()
+                }
+                if (value instanceof Date) return value.getTime()
+                const parsed = new Date(String(value)).getTime()
+                return Number.isNaN(parsed) ? 0 : parsed
+            }
 
             const solicitudesSnapshot = await getDocs(collection(db, 'Solicitudes'))
             const solicitudesHistorico: HistoricoRecord[] =
@@ -401,7 +416,11 @@ const ProfileGarage = () => {
                         if (uidTaller && uidTaller !== path) return []
                         const user = raw.usuario ?? {}
                         const vehiculo = raw.vehiculo ?? {}
-                        return [{
+                        const fechaRaw =
+                            raw.fecha_solicitud ??
+                            raw.fecha_creacion ??
+                            raw.createdAt
+                        const item: HistoricoRecord = {
                             id: `sol-${docSnap.id}`,
                             tipo: 'emergencia',
                             nombre:
@@ -421,13 +440,13 @@ const ProfileGarage = () => {
                                 toText(raw.nombre_servicio) ||
                                 toText(raw.servicio) ||
                                 'Servicio de emergencia',
-                            fecha: formatDateValue(
-                                raw.fecha_solicitud ??
-                                    raw.fecha_creacion ??
-                                    raw.createdAt,
-                            ),
+                            fecha: formatDateValue(fechaRaw),
+                            fechaTs: toMillis(fechaRaw),
                             descripcion: toText(raw.descripcion),
-                        } satisfies HistoricoRecord]
+                        }
+                        return [
+                            item,
+                        ]
                     })
 
             const servicesContactSnapshot = await getDocs(
@@ -441,7 +460,11 @@ const ProfileGarage = () => {
                         if (uidTaller && uidTaller !== path) return []
                         const user = raw.usuario ?? {}
                         const vehiculo = raw.vehiculo ?? {}
-                        return [{
+                        const fechaRaw =
+                            raw.fecha_creacion ??
+                            raw.fecha_solicitud ??
+                            raw.createdAt
+                        const item: HistoricoRecord = {
                             id: `sc-${docSnap.id}`,
                             tipo: 'normal',
                             nombre:
@@ -459,13 +482,13 @@ const ProfileGarage = () => {
                                 'Sin contacto',
                             servicio:
                                 toText(raw.nombre_servicio) || 'Servicio normal',
-                            fecha: formatDateValue(
-                                raw.fecha_creacion ??
-                                    raw.fecha_solicitud ??
-                                    raw.createdAt,
-                            ),
+                            fecha: formatDateValue(fechaRaw),
+                            fechaTs: toMillis(fechaRaw),
                             descripcion: toText(raw.descripcion),
-                        } satisfies HistoricoRecord]
+                        }
+                        return [
+                            item,
+                        ]
                     })
 
             // Promociones: de momento con data estática (MOCK_PROMOCIONES en estado inicial)
