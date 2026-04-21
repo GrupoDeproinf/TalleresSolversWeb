@@ -9,7 +9,12 @@ import Table from '@/components/ui/Table'
 import { Button, Pagination, Tabs } from '@/components/ui'
 import Checkbox from '@/components/ui/Checkbox'
 import { FaFilePdf, FaFileUpload, FaRegEye } from 'react-icons/fa'
-import { HiFire, HiOutlineSearch, HiChevronDown, HiChevronRight } from 'react-icons/hi'
+import {
+    HiFire,
+    HiOutlineSearch,
+    HiChevronDown,
+    HiChevronRight,
+} from 'react-icons/hi'
 import PaymentDrawer from './PaymentForm'
 import type { DocumentData } from 'firebase/firestore'
 import type { ReactNode } from 'react'
@@ -35,7 +40,14 @@ const MOCK_CLIENTES_HISTORICO: ClienteHistorico[] = [
         contacto: 'carlos.m@email.com · 0412-1234567',
         frecuenciaVisitas: 'Cada 3 meses',
         visitas: [
-            { fecha: '15/01/2025', servicios: ['Cambio de aceite', 'Filtro de aire', 'Revisión frenos'] },
+            {
+                fecha: '15/01/2025',
+                servicios: [
+                    'Cambio de aceite',
+                    'Filtro de aire',
+                    'Revisión frenos',
+                ],
+            },
             { fecha: '20/10/2024', servicios: ['Alineación', 'Balanceo'] },
         ],
     },
@@ -46,8 +58,14 @@ const MOCK_CLIENTES_HISTORICO: ClienteHistorico[] = [
         contacto: 'maria.g@email.com · 0424-7654321',
         frecuenciaVisitas: 'Cada 2 meses',
         visitas: [
-            { fecha: '08/02/2025', servicios: ['Cambio de aceite', 'Lavado de inyectores'] },
-            { fecha: '12/12/2024', servicios: ['Revisión general', 'Cambio de bujías'] },
+            {
+                fecha: '08/02/2025',
+                servicios: ['Cambio de aceite', 'Lavado de inyectores'],
+            },
+            {
+                fecha: '12/12/2024',
+                servicios: ['Revisión general', 'Cambio de bujías'],
+            },
             { fecha: '05/10/2024', servicios: ['Cambio de aceite'] },
         ],
     },
@@ -58,7 +76,14 @@ const MOCK_CLIENTES_HISTORICO: ClienteHistorico[] = [
         contacto: 'luis.p@email.com · 0416-9876543',
         frecuenciaVisitas: 'Cada 4 meses',
         visitas: [
-            { fecha: '22/01/2025', servicios: ['Cambio de aceite', 'Filtro de combustible', 'Revisión suspensión'] },
+            {
+                fecha: '22/01/2025',
+                servicios: [
+                    'Cambio de aceite',
+                    'Filtro de combustible',
+                    'Revisión suspensión',
+                ],
+            },
         ],
     },
 ]
@@ -102,10 +127,16 @@ export interface ProfileGarageTabsProps {
     diasRestantes: number | null
     paymentMethods: PaymentMethodOption[]
     paymentMethodsState: Record<string, boolean>
-    setPaymentMethodsState: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
+    setPaymentMethodsState: React.Dispatch<
+        React.SetStateAction<Record<string, boolean>>
+    >
     onSavePaymentMethods: () => void
     data: DocumentData | null
-    openDocumentModal: (url: string, name: string, type: 'image' | 'pdf') => void
+    openDocumentModal: (
+        url: string,
+        name: string,
+        type: 'image' | 'pdf',
+    ) => void
 }
 
 export default function ProfileGarageTabs({
@@ -138,7 +169,9 @@ export default function ProfileGarageTabs({
     openDocumentModal,
 }: ProfileGarageTabsProps) {
     const [historicoSearch, setHistoricoSearch] = useState('')
-    const [historicoExpandedId, setHistoricoExpandedId] = useState<string | null>(null)
+    const [historicoExpandedId, setHistoricoExpandedId] = useState<
+        string | null
+    >(null)
 
     const clientesHistoricoFiltrados = useMemo(() => {
         if (!historicoSearch.trim()) return MOCK_CLIENTES_HISTORICO
@@ -147,7 +180,7 @@ export default function ProfileGarageTabs({
             (c) =>
                 c.nombre.toLowerCase().includes(q) ||
                 c.vehiculo.toLowerCase().includes(q) ||
-                c.contacto.toLowerCase().includes(q)
+                c.contacto.toLowerCase().includes(q),
         )
     }, [historicoSearch])
 
@@ -158,8 +191,8 @@ export default function ProfileGarageTabs({
                     <TabNav value="tab1">Planes</TabNav>
                     <TabNav value="tab2">Servicios</TabNav>
                     <TabNav value="tab3">Documentos</TabNav>
-                    <TabNav value="tab4">Promociones</TabNav>
-                    <TabNav value="tab5">Histórico de clientes</TabNav>
+                    {/* <TabNav value="tab4">Promociones</TabNav> */}
+                    {/* <TabNav value="tab5">Histórico de clientes</TabNav> */}
                 </TabList>
                 <div className="w-full">
                     <TabContent value="tab1">
@@ -169,8 +202,8 @@ export default function ProfileGarageTabs({
                                 {!isSuscrito ? (
                                     <div className="flex justify-end">
                                         <p className="text-xs mr-64 mt-3">
-                                            Puede visualizar y suscribirse a
-                                            un plan para su taller...
+                                            Puede visualizar y suscribirse a un
+                                            plan para su taller...
                                         </p>
                                         <button
                                             onClick={onOpenPlansDialog}
@@ -185,7 +218,9 @@ export default function ProfileGarageTabs({
                                             <Avatar
                                                 className="bg-transparent"
                                                 shape="circle"
-                                                icon={<HiFire className="text-blue-600" />}
+                                                icon={
+                                                    <HiFire className="text-blue-600" />
+                                                }
                                             />
                                             <div>
                                                 <div className="flex items-center">
@@ -198,9 +233,10 @@ export default function ProfileGarageTabs({
                                                             subscription?.status ===
                                                             'Aprobado'
                                                                 ? 'bg-green-100 text-green-400'
-                                                                : subscription?.status === 'Vencido'
-                                                                ? 'bg-red-100 text-red-400'
-                                                                : 'bg-yellow-100 text-yellow-400'
+                                                                : subscription?.status ===
+                                                                    'Vencido'
+                                                                  ? 'bg-red-100 text-red-400'
+                                                                  : 'bg-yellow-100 text-yellow-400'
                                                         }`}
                                                     >
                                                         {subscription?.status ||
@@ -217,8 +253,16 @@ export default function ProfileGarageTabs({
                                                     <p className="text-xs text-gray-600">
                                                         Monto mensual:{' '}
                                                         <span className="font-bold text-gray-800">
-                                                            {subscription?.monto !== undefined && subscription?.monto !== null
-                                                                ? (subscription.monto === 0 || (subscription.monto < 0.01 && subscription.monto > -0.01))
+                                                            {subscription?.monto !==
+                                                                undefined &&
+                                                            subscription?.monto !==
+                                                                null
+                                                                ? subscription.monto ===
+                                                                      0 ||
+                                                                  (subscription.monto <
+                                                                      0.01 &&
+                                                                      subscription.monto >
+                                                                          -0.01)
                                                                     ? 'Gratis'
                                                                     : `$${subscription.monto}`
                                                                 : '---'}
@@ -230,8 +274,7 @@ export default function ProfileGarageTabs({
                                                             <p className="text-xs ml-2 text-gray-600">
                                                                 {diasRestantes ??
                                                                     '---'}{' '}
-                                                                días
-                                                                restantes
+                                                                días restantes
                                                             </p>
                                                             <p className="text-xs ml-2 text-gray-600">
                                                                 Fecha de
@@ -239,8 +282,8 @@ export default function ProfileGarageTabs({
                                                                 <span className="text-xs text-gray-600">
                                                                     {subscription.fecha_fin
                                                                         ? formatDate(
-                                                                            subscription.fecha_fin,
-                                                                        )
+                                                                              subscription.fecha_fin,
+                                                                          )
                                                                         : 'Fecha no disponible'}
                                                                 </span>
                                                             </p>
@@ -249,8 +292,7 @@ export default function ProfileGarageTabs({
                                                 </div>
                                             </div>
                                         </div>
-                                        {subscription?.status ===
-                                            'Vencido' && (
+                                        {subscription?.status === 'Vencido' && (
                                             <div className="flex justify-end gap-2 mt-2">
                                                 <button
                                                     onClick={onOpenPlansDialog}
@@ -262,7 +304,8 @@ export default function ProfileGarageTabs({
                                                     <PaymentDrawer
                                                         talleruid={tallerUid}
                                                         subscriptionId={
-                                                            subscription?.uid || ''
+                                                            subscription?.uid ||
+                                                            ''
                                                         }
                                                     />
                                                 )}
@@ -303,9 +346,7 @@ export default function ProfileGarageTabs({
                                             {table3
                                                 .getHeaderGroups()
                                                 .map((headerGroup) => (
-                                                    <Tr
-                                                        key={headerGroup.id}
-                                                    >
+                                                    <Tr key={headerGroup.id}>
                                                         {headerGroup.headers.map(
                                                             (header) => {
                                                                 return (
@@ -350,35 +391,30 @@ export default function ProfileGarageTabs({
                                                 .rows.slice(
                                                     (currentPage - 1) *
                                                         rowsPerPage,
-                                                    currentPage *
-                                                        rowsPerPage,
+                                                    currentPage * rowsPerPage,
                                                 )
                                                 .map((row) => {
                                                     return (
                                                         <Tr key={row.id}>
                                                             {row
                                                                 .getVisibleCells()
-                                                                .map(
-                                                                    (
-                                                                        cell,
-                                                                    ) => {
-                                                                        return (
-                                                                            <Td
-                                                                                key={
-                                                                                    cell.id
-                                                                                }
-                                                                            >
-                                                                                {flexRender(
-                                                                                    cell
-                                                                                        .column
-                                                                                        .columnDef
-                                                                                        .cell,
-                                                                                    cell.getContext(),
-                                                                                )}
-                                                                            </Td>
-                                                                        )
-                                                                    },
-                                                                )}
+                                                                .map((cell) => {
+                                                                    return (
+                                                                        <Td
+                                                                            key={
+                                                                                cell.id
+                                                                            }
+                                                                        >
+                                                                            {flexRender(
+                                                                                cell
+                                                                                    .column
+                                                                                    .columnDef
+                                                                                    .cell,
+                                                                                cell.getContext(),
+                                                                            )}
+                                                                        </Td>
+                                                                    )
+                                                                })}
                                                         </Tr>
                                                     )
                                                 })}
@@ -389,7 +425,9 @@ export default function ProfileGarageTabs({
                                         currentPage={currentPage}
                                         totalRows={totalRows}
                                         rowsPerPage={rowsPerPage}
-                                        onRowsPerPageChange={onRowsPerPageChange}
+                                        onRowsPerPageChange={
+                                            onRowsPerPageChange
+                                        }
                                     />
                                 </div>
                             </div>
@@ -406,14 +444,11 @@ export default function ProfileGarageTabs({
                                                     method.dbKey
                                                 ] || false
                                             }
-                                            onChange={(
-                                                checked: boolean,
-                                            ) => {
+                                            onChange={(checked: boolean) => {
                                                 setPaymentMethodsState(
                                                     (prevState) => ({
                                                         ...prevState,
-                                                        [method.dbKey]:
-                                                            checked,
+                                                        [method.dbKey]: checked,
                                                     }),
                                                 )
                                             }}
@@ -441,9 +476,7 @@ export default function ProfileGarageTabs({
                             <h6 className="mb-6 flex justify-start mt-4">
                                 Lista de Servicios
                             </h6>
-                            <Table
-                                className="w-full rounded-lg"
-                            >
+                            <Table className="w-full rounded-lg">
                                 <THead>
                                     {table
                                         .getHeaderGroups()
@@ -453,9 +486,7 @@ export default function ProfileGarageTabs({
                                                     (header) => {
                                                         return (
                                                             <Th
-                                                                key={
-                                                                    header.id
-                                                                }
+                                                                key={header.id}
                                                                 colSpan={
                                                                     header.colSpan
                                                                 }
@@ -540,18 +571,26 @@ export default function ProfileGarageTabs({
                             {data?.rifIdFiscal && (
                                 <div
                                     className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                    onClick={() => openDocumentModal(
-                                        data.rifIdFiscal,
-                                        'RIF ID Fiscal',
-                                        data.rifIdFiscal.includes('.pdf') ? 'pdf' : 'image'
-                                    )}
+                                    onClick={() =>
+                                        openDocumentModal(
+                                            data.rifIdFiscal,
+                                            'RIF ID Fiscal',
+                                            data.rifIdFiscal.includes('.pdf')
+                                                ? 'pdf'
+                                                : 'image',
+                                        )
+                                    }
                                 >
                                     <div className="aspect-video bg-gray-100 flex items-center justify-center">
                                         {data.rifIdFiscal.includes('.pdf') ? (
                                             <div className="text-center">
                                                 <FaFilePdf className="w-16 h-16 text-red-500 mx-auto mb-2" />
-                                                <p className="text-sm font-semibold text-gray-700">RIF ID Fiscal</p>
-                                                <p className="text-xs text-gray-500">PDF</p>
+                                                <p className="text-sm font-semibold text-gray-700">
+                                                    RIF ID Fiscal
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    PDF
+                                                </p>
                                             </div>
                                         ) : (
                                             <img
@@ -559,7 +598,9 @@ export default function ProfileGarageTabs({
                                                 alt="RIF ID Fiscal"
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                                 onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none'
+                                                    ;(
+                                                        e.target as HTMLImageElement
+                                                    ).style.display = 'none'
                                                 }}
                                             />
                                         )}
@@ -572,18 +613,30 @@ export default function ProfileGarageTabs({
                             {data?.permisoOperacion && (
                                 <div
                                     className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                    onClick={() => openDocumentModal(
-                                        data.permisoOperacion,
-                                        'Permiso de Operación',
-                                        data.permisoOperacion.includes('.pdf') ? 'pdf' : 'image'
-                                    )}
+                                    onClick={() =>
+                                        openDocumentModal(
+                                            data.permisoOperacion,
+                                            'Permiso de Operación',
+                                            data.permisoOperacion.includes(
+                                                '.pdf',
+                                            )
+                                                ? 'pdf'
+                                                : 'image',
+                                        )
+                                    }
                                 >
                                     <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                                        {data.permisoOperacion.includes('.pdf') ? (
+                                        {data.permisoOperacion.includes(
+                                            '.pdf',
+                                        ) ? (
                                             <div className="text-center">
                                                 <FaFilePdf className="w-16 h-16 text-red-500 mx-auto mb-2" />
-                                                <p className="text-sm font-semibold text-gray-700">Permiso de Operación</p>
-                                                <p className="text-xs text-gray-500">PDF</p>
+                                                <p className="text-sm font-semibold text-gray-700">
+                                                    Permiso de Operación
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    PDF
+                                                </p>
                                             </div>
                                         ) : (
                                             <img
@@ -591,7 +644,9 @@ export default function ProfileGarageTabs({
                                                 alt="Permiso de Operación"
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                                 onError={(e) => {
-                                                    (e.target as HTMLImageElement).style.display = 'none'
+                                                    ;(
+                                                        e.target as HTMLImageElement
+                                                    ).style.display = 'none'
                                                 }}
                                             />
                                         )}
@@ -604,11 +659,13 @@ export default function ProfileGarageTabs({
                             {data?.logotipoNegocio && (
                                 <div
                                     className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                    onClick={() => openDocumentModal(
-                                        data.logotipoNegocio,
-                                        'Logotipo Negocio',
-                                        'image'
-                                    )}
+                                    onClick={() =>
+                                        openDocumentModal(
+                                            data.logotipoNegocio,
+                                            'Logotipo Negocio',
+                                            'image',
+                                        )
+                                    }
                                 >
                                     <div className="aspect-video bg-gray-100 flex items-center justify-center">
                                         <img
@@ -616,7 +673,9 @@ export default function ProfileGarageTabs({
                                             alt="Logotipo Negocio"
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none'
+                                                ;(
+                                                    e.target as HTMLImageElement
+                                                ).style.display = 'none'
                                             }}
                                         />
                                     </div>
@@ -628,11 +687,13 @@ export default function ProfileGarageTabs({
                             {data?.fotoFrenteTaller && (
                                 <div
                                     className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                    onClick={() => openDocumentModal(
-                                        data.fotoFrenteTaller,
-                                        'Foto Frente Taller',
-                                        'image'
-                                    )}
+                                    onClick={() =>
+                                        openDocumentModal(
+                                            data.fotoFrenteTaller,
+                                            'Foto Frente Taller',
+                                            'image',
+                                        )
+                                    }
                                 >
                                     <div className="aspect-video bg-gray-100 flex items-center justify-center">
                                         <img
@@ -640,7 +701,9 @@ export default function ProfileGarageTabs({
                                             alt="Foto Frente Taller"
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none'
+                                                ;(
+                                                    e.target as HTMLImageElement
+                                                ).style.display = 'none'
                                             }}
                                         />
                                     </div>
@@ -652,11 +715,13 @@ export default function ProfileGarageTabs({
                             {data?.fotoInternaTaller && (
                                 <div
                                     className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                                    onClick={() => openDocumentModal(
-                                        data.fotoInternaTaller,
-                                        'Foto Interna Taller',
-                                        'image'
-                                    )}
+                                    onClick={() =>
+                                        openDocumentModal(
+                                            data.fotoInternaTaller,
+                                            'Foto Interna Taller',
+                                            'image',
+                                        )
+                                    }
                                 >
                                     <div className="aspect-video bg-gray-100 flex items-center justify-center">
                                         <img
@@ -664,7 +729,9 @@ export default function ProfileGarageTabs({
                                             alt="Foto Interna Taller"
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                             onError={(e) => {
-                                                (e.target as HTMLImageElement).style.display = 'none'
+                                                ;(
+                                                    e.target as HTMLImageElement
+                                                ).style.display = 'none'
                                             }}
                                         />
                                     </div>
@@ -674,13 +741,22 @@ export default function ProfileGarageTabs({
                                 </div>
                             )}
                         </div>
-                        {(!data?.rifIdFiscal && !data?.permisoOperacion && !data?.logotipoNegocio && !data?.fotoFrenteTaller && !data?.fotoInternaTaller) && (
-                            <div className="text-center py-12 text-gray-500">
-                                <FaFileUpload className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                                <p className="text-lg font-semibold">No hay documentos disponibles</p>
-                                <p className="text-sm">Los documentos aparecerán aquí una vez que se suban</p>
-                            </div>
-                        )}
+                        {!data?.rifIdFiscal &&
+                            !data?.permisoOperacion &&
+                            !data?.logotipoNegocio &&
+                            !data?.fotoFrenteTaller &&
+                            !data?.fotoInternaTaller && (
+                                <div className="text-center py-12 text-gray-500">
+                                    <FaFileUpload className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                                    <p className="text-lg font-semibold">
+                                        No hay documentos disponibles
+                                    </p>
+                                    <p className="text-sm">
+                                        Los documentos aparecerán aquí una vez
+                                        que se suban
+                                    </p>
+                                </div>
+                            )}
                     </div>
                 </TabContent>
                 <TabContent value="tab4">
@@ -707,25 +783,37 @@ export default function ProfileGarageTabs({
                                         .getHeaderGroups()
                                         .map((headerGroup) => (
                                             <Tr key={headerGroup.id}>
-                                                {headerGroup.headers.map((header) => (
-                                                    <Th key={header.id} colSpan={header.colSpan}>
-                                                        {header.isPlaceholder ? null : (
-                                                            <div
-                                                                {...{
-                                                                    className: header.column.getCanSort()
-                                                                        ? 'cursor-pointer select-none'
-                                                                        : '',
-                                                                    onClick: header.column.getToggleSortingHandler(),
-                                                                }}
-                                                            >
-                                                                {flexRender(
-                                                                    header.column.columnDef.header,
-                                                                    header.getContext(),
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    </Th>
-                                                ))}
+                                                {headerGroup.headers.map(
+                                                    (header) => (
+                                                        <Th
+                                                            key={header.id}
+                                                            colSpan={
+                                                                header.colSpan
+                                                            }
+                                                        >
+                                                            {header.isPlaceholder ? null : (
+                                                                <div
+                                                                    {...{
+                                                                        className:
+                                                                            header.column.getCanSort()
+                                                                                ? 'cursor-pointer select-none'
+                                                                                : '',
+                                                                        onClick:
+                                                                            header.column.getToggleSortingHandler(),
+                                                                    }}
+                                                                >
+                                                                    {flexRender(
+                                                                        header
+                                                                            .column
+                                                                            .columnDef
+                                                                            .header,
+                                                                        header.getContext(),
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </Th>
+                                                    ),
+                                                )}
                                             </Tr>
                                         ))}
                                 </THead>
@@ -733,19 +821,24 @@ export default function ProfileGarageTabs({
                                     {tablePromociones
                                         .getRowModel()
                                         .rows.slice(
-                                            (currentPagePromo - 1) * rowsPerPagePromo,
+                                            (currentPagePromo - 1) *
+                                                rowsPerPagePromo,
                                             currentPagePromo * rowsPerPagePromo,
                                         )
                                         .map((row) => (
                                             <Tr key={row.id}>
-                                                {row.getVisibleCells().map((cell) => (
-                                                    <Td key={cell.id}>
-                                                        {flexRender(
-                                                            cell.column.columnDef.cell,
-                                                            cell.getContext(),
-                                                        )}
-                                                    </Td>
-                                                ))}
+                                                {row
+                                                    .getVisibleCells()
+                                                    .map((cell) => (
+                                                        <Td key={cell.id}>
+                                                            {flexRender(
+                                                                cell.column
+                                                                    .columnDef
+                                                                    .cell,
+                                                                cell.getContext(),
+                                                            )}
+                                                        </Td>
+                                                    ))}
                                             </Tr>
                                         ))}
                                 </TBody>
@@ -755,14 +848,18 @@ export default function ProfileGarageTabs({
                                 currentPage={currentPagePromo}
                                 totalRows={totalRowsPromo}
                                 rowsPerPage={rowsPerPagePromo}
-                                onRowsPerPageChange={onRowsPerPageChangePromo ?? (() => {})}
+                                onRowsPerPageChange={
+                                    onRowsPerPageChangePromo ?? (() => {})
+                                }
                             />
                         </div>
                     </div>
                 </TabContent>
                 <TabContent value="tab5">
                     <div className="mb-8 mt-4">
-                        <h6 className="mb-4">Histórico de clientes atendidos</h6>
+                        <h6 className="mb-4">
+                            Histórico de clientes atendidos
+                        </h6>
                         <Card bordered className="mb-4 overflow-hidden">
                             <div className="p-4 border-b border-gray-200 bg-gray-50/50">
                                 <div className="relative max-w-sm">
@@ -771,7 +868,9 @@ export default function ProfileGarageTabs({
                                         placeholder="Buscar por nombre, vehículo o contacto..."
                                         className="w-full py-2.5 px-4 pl-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                                         value={historicoSearch}
-                                        onChange={(e) => setHistoricoSearch(e.target.value)}
+                                        onChange={(e) =>
+                                            setHistoricoSearch(e.target.value)
+                                        }
                                     />
                                     <HiOutlineSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5 pointer-events-none" />
                                 </div>
@@ -779,71 +878,133 @@ export default function ProfileGarageTabs({
                             <div className="divide-y divide-gray-200">
                                 {clientesHistoricoFiltrados.length === 0 ? (
                                     <div className="py-12 text-center text-gray-500">
-                                        <p className="text-sm">No se encontraron clientes con ese criterio.</p>
+                                        <p className="text-sm">
+                                            No se encontraron clientes con ese
+                                            criterio.
+                                        </p>
                                     </div>
                                 ) : (
-                                    clientesHistoricoFiltrados.map((cliente) => {
-                                        const isOpen = historicoExpandedId === cliente.id
-                                        return (
-                                            <div key={cliente.id}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setHistoricoExpandedId(isOpen ? null : cliente.id)
-                                                    }
-                                                    className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-gray-50/80 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30"
-                                                >
-                                                    <span className="flex-shrink-0 text-gray-500">
-                                                        {isOpen ? (
-                                                            <HiChevronDown className="w-5 h-5" />
-                                                        ) : (
-                                                            <HiChevronRight className="w-5 h-5" />
-                                                        )}
-                                                    </span>
-                                                    <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-1">
-                                                        <div>
-                                                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Nombre</span>
-                                                            <p className="text-sm font-medium text-gray-900 truncate">{cliente.nombre}</p>
+                                    clientesHistoricoFiltrados.map(
+                                        (cliente) => {
+                                            const isOpen =
+                                                historicoExpandedId ===
+                                                cliente.id
+                                            return (
+                                                <div key={cliente.id}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setHistoricoExpandedId(
+                                                                isOpen
+                                                                    ? null
+                                                                    : cliente.id,
+                                                            )
+                                                        }
+                                                        className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-gray-50/80 transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/30"
+                                                    >
+                                                        <span className="flex-shrink-0 text-gray-500">
+                                                            {isOpen ? (
+                                                                <HiChevronDown className="w-5 h-5" />
+                                                            ) : (
+                                                                <HiChevronRight className="w-5 h-5" />
+                                                            )}
+                                                        </span>
+                                                        <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-4 gap-y-1">
+                                                            <div>
+                                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                                                    Nombre
+                                                                </span>
+                                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                                    {
+                                                                        cliente.nombre
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                                                    Vehículo
+                                                                </span>
+                                                                <p className="text-sm text-gray-700 truncate">
+                                                                    {
+                                                                        cliente.vehiculo
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                                                    Contacto
+                                                                </span>
+                                                                <p className="text-sm text-gray-600 truncate">
+                                                                    {
+                                                                        cliente.contacto
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                            <div>
+                                                                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                                                                    Frecuencia
+                                                                </span>
+                                                                <p className="text-sm text-gray-700">
+                                                                    {
+                                                                        cliente.frecuenciaVisitas
+                                                                    }
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Vehículo</span>
-                                                            <p className="text-sm text-gray-700 truncate">{cliente.vehiculo}</p>
+                                                    </button>
+                                                    {isOpen && (
+                                                        <div className="bg-gray-50/70 border-t border-gray-100 px-4 pb-4 pt-2">
+                                                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                                                                Visitas y
+                                                                servicios
+                                                                realizados
+                                                            </p>
+                                                            <div className="space-y-4">
+                                                                {cliente.visitas.map(
+                                                                    (
+                                                                        visita,
+                                                                        idx,
+                                                                    ) => (
+                                                                        <div
+                                                                            key={
+                                                                                idx
+                                                                            }
+                                                                            className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
+                                                                        >
+                                                                            <p className="text-sm font-medium text-gray-800 mb-2">
+                                                                                Fecha:{' '}
+                                                                                {
+                                                                                    visita.fecha
+                                                                                }
+                                                                            </p>
+                                                                            <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
+                                                                                {visita.servicios.map(
+                                                                                    (
+                                                                                        s,
+                                                                                        i,
+                                                                                    ) => (
+                                                                                        <li
+                                                                                            key={
+                                                                                                i
+                                                                                            }
+                                                                                        >
+                                                                                            {
+                                                                                                s
+                                                                                            }
+                                                                                        </li>
+                                                                                    ),
+                                                                                )}
+                                                                            </ul>
+                                                                        </div>
+                                                                    ),
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Contacto</span>
-                                                            <p className="text-sm text-gray-600 truncate">{cliente.contacto}</p>
-                                                        </div>
-                                                        <div>
-                                                            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Frecuencia</span>
-                                                            <p className="text-sm text-gray-700">{cliente.frecuenciaVisitas}</p>
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                                {isOpen && (
-                                                    <div className="bg-gray-50/70 border-t border-gray-100 px-4 pb-4 pt-2">
-                                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visitas y servicios realizados</p>
-                                                        <div className="space-y-4">
-                                                            {cliente.visitas.map((visita, idx) => (
-                                                                <div
-                                                                    key={idx}
-                                                                    className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
-                                                                >
-                                                                    <p className="text-sm font-medium text-gray-800 mb-2">
-                                                                        Fecha: {visita.fecha}
-                                                                    </p>
-                                                                    <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                                                                        {visita.servicios.map((s, i) => (
-                                                                            <li key={i}>{s}</li>
-                                                                        ))}
-                                                                    </ul>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    })
+                                                    )}
+                                                </div>
+                                            )
+                                        },
+                                    )
                                 )}
                             </div>
                         </Card>

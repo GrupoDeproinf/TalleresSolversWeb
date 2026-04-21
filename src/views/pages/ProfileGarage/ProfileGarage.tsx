@@ -177,7 +177,8 @@ const ProfileGarage = () => {
     const [isSuscrito, setIsSuscrito] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null)
     const [services, setServices] = useState<Service[]>([])
-    const [promociones, setPromociones] = useState<Promotion[]>(MOCK_PROMOCIONES)
+    const [promociones, setPromociones] =
+        useState<Promotion[]>(MOCK_PROMOCIONES)
 
     const [planes, setPlanes] = useState<Planes[]>([])
     const [loading, setLoading] = useState(true)
@@ -349,7 +350,10 @@ const ProfileGarage = () => {
                     subcategoria: serviceData?.subcategoria || [],
                     garantia: serviceData?.garantia || '',
                     typeService: serviceData?.typeService || 'local',
-                    service_image: serviceData?.service_image || serviceData?.imagenes || [],
+                    service_image:
+                        serviceData?.service_image ||
+                        serviceData?.imagenes ||
+                        [],
                 }
             })
 
@@ -461,15 +465,16 @@ const ProfileGarage = () => {
         try {
             // Decodificar la URL para manejar caracteres especiales
             const decodedUrl = decodeURIComponent(url)
-            
+
             // Intentar extraer el nombre del archivo de diferentes formatos de URL
             // Formato 1: .../documents/{uid}/{fieldName}.{extension}?...
             // Formato 2: .../o/documents%2F{uid}%2F{fieldName}.{extension}?...
-            
+
             // Buscar el patrón /documents/ o documents%2F
-            const documentsMatch = decodedUrl.match(/\/documents\/[^\/]+\/([^?]+)/) || 
-                                  decodedUrl.match(/documents%2F[^%]+%2F([^?%]+)/)
-            
+            const documentsMatch =
+                decodedUrl.match(/\/documents\/[^\/]+\/([^?]+)/) ||
+                decodedUrl.match(/documents%2F[^%]+%2F([^?%]+)/)
+
             if (documentsMatch && documentsMatch[1]) {
                 const fileName = documentsMatch[1]
                 // Si el nombre tiene extensión, devolverlo
@@ -477,17 +482,17 @@ const ProfileGarage = () => {
                     return fileName
                 }
             }
-            
+
             // Si no se encontró con el patrón anterior, intentar extraer de la última parte de la URL
             const urlParts = decodedUrl.split('/')
             const lastPart = urlParts[urlParts.length - 1]
             const fileName = lastPart.split('?')[0]
-            
+
             // Si el nombre tiene extensión, devolverlo
             if (fileName && fileName.includes('.')) {
                 return fileName
             }
-            
+
             return 'Documento existente'
         } catch (error) {
             console.error('Error extrayendo nombre del archivo:', error)
@@ -501,8 +506,9 @@ const ProfileGarage = () => {
             const newSubscriptionRef = doc(collection(db, 'Subscripciones'))
 
             // Determinar si el plan es gratuito
-            const isFreePlan = plan.monto === 0 || (plan.monto < 0.01 && plan.monto > -0.01)
-            
+            const isFreePlan =
+                plan.monto === 0 || (plan.monto < 0.01 && plan.monto > -0.01)
+
             // Si es plan gratuito, aprobar automáticamente; si no, dejar pendiente
             const subscriptionStatus = isFreePlan ? 'Aprobado' : 'Por Aprobar'
 
@@ -550,7 +556,7 @@ const ProfileGarage = () => {
             )
             toast.push(
                 <Notification title="Éxito" type="success">
-                    {isFreePlan 
+                    {isFreePlan
                         ? 'Se ha subscrito correctamente al plan gratuito. Tu plan está activo.'
                         : 'Se ha subscrito correctamente a este plan. Espera la aprobación del pago.'}
                 </Notification>,
@@ -641,10 +647,7 @@ const ProfileGarage = () => {
             return
         }
 
-        if (
-            !formData.phone ||
-            !/^[1-9]\d*$/.test(formData.phone)
-        ) {
+        if (!formData.phone || !/^[1-9]\d*$/.test(formData.phone)) {
             toast.push(
                 <Notification title="Error">
                     El teléfono debe contener solo números y no puede comenzar
@@ -654,10 +657,7 @@ const ProfileGarage = () => {
             return
         }
 
-        if (
-            formData.whatsapp &&
-            !/^[1-9]\d*$/.test(formData.whatsapp)
-        ) {
+        if (formData.whatsapp && !/^[1-9]\d*$/.test(formData.whatsapp)) {
             toast.push(
                 <Notification title="Error">
                     El WhatsApp debe contener solo números y no puede comenzar
@@ -708,7 +708,8 @@ const ProfileGarage = () => {
         if (!formData.rifIdFiscal_file && !formData.rifIdFiscal) {
             toast.push(
                 <Notification title="Error">
-                    El RIF ID Fiscal es obligatorio. Debes subir un archivo o mantener el existente.
+                    El RIF ID Fiscal es obligatorio. Debes subir un archivo o
+                    mantener el existente.
                 </Notification>,
             )
             return
@@ -717,7 +718,8 @@ const ProfileGarage = () => {
         if (!formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller) {
             toast.push(
                 <Notification title="Error">
-                    La foto del frente del taller es obligatoria. Debes subir un archivo o mantener el existente.
+                    La foto del frente del taller es obligatoria. Debes subir un
+                    archivo o mantener el existente.
                 </Notification>,
             )
             return
@@ -726,7 +728,8 @@ const ProfileGarage = () => {
         if (!formData.fotoInternaTaller_file && !formData.fotoInternaTaller) {
             toast.push(
                 <Notification title="Error">
-                    La foto interna del taller es obligatoria. Debes subir un archivo o mantener el existente.
+                    La foto interna del taller es obligatoria. Debes subir un
+                    archivo o mantener el existente.
                 </Notification>,
             )
             return
@@ -806,17 +809,26 @@ const ProfileGarage = () => {
             }
 
             // Función helper para eliminar documento del storage
-            const deleteDocumentFromStorage = async (url: string, fieldName: string) => {
+            const deleteDocumentFromStorage = async (
+                url: string,
+                fieldName: string,
+            ) => {
                 try {
                     // Extraer el nombre del archivo de la URL
                     const urlParts = url.split('/')
                     const fileNameWithQuery = urlParts[urlParts.length - 1]
                     const fileName = fileNameWithQuery.split('?')[0]
-                    const oldDocRef = ref(storage, `documents/${path}/${fileName}`)
+                    const oldDocRef = ref(
+                        storage,
+                        `documents/${path}/${fileName}`,
+                    )
                     await deleteObject(oldDocRef)
                     console.log(`Documento ${fieldName} eliminado del storage`)
                 } catch (error) {
-                    console.error(`Error eliminando documento ${fieldName} del storage:`, error)
+                    console.error(
+                        `Error eliminando documento ${fieldName} del storage:`,
+                        error,
+                    )
                 }
             }
 
@@ -825,7 +837,7 @@ const ProfileGarage = () => {
                 file: File | null,
                 fieldName: string,
                 currentUrl: string | undefined,
-                shouldDelete: boolean = false
+                shouldDelete: boolean = false,
             ): Promise<string | null> => {
                 // Si se debe eliminar y hay una URL actual, eliminar del storage
                 if (shouldDelete && currentUrl) {
@@ -847,17 +859,22 @@ const ProfileGarage = () => {
                     // Obtener la extensión del archivo
                     const fileType = file.name.split('.').pop()?.toLowerCase()
                     if (!fileType) {
-                        console.warn(`No se pudo obtener la extensión del archivo: ${fieldName}`)
+                        console.warn(
+                            `No se pudo obtener la extensión del archivo: ${fieldName}`,
+                        )
                         return currentUrl || null
                     }
 
                     // Crear el nombre del archivo: {nombreCampo}.{extension}
                     const fileName = `${fieldName}.${fileType}`
-                    const storageRef = ref(storage, `documents/${path}/${fileName}`)
-                    
+                    const storageRef = ref(
+                        storage,
+                        `documents/${path}/${fileName}`,
+                    )
+
                     // Subir el archivo
                     await uploadBytes(storageRef, file)
-                    
+
                     // Obtener la URL del archivo subido
                     const downloadUrl = await getDownloadURL(storageRef)
                     return downloadUrl
@@ -868,52 +885,83 @@ const ProfileGarage = () => {
             }
 
             // Determinar qué documentos deben eliminarse (campo vacío en formData pero había URL en dataOrigin)
-            const shouldDeleteRifIdFiscal = !formData.rifIdFiscal_file && !formData.rifIdFiscal && !!dataOrigin?.rifIdFiscal
-            const shouldDeletePermisoOperacion = !formData.permisoOperacion_file && !formData.permisoOperacion && !!dataOrigin?.permisoOperacion
-            const shouldDeleteLogotipoNegocio = !formData.logotipoNegocio_file && !formData.logotipoNegocio && !!dataOrigin?.logotipoNegocio
-            const shouldDeleteFotoFrenteTaller = !formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller && !!dataOrigin?.fotoFrenteTaller
-            const shouldDeleteFotoInternaTaller = !formData.fotoInternaTaller_file && !formData.fotoInternaTaller && !!dataOrigin?.fotoInternaTaller
+            const shouldDeleteRifIdFiscal =
+                !formData.rifIdFiscal_file &&
+                !formData.rifIdFiscal &&
+                !!dataOrigin?.rifIdFiscal
+            const shouldDeletePermisoOperacion =
+                !formData.permisoOperacion_file &&
+                !formData.permisoOperacion &&
+                !!dataOrigin?.permisoOperacion
+            const shouldDeleteLogotipoNegocio =
+                !formData.logotipoNegocio_file &&
+                !formData.logotipoNegocio &&
+                !!dataOrigin?.logotipoNegocio
+            const shouldDeleteFotoFrenteTaller =
+                !formData.fotoFrenteTaller_file &&
+                !formData.fotoFrenteTaller &&
+                !!dataOrigin?.fotoFrenteTaller
+            const shouldDeleteFotoInternaTaller =
+                !formData.fotoInternaTaller_file &&
+                !formData.fotoInternaTaller &&
+                !!dataOrigin?.fotoInternaTaller
 
             // Subir/actualizar documentos
             const documentPromises = [
                 uploadDocument(
                     formData.rifIdFiscal_file || null,
                     'rifIdFiscal',
-                    formData.rifIdFiscal || dataOrigin?.rifIdFiscal || undefined,
-                    shouldDeleteRifIdFiscal
+                    formData.rifIdFiscal ||
+                        dataOrigin?.rifIdFiscal ||
+                        undefined,
+                    shouldDeleteRifIdFiscal,
                 ),
                 uploadDocument(
                     formData.permisoOperacion_file || null,
                     'permisoOperacion',
-                    formData.permisoOperacion || dataOrigin?.permisoOperacion || undefined,
-                    shouldDeletePermisoOperacion
+                    formData.permisoOperacion ||
+                        dataOrigin?.permisoOperacion ||
+                        undefined,
+                    shouldDeletePermisoOperacion,
                 ),
                 uploadDocument(
                     formData.logotipoNegocio_file || null,
                     'logotipoNegocio',
-                    formData.logotipoNegocio || dataOrigin?.logotipoNegocio || undefined,
-                    shouldDeleteLogotipoNegocio
+                    formData.logotipoNegocio ||
+                        dataOrigin?.logotipoNegocio ||
+                        undefined,
+                    shouldDeleteLogotipoNegocio,
                 ),
                 uploadDocument(
                     formData.fotoFrenteTaller_file || null,
                     'fotoFrenteTaller',
-                    formData.fotoFrenteTaller || dataOrigin?.fotoFrenteTaller || undefined,
-                    shouldDeleteFotoFrenteTaller
+                    formData.fotoFrenteTaller ||
+                        dataOrigin?.fotoFrenteTaller ||
+                        undefined,
+                    shouldDeleteFotoFrenteTaller,
                 ),
                 uploadDocument(
                     formData.fotoInternaTaller_file || null,
                     'fotoInternaTaller',
-                    formData.fotoInternaTaller || dataOrigin?.fotoInternaTaller || undefined,
-                    shouldDeleteFotoInternaTaller
+                    formData.fotoInternaTaller ||
+                        dataOrigin?.fotoInternaTaller ||
+                        undefined,
+                    shouldDeleteFotoInternaTaller,
                 ),
             ]
 
             const documentResults = await Promise.all(documentPromises)
-            
+
             // Preparar actualizaciones para Firestore
             const documentUpdates: Record<string, string | null> = {}
-            const fieldNames = ['rifIdFiscal', 'permisoOperacion', 'logotipoNegocio', 'fotoFrenteTaller', 'fotoInternaTaller']
-            
+            const fieldNames = [
+                'rifIdFiscal',
+                'permisoOperacion',
+                'logotipoNegocio',
+                'fotoFrenteTaller',
+                'fotoInternaTaller',
+            ]
+
             fieldNames.forEach((fieldName, index) => {
                 // Si el resultado es null, significa que se eliminó, así que establecer como null
                 // Si hay un resultado, actualizar con la nueva URL
@@ -924,10 +972,10 @@ const ProfileGarage = () => {
 
             // Actualiza los datos
             const docRef = doc(db, 'Usuarios', path)
-            const updatedData = { 
-                ...formData, 
+            const updatedData = {
+                ...formData,
                 image_perfil: newImageUrl,
-                ...documentUpdates
+                ...documentUpdates,
             }
             delete updatedData.newLogoFile // Elimina cualquier campo no deseado antes de actualizar
             delete updatedData.rifIdFiscal_file
@@ -950,18 +998,22 @@ const ProfileGarage = () => {
                 console.log('Cambio de estado kelfsklflksflks')
 
                 try {
-                    await axios.post('https://apisolvers.solversapp.com/api/usuarios/sendNotification', {
-                        token: dataOrigin?.token,
-                        title: 'Cambio de estatus',
-                        body: "Hola, su usuario ha cambiado de estado " + formData?.status + ". Cierre sesión y vuelva a ingresar por favor.",
-                        secretCode: "Cambio de estado",
-                    });
+                    await axios.post(
+                        'https://apisolvers.solversapp.com/api/usuarios/sendNotification',
+                        {
+                            token: dataOrigin?.token,
+                            title: 'Cambio de estatus',
+                            body:
+                                'Hola, su usuario ha cambiado de estado ' +
+                                formData?.status +
+                                '. Cierre sesión y vuelva a ingresar por favor.',
+                            secretCode: 'Cambio de estado',
+                        },
+                    )
                 } catch (error) {
-                    console.error('Error al enviar notificación:', error);
+                    console.error('Error al enviar notificación:', error)
                 }
-
             }
-
 
             // Notifica éxito
             toast.push(
@@ -1047,98 +1099,103 @@ const ProfileGarage = () => {
     }
 
     const [isPromoDrawerOpen, setIsPromoDrawerOpen] = useState(false)
-    const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null)
+    const [selectedPromotion, setSelectedPromotion] =
+        useState<Promotion | null>(null)
 
-    const columns: ColumnDef<Service>[] = useMemo(() => [
-        {
-            header: 'Nombre del Servicio',
-            accessorKey: 'nombre_servicio',
-        },
-        {
-            header: 'Precio',
-            accessorKey: 'precio',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio)
-                return `$${precio.toFixed(2)}`
+    const columns: ColumnDef<Service>[] = useMemo(
+        () => [
+            {
+                header: 'Nombre del Servicio',
+                accessorKey: 'nombre_servicio',
             },
-        },
-        {
-            header: 'Estatus',
-            accessorKey: 'estatus',
-            cell: ({ row }) => {
-                const [estatus, setEstatus] = useState<boolean>(
-                    row.original.estatus ?? false,
-                )
-                const handleStatusChange = async (val: boolean) => {
-                    // Si intenta encender el servicio, verificar que el plan esté activo y aprobado
-                    if (val === true) {
-                        if (subscription?.status !== 'Aprobado') {
-                            toast.push(
-                                <Notification
-                                    title="Plan no activo"
-                                    type="warning"
-                                >
-                                    No puedes encender servicios. Tu plan debe estar activo y aprobado.
-                                </Notification>,
+            {
+                header: 'Precio',
+                accessorKey: 'precio',
+                cell: ({ row }) => {
+                    const precio = parseFloat(row.original.precio)
+                    return `$${precio.toFixed(2)}`
+                },
+            },
+            {
+                header: 'Estatus',
+                accessorKey: 'estatus',
+                cell: ({ row }) => {
+                    const [estatus, setEstatus] = useState<boolean>(
+                        row.original.estatus ?? false,
+                    )
+                    const handleStatusChange = async (val: boolean) => {
+                        // Si intenta encender el servicio, verificar que el plan esté activo y aprobado
+                        if (val === true) {
+                            if (subscription?.status !== 'Aprobado') {
+                                toast.push(
+                                    <Notification
+                                        title="Plan no activo"
+                                        type="warning"
+                                    >
+                                        No puedes encender servicios. Tu plan
+                                        debe estar activo y aprobado.
+                                    </Notification>,
+                                )
+                                return
+                            }
+                        }
+
+                        setEstatus(val)
+
+                        const updatedServices = services.map((service) =>
+                            service.uid_servicio === row.original.uid_servicio
+                                ? { ...service, estatus: val }
+                                : service,
+                        )
+                        setServices(updatedServices)
+
+                        try {
+                            const docRef = doc(
+                                db,
+                                'Servicios',
+                                row.original.uid_servicio,
                             )
-                            return
+                            await updateDoc(docRef, { estatus: val })
+                            console.log('Estado del servicio actualizado')
+                        } catch (error) {
+                            console.error(
+                                'Error al actualizar el estado del servicio:',
+                                error,
+                            )
                         }
                     }
 
-                    setEstatus(val)
-
-                    const updatedServices = services.map((service) =>
-                        service.uid_servicio === row.original.uid_servicio
-                            ? { ...service, estatus: val }
-                            : service,
+                    return (
+                        <div>
+                            <Switcher
+                                checked={estatus}
+                                onChange={() => handleStatusChange(!estatus)}
+                            />
+                        </div>
                     )
-                    setServices(updatedServices)
-
-                    try {
-                        const docRef = doc(
-                            db,
-                            'Servicios',
-                            row.original.uid_servicio,
-                        )
-                        await updateDoc(docRef, { estatus: val })
-                        console.log('Estado del servicio actualizado')
-                    } catch (error) {
-                        console.error(
-                            'Error al actualizar el estado del servicio:',
-                            error,
-                        )
-                    }
-                }
-
-                return (
-                    <div>
-                        <Switcher
-                            checked={estatus}
-                            onChange={() => handleStatusChange(!estatus)}
-                        />
-                    </div>
-                )
+                },
             },
-        },
-        {
-            header: 'Acciones',
-            id: 'actions',
-            cell: ({ row }) => {
-                return (
-                    <div className="">
-                        <Button
-                            size="sm"
-                            variant="solid"
-                            onClick={() => handleEditService(row.original)}
-                            className="text-blue-900 hover:bg-blue-700"
-                        >
-                            <FaEdit />
-                        </Button>
-                    </div>
-                )
+            {
+                header: 'Acciones',
+                id: 'actions',
+                cell: ({ row }) => {
+                    return (
+                        <div className="">
+                            <Button
+                                size="sm"
+                                variant="solid"
+                                onClick={() => handleEditService(row.original)}
+                                className="text-blue-900 hover:bg-blue-700"
+                            >
+                                <FaEdit />
+                            </Button>
+                        </div>
+                    )
+                },
             },
-        },
-    ], [subscription, services, handleEditService])
+        ],
+        [subscription, services, handleEditService],
+    )
 
     const columns2: ColumnDef<Planes>[] = [
         {
@@ -1149,11 +1206,11 @@ const ProfileGarage = () => {
             header: 'Monto',
             accessorKey: 'monto',
             cell: ({ getValue }) => {
-                const value = getValue() as number;
+                const value = getValue() as number
                 if (value === 0 || (value < 0.01 && value > -0.01)) {
-                    return 'Gratis';
+                    return 'Gratis'
                 }
-                return value;
+                return value
             },
         },
         {
@@ -1174,11 +1231,11 @@ const ProfileGarage = () => {
             header: 'Monto',
             accessorKey: 'monto',
             cell: ({ getValue }) => {
-                const value = getValue() as number;
+                const value = getValue() as number
                 if (value === 0 || (value < 0.01 && value > -0.01)) {
-                    return 'Gratuito';
+                    return 'Gratuito'
                 }
-                return `$${value}`;
+                return `$${value}`
             },
         },
         {
@@ -1200,60 +1257,70 @@ const ProfileGarage = () => {
         setIsPromoDrawerOpen(true)
     }
 
-    const columnsPromo: ColumnDef<Promotion>[] = useMemo(() => [
-        {
-            header: 'Nombre de la promoción',
-            accessorKey: 'nombre_servicio',
-        },
-        {
-            header: 'Precio',
-            accessorKey: 'precio',
-            cell: ({ row }) => {
-                const precio = parseFloat(row.original.precio)
-                return `$${precio.toFixed(2)}`
+    const columnsPromo: ColumnDef<Promotion>[] = useMemo(
+        () => [
+            {
+                header: 'Nombre de la promoción',
+                accessorKey: 'nombre_servicio',
             },
-        },
-        {
-            header: 'Estatus',
-            accessorKey: 'estatus',
-            cell: ({ row }) => {
-                const [estatus, setEstatus] = useState<boolean>(row.original.estatus ?? false)
-                const handleStatusChange = (val: boolean) => {
-                    setEstatus(val)
-                    const updated = promociones.map((p) =>
-                        p.uid_promocion === row.original.uid_promocion ? { ...p, estatus: val } : p,
+            {
+                header: 'Precio',
+                accessorKey: 'precio',
+                cell: ({ row }) => {
+                    const precio = parseFloat(row.original.precio)
+                    return `$${precio.toFixed(2)}`
+                },
+            },
+            {
+                header: 'Estatus',
+                accessorKey: 'estatus',
+                cell: ({ row }) => {
+                    const [estatus, setEstatus] = useState<boolean>(
+                        row.original.estatus ?? false,
                     )
-                    setPromociones(updated)
-                    // Con data estática solo actualizamos estado; cuando haya BD descomentar:
-                    // try {
-                    //     const docRef = doc(db, 'Promociones', row.original.uid_promocion)
-                    //     await updateDoc(docRef, { estatus: val })
-                    // } catch (error) { ... }
-                }
-                return (
-                    <div>
-                        <Switcher checked={estatus} onChange={() => handleStatusChange(!estatus)} />
-                    </div>
-                )
+                    const handleStatusChange = (val: boolean) => {
+                        setEstatus(val)
+                        const updated = promociones.map((p) =>
+                            p.uid_promocion === row.original.uid_promocion
+                                ? { ...p, estatus: val }
+                                : p,
+                        )
+                        setPromociones(updated)
+                        // Con data estática solo actualizamos estado; cuando haya BD descomentar:
+                        // try {
+                        //     const docRef = doc(db, 'Promociones', row.original.uid_promocion)
+                        //     await updateDoc(docRef, { estatus: val })
+                        // } catch (error) { ... }
+                    }
+                    return (
+                        <div>
+                            <Switcher
+                                checked={estatus}
+                                onChange={() => handleStatusChange(!estatus)}
+                            />
+                        </div>
+                    )
+                },
             },
-        },
-        {
-            header: 'Acciones',
-            id: 'actions',
-            cell: ({ row }) => (
-                <div className="">
-                    <Button
-                        size="sm"
-                        variant="solid"
-                        onClick={() => handleEditPromotion(row.original)}
-                        className="text-blue-900 hover:bg-blue-700"
-                    >
-                        <FaEdit />
-                    </Button>
-                </div>
-            ),
-        },
-    ], [promociones])
+            {
+                header: 'Acciones',
+                id: 'actions',
+                cell: ({ row }) => (
+                    <div className="">
+                        <Button
+                            size="sm"
+                            variant="solid"
+                            onClick={() => handleEditPromotion(row.original)}
+                            className="text-blue-900 hover:bg-blue-700"
+                        >
+                            <FaEdit />
+                        </Button>
+                    </div>
+                ),
+            },
+        ],
+        [promociones],
+    )
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
@@ -1359,7 +1426,11 @@ const ProfileGarage = () => {
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false) // Estado para controlar el drawer de edición
     const [selectedService, setSelectedService] = useState<Service | null>(null) // Servicio seleccionado para editar
     const [documentModalOpen, setDocumentModalOpen] = useState(false) // Estado para controlar el modal de documentos
-    const [selectedDocument, setSelectedDocument] = useState<{ url: string; name: string; type: 'image' | 'pdf' } | null>(null) // Documento seleccionado para mostrar en el modal
+    const [selectedDocument, setSelectedDocument] = useState<{
+        url: string
+        name: string
+        type: 'image' | 'pdf'
+    } | null>(null) // Documento seleccionado para mostrar en el modal
     const [zoomLevel, setZoomLevel] = useState(1) // Nivel de zoom (1 = 100%)
     const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 }) // Posición de arrastre
     const [isDragging, setIsDragging] = useState(false) // Si está arrastrando
@@ -1372,7 +1443,11 @@ const ProfileGarage = () => {
         setIsMapOpen((prev) => !prev) // Alternar la visibilidad del modal
     }
 
-    const openDocumentModal = (url: string, name: string, type: 'image' | 'pdf') => {
+    const openDocumentModal = (
+        url: string,
+        name: string,
+        type: 'image' | 'pdf',
+    ) => {
         setSelectedDocument({ url, name, type })
         setDocumentModalOpen(true)
         setZoomLevel(1) // Resetear zoom al abrir un nuevo documento
@@ -1428,7 +1503,10 @@ const ProfileGarage = () => {
     const handleMouseDown = (e: React.MouseEvent) => {
         if (zoomLevel > 1 && selectedDocument?.type === 'image') {
             setIsDragging(true)
-            setDragStart({ x: e.clientX - dragPosition.x, y: e.clientY - dragPosition.y })
+            setDragStart({
+                x: e.clientX - dragPosition.x,
+                y: e.clientY - dragPosition.y,
+            })
             e.preventDefault()
         }
     }
@@ -1664,9 +1742,21 @@ const ProfileGarage = () => {
                     </div>
                 </Card>
                 <ProfileGarageTabs
-                    table={table as Parameters<typeof ProfileGarageTabs>[0]['table']}
-                    table3={table3 as Parameters<typeof ProfileGarageTabs>[0]['table3']}
-                    tablePromociones={table4 as Parameters<typeof ProfileGarageTabs>[0]['tablePromociones']}
+                    table={
+                        table as Parameters<
+                            typeof ProfileGarageTabs
+                        >[0]['table']
+                    }
+                    table3={
+                        table3 as Parameters<
+                            typeof ProfileGarageTabs
+                        >[0]['table3']
+                    }
+                    tablePromociones={
+                        table4 as Parameters<
+                            typeof ProfileGarageTabs
+                        >[0]['tablePromociones']
+                    }
                     currentPage={currentPage}
                     rowsPerPage={rowsPerPage}
                     totalRows={totalRows}
@@ -1677,7 +1767,9 @@ const ProfileGarage = () => {
                     totalRowsPromo={totalRowsPromo}
                     onPaginationChangePromo={onPaginationChangePromo}
                     onRowsPerPageChangePromo={onRowsPerPageChangePromo}
-                    onEditPromotion={handleEditPromotion as (p: unknown) => void}
+                    onEditPromotion={
+                        handleEditPromotion as (p: unknown) => void
+                    }
                     onOpenCreatePromotion={handleOpenCreatePromotion}
                     subscription={subscription}
                     isSuscrito={isSuscrito}
@@ -1915,18 +2007,32 @@ const ProfileGarage = () => {
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleEditChange}
-                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                    onKeyDown={(
+                                        e: React.KeyboardEvent<HTMLInputElement>,
+                                    ) => {
                                         // Prevenir escribir 0 al principio
-                                        if (e.currentTarget.value === '' && e.key === '0') {
+                                        if (
+                                            e.currentTarget.value === '' &&
+                                            e.key === '0'
+                                        ) {
                                             e.preventDefault()
                                         }
                                     }}
-                                    onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                    onInput={(
+                                        e: React.FormEvent<HTMLInputElement>,
+                                    ) => {
                                         // Remover 0 al principio si se pega texto
-                                        const target = e.target as HTMLInputElement
-                                        const value = target.value.replace(/^0+/, '')
+                                        const target =
+                                            e.target as HTMLInputElement
+                                        const value = target.value.replace(
+                                            /^0+/,
+                                            '',
+                                        )
                                         if (value !== target.value) {
-                                            setFormData((prev) => ({ ...prev, phone: value }))
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                phone: value,
+                                            }))
                                         }
                                     }}
                                 />
@@ -1941,18 +2047,32 @@ const ProfileGarage = () => {
                                     name="whatsapp"
                                     value={formData.whatsapp}
                                     onChange={handleEditChange}
-                                    onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                    onKeyDown={(
+                                        e: React.KeyboardEvent<HTMLInputElement>,
+                                    ) => {
                                         // Prevenir escribir 0 al principio
-                                        if (e.currentTarget.value === '' && e.key === '0') {
+                                        if (
+                                            e.currentTarget.value === '' &&
+                                            e.key === '0'
+                                        ) {
                                             e.preventDefault()
                                         }
                                     }}
-                                    onInput={(e: React.FormEvent<HTMLInputElement>) => {
+                                    onInput={(
+                                        e: React.FormEvent<HTMLInputElement>,
+                                    ) => {
                                         // Remover 0 al principio si se pega texto
-                                        const target = e.target as HTMLInputElement
-                                        const value = target.value.replace(/^0+/, '')
+                                        const target =
+                                            e.target as HTMLInputElement
+                                        const value = target.value.replace(
+                                            /^0+/,
+                                            '',
+                                        )
                                         if (value !== target.value) {
-                                            setFormData((prev) => ({ ...prev, whatsapp: value }))
+                                            setFormData((prev) => ({
+                                                ...prev,
+                                                whatsapp: value,
+                                            }))
                                         }
                                     }}
                                 />
@@ -2201,13 +2321,15 @@ const ProfileGarage = () => {
                             <h3 className="text-lg font-semibold text-gray-700 mb-4">
                                 Documentos
                             </h3>
-                            
+
                             {/* RIF ID Fiscal */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    RIF ID Fiscal: <span className="text-red-500">*</span>
+                                    RIF ID Fiscal:{' '}
+                                    <span className="text-red-500">*</span>
                                 </label>
-                                {!formData.rifIdFiscal_file && !formData.rifIdFiscal ? (
+                                {!formData.rifIdFiscal_file &&
+                                !formData.rifIdFiscal ? (
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -2215,12 +2337,12 @@ const ProfileGarage = () => {
                                             id="rifIdFiscal-upload"
                                             className="sr-only"
                                             onChange={(e) => {
-                                                const file = e.target.files?.[0];
+                                                const file = e.target.files?.[0]
                                                 if (file) {
                                                     setFormData((prev) => ({
                                                         ...prev,
-                                                        rifIdFiscal_file: file
-                                                    }));
+                                                        rifIdFiscal_file: file,
+                                                    }))
                                                 }
                                             }}
                                         />
@@ -2231,9 +2353,14 @@ const ProfileGarage = () => {
                                             <div className="flex flex-col items-center justify-center pt-2">
                                                 <FaFileUpload className="w-8 h-8 text-gray-400 mb-2" />
                                                 <p className="text-sm text-gray-600">
-                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">
+                                                        Click para subir
+                                                    </span>{' '}
+                                                    o arrastra aquí
                                                 </p>
-                                                <p className="text-xs text-gray-500 mt-1">Imágenes o PDF</p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Imágenes o PDF
+                                                </p>
                                             </div>
                                         </label>
                                     </div>
@@ -2241,36 +2368,51 @@ const ProfileGarage = () => {
                                     <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                                         <div className="flex items-center gap-3 flex-1">
                                             {formData.rifIdFiscal_file ? (
-                                                (formData.rifIdFiscal_file as File).type.includes('pdf') ? (
+                                                (
+                                                    formData.rifIdFiscal_file as File
+                                                ).type.includes('pdf') ? (
                                                     <FaFilePdf className="w-6 h-6 text-red-500" />
                                                 ) : (
                                                     <FaImage className="w-6 h-6 text-blue-500" />
                                                 )
-                                            ) : formData.rifIdFiscal?.includes('.pdf') ? (
+                                            ) : formData.rifIdFiscal?.includes(
+                                                  '.pdf',
+                                              ) ? (
                                                 <FaFilePdf className="w-6 h-6 text-red-500" />
                                             ) : (
                                                 <FaImage className="w-6 h-6 text-blue-500" />
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {formData.rifIdFiscal_file 
-                                                        ? (formData.rifIdFiscal_file as File).name
-                                                        : getFileNameFromUrl(formData.rifIdFiscal)}
+                                                    {formData.rifIdFiscal_file
+                                                        ? (
+                                                              formData.rifIdFiscal_file as File
+                                                          ).name
+                                                        : getFileNameFromUrl(
+                                                              formData.rifIdFiscal,
+                                                          )}
                                                 </p>
                                                 {formData.rifIdFiscal_file && (
                                                     <p className="text-xs text-gray-500">
-                                                        {((formData.rifIdFiscal_file as File).size / 1024).toFixed(2)} KB
+                                                        {(
+                                                            (
+                                                                formData.rifIdFiscal_file as File
+                                                            ).size / 1024
+                                                        ).toFixed(2)}{' '}
+                                                        KB
                                                     </p>
                                                 )}
                                             </div>
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData((prev) => ({
-                                                ...prev,
-                                                rifIdFiscal_file: null,
-                                                rifIdFiscal: ''
-                                            }))}
+                                            onClick={() =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    rifIdFiscal_file: null,
+                                                    rifIdFiscal: '',
+                                                }))
+                                            }
                                             className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                         >
                                             <FaTimes className="w-5 h-5" />
@@ -2284,7 +2426,8 @@ const ProfileGarage = () => {
                                 <label className="block font-semibold text-gray-700 mb-2">
                                     Permisos de Operación:
                                 </label>
-                                {!formData.permisoOperacion_file && !formData.permisoOperacion ? (
+                                {!formData.permisoOperacion_file &&
+                                !formData.permisoOperacion ? (
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -2292,12 +2435,13 @@ const ProfileGarage = () => {
                                             id="permisoOperacion-upload"
                                             className="sr-only"
                                             onChange={(e) => {
-                                                const file = e.target.files?.[0];
+                                                const file = e.target.files?.[0]
                                                 if (file) {
                                                     setFormData((prev) => ({
                                                         ...prev,
-                                                        permisoOperacion_file: file
-                                                    }));
+                                                        permisoOperacion_file:
+                                                            file,
+                                                    }))
                                                 }
                                             }}
                                         />
@@ -2308,9 +2452,14 @@ const ProfileGarage = () => {
                                             <div className="flex flex-col items-center justify-center pt-2">
                                                 <FaFileUpload className="w-8 h-8 text-gray-400 mb-2" />
                                                 <p className="text-sm text-gray-600">
-                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">
+                                                        Click para subir
+                                                    </span>{' '}
+                                                    o arrastra aquí
                                                 </p>
-                                                <p className="text-xs text-gray-500 mt-1">Imágenes o PDF</p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Imágenes o PDF
+                                                </p>
                                             </div>
                                         </label>
                                     </div>
@@ -2318,36 +2467,51 @@ const ProfileGarage = () => {
                                     <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg">
                                         <div className="flex items-center gap-3 flex-1">
                                             {formData.permisoOperacion_file ? (
-                                                (formData.permisoOperacion_file as File).type.includes('pdf') ? (
+                                                (
+                                                    formData.permisoOperacion_file as File
+                                                ).type.includes('pdf') ? (
                                                     <FaFilePdf className="w-6 h-6 text-red-500" />
                                                 ) : (
                                                     <FaImage className="w-6 h-6 text-blue-500" />
                                                 )
-                                            ) : formData.permisoOperacion?.includes('.pdf') ? (
+                                            ) : formData.permisoOperacion?.includes(
+                                                  '.pdf',
+                                              ) ? (
                                                 <FaFilePdf className="w-6 h-6 text-red-500" />
                                             ) : (
                                                 <FaImage className="w-6 h-6 text-blue-500" />
                                             )}
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {formData.permisoOperacion_file 
-                                                        ? (formData.permisoOperacion_file as File).name
-                                                        : getFileNameFromUrl(formData.permisoOperacion)}
+                                                    {formData.permisoOperacion_file
+                                                        ? (
+                                                              formData.permisoOperacion_file as File
+                                                          ).name
+                                                        : getFileNameFromUrl(
+                                                              formData.permisoOperacion,
+                                                          )}
                                                 </p>
                                                 {formData.permisoOperacion_file && (
                                                     <p className="text-xs text-gray-500">
-                                                        {((formData.permisoOperacion_file as File).size / 1024).toFixed(2)} KB
+                                                        {(
+                                                            (
+                                                                formData.permisoOperacion_file as File
+                                                            ).size / 1024
+                                                        ).toFixed(2)}{' '}
+                                                        KB
                                                     </p>
                                                 )}
                                             </div>
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData((prev) => ({
-                                                ...prev,
-                                                permisoOperacion_file: null,
-                                                permisoOperacion: ''
-                                            }))}
+                                            onClick={() =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    permisoOperacion_file: null,
+                                                    permisoOperacion: '',
+                                                }))
+                                            }
                                             className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                         >
                                             <FaTimes className="w-5 h-5" />
@@ -2361,7 +2525,8 @@ const ProfileGarage = () => {
                                 <label className="block font-semibold text-gray-700 mb-2">
                                     Logotipo Negocio:
                                 </label>
-                                {!formData.logotipoNegocio_file && !formData.logotipoNegocio ? (
+                                {!formData.logotipoNegocio_file &&
+                                !formData.logotipoNegocio ? (
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -2369,12 +2534,13 @@ const ProfileGarage = () => {
                                             id="logotipoNegocio-upload"
                                             className="sr-only"
                                             onChange={(e) => {
-                                                const file = e.target.files?.[0];
+                                                const file = e.target.files?.[0]
                                                 if (file) {
                                                     setFormData((prev) => ({
                                                         ...prev,
-                                                        logotipoNegocio_file: file
-                                                    }));
+                                                        logotipoNegocio_file:
+                                                            file,
+                                                    }))
                                                 }
                                             }}
                                         />
@@ -2385,9 +2551,14 @@ const ProfileGarage = () => {
                                             <div className="flex flex-col items-center justify-center pt-2">
                                                 <FaImage className="w-8 h-8 text-gray-400 mb-2" />
                                                 <p className="text-sm text-gray-600">
-                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">
+                                                        Click para subir
+                                                    </span>{' '}
+                                                    o arrastra aquí
                                                 </p>
-                                                <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Solo imágenes
+                                                </p>
                                             </div>
                                         </label>
                                     </div>
@@ -2397,24 +2568,35 @@ const ProfileGarage = () => {
                                             <FaImage className="w-6 h-6 text-blue-500" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {formData.logotipoNegocio_file 
-                                                        ? (formData.logotipoNegocio_file as File).name
-                                                        : getFileNameFromUrl(formData.logotipoNegocio)}
+                                                    {formData.logotipoNegocio_file
+                                                        ? (
+                                                              formData.logotipoNegocio_file as File
+                                                          ).name
+                                                        : getFileNameFromUrl(
+                                                              formData.logotipoNegocio,
+                                                          )}
                                                 </p>
                                                 {formData.logotipoNegocio_file && (
                                                     <p className="text-xs text-gray-500">
-                                                        {((formData.logotipoNegocio_file as File).size / 1024).toFixed(2)} KB
+                                                        {(
+                                                            (
+                                                                formData.logotipoNegocio_file as File
+                                                            ).size / 1024
+                                                        ).toFixed(2)}{' '}
+                                                        KB
                                                     </p>
                                                 )}
                                             </div>
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData((prev) => ({
-                                                ...prev,
-                                                logotipoNegocio_file: null,
-                                                logotipoNegocio: ''
-                                            }))}
+                                            onClick={() =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    logotipoNegocio_file: null,
+                                                    logotipoNegocio: '',
+                                                }))
+                                            }
                                             className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                         >
                                             <FaTimes className="w-5 h-5" />
@@ -2426,9 +2608,11 @@ const ProfileGarage = () => {
                             {/* Foto Frente Taller */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    Foto Frente Taller: <span className="text-red-500">*</span>
+                                    Foto Frente Taller:{' '}
+                                    <span className="text-red-500">*</span>
                                 </label>
-                                {!formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller ? (
+                                {!formData.fotoFrenteTaller_file &&
+                                !formData.fotoFrenteTaller ? (
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -2436,12 +2620,13 @@ const ProfileGarage = () => {
                                             id="fotoFrenteTaller-upload"
                                             className="sr-only"
                                             onChange={(e) => {
-                                                const file = e.target.files?.[0];
+                                                const file = e.target.files?.[0]
                                                 if (file) {
                                                     setFormData((prev) => ({
                                                         ...prev,
-                                                        fotoFrenteTaller_file: file
-                                                    }));
+                                                        fotoFrenteTaller_file:
+                                                            file,
+                                                    }))
                                                 }
                                             }}
                                         />
@@ -2452,9 +2637,14 @@ const ProfileGarage = () => {
                                             <div className="flex flex-col items-center justify-center pt-2">
                                                 <FaCamera className="w-8 h-8 text-gray-400 mb-2" />
                                                 <p className="text-sm text-gray-600">
-                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">
+                                                        Click para subir
+                                                    </span>{' '}
+                                                    o arrastra aquí
                                                 </p>
-                                                <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Solo imágenes
+                                                </p>
                                             </div>
                                         </label>
                                     </div>
@@ -2464,24 +2654,35 @@ const ProfileGarage = () => {
                                             <FaImage className="w-6 h-6 text-blue-500" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {formData.fotoFrenteTaller_file 
-                                                        ? (formData.fotoFrenteTaller_file as File).name
-                                                        : getFileNameFromUrl(formData.fotoFrenteTaller)}
+                                                    {formData.fotoFrenteTaller_file
+                                                        ? (
+                                                              formData.fotoFrenteTaller_file as File
+                                                          ).name
+                                                        : getFileNameFromUrl(
+                                                              formData.fotoFrenteTaller,
+                                                          )}
                                                 </p>
                                                 {formData.fotoFrenteTaller_file && (
                                                     <p className="text-xs text-gray-500">
-                                                        {((formData.fotoFrenteTaller_file as File).size / 1024).toFixed(2)} KB
+                                                        {(
+                                                            (
+                                                                formData.fotoFrenteTaller_file as File
+                                                            ).size / 1024
+                                                        ).toFixed(2)}{' '}
+                                                        KB
                                                     </p>
                                                 )}
                                             </div>
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData((prev) => ({
-                                                ...prev,
-                                                fotoFrenteTaller_file: null,
-                                                fotoFrenteTaller: ''
-                                            }))}
+                                            onClick={() =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    fotoFrenteTaller_file: null,
+                                                    fotoFrenteTaller: '',
+                                                }))
+                                            }
                                             className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                         >
                                             <FaTimes className="w-5 h-5" />
@@ -2493,9 +2694,11 @@ const ProfileGarage = () => {
                             {/* Foto Interna Taller */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    Foto Interna Taller: <span className="text-red-500">*</span>
+                                    Foto Interna Taller:{' '}
+                                    <span className="text-red-500">*</span>
                                 </label>
-                                {!formData.fotoInternaTaller_file && !formData.fotoInternaTaller ? (
+                                {!formData.fotoInternaTaller_file &&
+                                !formData.fotoInternaTaller ? (
                                     <div className="relative">
                                         <input
                                             type="file"
@@ -2503,12 +2706,13 @@ const ProfileGarage = () => {
                                             id="fotoInternaTaller-upload"
                                             className="sr-only"
                                             onChange={(e) => {
-                                                const file = e.target.files?.[0];
+                                                const file = e.target.files?.[0]
                                                 if (file) {
                                                     setFormData((prev) => ({
                                                         ...prev,
-                                                        fotoInternaTaller_file: file
-                                                    }));
+                                                        fotoInternaTaller_file:
+                                                            file,
+                                                    }))
                                                 }
                                             }}
                                         />
@@ -2519,9 +2723,14 @@ const ProfileGarage = () => {
                                             <div className="flex flex-col items-center justify-center pt-2">
                                                 <FaCamera className="w-8 h-8 text-gray-400 mb-2" />
                                                 <p className="text-sm text-gray-600">
-                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">Click para subir</span> o arrastra aquí
+                                                    <span className="font-semibold text-blue-600 hover:text-blue-700">
+                                                        Click para subir
+                                                    </span>{' '}
+                                                    o arrastra aquí
                                                 </p>
-                                                <p className="text-xs text-gray-500 mt-1">Solo imágenes</p>
+                                                <p className="text-xs text-gray-500 mt-1">
+                                                    Solo imágenes
+                                                </p>
                                             </div>
                                         </label>
                                     </div>
@@ -2531,24 +2740,36 @@ const ProfileGarage = () => {
                                             <FaImage className="w-6 h-6 text-blue-500" />
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {formData.fotoInternaTaller_file 
-                                                        ? (formData.fotoInternaTaller_file as File).name
-                                                        : getFileNameFromUrl(formData.fotoInternaTaller)}
+                                                    {formData.fotoInternaTaller_file
+                                                        ? (
+                                                              formData.fotoInternaTaller_file as File
+                                                          ).name
+                                                        : getFileNameFromUrl(
+                                                              formData.fotoInternaTaller,
+                                                          )}
                                                 </p>
                                                 {formData.fotoInternaTaller_file && (
                                                     <p className="text-xs text-gray-500">
-                                                        {((formData.fotoInternaTaller_file as File).size / 1024).toFixed(2)} KB
+                                                        {(
+                                                            (
+                                                                formData.fotoInternaTaller_file as File
+                                                            ).size / 1024
+                                                        ).toFixed(2)}{' '}
+                                                        KB
                                                     </p>
                                                 )}
                                             </div>
                                         </div>
                                         <button
                                             type="button"
-                                            onClick={() => setFormData((prev) => ({
-                                                ...prev,
-                                                fotoInternaTaller_file: null,
-                                                fotoInternaTaller: ''
-                                            }))}
+                                            onClick={() =>
+                                                setFormData((prev) => ({
+                                                    ...prev,
+                                                    fotoInternaTaller_file:
+                                                        null,
+                                                    fotoInternaTaller: '',
+                                                }))
+                                            }
                                             className="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                         >
                                             <FaTimes className="w-5 h-5" />
@@ -2582,8 +2803,14 @@ const ProfileGarage = () => {
 
             {/* Modal para visualizar documentos */}
             {documentModalOpen && selectedDocument && (
-                <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50" onClick={closeDocumentModal}>
-                    <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div
+                    className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+                    onClick={closeDocumentModal}
+                >
+                    <div
+                        className="bg-white rounded-lg shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex justify-between items-center p-4 border-b">
                             <h2 className="text-xl font-semibold text-gray-800">
                                 {selectedDocument.name}
@@ -2637,14 +2864,22 @@ const ProfileGarage = () => {
                                         </button>
                                         <button
                                             onClick={handleFlipHorizontal}
-                                            className={`p-2 rounded-md transition-colors ${flipHorizontal ? 'bg-gray-200 text-gray-800' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                                            className={`p-2 rounded-md transition-colors ${
+                                                flipHorizontal
+                                                    ? 'bg-gray-200 text-gray-800'
+                                                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                                            }`}
                                             title="Voltear horizontal"
                                         >
                                             <FaArrowsAltH className="w-5 h-5" />
                                         </button>
                                         <button
                                             onClick={handleFlipVertical}
-                                            className={`p-2 rounded-md transition-colors ${flipVertical ? 'bg-gray-200 text-gray-800' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                                            className={`p-2 rounded-md transition-colors ${
+                                                flipVertical
+                                                    ? 'bg-gray-200 text-gray-800'
+                                                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                                            }`}
                                             title="Voltear vertical"
                                         >
                                             <FaArrowsAltV className="w-5 h-5" />
@@ -2659,18 +2894,21 @@ const ProfileGarage = () => {
                                 </button>
                             </div>
                         </div>
-                        <div 
+                        <div
                             className="flex-1 overflow-hidden p-4 bg-gray-100 flex items-center justify-center relative"
                             onWheel={handleWheelZoom}
                         >
                             {selectedDocument.type === 'pdf' ? (
-                                <div 
-                                    style={{ 
+                                <div
+                                    style={{
                                         transform: `scale(${zoomLevel})`,
                                         transformOrigin: 'center center',
-                                        transition: zoomLevel === 1 ? 'transform 0.2s ease-in-out' : 'none',
+                                        transition:
+                                            zoomLevel === 1
+                                                ? 'transform 0.2s ease-in-out'
+                                                : 'none',
                                         width: `${100 / zoomLevel}%`,
-                                        height: `${100 / zoomLevel}%`
+                                        height: `${100 / zoomLevel}%`,
                                     }}
                                 >
                                     <iframe
@@ -2684,12 +2922,34 @@ const ProfileGarage = () => {
                                     src={selectedDocument.url}
                                     alt={selectedDocument.name}
                                     style={{
-                                        transform: `rotate(${imageRotation}deg) scaleX(${flipHorizontal ? -1 : 1}) scaleY(${flipVertical ? -1 : 1}) scale(${zoomLevel}) translate3d(${dragPosition.x / zoomLevel}px, ${dragPosition.y / zoomLevel}px, 0)`,
+                                        transform: `rotate(${imageRotation}deg) scaleX(${
+                                            flipHorizontal ? -1 : 1
+                                        }) scaleY(${
+                                            flipVertical ? -1 : 1
+                                        }) scale(${zoomLevel}) translate3d(${
+                                            dragPosition.x / zoomLevel
+                                        }px, ${
+                                            dragPosition.y / zoomLevel
+                                        }px, 0)`,
                                         transformOrigin: 'center center',
-                                        transition: isDragging ? 'none' : (zoomLevel === 1 && dragPosition.x === 0 && dragPosition.y === 0 && imageRotation === 0 && !flipHorizontal && !flipVertical ? 'transform 0.2s ease-in-out' : 'none'),
+                                        transition: isDragging
+                                            ? 'none'
+                                            : zoomLevel === 1 &&
+                                                dragPosition.x === 0 &&
+                                                dragPosition.y === 0 &&
+                                                imageRotation === 0 &&
+                                                !flipHorizontal &&
+                                                !flipVertical
+                                              ? 'transform 0.2s ease-in-out'
+                                              : 'none',
                                         maxWidth: '100%',
                                         maxHeight: '70vh',
-                                        cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                                        cursor:
+                                            zoomLevel > 1
+                                                ? isDragging
+                                                    ? 'grabbing'
+                                                    : 'grab'
+                                                : 'default',
                                     }}
                                     className="object-contain rounded-lg shadow-lg select-none"
                                     onMouseDown={handleMouseDown}
@@ -2698,10 +2958,13 @@ const ProfileGarage = () => {
                                     onMouseLeave={handleMouseUp}
                                     draggable={false}
                                     onError={(e) => {
-                                        const imgElement = e.target as HTMLImageElement
+                                        const imgElement =
+                                            e.target as HTMLImageElement
                                         imgElement.style.display = 'none'
-                                        const errorDiv = document.createElement('div')
-                                        errorDiv.className = 'text-center text-gray-500 p-8'
+                                        const errorDiv =
+                                            document.createElement('div')
+                                        errorDiv.className =
+                                            'text-center text-gray-500 p-8'
                                         errorDiv.innerHTML = `
                                             <FaFilePdf class="w-16 h-16 mx-auto mb-4 text-gray-400" />
                                             <p class="text-lg font-semibold">Error al cargar la imagen</p>
