@@ -75,7 +75,7 @@ const UbicationGarages = () => {
         <>
             <div className="grid grid-cols-2">
                 <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    <span className="text-[#000B7E]">Ubicación Talleres</span>
+                    <span className="text-[#000B7E]">Ubicación Negocios</span>
                 </h1>
                 <div className="flex justify-end">
                     <div className="flex items-center">

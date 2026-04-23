@@ -138,7 +138,7 @@ const Subscriptions = () => {
         const promises = querySnapshot.docs.map(async (docSnap) => {
             const subsData = docSnap.data() as Subscriptions
 
-            let nombre_taller = 'Taller no encontrado'
+            let nombre_taller = 'Negocio no encontrado'
             let correo_taller = 'Correo no encontrado'
             if (subsData.taller_uid) {
                 const tallerDoc = await getDoc(
@@ -146,7 +146,7 @@ const Subscriptions = () => {
                 )
                 if (tallerDoc.exists()) {
                     const tallerData = tallerDoc.data()
-                    nombre_taller = tallerData.nombre || 'Taller no encontrado'
+                    nombre_taller = tallerData.nombre || 'Negocio no encontrado'
                     correo_taller = tallerData.email || 'Correo no encontrado'
                 }
             }
@@ -256,7 +256,7 @@ const Subscriptions = () => {
 
         const encabezados: Record<string, string> = {
             nombre: 'Nombre Cliente',
-            nombre_taller: 'Nombre Taller',
+            nombre_taller: 'Nombre Negocio',
             cantidad_servicios: 'Cantidad de Servicios',
             monto: 'Monto Total',
             fecha_inicio: 'Fecha de Inicio',
@@ -371,11 +371,11 @@ const Subscriptions = () => {
             accessorKey: 'nombre',
         },
         {
-            header: 'Taller Subscrito',
+            header: 'Negocio Subscrito',
             accessorKey: 'nombre_taller',
         },
         {
-            header: 'Correo Taller',
+            header: 'Correo Negocio',
             accessorKey: 'correo_taller',
         },
         {
@@ -559,7 +559,7 @@ const Subscriptions = () => {
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Plan, taller, correo, monto, fechas, comprobante, ids…"
+                                placeholder="Plan, negocio, correo, monto, fechas, comprobante, ids…"
                                 className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}

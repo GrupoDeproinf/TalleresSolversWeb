@@ -336,7 +336,7 @@ const TallerDashboard = () => {
                     marketCategoryPrices,
                 })
             } catch (error) {
-                console.error('Error al cargar métricas del dashboard de taller:', error)
+                console.error('Error al cargar métricas del dashboard de negocio:', error)
                 setMetrics(EMPTY_METRICS)
             } finally {
                 setIsLoading(false)
@@ -432,7 +432,7 @@ const TallerDashboard = () => {
     return (
         <div
             className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 bg-gray-100 p-1"
-            aria-label="Dashboard del taller"
+            aria-label="Dashboard del negocio"
         >
         
 
@@ -518,7 +518,7 @@ const TallerDashboard = () => {
                             Historial de solicitudes respondidas (ultimas 8 semanas)
                         </h3>
                         <p className="mt-0.5 text-xs text-white/90">
-                            Evolucion semanal de respuestas del taller
+                            Evolucion semanal de respuestas del negocio
                         </p>
                     </div>
                     <div className="p-3">
@@ -634,7 +634,7 @@ const TallerDashboard = () => {
                                 Comparativa plataforma
                             </p>
                             <p className="mt-1 text-sm text-gray-700">
-                                Promedio taller:{' '}
+                                Promedio negocio:{' '}
                                 <span className="font-semibold">
                                     {metrics.myAverageResponseMinutes.toFixed(1)} min
                                 </span>

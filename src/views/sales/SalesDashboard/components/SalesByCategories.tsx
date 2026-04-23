@@ -22,7 +22,7 @@ const SalesByCategories = ({
                         <div className="flex-1 min-w-0">
                             <Chart
                                 donutTitle={`${data.data.reduce((a, b) => a + b, 0)}`}
-                                donutText="Cantidad de Talleres"
+                                donutText="Cantidad de Negocios"
                                 series={data.data}
                                 customOptions={{
                                     labels: data.labels,

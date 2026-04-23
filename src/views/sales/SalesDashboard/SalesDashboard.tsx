@@ -58,6 +58,7 @@ type UsuarioActivo = {
 }
 
 type PeriodoMeses = 1 | 3 | 6
+type TallerStatusFilter = 'todos' | 'aprobados' | 'rechazados' | 'espera'
 
 type FirestoreTimestampLike =
     | Timestamp
@@ -108,6 +109,32 @@ const getStartDateFromMonths = (months: PeriodoMeses) => {
     return startDate
 }
 
+const TALLER_STATUS_FILTER_OPTIONS: Array<{
+    key: TallerStatusFilter
+    label: string
+}> = [
+    { key: 'todos', label: 'Todos' },
+    { key: 'aprobados', label: 'Aprobados' },
+    { key: 'rechazados', label: 'Rechazados' },
+    { key: 'espera', label: 'En espera' },
+]
+
+const ESTADOS_NEGOCIO_FIJOS = [
+    'Aprobado',
+    'Rechazado',
+    'En espera por aprobación',
+] as const
+
+type EstadoNegocioFiltro = 'todos' | (typeof ESTADOS_NEGOCIO_FIJOS)[number]
+
+const normalizeBusinessStatus = (status: unknown): (typeof ESTADOS_NEGOCIO_FIJOS)[number] | null => {
+    const raw = String(status || '').toLowerCase()
+    if (raw.includes('aprob')) return 'Aprobado'
+    if (raw.includes('rechaz')) return 'Rechazado'
+    if (raw.includes('esper')) return 'En espera por aprobación'
+    return null
+}
+
 const fetchDashboardData = async () => {
     const usersSnapshot = await getDocs(collection(db, 'Usuarios'))
     const subsSnapshot = await getDocs(collection(db, 'Subscripciones'))
@@ -123,6 +150,10 @@ const fetchDashboardData = async () => {
     let totalMonto = 0
     const usuariosPorEstado: Record<string, number> = {}
     const talleresPorEstado: Record<string, number> = {}
+    const talleresPorEstadoYStatus: Record<
+        string,
+        Record<(typeof ESTADOS_NEGOCIO_FIJOS)[number], number>
+    > = {}
     let talleresVencidosHoy = 0
 
     const hoy = new Date()
@@ -138,10 +169,21 @@ const fetchDashboardData = async () => {
             }
         }
         if (data.typeUser === 'Taller') {
+            const estado = data.estado || 'Sin estado'
             tallerCount++
-            if (data.estado) {
-                talleresPorEstado[data.estado] =
-                    (talleresPorEstado[data.estado] || 0) + 1
+            talleresPorEstado[estado] = (talleresPorEstado[estado] || 0) + 1
+
+            if (!talleresPorEstadoYStatus[estado]) {
+                talleresPorEstadoYStatus[estado] = {
+                    Aprobado: 0,
+                    Rechazado: 0,
+                    'En espera por aprobación': 0,
+                }
+            }
+
+            const normalizedStatus = normalizeBusinessStatus(data.status)
+            if (normalizedStatus) {
+                talleresPorEstadoYStatus[estado][normalizedStatus] += 1
             }
             const subscripcionActual = data.subscripcion_actual
 
@@ -187,6 +229,7 @@ const fetchDashboardData = async () => {
         totalMonto,
         usuariosPorEstado,
         talleresPorEstado,
+        talleresPorEstadoYStatus,
         talleresVencidosHoy,
     }
 }
@@ -206,6 +249,10 @@ const SalesDashboard = () => {
         totalMonto: 0,
         usuariosPorEstado: {} as Record<string, number>,
         talleresPorEstado: {} as Record<string, number>,
+        talleresPorEstadoYStatus: {} as Record<
+            string,
+            Record<(typeof ESTADOS_NEGOCIO_FIJOS)[number], number>
+        >,
         talleresVencidosHoy: 0,
     })
 
@@ -259,7 +306,7 @@ const SalesDashboard = () => {
 
                     serviciosConCalificaciones.push({
                         nombre_servicio: servicioData.nombre_servicio,
-                        taller: servicioData.taller || 'Sin taller',
+                        taller: servicioData.taller || 'Sin negocio',
                         uid_servicio,
                         calificaciones,
                     });
@@ -521,7 +568,7 @@ const SalesDashboard = () => {
 
 const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_puntuacion: number }>[] = [
     {
-        header: 'Taller',
+        header: 'Negocio',
         accessorKey: 'taller',
     },
     {
@@ -596,18 +643,47 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
         totalMonto,
         usuariosPorEstado,
         talleresPorEstado,
+        talleresPorEstadoYStatus,
         talleresVencidosHoy,
     } = dashboardData
 
     // Resumen crítico del día (pagos y vencimientos se pueden conectar a BD después)
     const [pagosPendientesValidar, setPagosPendientesValidar] = useState(3)
+    const [tallerStatusFilter, setTallerStatusFilter] =
+        useState<TallerStatusFilter>('todos')
     const talleresNuevosEnEspera = talleresStats.espera
 
-    // Datos para el gráfico
+    const chartStatusSlices = [
+        {
+            key: 'aprobados' as const,
+            label: 'Aprobados',
+            value: talleresStats.aprobados,
+            color: '#15803D',
+        },
+        {
+            key: 'rechazados' as const,
+            label: 'Rechazados',
+            value: talleresStats.rechazados,
+            color: '#C22F1C',
+        },
+        {
+            key: 'espera' as const,
+            label: 'En espera por aprobación',
+            value: talleresStats.espera,
+            color: '#2196F3',
+        },
+    ]
+
+    const visibleChartStatusSlices =
+        tallerStatusFilter === 'todos'
+            ? chartStatusSlices
+            : chartStatusSlices.filter((slice) => slice.key === tallerStatusFilter)
+
+    // Datos para el gráfico de estados de negocios
     const chartData = {
-        labels: ['Aprobados', 'Rechazados', 'En espera por aprobación'],
-        data: [talleresStats.aprobados, talleresStats.rechazados, talleresStats.espera],
-        colors: ['#15803D', '#C22F1C', '#2196F3'],
+        labels: visibleChartStatusSlices.map((slice) => slice.label),
+        data: visibleChartStatusSlices.map((slice) => slice.value),
+        colors: visibleChartStatusSlices.map((slice) => slice.color),
     }
 
     const totalTalleres =
@@ -626,17 +702,36 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
     const [vistaEstados, setVistaEstados] = useState<'usuarios' | 'talleres'>(
         'usuarios',
     )
+    const [estadoNegocioFiltro, setEstadoNegocioFiltro] =
+        useState<EstadoNegocioFiltro>('todos')
 
     const estadosUsuarios = Object.keys(usuariosPorEstado || {})
     const estadosTalleres = Object.keys(talleresPorEstado || {})
 
-    const estadosLabels =
-        vistaEstados === 'usuarios' ? estadosUsuarios : estadosTalleres
+    const estadosLabelsBase = vistaEstados === 'usuarios' ? estadosUsuarios : estadosTalleres
 
-    const estadosData =
-        vistaEstados === 'usuarios'
-            ? estadosLabels.map((estado) => usuariosPorEstado[estado] || 0)
-            : estadosLabels.map((estado) => talleresPorEstado[estado] || 0)
+    const estadosSeries = estadosLabelsBase.map((estado) => {
+        if (vistaEstados === 'usuarios') {
+            return { estado, valor: usuariosPorEstado[estado] || 0 }
+        }
+
+        if (estadoNegocioFiltro === 'todos') {
+            return { estado, valor: talleresPorEstado[estado] || 0 }
+        }
+
+        return {
+            estado,
+            valor: talleresPorEstadoYStatus[estado]?.[estadoNegocioFiltro] || 0,
+        }
+    })
+
+    const estadosSeriesFiltrada =
+        vistaEstados === 'talleres' && estadoNegocioFiltro !== 'todos'
+            ? estadosSeries.filter((item) => item.valor > 0)
+            : estadosSeries
+
+    const estadosLabels = estadosSeriesFiltrada.map((item) => item.estado)
+    const estadosData = estadosSeriesFiltrada.map((item) => item.valor)
 
     const ESTADOS_COLOR_PALETTE = [
         '#000B7E',
@@ -652,7 +747,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
     const chartEstados = {
         labels: estadosLabels,
         data: estadosData,
-        colors: estadosLabels.map(
+        colors: estadosSeriesFiltrada.map(
             (_, index) =>
                 ESTADOS_COLOR_PALETTE[index % ESTADOS_COLOR_PALETTE.length],
         ),
@@ -678,12 +773,12 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
 
     const resumenDiaItems = [
         {
-            concepto: 'Talleres en espera de revisión',
+            concepto: 'Negocios en espera de revisión',
             valor: talleresNuevosEnEspera,
             Icono: HiOutlineOfficeBuilding,
             colorBadge: 'bg-blue-100 text-blue-700',
-            emptyMessage: 'Sin talleres en espera hoy',
-            activeMessage: 'Talleres por revisar hoy',
+            emptyMessage: 'Sin negocios en espera hoy',
+            activeMessage: 'Negocios por revisar hoy',
         },
         {
             concepto: 'Pagos pendientes por validar',
@@ -694,12 +789,12 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
             activeMessage: 'Validaciones por atender hoy',
         },
         {
-            concepto: 'Talleres que vencieron hoy',
+            concepto: 'Negocios que vencieron hoy',
             valor: talleresVencidosHoy,
             Icono: HiOutlineUserGroup,
             colorBadge: 'bg-rose-100 text-rose-700',
-            emptyMessage: 'Sin talleres vencidos hoy',
-            activeMessage: 'Talleres por gestionar hoy',
+            emptyMessage: 'Sin negocios vencidos hoy',
+            activeMessage: 'Negocios por gestionar hoy',
         },
     ]
 
@@ -726,7 +821,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                 <div className="mt-4 grid gap-3">
                     <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 flex items-center justify-between">
                         <p className="text-base font-semibold text-blue-900">
-                            Talleres nuevos en espera de revisión
+                            Negocios nuevos en espera de revisión
                         </p>
                         <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-blue-700">
                             {talleresNuevosEnEspera}
@@ -744,7 +839,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
 
                     <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 flex items-center justify-between">
                         <p className="text-base font-semibold text-rose-900">
-                            Talleres con vencimiento hoy
+                            Negocios con vencimiento hoy
                         </p>
                         <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-rose-700">
                             {talleresVencidosHoy}
@@ -820,7 +915,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                             <div>
                                                 <div className="flex items-center gap-2 flex-wrap">
                                                     <p className="text-sm font-medium uppercase tracking-wider text-white/90">
-                                                        Talleres
+                                                        Negocios
                                                     </p>
                                                     <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
                                                         {talleresStats.espera} en espera
@@ -925,6 +1020,29 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                             {/* Fila 3: Gráfico de pastel + Tabla de calificaciones */}
                             <section className="flex-1 min-h-0 grid grid-cols-[30%_70%] gap-3">
                                 <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0 p-3">
+                                    <div className="mb-3">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Estado de negocios
+                                        </p>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {TALLER_STATUS_FILTER_OPTIONS.map((option) => (
+                                                <button
+                                                    key={option.key}
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setTallerStatusFilter(option.key)
+                                                    }
+                                                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                                        tallerStatusFilter === option.key
+                                                            ? 'bg-[#000B7E] text-white'
+                                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    }`}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                     <div className="w-full h-full">
                                         <SalesByCategories data={chartData} />
                                     </div>
@@ -935,7 +1053,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                             Calificaciones de los servicios
                                         </h2>
                                         <p className="text-xs text-white/90 mt-0.5">
-                                            Promedio por taller y servicio
+                                            Promedio por negocio y servicio
                                         </p>
                                     </div>
                                     <div className="flex-1 min-h-0 overflow-auto">
@@ -1015,7 +1133,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                     <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                                         <div>
                                             <h3 className="text-sm font-semibold text-gray-800">
-                                                Usuarios y talleres por estado
+                                                Usuarios y negocios por estado
                                             </h3>
                                             <p className="text-xs text-gray-500">
                                                 Cambia la vista para analizar la concentración por región
@@ -1024,7 +1142,10 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                         <div className="inline-flex rounded-full bg-gray-100 p-1 text-xs font-medium">
                                             <button
                                                 type="button"
-                                                onClick={() => setVistaEstados('usuarios')}
+                                                onClick={() => {
+                                                    setVistaEstados('usuarios')
+                                                    setEstadoNegocioFiltro('todos')
+                                                }}
                                                 className={`px-3 py-1 rounded-full transition-colors ${
                                                     vistaEstados === 'usuarios'
                                                         ? 'bg-[#000B7E] text-white shadow-sm'
@@ -1035,17 +1156,56 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => setVistaEstados('talleres')}
+                                                onClick={() => {
+                                                    setVistaEstados('talleres')
+                                                    setEstadoNegocioFiltro('todos')
+                                                }}
                                                 className={`px-3 py-1 rounded-full transition-colors ${
                                                     vistaEstados === 'talleres'
                                                         ? 'bg-[#000B7E] text-white shadow-sm'
                                                         : 'text-gray-600'
                                                 }`}
                                             >
-                                                Talleres
+                                                Negocios
                                             </button>
                                         </div>
                                     </div>
+                                    {vistaEstados === 'talleres' && (
+                                        <div className="px-4 pt-3 pb-2 border-b border-gray-100 bg-white">
+                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                                Filtrar por estatus
+                                            </p>
+                                            <div className="mt-2 flex flex-wrap gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setEstadoNegocioFiltro('todos')}
+                                                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                                        estadoNegocioFiltro === 'todos'
+                                                            ? 'bg-[#000B7E] text-white'
+                                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                    }`}
+                                                >
+                                                    Todos
+                                                </button>
+                                                {ESTADOS_NEGOCIO_FIJOS.map((estado) => (
+                                                    <button
+                                                        key={estado}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setEstadoNegocioFiltro(estado)
+                                                        }
+                                                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                                            estadoNegocioFiltro === estado
+                                                                ? 'bg-[#000B7E] text-white'
+                                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                        }`}
+                                                    >
+                                                        {estado}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                     <div className="flex-1 min-h-0 p-4">
                                         {chartEstados.labels.length === 0 ? (
                                             <p className="text-xs text-gray-500 text-center py-4">
@@ -1105,7 +1265,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                     <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-start justify-between gap-3">
                                         <div>
                                             <h3 className="text-sm font-semibold text-gray-800">
-                                                Talleres más activos
+                                                Negocios más activos
                                             </h3>
                                             <p className="text-xs text-gray-500">
                                                 Ranking según solicitudes atendidas
@@ -1133,7 +1293,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                     <div className="flex-1 min-h-0 p-3 overflow-auto">
                                         {topTalleresActivos.length === 0 ? (
                                             <p className="text-xs text-gray-500 text-center py-4">
-                                                Aún no hay talleres con solicitudes atendidas en los
+                                                Aún no hay negocios con solicitudes atendidas en los
                                                 últimos {talleresPeriodoMeses}{' '}
                                                 {talleresPeriodoMeses === 1 ? 'mes' : 'meses'}.
                                             </p>

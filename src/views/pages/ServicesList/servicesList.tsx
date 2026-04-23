@@ -380,7 +380,7 @@ const ServicesList = () => {
             },
         },
         {
-            header: 'Taller',
+            header: 'Negocio',
             accessorKey: 'taller',
             cell: ({ row }) => {
                 const service = row.original
@@ -599,7 +599,7 @@ const ServicesList = () => {
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                     <h1 className="text-4xl font-bold text-[#000B7E]">
-                        Servicios de Talleres
+                        Servicios de Negocios
                     </h1>
                     <button
                         type="button"
@@ -652,7 +652,7 @@ const ServicesList = () => {
                             <input
                                 id="filter-buscar"
                                 type="text"
-                                placeholder="Nombre, taller, categoría, precio, garantía, ids…"
+                                placeholder="Nombre, negocio, categoría, precio, garantía, ids…"
                                 className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
@@ -785,7 +785,7 @@ const ServicesList = () => {
                                             <p className="text-gray-900 font-semibold">{selectedService.nombre_servicio}</p>
                                         </div>
                                         <div>
-                                            <span className="font-medium text-gray-700">Taller:</span>
+                                            <span className="font-medium text-gray-700">Negocio:</span>
                                             <p className="text-gray-900">{selectedService.taller}</p>
                                         </div>
                                         <div>

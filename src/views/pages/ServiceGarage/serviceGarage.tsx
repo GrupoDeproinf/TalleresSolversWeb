@@ -333,7 +333,7 @@ const ServiceGarages = () => {
         subcategoria: Yup.array()
             .min(1, 'Debes elegir al menos una subcategoría') // Asegura que haya al menos una subcategoría seleccionada
             .required('Las subcategorías son obligatorias.'),
-        uid_taller: Yup.string().required('El taller es obligatorio.'),
+        uid_taller: Yup.string().required('El negocio es obligatorio.'),
         precio: Yup.number()
             .required('El precio es obligatorio.')
             .positive('El precio debe ser un valor positivo.')
@@ -354,7 +354,7 @@ const ServiceGarages = () => {
             if (!tallerSnapshot.exists()) {
                 toast.push(
                     <Notification title="Error">
-                        El taller seleccionado no existe.
+                        El negocio seleccionado no existe.
                     </Notification>
                 );
                 return;
@@ -366,7 +366,7 @@ const ServiceGarages = () => {
             if (cantidadServicios <= 0) {
                 toast.push(
                     <Notification title="Error">
-                        Este taller no tiene más servicios disponibles para crear.
+                        Este negocio no tiene más servicios disponibles para crear.
                     </Notification>
                 );
                 return;
@@ -647,7 +647,7 @@ const ServiceGarages = () => {
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
                     <h1 className="text-4xl font-bold text-[#000B7E]">
-                        Asignar Servicios a Talleres
+                        Asignar Servicios a Negocios
                     </h1>
                     <button
                         type="button"
@@ -867,7 +867,7 @@ const ServiceGarages = () => {
                             {canGoBack && (
     <div>
         <label className="flex flex-col">
-            <span className="font-semibold text-gray-700">Taller:</span>
+            <span className="font-semibold text-gray-700">Negocio:</span>
             <div className="relative">
                 <Select
                     name="uid_taller"
@@ -890,7 +890,7 @@ const ServiceGarages = () => {
                         setFieldValue('uid_taller', selectedOption?.value || '');
                         setFieldValue('taller', selectedTaller?.nombre || '');
                     }}
-                    placeholder="Buscar taller..."
+                    placeholder="Buscar negocio..."
                     className="w-full mt-1 p-3 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
                     isClearable={true}
                     isSearchable={true}  // Asegúrate de que tu Select soporte búsqueda

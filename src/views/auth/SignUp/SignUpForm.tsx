@@ -184,7 +184,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         }
                                         type="button"
                                     >
-                                        Taller
+                                        Negocio
                                     </Button>
                                 </div>
                             </div>
@@ -192,7 +192,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 <FormItem
                                     label={
                                         values.typeUser === 'Taller'
-                                            ? 'Nombre del Taller'
+                                            ? 'Nombre del Negocio'
                                             : 'Nombre y Apellido'
                                     }
                                     invalid={errors.nombre && touched.nombre}
@@ -204,7 +204,7 @@ const SignUpForm = (props: SignUpFormProps) => {
                                         name="nombre"
                                         placeholder={
                                             values.typeUser === 'Taller'
-                                                ? 'Ingrese el nombre del taller'
+                                                ? 'Ingrese el nombre del negocio'
                                                 : 'Ingrese su nombre'
                                         }
                                         component={Input}

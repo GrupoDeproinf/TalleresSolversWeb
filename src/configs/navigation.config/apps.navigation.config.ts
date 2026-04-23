@@ -39,7 +39,7 @@ const appsNavigationConfig: NavigationTree[] = [
                     {
                         key: 'appsgarages_ubication.garages_ubication',
                         path: `${APP_PREFIX_PATH}/garages_ubication`,
-                        title: 'Ubicación Talleres',
+                        title: 'Ubicación Negocios',
                         translateKey: 'garages_ubication',
                         icon: '',
                         type: NAV_ITEM_TYPE_COLLAPSE,
@@ -81,8 +81,8 @@ const appsNavigationConfig: NavigationTree[] = [
             {
                 key: 'appsGarages.garages',
                 path: `${APP_PREFIX_PATH}/garages`,
-                title: 'Talleres',
-                translateKey: 'Talleres',
+                title: 'Negocios',
+                translateKey: 'Negocios',
                 icon: 'cars',
                 type: NAV_ITEM_TYPE_COLLAPSE,
                 authority: [ADMIN],
@@ -121,8 +121,8 @@ const appsNavigationConfig: NavigationTree[] = [
             {
                 key: 'appsServicegarage.servicegarage',
                 path: `${APP_PREFIX_PATH}/serviceGarage`,
-                title: 'Servicios por Taller',
-                translateKey: 'Servicios por Taller',
+                title: 'Servicios por Negocio',
+                translateKey: 'Servicios por Negocio',
                 icon: 'serviceGarage',
                 type: NAV_ITEM_TYPE_COLLAPSE,
                 authority: [ADMIN],
@@ -201,8 +201,8 @@ const appsNavigationConfig: NavigationTree[] = [
             {
                 key: 'appsContact.Puntuacion',
                 path: `${APP_PREFIX_PATH}/Puntuacion`,
-                title: 'Puntuación de Talleres',
-                translateKey: 'Puntuación de Talleres',
+                title: 'Puntuación de Negocios',
+                translateKey: 'Puntuación de Negocios',
                 icon: 'Puntuacion',
                 type: NAV_ITEM_TYPE_COLLAPSE,
                 authority: [ADMIN],

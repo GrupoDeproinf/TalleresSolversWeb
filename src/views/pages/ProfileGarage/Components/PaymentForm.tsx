@@ -191,7 +191,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                                 comprobantePago.numReferencia === values.numReferencia) {
                                 return {
                                     isDuplicate: true,
-                                    message: `Ya existe un pago con el número de referencia ${values.numReferencia} en la fecha ${fechaPagoFormateada} para este taller`
+                                    message: `Ya existe un pago con el número de referencia ${values.numReferencia} en la fecha ${fechaPagoFormateada} para este negocio`
                                 }
                             }
                             
@@ -200,7 +200,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                                 comprobantePago.correo === values.correo) {
                                 return {
                                     isDuplicate: true,
-                                    message: `Ya existe un pago con el correo ${values.correo} en la fecha ${fechaPagoFormateada} para este taller`
+                                    message: `Ya existe un pago con el correo ${values.correo} en la fecha ${fechaPagoFormateada} para este negocio`
                                 }
                             }
                             
@@ -208,7 +208,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                             if (metodoPago === 'Efectivo') {
                                 return {
                                     isDuplicate: true,
-                                    message: `Ya existe un pago en efectivo por el monto $${values.monto} en la fecha ${fechaPagoFormateada} para este taller`
+                                    message: `Ya existe un pago en efectivo por el monto $${values.monto} en la fecha ${fechaPagoFormateada} para este negocio`
                                 }
                             }
                         }

@@ -14,6 +14,7 @@ import {
     HiOutlineSearch,
     HiChevronDown,
     HiChevronRight,
+    HiPlus,
 } from 'react-icons/hi'
 import PaymentDrawer from './PaymentForm'
 import type { DocumentData } from 'firebase/firestore'
@@ -65,6 +66,7 @@ export interface ProfileGarageTabsProps {
     onRowsPerPageChangePromo?: (rowsPerPage: number) => void
     onEditPromotion?: (promotion: unknown) => void
     onOpenCreatePromotion?: () => void
+    onOpenCreateService?: () => void
     subscription: SubscriptionTab | null
     isSuscrito: boolean
     onOpenPlansDialog: () => void
@@ -102,6 +104,7 @@ export default function ProfileGarageTabs({
     onRowsPerPageChangePromo,
     onEditPromotion,
     onOpenCreatePromotion,
+    onOpenCreateService,
     subscription,
     isSuscrito,
     onOpenPlansDialog,
@@ -175,7 +178,7 @@ export default function ProfileGarageTabs({
                                     <div className="flex justify-end">
                                         <p className="text-xs mr-64 mt-3">
                                             Puede visualizar y suscribirse a un
-                                            plan para su taller...
+                                            plan para su negocio...
                                         </p>
                                         <button
                                             onClick={onOpenPlansDialog}
@@ -445,9 +448,19 @@ export default function ProfileGarageTabs({
                 <TabContent value="tab2">
                     <div className="w-full h-full">
                         <div className="p-4 rounded-lg">
-                            <h6 className="mb-6 flex justify-start mt-4">
-                                Lista de Servicios
-                            </h6>
+                            <div className="mb-6 mt-4 flex items-center justify-between">
+                                <h6 className="flex justify-start">
+                                    Lista de Servicios
+                                </h6>
+                                <Button
+                                    size="sm"
+                                    variant="solid"
+                                    icon={<HiPlus />}
+                                    onClick={onOpenCreateService}
+                                >
+                                    Crear servicio
+                                </Button>
+                            </div>
                             <Table className="w-full rounded-lg">
                                 <THead>
                                     {table
@@ -537,7 +550,7 @@ export default function ProfileGarageTabs({
                 <TabContent value="tab3">
                     <div className="w-full h-full p-4">
                         <h6 className="mb-6 flex justify-start mt-4">
-                            Documentos del Taller
+                            Documentos del Negocio
                         </h6>
                         <div className="grid grid-cols-3 gap-4">
                             {data?.rifIdFiscal && (
@@ -662,7 +675,7 @@ export default function ProfileGarageTabs({
                                     onClick={() =>
                                         openDocumentModal(
                                             data.fotoFrenteTaller,
-                                            'Foto Frente Taller',
+                                            'Foto Frente Negocio',
                                             'image',
                                         )
                                     }
@@ -670,7 +683,7 @@ export default function ProfileGarageTabs({
                                     <div className="aspect-video bg-gray-100 flex items-center justify-center">
                                         <img
                                             src={data.fotoFrenteTaller}
-                                            alt="Foto Frente Taller"
+                                            alt="Foto Frente Negocio"
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                             onError={(e) => {
                                                 ;(
@@ -690,7 +703,7 @@ export default function ProfileGarageTabs({
                                     onClick={() =>
                                         openDocumentModal(
                                             data.fotoInternaTaller,
-                                            'Foto Interna Taller',
+                                            'Foto Interna Negocio',
                                             'image',
                                         )
                                     }
@@ -698,7 +711,7 @@ export default function ProfileGarageTabs({
                                     <div className="aspect-video bg-gray-100 flex items-center justify-center">
                                         <img
                                             src={data.fotoInternaTaller}
-                                            alt="Foto Interna Taller"
+                                            alt="Foto Interna Negocio"
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                             onError={(e) => {
                                                 ;(

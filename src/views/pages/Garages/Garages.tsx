@@ -290,7 +290,7 @@ const Garages = () => {
 
         // Mapeo de encabezados en español
         const encabezados: Record<string, string> = {
-            nombre: 'Nombre del Taller',
+            nombre: 'Nombre del Negocio',
             rif: 'RIF',
             estado: 'Estado',
             email: 'Correo Electrónico',
@@ -341,14 +341,14 @@ const Garages = () => {
         if (tableData.length === 0) {
             toast.push(
                 <Notification title="Sin datos para exportar">
-                    No hay talleres disponibles para exportar con los filtros aplicados.
+                    No hay negocios disponibles para exportar con los filtros aplicados.
                 </Notification>,
             )
             return
         }
 
         // Generar nombre de archivo con información de filtros
-        let fileName = 'talleres'
+        let fileName = 'negocios'
         if (searchTerm) {
             fileName += `_filtro_${searchTerm}`
         }
@@ -373,7 +373,7 @@ const Garages = () => {
         // Crear el archivo Excel
         const worksheet = XLSX.utils.json_to_sheet(tableData)
         const workbook = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Talleres')
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Negocios')
         XLSX.writeFile(workbook, fileName)
 
         toast.push(
@@ -449,9 +449,9 @@ const Garages = () => {
         rifIdFiscal_file: Yup.mixed()
             .required('El RIF ID Fiscal es obligatorio'),
         fotoFrenteTaller_file: Yup.mixed()
-            .required('La foto del frente del taller es obligatoria'),
+            .required('La foto del frente del negocio es obligatoria'),
         fotoInternaTaller_file: Yup.mixed()
-            .required('La foto interna del taller es obligatoria'),
+            .required('La foto interna del negocio es obligatoria'),
     })
 
     const [showPassword, setShowPassword] = useState(false)
@@ -533,7 +533,7 @@ const Garages = () => {
             // Mostrar notificación de éxito
             toast.push(
                 <Notification title="Éxito">
-                    Taller creado exitosamente. Los documentos se están subiendo en segundo plano.
+                    Negocio creado exitosamente. Los documentos se están subiendo en segundo plano.
                 </Notification>
             );
             
@@ -626,7 +626,7 @@ const Garages = () => {
             console.error('Error creando el taller:', error);
             setIsCreating(false);
             
-            let errorMessage = 'Hubo un error al crear el Taller.';
+            let errorMessage = 'Hubo un error al crear el Negocio.';
             if (error.code === 'auth/email-already-in-use') {
                 errorMessage = 'El correo electrónico ya está en uso.';
             } else if (error.code === 'auth/weak-password') {
@@ -1054,7 +1054,7 @@ const Garages = () => {
                             }
                             className={`${isEliminado ? 'text-gray-400 cursor-not-allowed' : 'text-blue-900'}`}
                             disabled={isEliminado}
-                            title={isEliminado ? 'Taller eliminado' : 'Ver perfil'}
+                            title={isEliminado ? 'Negocio eliminado' : 'Ver perfil'}
                         >
                             <FaRegEye />
                         </button>
@@ -1062,7 +1062,7 @@ const Garages = () => {
                             <button
                                 onClick={() => openDialog(person)}
                                 className="text-red-700"
-                                title="Eliminar taller"
+                                title="Eliminar negocio"
                             >
                                 <FaTrash />
                             </button>
@@ -1109,7 +1109,7 @@ const Garages = () => {
 
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Taller {selectedPerson.nombre} eliminado con éxito. Se actualizaron {serviciosSnapshot.docs.length} servicios relacionados.
+                        Negocio {selectedPerson.nombre} eliminado con éxito. Se actualizaron {serviciosSnapshot.docs.length} servicios relacionados.
                     </Notification>
                 )
                 toast.push(toastNotification)
@@ -1120,7 +1120,7 @@ const Garages = () => {
 
                 const errorNotification = (
                     <Notification title="Error">
-                        Hubo un error eliminando el taller.
+                        Hubo un error eliminando el negocio.
                     </Notification>
                 )
                 toast.push(errorNotification)
@@ -1184,7 +1184,7 @@ const Garages = () => {
             <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <div className="flex items-center gap-3">
                     <h1 className="text-4xl font-bold text-[#000B7E]">
-                        Talleres
+                        Negocios
                     </h1>
                     <button
                         type="button"
@@ -1264,7 +1264,7 @@ const Garages = () => {
                         style={{ backgroundColor: '#000B7E' }}
                         onClick={() => setDrawerCreateIsOpen(true)}
                     >
-                        Crear Taller
+                        Crear Negocio
                     </Button>
 
                     <button
@@ -1282,7 +1282,7 @@ const Garages = () => {
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 z-10">
                         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
                         <p className="text-sm font-medium text-gray-700">
-                            Cargando talleres, por favor espera...
+                            Cargando negocios, por favor espera...
                         </p>
                     </div>
                 )}
@@ -1382,7 +1382,7 @@ const Garages = () => {
             >
                 <h5 className="mb-4">Confirmar Eliminación</h5>
                 <p>
-                    ¿Estás seguro de que deseas marcar como eliminado al taller{' '}
+                    ¿Estás seguro de que deseas marcar como eliminado al negocio{' '}
                     {selectedPerson?.nombre}? Esta acción también desactivará todos los servicios asociados.
                 </p>
                 <div className="text-right mt-6">
@@ -1409,7 +1409,7 @@ const Garages = () => {
             >
                 <h5 className="mb-4">Confirmar Exportación</h5>
                 <p>
-                    ¿Estás seguro de que deseas exportar todos los talleres a Excel?
+                    ¿Estás seguro de que deseas exportar todos los negocios a Excel?
                 </p>
                 <div className="text-right mt-6">
                     <Button
@@ -1433,7 +1433,7 @@ const Garages = () => {
                 onClose={handleDrawerClose}
                 className="rounded-md shadow"
             >
-                <h2 className="mb-4 text-xl font-bold">Crear Taller</h2>
+                <h2 className="mb-4 text-xl font-bold">Crear Negocio</h2>
                 <Formik
     initialValues={{
         nombre: '',
@@ -1507,7 +1507,7 @@ const Garages = () => {
                 </div>
                                 <label className="flex flex-col">
                                     <span className="font-semibold text-gray-700">
-                                        Nombre Taller:
+                                        Nombre Negocio:
                                     </span>
                                     <Field
                                         type="text"
@@ -1910,7 +1910,7 @@ const Garages = () => {
                                     {/* Foto Frente Taller */}
                                     <div className="mb-4">
                                         <label className="block font-semibold text-gray-700 mb-2">
-                                            Foto Frente Taller: <span className="text-red-500">*</span>
+                                            Foto Frente Negocio: <span className="text-red-500">*</span>
                                         </label>
                                         {!values.fotoFrenteTaller_file ? (
                                             <div className="relative">
@@ -1971,7 +1971,7 @@ const Garages = () => {
                                     {/* Foto Interna Taller */}
                                     <div className="mb-4">
                                         <label className="block font-semibold text-gray-700 mb-2">
-                                            Foto Interna Taller: <span className="text-red-500">*</span>
+                                            Foto Interna Negocio: <span className="text-red-500">*</span>
                                         </label>
                                         {!values.fotoInternaTaller_file ? (
                                             <div className="relative">
@@ -2089,7 +2089,7 @@ const Garages = () => {
                                                 Creando...
                                             </span>
                                         ) : (
-                                            'Crear Taller'
+                                            'Crear Negocio'
                                         )}
                                     </Button>
                                 </div>

@@ -79,6 +79,7 @@ import MapsProfile from './Components/MapsProfile'
 import MapsEdit from './Components/MapsEdit'
 import EditServiceDrawer from './Components/EditServiceDrawer'
 import EditPromotionDrawer from './Components/EditPromotionDrawer'
+import CreateServiceDrawer from './Components/CreateServiceDrawer'
 import ProfileGarageTabs, {
     type ClienteHistorico,
 } from './Components/ProfileGarageTabs'
@@ -856,7 +857,7 @@ const ProfileGarage = () => {
         if (!formData.fotoFrenteTaller_file && !formData.fotoFrenteTaller) {
             toast.push(
                 <Notification title="Error">
-                    La foto del frente del taller es obligatoria. Debes subir un
+                    La foto del frente del negocio es obligatoria. Debes subir un
                     archivo o mantener el existente.
                 </Notification>,
             )
@@ -866,7 +867,7 @@ const ProfileGarage = () => {
         if (!formData.fotoInternaTaller_file && !formData.fotoInternaTaller) {
             toast.push(
                 <Notification title="Error">
-                    La foto interna del taller es obligatoria. Debes subir un
+                    La foto interna del negocio es obligatoria. Debes subir un
                     archivo o mantener el existente.
                 </Notification>,
             )
@@ -1278,22 +1279,103 @@ const ProfileGarage = () => {
                             }
                         }
 
-                        setEstatus(val)
-
-                        const updatedServices = services.map((service) =>
-                            service.uid_servicio === row.original.uid_servicio
-                                ? { ...service, estatus: val }
-                                : service,
-                        )
-                        setServices(updatedServices)
-
                         try {
+                            const usuarioDocRef = doc(db, 'Usuarios', path)
+                            const usuarioSnapshot = await getDoc(usuarioDocRef)
+                            const usuarioData = usuarioSnapshot.data()
+                            const subscripcionActual =
+                                usuarioData?.subscripcion_actual
+
+                            const cantidadServiciosRaw =
+                                subscripcionActual?.cantidad_servicios
+
+                            if (
+                                !subscripcionActual ||
+                                cantidadServiciosRaw === undefined ||
+                                cantidadServiciosRaw === null ||
+                                String(cantidadServiciosRaw).trim() === ''
+                            ) {
+                                toast.push(
+                                    <Notification
+                                        title="Configuración incompleta"
+                                        type="warning"
+                                    >
+                                        No se puede cambiar el estatus del
+                                        servicio porque falta la configuración
+                                        de cantidad de servicios en la
+                                        suscripción.
+                                    </Notification>,
+                                )
+                                return
+                            }
+
+                            const cantidadServiciosActual = Number(
+                                cantidadServiciosRaw,
+                            )
+                            if (!Number.isFinite(cantidadServiciosActual)) {
+                                toast.push(
+                                    <Notification
+                                        title="Configuración inválida"
+                                        type="warning"
+                                    >
+                                        La cantidad de servicios de la
+                                        suscripción no es válida.
+                                    </Notification>,
+                                )
+                                return
+                            }
+
+                            const nuevaCantidadServicios = val
+                                ? cantidadServiciosActual - 1
+                                : cantidadServiciosActual + 1
+
+                            if (val && nuevaCantidadServicios < 0) {
+                                toast.push(
+                                    <Notification
+                                        title="Límite alcanzado"
+                                        type="warning"
+                                    >
+                                        Usted ya alcanzó el número máximo de
+                                        servicios activos, para activar este
+                                        servico debe desactivar otro
+                                    </Notification>,
+                                )
+                                return
+                            }
+
                             const docRef = doc(
                                 db,
                                 'Servicios',
                                 row.original.uid_servicio,
                             )
                             await updateDoc(docRef, { estatus: val })
+                            await updateDoc(usuarioDocRef, {
+                                'subscripcion_actual.cantidad_servicios':
+                                    String(nuevaCantidadServicios),
+                            })
+
+                            setEstatus(val)
+
+                            const updatedServices = services.map((service) =>
+                                service.uid_servicio === row.original.uid_servicio
+                                    ? { ...service, estatus: val }
+                                    : service,
+                            )
+                            setServices(updatedServices)
+
+                            setData((prev) =>
+                                prev
+                                    ? {
+                                          ...prev,
+                                          subscripcion_actual: {
+                                              ...prev.subscripcion_actual,
+                                              cantidad_servicios: String(
+                                                  nuevaCantidadServicios,
+                                              ),
+                                          },
+                                      }
+                                    : prev,
+                            )
                             console.log('Estado del servicio actualizado')
                         } catch (error) {
                             console.error(
@@ -1562,6 +1644,8 @@ const ProfileGarage = () => {
 
     const [isMapOpen, setIsMapOpen] = useState(false) // Estado para controlar el modal del mapa
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false) // Estado para controlar el drawer de edición
+    const [isCreateServiceDrawerOpen, setIsCreateServiceDrawerOpen] =
+        useState(false)
     const [selectedService, setSelectedService] = useState<Service | null>(null) // Servicio seleccionado para editar
     const [documentModalOpen, setDocumentModalOpen] = useState(false) // Estado para controlar el modal de documentos
     const [selectedDocument, setSelectedDocument] = useState<{
@@ -1698,6 +1782,10 @@ const ProfileGarage = () => {
 
     const handleServiceUpdated = () => {
         // Recargar los servicios después de una actualización
+        getData()
+    }
+
+    const handleServiceCreated = () => {
         getData()
     }
 
@@ -1922,6 +2010,7 @@ const ProfileGarage = () => {
                     data={data}
                     historicoClientes={historicoClientes}
                     openDocumentModal={openDocumentModal}
+                    onOpenCreateService={() => setIsCreateServiceDrawerOpen(true)}
                 />
             </div>
 
@@ -2038,7 +2127,7 @@ const ProfileGarage = () => {
             {editModalOpen && (
                 <ConfirmDialog
                     isOpen={editModalOpen}
-                    title="Editar Taller"
+                    title="Editar Negocio"
                     confirmButtonColor="blue-600"
                     onClose={() => setEditModalOpen(false)}
                     onRequestClose={() => setEditModalOpen(false)}
@@ -2747,7 +2836,7 @@ const ProfileGarage = () => {
                             {/* Foto Frente Taller */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    Foto Frente Taller:{' '}
+                                    Foto Frente Negocio:{' '}
                                     <span className="text-red-500">*</span>
                                 </label>
                                 {!formData.fotoFrenteTaller_file &&
@@ -2833,7 +2922,7 @@ const ProfileGarage = () => {
                             {/* Foto Interna Taller */}
                             <div className="mb-4">
                                 <label className="block font-semibold text-gray-700 mb-2">
-                                    Foto Interna Taller:{' '}
+                                    Foto Interna Negocio:{' '}
                                     <span className="text-red-500">*</span>
                                 </label>
                                 {!formData.fotoInternaTaller_file &&
@@ -2927,6 +3016,14 @@ const ProfileGarage = () => {
                 onClose={handleCloseEditDrawer}
                 service={selectedService}
                 onServiceUpdated={handleServiceUpdated}
+            />
+
+            <CreateServiceDrawer
+                isOpen={isCreateServiceDrawerOpen}
+                onClose={() => setIsCreateServiceDrawerOpen(false)}
+                tallerUid={path}
+                tallerName={(data as any)?.nombre ?? ''}
+                onServiceCreated={handleServiceCreated}
             />
 
             {/* Drawer para editar promoción */}

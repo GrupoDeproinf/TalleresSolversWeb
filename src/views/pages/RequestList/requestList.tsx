@@ -704,7 +704,7 @@ const RequestList = () => {
                                     }`}
                                     onClick={() => setActiveTab('propuestas')}
                                 >
-                                    Propuestas del taller
+                                    Propuestas del negocio
                                 </button>
                             </nav>
                         </div>
@@ -828,7 +828,7 @@ const RequestList = () => {
                                                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
                                                     <div>
                                                         <p className="text-xs uppercase text-gray-400 tracking-wide">
-                                                            Taller
+                                                            Negocio
                                                         </p>
                                                         <p className="font-semibold text-gray-900">
                                                             {p.nombre_taller}

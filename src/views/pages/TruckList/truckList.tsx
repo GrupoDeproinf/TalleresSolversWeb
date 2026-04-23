@@ -139,7 +139,7 @@ const RequestList = () => {
             nombre_Grua: 'Nombre de la Grua',
             categoria: 'Categoría',
             descripcion: 'Descripción',
-            taller: 'Taller',
+            taller: 'Negocio',
             precio: 'Precio',
             estatus: 'Estado',
         }
@@ -228,7 +228,7 @@ const RequestList = () => {
             },
         },
         {
-            header: 'Taller',
+            header: 'Negocio',
             accessorKey: 'taller',
             cell: ({ row }) => (
                 <div className="text-gray-700">
@@ -535,7 +535,7 @@ const RequestList = () => {
                                             <p className="text-gray-900">{selectedGrua.categoria}</p>
                                         </div>
                                         <div>
-                                            <span className="font-medium text-gray-700">Taller:</span>
+                                            <span className="font-medium text-gray-700">Negocio:</span>
                                             <p className="text-gray-900">{selectedGrua.taller ?? '—'}</p>
                                         </div>
                                         <div>

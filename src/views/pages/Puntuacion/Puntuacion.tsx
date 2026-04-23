@@ -185,7 +185,7 @@ const Puntuacion = () => {
 
     const columns: ColumnDef<Calificacion>[] = [
         {
-            header: 'Taller',
+            header: 'Negocio',
             accessorKey: 'nombre_taller',
         },
         {
@@ -323,7 +323,7 @@ const Puntuacion = () => {
                 return creationDate && creationDate >= adjustedStartDate && creationDate <= adjustedEndDate;
             })
             .map((puntuacion) => ({
-                'Nombre del taller': puntuacion.nombre_taller || 'N/A',
+                'Nombre del negocio': puntuacion.nombre_taller || 'N/A',
                 'Puntuación': puntuacion.puntuacion || 'N/A',
                 'Fecha de Creación': puntuacion.fecha_creacion
                     ? puntuacion.fecha_creacion.toDate().toLocaleString()
@@ -367,7 +367,7 @@ const Puntuacion = () => {
                 <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div className="flex items-center gap-3">
                         <h1 className="text-4xl font-bold text-[#000B7E]">
-                            Puntuación de talleres
+                            Puntuación de negocios
                         </h1>
                         <button
                             type="button"
@@ -430,7 +430,7 @@ const Puntuacion = () => {
                             <div className="relative">
                                 <input
                                     type="text"
-                                    placeholder="Taller, servicio, usuario, correo, puntuación, comentario, id…"
+                                    placeholder="Negocio, servicio, usuario, correo, puntuación, comentario, id…"
                                     className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                     value={searchTerm}
                                     onChange={handleSearchChange}

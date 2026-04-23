@@ -151,7 +151,7 @@ const Services = () => {
             accessorKey: 'nombre_servicio',
         },
         {
-            header: 'Taller',
+            header: 'Negocio',
             accessorKey: 'taller',
         },
         {
@@ -266,7 +266,7 @@ const Services = () => {
             })
             .map((service) => ({
                 'Nombre del Servicio': service.nombre_servicio || 'N/A',
-                Taller: service.taller || 'N/A',
+                Negocio: service.taller || 'N/A',
                 Precio: service.precio || 'N/A',
                 'Fecha de Creación': service.fecha_creacion
                     ? service.fecha_creacion.toDate().toLocaleString()
@@ -330,7 +330,7 @@ const Services = () => {
                             <div className="relative">
                                 <input
                                     type="text"
-                                    placeholder="Servicio, taller, precio, usuario, correo, ids, fecha…"
+                                    placeholder="Servicio, negocio, precio, usuario, correo, ids, fecha…"
                                     className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                     value={searchTerm}
                                     onChange={handleSearchChange}

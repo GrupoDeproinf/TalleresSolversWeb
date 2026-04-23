@@ -4,7 +4,6 @@ import Button from '@/components/ui/Button'
 import { Formik, Form, Field, ErrorMessage } from 'formik'
 import * as Yup from 'yup'
 import { FaCamera } from 'react-icons/fa'
-import Select from 'react-select'
 import { doc, getDoc, updateDoc, collection, getDocs, query, where } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '@/configs/firebaseAssets.config'
@@ -91,6 +90,10 @@ const EditServiceDrawer: React.FC<EditServiceDrawerProps> = ({
                     descripcion: service?.descripcion || '',
                     uid_categoria: service?.uid_categoria || '',
                     nombre_categoria: service?.nombre_categoria || '',
+                    uid_subcategoria:
+                        service?.subcategoria?.[0]?.uid_subcategoria ||
+                        service?.uid_subcategoria ||
+                        '',
                     service_image: service?.service_image || service?.imagenes || [],
                     service_image_files: [],
                     uid_taller: service?.uid_taller || '',
@@ -256,285 +259,276 @@ const EditServiceDrawer: React.FC<EditServiceDrawerProps> = ({
                     values,
                     handleChange,
                     setFieldValue,
-                    errors,
-                    touched,
                 }) => (
-                    <Form className="flex flex-col space-y-6">
-                        {/* Imágenes del servicio */}
-                        <div className="mt-2 flex flex-col items-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
-                            <div className="text-center">
-                                {Array.isArray(values.service_image) && values.service_image.length > 0 ? (
+                    <Form className="space-y-4">
+                        <div>
+                            <label className="block mb-1 text-sm font-medium">
+                                Nombre del servicio
+                            </label>
+                            <Field
+                                name="nombre_servicio"
+                                className="w-full rounded-md border px-3 py-2"
+                            />
+                            <ErrorMessage
+                                name="nombre_servicio"
+                                component="div"
+                                className="text-red-500 text-xs mt-1"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block mb-1 text-sm font-medium">
+                                Descripción
+                            </label>
+                            <Field
+                                as="textarea"
+                                name="descripcion"
+                                rows={3}
+                                className="w-full rounded-md border px-3 py-2"
+                            />
+                            <ErrorMessage
+                                name="descripcion"
+                                component="div"
+                                className="text-red-500 text-xs mt-1"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block mb-1 text-sm font-medium">
+                                    Categoría
+                                </label>
+                                <select
+                                    name="uid_categoria"
+                                    value={values.uid_categoria}
+                                    onChange={(e) => {
+                                        const selectedId = e.target.value
+                                        const selectedCat = dataCategories.find(
+                                            (cat) => cat.id === selectedId,
+                                        )
+                                        setFieldValue('uid_categoria', selectedId)
+                                        setFieldValue(
+                                            'nombre_categoria',
+                                            selectedCat?.nombre || '',
+                                        )
+                                        setFieldValue('uid_subcategoria', '')
+                                        setFieldValue('subcategoria', [])
+                                        void handleCategoryChange(selectedId)
+                                    }}
+                                    className="w-full rounded-md border px-3 py-2"
+                                >
+                                    <option value="">Seleccione</option>
+                                    {dataCategories.map((category) => (
+                                        <option
+                                            key={category.id}
+                                            value={category.id}
+                                        >
+                                            {category.nombre}
+                                        </option>
+                                    ))}
+                                </select>
+                                <ErrorMessage
+                                    name="uid_categoria"
+                                    component="div"
+                                    className="text-red-500 text-xs mt-1"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block mb-1 text-sm font-medium">
+                                    Subcategoría
+                                </label>
+                                <select
+                                    name="uid_subcategoria"
+                                    value={
+                                        values.uid_subcategoria ||
+                                        values.subcategoria?.[0]?.uid_subcategoria ||
+                                        ''
+                                    }
+                                    onChange={(e) => {
+                                        const selectedId = e.target.value
+                                        const selectedSubcategory =
+                                            dataSubcategories.find(
+                                                (sub) => sub.id === selectedId,
+                                            )
+                                        setFieldValue('uid_subcategoria', selectedId)
+                                        setFieldValue(
+                                            'subcategoria',
+                                            selectedSubcategory
+                                                ? [
+                                                      {
+                                                          uid_subcategoria:
+                                                              selectedSubcategory.id,
+                                                          nombre_subcategoria:
+                                                              selectedSubcategory.nombre,
+                                                      },
+                                                  ]
+                                                : [],
+                                        )
+                                    }}
+                                    className="w-full rounded-md border px-3 py-2"
+                                >
+                                    <option value="">Seleccione</option>
+                                    {dataSubcategories.map((subcategory) => (
+                                        <option
+                                            key={subcategory.id}
+                                            value={subcategory.id}
+                                        >
+                                            {subcategory.nombre}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label className="block mb-1 text-sm font-medium">
+                                    Precio
+                                </label>
+                                <Field
+                                    name="precio"
+                                    className="w-full rounded-md border px-3 py-2"
+                                />
+                                <ErrorMessage
+                                    name="precio"
+                                    component="div"
+                                    className="text-red-500 text-xs mt-1"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block mb-1 text-sm font-medium">
+                                    Garantía
+                                </label>
+                                <Field
+                                    name="garantia"
+                                    className="w-full rounded-md border px-3 py-2"
+                                />
+                                <ErrorMessage
+                                    name="garantia"
+                                    component="div"
+                                    className="text-red-500 text-xs mt-1"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block mb-1 text-sm font-medium">
+                                    Tipo de servicio
+                                </label>
+                                <select
+                                    name="typeService"
+                                    value={values.typeService}
+                                    onChange={handleChange}
+                                    className="w-full rounded-md border px-3 py-2"
+                                >
+                                    <option value="local">Local</option>
+                                    <option value="domicilio">
+                                        A domicilio
+                                    </option>
+                                </select>
+                                <ErrorMessage
+                                    name="typeService"
+                                    component="div"
+                                    className="text-red-500 text-xs mt-1"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-2 flex flex-col items-center rounded-lg border border-dashed border-gray-300 px-6 py-6">
+                            <div className="text-center w-full">
+                                {Array.isArray(values.service_image) &&
+                                values.service_image.length > 0 ? (
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        {values.service_image.map((img: string, index: number) => (
-                                            <div key={index} className="relative">
-                                                <img
-                                                    src={img}
-                                                    alt={`Imagen del servicio ${index + 1}`}
-                                                    className="h-32 w-full object-cover rounded-md"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const newImages = values.service_image.filter((_: any, i: number) => i !== index)
-                                                        setFieldValue("service_image", newImages)
-                                                    }}
-                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                                        {values.service_image.map(
+                                            (img: string, index: number) => (
+                                                <div
+                                                    key={index}
+                                                    className="relative"
                                                 >
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
+                                                    <img
+                                                        src={img}
+                                                        alt={`Imagen del servicio ${index + 1}`}
+                                                        className="h-24 w-full object-cover rounded-md"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newImages =
+                                                                values.service_image.filter(
+                                                                    (_: any, i: number) =>
+                                                                        i !== index,
+                                                                )
+                                                            setFieldValue(
+                                                                'service_image',
+                                                                newImages,
+                                                            )
+                                                        }}
+                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 text-xs"
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            ),
+                                        )}
                                     </div>
                                 ) : (
-                                    <FaCamera className="mx-auto h-12 w-12 text-gray-300" aria-hidden="true" />
+                                    <FaCamera
+                                        className="mx-auto h-10 w-10 text-gray-300"
+                                        aria-hidden="true"
+                                    />
                                 )}
-                                <div className="mt-4 flex flex-col text-sm leading-6 text-gray-600 justify-center">
+                                <div className="mt-3 text-sm text-gray-600">
                                     <label
                                         htmlFor="images-upload"
-                                        className="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:outline-none focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 hover:text-indigo-500 flex justify-center items-center"
+                                        className="cursor-pointer font-semibold text-indigo-600 hover:text-indigo-500"
                                     >
-                                        <span>Agregar otra imagen</span>
-                                        <input
-                                            id="images-upload"
-                                            name="images-upload"
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            className="sr-only"
-                                            onChange={(e) => {
-                                                const files = Array.from(e.target.files || []);
-                                                const newImages = files.map((file) => URL.createObjectURL(file));
-
-                                                setFieldValue("service_image", [
-                                                    ...(values.service_image || []),
-                                                    ...newImages,
-                                                ]);
-                                                setFieldValue("service_image_files", [
-                                                    ...(values.service_image_files || []),
-                                                    ...files,
-                                                ]);
-                                            }}
-                                        />
+                                        Agregar otra imagen
                                     </label>
+                                    <input
+                                        id="images-upload"
+                                        name="images-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="sr-only"
+                                        onChange={(e) => {
+                                            const files = Array.from(
+                                                e.target.files || [],
+                                            )
+                                            const newImages = files.map((file) =>
+                                                URL.createObjectURL(file),
+                                            )
+                                            setFieldValue('service_image', [
+                                                ...(values.service_image || []),
+                                                ...newImages,
+                                            ])
+                                            setFieldValue('service_image_files', [
+                                                ...(values.service_image_files ||
+                                                    []),
+                                                ...files,
+                                            ])
+                                        }}
+                                    />
                                 </div>
                             </div>
                         </div>
 
-                        {/* Nombre del Servicio */}
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Nombre Servicio:
-                            </span>
-                            <Field
-                                type="text"
-                                name="nombre_servicio"
-                                value={values.nombre_servicio}
-                                onChange={handleChange}
-                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                            />
-                            <ErrorMessage
-                                name="nombre_servicio"
-                                component="div"
-                                className="text-red-600 text-sm"
-                            />
-                        </label>
-
-                        {/* TypeService */}
-                        <div className="flex flex-col space-y-4">
-                            <span className="font-semibold text-gray-700">
-                                Tipo de Servicio:
-                            </span>
-                            <div className="flex items-center space-x-10">
-                                <label className="flex items-center space-x-2">
-                                    <Field
-                                        type="radio"
-                                        name="typeService"
-                                        value="local"
-                                        className="form-radio"
-                                    />
-                                    <span>En el Local</span>
-                                </label>
-                                <label className="flex items-center space-x-2">
-                                    <Field
-                                        type="radio"
-                                        name="typeService"
-                                        value="domicilio"
-                                        className="form-radio"
-                                    />
-                                    <span>A Domicilio</span>
-                                </label>
-                            </div>
-                            <ErrorMessage
-                                name="typeService"
-                                component="div"
-                                className="text-red-600 text-sm"
-                            />
-                        </div>
-
-                        {/* Categoría */}
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Categoría:
-                            </span>
-                            <Field
-                                as="select"
-                                name="uid_categoria"
-                                value={values.uid_categoria}
-                                onChange={(e: any) => {
-                                    const selectedId = e.target.value
-                                    const selectedCat = dataCategories.find(
-                                        (cat) => cat.id === selectedId,
-                                    )
-                                    setFieldValue('uid_categoria', selectedId)
-                                    setFieldValue('nombre_categoria', selectedCat?.nombre || '')
-                                    setFieldValue('subcategoria', [])
-                                    handleCategoryChange(selectedId)
-                                }}
-                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                            >
-                                <option value="">Seleccione una categoría</option>
-                                {dataCategories.map((category) => (
-                                    <option
-                                        key={category.id}
-                                        value={category.id}
-                                    >
-                                        {category.nombre}
-                                    </option>
-                                ))}
-                            </Field>
-                            <ErrorMessage
-                                name="uid_categoria"
-                                component="div"
-                                className="text-red-600 text-sm"
-                            />
-                        </label>
-
-                        {/* Subcategorías */}
-                        <label className="font-semibold text-gray-700">
-                            Subcategorías:
-                        </label>
-                        <Select
-                            isMulti
-                            placeholder="Selecciona subcategorías"
-                            noOptionsMessage={() => 'No hay Subcategorías disponibles'}
-                            options={
-                                values.uid_categoria
-                                    ? dataSubcategories.map((subcategory) => ({
-                                          value: subcategory.id,
-                                          label: subcategory.nombre,
-                                      }))
-                                    : []
-                            }
-                            value={
-                                Array.isArray(values.subcategoria) 
-                                    ? values.subcategoria.map((subcat: any) => ({
-                                          value: subcat.uid_subcategoria || subcat.id,
-                                          label: subcat.nombre_subcategoria || subcat.nombre,
-                                      }))
-                                    : []
-                            }
-                            onChange={(selectedOptions) =>
-                                setFieldValue(
-                                    'subcategoria',
-                                    selectedOptions.map((option) => ({
-                                        uid_subcategoria: option.value,
-                                        nombre_subcategoria: option.label,
-                                    })),
-                                )
-                            }
-                            className="mt-1"
-                        />
-
-                        {/* Descripción */}
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Descripción:
-                            </span>
-                            <Field
-                                as="textarea"
-                                name="descripcion"
-                                value={values.descripcion}
-                                onChange={handleChange}
-                                rows={1}
-                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                                style={{
-                                    maxHeight: '150px',
-                                    overflowY: 'auto',
-                                }}
-                                onInput={(e: any) => {
-                                    e.target.style.height = 'auto'
-                                    e.target.style.height = `${e.target.scrollHeight}px`
-                                }}
-                            />
-                            <ErrorMessage
-                                name="descripcion"
-                                component="div"
-                                className="text-red-600 text-sm"
-                            />
-                        </label>
-
-                        {/* Precio */}
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Precio:
-                            </span>
-                            <Field
-                                type="text"
-                                name="precio"
-                                value={values.precio}
-                                onChange={handleChange}
-                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                            />
-                            <ErrorMessage
-                                name="precio"
-                                component="div"
-                                className="text-red-600 text-sm"
-                            />
-                        </label>
-
-                        {/* Garantía */}
-                        <label className="flex flex-col">
-                            <span className="font-semibold text-gray-700">
-                                Garantía:
-                            </span>
-                            <Field
-                                type="text"
-                                name="garantia"
-                                value={values.garantia}
-                                onChange={handleChange}
-                                className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
-                            />
-                            <ErrorMessage
-                                name="garantia"
-                                component="div"
-                                className="text-red-600 text-sm"
-                            />
-                        </label>
-
-                        {/* Botones */}
-                        <div className="text-right mt-6">
+                        <div className="flex justify-end gap-2 pt-2">
                             <Button
-                                variant="default"
+                                type="button"
+                                variant="plain"
                                 onClick={onClose}
-                                className="mr-2"
                                 disabled={uploadingImages}
                             >
                                 Cancelar
                             </Button>
                             <Button
                                 type="submit"
-                                style={{ backgroundColor: '#000B7E' }}
-                                className="text-white hover:opacity-80"
+                                variant="solid"
                                 disabled={uploadingImages}
                             >
-                                {uploadingImages ? (
-                                    <div className="flex items-center">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                        Guardando...
-                                    </div>
-                                ) : (
-                                    'Guardar'
-                                )}
+                                {uploadingImages ? 'Guardando...' : 'Guardar servicio'}
                             </Button>
                         </div>
                     </Form>
