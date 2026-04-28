@@ -1,35 +1,40 @@
-import { GoogleMap, Marker } from '@react-google-maps/api';
-import { useEffect, useState } from 'react';
+import { GoogleMap, Marker } from '@react-google-maps/api'
+import { useEffect, useState } from 'react'
 
 interface MapsProfileProps {
     initialLocation: {
-        lat: number;
-        lng: number;
-    };
-    onLocationChange: (newLocation: { lat: number; lng: number }) => void;
+        lat: number
+        lng: number
+    }
+    onLocationChange: (newLocation: { lat: number; lng: number }) => void
 }
 
-const LocationEditor: React.FC<MapsProfileProps> = ({ initialLocation, onLocationChange }) => {
-    const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null); // Inicializa como null
-    const [zoom] = useState(17);
+const LocationEditor: React.FC<MapsProfileProps> = ({
+    initialLocation,
+    onLocationChange,
+}) => {
+    const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+        null,
+    )
+    const [zoom] = useState(17)
 
     // Sincroniza initialLocation con el estado local
     useEffect(() => {
         if (initialLocation && initialLocation.lat && initialLocation.lng) {
-            setLocation(initialLocation); // Actualiza el estado local con initialLocation
+            setLocation(initialLocation)
         }
-    }, [initialLocation]);
+    }, [initialLocation])
 
     // Manejo del clic en el mapa
     const handleMapClick = (e: google.maps.MapMouseEvent) => {
-        if (!e.latLng) return; // Asegúrate de que latLng no sea nulo
+        if (!e.latLng) return
         const newLocation = {
             lat: e.latLng.lat(),
             lng: e.latLng.lng(),
-        };
-        setLocation(newLocation); // Actualiza la ubicación localmente
-        onLocationChange(newLocation); // Llama a la función para actualizar la ubicación en el componente padre
-    };
+        }
+        setLocation(newLocation)
+        onLocationChange(newLocation)
+    }
 
     // Manejo del fin del arrastre del marcador
     const handleMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
@@ -37,35 +42,34 @@ const LocationEditor: React.FC<MapsProfileProps> = ({ initialLocation, onLocatio
             const newLocation = {
                 lat: e.latLng.lat(),
                 lng: e.latLng.lng(),
-            };
-            setLocation(newLocation);
-            onLocationChange(newLocation);
+            }
+            setLocation(newLocation)
+            onLocationChange(newLocation)
         }
-    };
+    }
 
     return (
-        <div style={{ height: '450px', width: '100%' }}>
+        <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
             <GoogleMap
-                center={location || { lat: 0, lng: 0 }} // Centro en la ubicación inicial o valores predeterminados
+                center={location || { lat: 0, lng: 0 }}
                 zoom={zoom}
                 mapContainerStyle={{
                     height: '400px',
                     width: '100%',
-                    marginTop: '10px',
+                    borderRadius: '0.75rem',
                 }}
-                onClick={handleMapClick} // Permite hacer clic en el mapa para cambiar la ubicación
+                onClick={handleMapClick}
             >
-                {/* Renderiza el marcador si la ubicación es válida */}
                 {location && (
                     <Marker
-                        position={location} // Coloca el marcador en la ubicación
+                        position={location}
                         draggable
-                        onDragEnd={handleMarkerDragEnd} // Actualiza la ubicación al arrastrar el marcador
+                        onDragEnd={handleMarkerDragEnd}
                     />
                 )}
             </GoogleMap>
         </div>
-    );
-};
+    )
+}
 
-export default LocationEditor;
+export default LocationEditor

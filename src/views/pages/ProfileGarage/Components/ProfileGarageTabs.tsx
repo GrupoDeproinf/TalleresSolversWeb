@@ -1,5 +1,5 @@
 import type React from 'react'
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Table as ReactTable } from '@tanstack/react-table'
 import { flexRender } from '@tanstack/react-table'
 import Card from '@/components/ui/Card'
@@ -22,6 +22,7 @@ import type { ReactNode } from 'react'
 
 const { TabNav, TabList, TabContent } = Tabs
 const { Tr, Th, Td, THead, TBody } = Table
+const HISTORICO_ROWS_PER_PAGE = 5
 
 export type ClienteHistorico = {
     id: string
@@ -128,6 +129,7 @@ export default function ProfileGarageTabs({
     >('ambos')
     const [historicoDesde, setHistoricoDesde] = useState('')
     const [historicoHasta, setHistoricoHasta] = useState('')
+    const [historicoPage, setHistoricoPage] = useState(1)
 
     const clientesHistoricoFiltrados = useMemo(() => {
         let list =
@@ -159,24 +161,49 @@ export default function ProfileGarageTabs({
         historicoHasta,
     ])
 
+    const historicoTotalRows = clientesHistoricoFiltrados.length
+    const historicoTotalPages = Math.max(
+        1,
+        Math.ceil(historicoTotalRows / HISTORICO_ROWS_PER_PAGE),
+    )
+
+    const clientesHistoricoPaginados = useMemo(() => {
+        const start = (historicoPage - 1) * HISTORICO_ROWS_PER_PAGE
+        const end = start + HISTORICO_ROWS_PER_PAGE
+        return clientesHistoricoFiltrados.slice(start, end)
+    }, [clientesHistoricoFiltrados, historicoPage])
+
+    useEffect(() => {
+        setHistoricoPage(1)
+        setHistoricoExpandedId(null)
+    }, [historicoSearch, historicoTipo, historicoDesde, historicoHasta])
+
+    useEffect(() => {
+        if (historicoPage > historicoTotalPages) {
+            setHistoricoPage(historicoTotalPages)
+            setHistoricoExpandedId(null)
+        }
+    }, [historicoPage, historicoTotalPages])
+
     return (
         <div className="flex-1 min-w-0">
             <Tabs defaultValue="tab1">
-                <TabList>
+                <TabList className="mb-4 flex w-full flex-wrap gap-2 rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
                     <TabNav value="tab1">Planes</TabNav>
                     <TabNav value="tab2">Servicios</TabNav>
                     <TabNav value="tab3">Documentos</TabNav>
                     {/* <TabNav value="tab4">Promociones</TabNav> */}
                     <TabNav value="tab5">Histórico de clientes</TabNav>
+                    <TabNav value="tab6">Métodos de pago</TabNav>
                 </TabList>
                 <div className="w-full">
                     <TabContent value="tab1">
-                        <div className="mb-8 mt-4">
-                            <h6 className="mb-4">Subscripción</h6>
-                            <Card bordered className="mb-4">
+                        <div className="mb-8 mt-2 space-y-5">
+                            <h6 className="text-gray-900">Subscripción</h6>
+                            <Card bordered className="mb-4 rounded-xl border-gray-200 shadow-sm">
                                 {!isSuscrito ? (
-                                    <div className="flex justify-end">
-                                        <p className="text-xs mr-64 mt-3">
+                                    <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <p className="text-sm text-gray-600">
                                             Puede visualizar y suscribirse a un
                                             plan para su negocio...
                                         </p>
@@ -188,7 +215,7 @@ export default function ProfileGarageTabs({
                                         </button>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 border rounded-lg shadow-md bg-white">
+                                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="flex items-center gap-3">
                                             <Avatar
                                                 className="bg-transparent"
@@ -218,14 +245,14 @@ export default function ProfileGarageTabs({
                                                             'Pendiente'}
                                                     </Tag>
                                                 </div>
-                                                <div className="grid grid-cols-4">
-                                                    <p className="text-xs text-gray-500">
+                                                <div className="grid gap-2 text-xs text-gray-600 md:grid-cols-2 xl:grid-cols-4">
+                                                    <p>
                                                         Vigencia:{' '}
                                                         {subscription?.vigencia ??
                                                             '---'}{' '}
                                                         días
                                                     </p>
-                                                    <p className="text-xs text-gray-600">
+                                                    <p>
                                                         Monto mensual:{' '}
                                                         <span className="font-bold text-gray-800">
                                                             {subscription?.monto !==
@@ -246,12 +273,12 @@ export default function ProfileGarageTabs({
                                                     {subscription?.status ===
                                                         'Aprobado' && (
                                                         <>
-                                                            <p className="text-xs ml-2 text-gray-600">
+                                                            <p>
                                                                 {diasRestantes ??
                                                                     '---'}{' '}
                                                                 días restantes
                                                             </p>
-                                                            <p className="text-xs ml-2 text-gray-600">
+                                                            <p>
                                                                 Fecha de
                                                                 vencimiento:{' '}
                                                                 <span className="text-xs text-gray-600">
@@ -312,7 +339,7 @@ export default function ProfileGarageTabs({
                                 )}
                             </Card>
                             <div>
-                                <div className="p-4 rounded-lg shadow">
+                                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                                     <h6 className="mb-6 flex justify-start mt-4">
                                         Historial de Subscripciones
                                     </h6>
@@ -406,48 +433,12 @@ export default function ProfileGarageTabs({
                                     />
                                 </div>
                             </div>
-                            <div className="border-t border-gray-300 my-4" />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 p-4">
-                                {paymentMethods.map((method) => (
-                                    <div
-                                        key={method.name}
-                                        className="flex items-center gap-2"
-                                    >
-                                        <Checkbox
-                                            checked={
-                                                paymentMethodsState[
-                                                    method.dbKey
-                                                ] || false
-                                            }
-                                            onChange={(checked: boolean) => {
-                                                setPaymentMethodsState(
-                                                    (prevState) => ({
-                                                        ...prevState,
-                                                        [method.dbKey]: checked,
-                                                    }),
-                                                )
-                                            }}
-                                        />
-                                        <span>{method.icon}</span>
-                                        <span>{method.name}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="flex justify-end mt-4">
-                                <button
-                                    onClick={onSavePaymentMethods}
-                                    className="px-4 py-2 bg-[#1d1e56] text-white rounded-md hover:bg-blue-900 focus:outline-none"
-                                >
-                                    Guardar
-                                </button>
-                            </div>
                         </div>
                     </TabContent>
                 </div>
                 <TabContent value="tab2">
                     <div className="w-full h-full">
-                        <div className="p-4 rounded-lg">
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-6 mt-4 flex items-center justify-between">
                                 <h6 className="flex justify-start">
                                     Lista de Servicios
@@ -548,11 +539,11 @@ export default function ProfileGarageTabs({
                     </div>
                 </TabContent>
                 <TabContent value="tab3">
-                    <div className="w-full h-full p-4">
+                    <div className="h-full w-full rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                         <h6 className="mb-6 flex justify-start mt-4">
                             Documentos del Negocio
                         </h6>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {data?.rifIdFiscal && (
                                 <div
                                     className="cursor-pointer group relative overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
@@ -746,7 +737,7 @@ export default function ProfileGarageTabs({
                 </TabContent>
                 <TabContent value="tab4">
                     <div className="w-full h-full">
-                        <div className="p-4 rounded-lg">
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-6 flex flex-wrap items-center justify-between gap-4 mt-4">
                                 <h6 className="m-0">
                                     Tablero digital para publicar promociones
@@ -841,11 +832,11 @@ export default function ProfileGarageTabs({
                     </div>
                 </TabContent>
                 <TabContent value="tab5">
-                    <div className="mb-8 mt-4">
+                    <div className="mb-8 mt-2">
                         <h6 className="mb-4">
                             Histórico de clientes atendidos
                         </h6>
-                        <Card bordered className="mb-4 overflow-hidden">
+                        <Card bordered className="mb-4 overflow-hidden rounded-xl border-gray-200 shadow-sm">
                             <div className="p-4 border-b border-gray-200 bg-gray-50/50">
                                 <div className="flex flex-col md:flex-row md:items-center gap-3">
                                     <div className="relative w-full md:max-w-xs">
@@ -947,7 +938,7 @@ export default function ProfileGarageTabs({
                                         </p>
                                     </div>
                                 ) : (
-                                    clientesHistoricoFiltrados.map(
+                                    clientesHistoricoPaginados.map(
                                         (cliente) => {
                                             const isOpen =
                                                 historicoExpandedId ===
@@ -1057,6 +1048,66 @@ export default function ProfileGarageTabs({
                                         },
                                     )
                                 )}
+                            </div>
+                            {historicoTotalRows > HISTORICO_ROWS_PER_PAGE && (
+                                <div className="border-t border-gray-200 px-4 py-3">
+                                    <Pagination
+                                        onChange={(page) => {
+                                            setHistoricoPage(page)
+                                            setHistoricoExpandedId(null)
+                                        }}
+                                        currentPage={historicoPage}
+                                        totalRows={historicoTotalRows}
+                                        rowsPerPage={HISTORICO_ROWS_PER_PAGE}
+                                        onRowsPerPageChange={() => {}}
+                                    />
+                                </div>
+                            )}
+                        </Card>
+                    </div>
+                </TabContent>
+                <TabContent value="tab6">
+                    <div className="mb-8 mt-2">
+                        <h6 className="mb-4">Métodos de pago</h6>
+                        <Card
+                            bordered
+                            className="mb-4 overflow-hidden rounded-xl border-gray-200 shadow-sm"
+                        >
+                            <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 md:grid-cols-3">
+                                {paymentMethods.map((method) => (
+                                    <div
+                                        key={method.name}
+                                        className="flex items-center gap-2"
+                                    >
+                                        <Checkbox
+                                            checked={
+                                                paymentMethodsState[
+                                                    method.dbKey
+                                                ] || false
+                                            }
+                                            onChange={(checked: boolean) => {
+                                                setPaymentMethodsState(
+                                                    (prevState) => ({
+                                                        ...prevState,
+                                                        [method.dbKey]: checked,
+                                                    }),
+                                                )
+                                            }}
+                                        />
+                                        <span>{method.icon}</span>
+                                        <span>{method.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="border-t border-gray-200 px-4 py-3">
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={onSavePaymentMethods}
+                                        className="rounded-lg bg-[#1d1e56] px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-900 focus:outline-none"
+                                    >
+                                        Guardar
+                                    </button>
+                                </div>
                             </div>
                         </Card>
                     </div>

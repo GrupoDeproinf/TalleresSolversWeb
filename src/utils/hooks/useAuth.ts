@@ -103,6 +103,14 @@ function useAuth() {
         }
         
     
+
+        // Bloquear acceso para usuarios marcados como eliminados.
+        if (String(userData?.status ?? '').trim() === 'Eliminado') {
+            return {
+                status: 'failed',
+                message: 'Usuario no encontrado',
+            }
+        }
         dispatch(setSessionLoading(true))
 
         // Intentar iniciar sesión con Firebase Auth

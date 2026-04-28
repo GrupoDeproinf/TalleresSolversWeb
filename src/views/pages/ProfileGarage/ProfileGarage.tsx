@@ -75,7 +75,6 @@ import {
     ref,
     uploadBytes,
 } from 'firebase/storage'
-import MapsProfile from './Components/MapsProfile'
 import MapsEdit from './Components/MapsEdit'
 import EditServiceDrawer from './Components/EditServiceDrawer'
 import EditPromotionDrawer from './Components/EditPromotionDrawer'
@@ -100,6 +99,16 @@ type Service = {
     garantia: string
     typeService: string
     service_image: string[]
+    views_count: number
+    reviews_count: number
+    rating_average: number
+    latest_comments: string[]
+    latest_reviews: {
+        comentario: string
+        puntuacion: number
+        fecha_texto: string
+        usuario_nombre: string
+    }[]
 }
 
 type Promotion = {
@@ -340,30 +349,100 @@ const ProfileGarage = () => {
             // Obtener los servicios que coinciden con el `uid_taller`
             const querySnapshot = await getDocs(servicesQuery)
 
-            // Procesar los resultados y devolver un array con los servicios
-            const services = querySnapshot.docs.map((doc) => {
-                const serviceData = doc.data()
-
-                return {
-                    uid_servicio: doc.id,
-                    nombre_servicio: serviceData?.nombre_servicio || '',
-                    descripcion: serviceData?.descripcion || '',
-                    precio: serviceData?.precio || '0',
-                    estatus: serviceData?.estatus,
-                    taller: serviceData?.taller || '',
-                    puntuacion: serviceData?.puntuacion || '0',
-                    uid_taller: serviceData?.uid_taller || '',
-                    uid_categoria: serviceData?.uid_categoria || '',
-                    nombre_categoria: serviceData?.nombre_categoria || '',
-                    subcategoria: serviceData?.subcategoria || [],
-                    garantia: serviceData?.garantia || '',
-                    typeService: serviceData?.typeService || 'local',
-                    service_image:
-                        serviceData?.service_image ||
-                        serviceData?.imagenes ||
-                        [],
-                }
+            const serviceContactsSnap = await getDocs(
+                query(collection(db, 'serviceContact'), where('uid_taller', '==', path)),
+            )
+            const serviceViewsMap = new Map<string, number>()
+            serviceContactsSnap.forEach((docSnap) => {
+                const raw = docSnap.data() as { uid_servicio?: string }
+                const serviceId = raw.uid_servicio || ''
+                if (!serviceId) return
+                serviceViewsMap.set(serviceId, (serviceViewsMap.get(serviceId) || 0) + 1)
             })
+
+            // Procesar los resultados y devolver un array con los servicios
+            const services = await Promise.all(
+                querySnapshot.docs.map(async (doc) => {
+                    const serviceData = doc.data()
+                    const calificacionesSnap = await getDocs(
+                        collection(db, 'Servicios', doc.id, 'calificaciones'),
+                    )
+                    const calificaciones = calificacionesSnap.docs.map((calDoc) => {
+                        const calData = calDoc.data() as {
+                            comentario?: string
+                            puntuacion?: number
+                            fecha_creacion?: Timestamp | Date
+                            usuario?: {
+                                nombre?: string
+                            }
+                        }
+                        const fechaCreacion =
+                            calData.fecha_creacion instanceof Timestamp
+                                ? calData.fecha_creacion.toDate()
+                                : calData.fecha_creacion instanceof Date
+                                  ? calData.fecha_creacion
+                                  : null
+                        return {
+                            comentario: (calData.comentario || '').trim(),
+                            puntuacion: Number(calData.puntuacion || 0),
+                            fechaMs: fechaCreacion?.getTime() || 0,
+                            fechaTexto: fechaCreacion
+                                ? fechaCreacion.toLocaleString('es-VE')
+                                : 'Sin fecha',
+                            usuarioNombre:
+                                (calData.usuario?.nombre || '').trim() || 'Usuario sin nombre',
+                        }
+                    })
+                    const reviewsCount = calificaciones.length
+                    const ratingAverage =
+                        reviewsCount > 0
+                            ? calificaciones.reduce(
+                                  (acc, current) => acc + current.puntuacion,
+                                  0,
+                              ) / reviewsCount
+                            : 0
+                    const latestComments = calificaciones
+                        .slice()
+                        .sort((a, b) => b.fechaMs - a.fechaMs)
+                        .map((item) => item.comentario)
+                        .filter(Boolean)
+                        .slice(0, 2)
+                    const latestReviews = calificaciones
+                        .slice()
+                        .sort((a, b) => b.fechaMs - a.fechaMs)
+                        .map((item) => ({
+                            comentario: item.comentario || 'Sin comentario',
+                            puntuacion: item.puntuacion,
+                            fecha_texto: item.fechaTexto,
+                            usuario_nombre: item.usuarioNombre,
+                        }))
+
+                    return {
+                        uid_servicio: doc.id,
+                        nombre_servicio: serviceData?.nombre_servicio || '',
+                        descripcion: serviceData?.descripcion || '',
+                        precio: serviceData?.precio || '0',
+                        estatus: serviceData?.estatus,
+                        taller: serviceData?.taller || '',
+                        puntuacion: serviceData?.puntuacion || '0',
+                        uid_taller: serviceData?.uid_taller || '',
+                        uid_categoria: serviceData?.uid_categoria || '',
+                        nombre_categoria: serviceData?.nombre_categoria || '',
+                        subcategoria: serviceData?.subcategoria || [],
+                        garantia: serviceData?.garantia || '',
+                        typeService: serviceData?.typeService || 'local',
+                        service_image:
+                            serviceData?.service_image ||
+                            serviceData?.imagenes ||
+                            [],
+                        views_count: serviceViewsMap.get(doc.id) || 0,
+                        reviews_count: reviewsCount,
+                        rating_average: ratingAverage,
+                        latest_comments: latestComments,
+                        latest_reviews: latestReviews,
+                    }
+                }),
+            )
 
             const toText = (value: unknown) => {
                 if (value === null || value === undefined) return ''
@@ -1240,6 +1319,9 @@ const ProfileGarage = () => {
     const [isPromoDrawerOpen, setIsPromoDrawerOpen] = useState(false)
     const [selectedPromotion, setSelectedPromotion] =
         useState<Promotion | null>(null)
+    const [isReviewsDialogOpen, setIsReviewsDialogOpen] = useState(false)
+    const [selectedServiceForReviews, setSelectedServiceForReviews] =
+        useState<Service | null>(null)
 
     const columns: ColumnDef<Service>[] = useMemo(
         () => [
@@ -1253,6 +1335,39 @@ const ProfileGarage = () => {
                 cell: ({ row }) => {
                     const precio = parseFloat(row.original.precio)
                     return `$${precio.toFixed(2)}`
+                },
+            },
+            {
+                header: 'Vistas',
+                accessorKey: 'views_count',
+                cell: ({ row }) => row.original.views_count ?? 0,
+            },
+            {
+                header: 'Reseñas y comentarios',
+                accessorKey: 'reviews_count',
+                cell: ({ row }) => {
+                    const reviewsCount = row.original.reviews_count ?? 0
+                    const ratingAverage = row.original.rating_average ?? 0
+
+                    return (
+                        <div className="max-w-[280px]">
+                            <p className="text-xs font-semibold text-gray-700">
+                                {reviewsCount} reseña(s) | Promedio:{' '}
+                                {ratingAverage.toFixed(1)}
+                            </p>
+                            <Button
+                                size="xs"
+                                variant="default"
+                                className="mt-2"
+                                onClick={() => {
+                                    setSelectedServiceForReviews(row.original)
+                                    setIsReviewsDialogOpen(true)
+                                }}
+                            >
+                                Ver reseñas
+                            </Button>
+                        </div>
+                    )
                 },
             },
             {
@@ -1790,12 +1905,12 @@ const ProfileGarage = () => {
     }
 
     return (
-        <Container className="min-h-screen overflow-y-auto pb-8">
+        <Container className="min-h-screen bg-slate-50/50 pb-8 pt-2">
             {canGoBack && (
                 <div className="flex items-center">
                     <button
                         onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
-                        className="flex items-center text-blue-900 mb-3 ml-2 px-4 py-2 bg-blue-100 rounded-lg hover:bg-blue-200 transition duration-200"
+                        className="mb-4 ml-1 flex items-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-900 shadow-sm transition duration-200 hover:bg-blue-50"
                     >
                         <FaArrowLeft className="mr-2" />
                         <span>Volver</span>
@@ -1803,19 +1918,19 @@ const ProfileGarage = () => {
                 </div>
             )}
             {/* Aqui empieza el card del taller */}
-            <div className="flex flex-col xl:flex-row gap-4 pb-8">
-                <Card>
+            <div className="flex flex-col gap-5 pb-8 xl:flex-row">
+                <Card bordered className="rounded-2xl border-gray-200 shadow-sm xl:max-w-[380px]">
                     {/* Botón Editar */}
-                    <div className="mt-4 flex justify-end">
+                    <div className="mt-2 flex justify-end">
                         <button
-                            className="bg-[#1d1e56] rounded-md p-2 hover:bg-[#1E3a8a] text-white"
+                            className="rounded-lg bg-[#1d1e56] px-4 py-2 text-sm font-medium text-white hover:bg-[#1E3a8a]"
                             onClick={onEdit}
                         >
                             Editar
                         </button>
                     </div>
-                    <div className="flex flex-col xl:justify-between min-w-[260px] h-full 2xl:min-w-[360px] mx-auto">
-                        <div className="flex xl:flex-col items-center gap-4">
+                    <div className="mx-auto flex h-full min-w-[260px] flex-col xl:justify-between 2xl:min-w-[360px]">
+                        <div className="flex items-center gap-4 xl:flex-col">
                             <Avatar
                                 size={90}
                                 shape="circle"
@@ -1825,12 +1940,12 @@ const ProfileGarage = () => {
                                 }
                                 className="p-2 bg-white shadow-lg"
                             />
-                            <h4 className="font-bold">
+                            <h4 className="text-lg font-bold text-gray-900">
                                 {data?.nombre || 'Nombre no disponible'}
                             </h4>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-y-7 gap-x-4 mt-8">
+                        <div className="mt-8 grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 xl:grid-cols-1">
                             <CustomerInfoField
                                 title="Correo electronico"
                                 value={data?.email || 'Correo no disponible'}
@@ -1863,26 +1978,29 @@ const ProfileGarage = () => {
                             /> */}
 
                             {data?.ubicacion ? (
-                                <MapsProfile
-                                    center={{
-                                        lat: data.ubicacion.lat,
-                                        lng: data.ubicacion.lng,
-                                    }}
-                                    markers={[
-                                        {
-                                            lat: data.ubicacion.lat,
-                                            lng: data.ubicacion.lng,
-                                        },
-                                    ]}
-                                />
+                                <div className="space-y-2">
+                                    <span className="text-sm font-semibold text-gray-700">
+                                        Ubicación
+                                    </span>
+                                    <a
+                                        href={`https://www.google.com/maps?q=${data.ubicacion.lat},${data.ubicacion.lng}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex w-full items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-900 transition hover:bg-blue-100"
+                                    >
+                                        Abrir mapa
+                                    </a>
+                                </div>
                             ) : (
                                 'Ubicación no disponible'
                             )}
 
                             {/* Redes Sociales */}
-                            <div className="mb-7">
-                                <span>Redes Sociales</span>
-                                <div className="flex mt-4 gap-2">
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <span className="text-sm font-semibold text-gray-700">
+                                    Redes sociales
+                                </span>
+                                <div className="mt-3 flex gap-2">
                                     {data?.LinkFacebook ||
                                     data?.LinkInstagram ||
                                     data?.whatsapp ||
@@ -2019,7 +2137,7 @@ const ProfileGarage = () => {
                 isOpen={dialogOpensub}
                 onClose={onDialogClosesub}
             >
-                <div className="table-responsive">
+                <div>
                     <h2 className="mb-4">Planes de Subscripción</h2>
                     <div className="p-2 rounded-lg shadow">
                         <Table className="w-full rounded-lg">
@@ -2123,6 +2241,64 @@ const ProfileGarage = () => {
                     </div>
                 </div>
             </Dialog>
+            <Dialog
+                width={800}
+                isOpen={isReviewsDialogOpen}
+                onClose={() => {
+                    setIsReviewsDialogOpen(false)
+                    setSelectedServiceForReviews(null)
+                }}
+            >
+                <div className="p-2">
+                    <div className="rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+                        <h5 className="text-gray-900">Reseñas del servicio</h5>
+                        <p className="mt-1 text-sm text-gray-700">
+                            <span className="font-semibold">Servicio:</span>{' '}
+                            {selectedServiceForReviews?.nombre_servicio || 'Sin servicio'}
+                        </p>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                        {selectedServiceForReviews?.latest_reviews?.length ? (
+                            selectedServiceForReviews.latest_reviews.map((review, idx) => (
+                                <div
+                                    key={`${selectedServiceForReviews.uid_servicio}-${idx}`}
+                                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-900">
+                                                {review.usuario_nombre}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {selectedServiceForReviews?.nombre_servicio}
+                                            </p>
+                                        </div>
+                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                                            {review.fecha_texto}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className="text-xs font-medium text-blue-800">
+                                            Puntuación: {review.puntuacion}
+                                        </span>
+                                        <FaStar className="text-amber-400" />
+                                    </div>
+                                    <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm leading-relaxed text-gray-700">
+                                        {review.comentario}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                                <p className="text-sm text-gray-500">
+                                    Este servicio no tiene reseñas registradas.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Dialog>
 
             {editModalOpen && (
                 <ConfirmDialog
@@ -2134,8 +2310,8 @@ const ProfileGarage = () => {
                     onCancel={() => setEditModalOpen(false)}
                     onConfirm={handleEditSave}
                 >
-                    <div className="max-h-[450px] overflow-y-auto">
-                        <div className="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10 gap-2">
+                    <div>
+                        <div className="mt-2 flex justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10">
                             <div className="text-center">
                                 {!formData.image_perfil &&
                                 !formData.newLogoFile ? (
@@ -2199,7 +2375,7 @@ const ProfileGarage = () => {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
                             <label className="block">
                                 <span className="text-gray-700 font-semibold">
                                     Nombre
@@ -2398,7 +2574,7 @@ const ProfileGarage = () => {
                                     ))}
                                 </select>
                             </label>
-                            <label className="block">
+                            <label className="block md:col-span-2">
                                 <span className="text-gray-700 font-semibold">
                                     Direccion
                                 </span>
@@ -2410,7 +2586,7 @@ const ProfileGarage = () => {
                                     onChange={handleEditChange}
                                 />
                             </label>
-                            <label className="block">
+                            <label className="block md:col-span-2">
                                 <span className="text-gray-700 font-semibold">
                                     Mapa
                                 </span>
@@ -2425,8 +2601,8 @@ const ProfileGarage = () => {
 
                             {/* Modal para el mapa */}
                             {isMapOpen && (
-                                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                                    <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-3xl">
+                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                                    <div className="w-full max-w-3xl rounded-xl bg-white p-6 shadow-lg">
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-lg font-semibold text-gray-800">
                                                 Editar ubicación

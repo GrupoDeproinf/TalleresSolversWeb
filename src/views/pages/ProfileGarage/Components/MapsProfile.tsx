@@ -20,14 +20,14 @@ const MapsProfile: React.FC<MapsProfileProps> = ({ markers, center }) => {
     }, [markers]) // El efecto se ejecuta cuando `markers` cambie
 
     return (
-        <div style={{ height: '50%', width: '100%' }}>
+        <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
             <GoogleMap
                 center={center}
                 zoom={10}
                 mapContainerStyle={{
-                    height: '400px',
+                    height: '260px',
                     width: '100%',
-                    marginTop: '10px',
+                    borderRadius: '0.75rem',
                 }}
             >
                 {mapMarkers.map((marker, index) => (

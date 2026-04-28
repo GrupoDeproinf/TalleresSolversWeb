@@ -51,7 +51,7 @@ const SignInForm = (props: SignInFormProps) => {
         // Convertir el email a minúsculas antes de enviarlo
         const normalizedEmail = userName.trim().toLowerCase();
     
-        const result = await signIn({ userName: normalizedEmail, password })
+        const result = await signIn({ userName: normalizedEmail, password, typeUser: '' })
     
         if (result?.status === 'failed') {
             setMessage(result.message)
@@ -148,3 +148,4 @@ const SignInForm = (props: SignInFormProps) => {
 }
 
 export default SignInForm
+
