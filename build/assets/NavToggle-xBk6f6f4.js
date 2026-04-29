@@ -1,0 +1,1 @@
+import{j as s}from"./index-RDDe908i.js";import{_ as i,$ as r}from"./index.esm-9AngbOLC.js";const u=({toggled:t,className:e})=>s.jsx("div",{className:e,children:t?s.jsx(i,{}):s.jsx(r,{})});export{u as N};
