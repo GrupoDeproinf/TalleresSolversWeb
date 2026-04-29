@@ -41,7 +41,7 @@ import {
     FaArrowsAltV,
 } from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
-import { db, storage } from '@/configs/firebaseAssets.config'
+import { app, db, storage } from '@/configs/firebaseAssets.config'
 import { useNavigate } from 'react-router-dom'
 import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
@@ -75,6 +75,7 @@ import {
     ref,
     uploadBytes,
 } from 'firebase/storage'
+import { getFunctions, httpsCallable } from 'firebase/functions'
 import MapsEdit from './Components/MapsEdit'
 import EditServiceDrawer from './Components/EditServiceDrawer'
 import EditPromotionDrawer from './Components/EditPromotionDrawer'
@@ -187,6 +188,12 @@ type SubscriptionHistory = {
 type HistoricoRecord = ClienteHistorico
 
 const ProfileGarage = () => {
+    const cloudFunctions = getFunctions(app, 'us-central1')
+    const sendWorkshopDecisionEmailCallable = httpsCallable(
+        cloudFunctions,
+        'sendWorkshopDecisionEmail',
+    )
+
     const [data, setData] = useState<DocumentData | null>(null)
     const [isSuscrito, setIsSuscrito] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null)
@@ -199,6 +206,10 @@ const ProfileGarage = () => {
     const [dialogOpen, setDialogOpen] = useState(false)
     const [dialogOpensub, setDialogOpensub] = useState(false)
     const [editModalOpen, setEditModalOpen] = useState(false)
+    const [reviewDecisionModalOpen, setReviewDecisionModalOpen] = useState(false)
+    const [reviewAction, setReviewAction] = useState<'Aprobado' | 'Rechazado' | ''>('')
+    const [reviewReason, setReviewReason] = useState('')
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false)
     const [dataOrigin, setdataOrigin] = useState<DocumentData | null>(null)
     const [diasRestantes, setDiasRestantes] = useState<number | null>(null)
     const [subscription, setSubscription] = useState({
@@ -294,7 +305,20 @@ const ProfileGarage = () => {
     const navigate = useNavigate()
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
 
-    const canGoBack = userAuthority?.includes('Admin')
+    const canGoBack =
+        userAuthority?.includes('Admin') || userAuthority?.includes('Certificador')
+    const canReviewWorkshop =
+        userAuthority?.includes('Admin') || userAuthority?.includes('Certificador')
+
+    const normalizeStatusValue = (value?: string) =>
+        String(value || '')
+            .normalize('NFD')
+            .replace(/[̀-ͯ]/g, '')
+            .toLowerCase()
+            .trim()
+
+    const isPendingApprovalStatus =
+        normalizeStatusValue(data?.status) === 'en espera por aprobacion'
 
     const getData = async () => {
         setLoading(true)
@@ -1308,6 +1332,118 @@ const ProfileGarage = () => {
     const onDialogClosesub = () => setDialogOpensub(false)
     const onDialogClose = () => setDialogOpen(false)
     const onEdit = () => setEditModalOpen(true)
+
+    const openWorkshopReviewModal = () => {
+        setReviewAction('')
+        setReviewReason('')
+        setReviewDecisionModalOpen(true)
+    }
+
+    const closeWorkshopReviewModal = () => {
+        if (isSubmittingReview) return
+        setReviewDecisionModalOpen(false)
+        setReviewAction('')
+        setReviewReason('')
+    }
+
+    const handleWorkshopReviewSubmit = async () => {
+        if (!reviewAction) {
+            toast.push(
+                <Notification title="Error">
+                    Debes seleccionar si deseas aprobar o rechazar al taller.
+                </Notification>,
+            )
+            return
+        }
+
+        if (reviewAction === 'Rechazado' && !reviewReason.trim()) {
+            toast.push(
+                <Notification title="Error">
+                    Debes indicar el motivo del rechazo.
+                </Notification>,
+            )
+            return
+        }
+
+        try {
+            setIsSubmittingReview(true)
+            const docRef = doc(db, 'Usuarios', path)
+            const motivoRechazo =
+                reviewAction === 'Rechazado' ? reviewReason.trim() : ''
+
+            await updateDoc(docRef, {
+                status: reviewAction,
+                motivoRechazo,
+            })
+
+            setData((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          status: reviewAction,
+                          motivoRechazo,
+                      }
+                    : prev,
+            )
+            setFormData((prev) => ({
+                ...prev,
+                status: reviewAction,
+            }))
+
+            try {
+                await sendWorkshopDecisionEmailCallable({
+                    to: String(dataOrigin?.email || formData?.email || '').trim(),
+                    workshopName: String(dataOrigin?.nombre || formData?.nombre || 'Taller'),
+                    decision: reviewAction,
+                    reason: reviewAction === 'Rechazado' ? reviewReason.trim() : '',
+                })
+            } catch (error) {
+                console.error('Error al invocar Cloud Function de correo:', error)
+            }
+
+            if (reviewAction === 'Aprobado') {
+                if (dataOrigin?.token) {
+                    try {
+                        await axios.post(
+                            'https://apisolvers.solversapp.com/api/usuarios/sendNotification',
+                            {
+                                token: dataOrigin.token,
+                                title: 'Taller aprobado',
+                                body: 'Tu taller fue aprobado. Ya puedes ingresar y continuar usando la plataforma.',
+                                secretCode: 'Aprobacion de taller',
+                            },
+                        )
+                    } catch (error) {
+                        console.error('Error al enviar notificacion de aprobacion:', error)
+                    }
+                }
+
+                toast.push(
+                    <Notification title="Exito" type="success">
+                        Taller aprobado correctamente.
+                    </Notification>,
+                )
+            } else {
+                toast.push(
+                    <Notification title="Exito" type="success">
+                        Taller rechazado y motivo guardado correctamente.
+                    </Notification>,
+                )
+            }
+
+            closeWorkshopReviewModal()
+            getData()
+        } catch (error) {
+            console.error('Error al revisar taller:', error)
+            toast.push(
+                <Notification title="Error">
+                    Ocurrio un error al procesar la revision del taller.
+                </Notification>,
+            )
+        } finally {
+            setIsSubmittingReview(false)
+        }
+    }
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
 
@@ -1921,7 +2057,16 @@ const ProfileGarage = () => {
             <div className="flex flex-col gap-5 pb-8 xl:flex-row">
                 <Card bordered className="rounded-2xl border-gray-200 shadow-sm xl:max-w-[380px]">
                     {/* Botón Editar */}
-                    <div className="mt-2 flex justify-end">
+                    <div className="mt-2 flex justify-end gap-2">
+                        {canReviewWorkshop &&
+                            isPendingApprovalStatus && (
+                                <button
+                                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+                                    onClick={openWorkshopReviewModal}
+                                >
+                                    Aprobar taller
+                                </button>
+                            )}
                         <button
                             className="rounded-lg bg-[#1d1e56] px-4 py-2 text-sm font-medium text-white hover:bg-[#1E3a8a]"
                             onClick={onEdit}
@@ -2300,17 +2445,92 @@ const ProfileGarage = () => {
                 </div>
             </Dialog>
 
+            <Dialog
+                isOpen={reviewDecisionModalOpen}
+                onClose={closeWorkshopReviewModal}
+                onRequestClose={closeWorkshopReviewModal}
+                width={560}
+            >
+                <div className="p-6">
+                    <h5 className="text-lg font-semibold text-gray-900">
+                        Revision del taller
+                    </h5>
+                    <p className="mt-1 text-sm text-gray-600">
+                        Selecciona si deseas aprobar o rechazar este taller.
+                    </p>
+
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <button
+                            type="button"
+                            className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                                reviewAction === 'Aprobado'
+                                    ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                            }`}
+                            onClick={() => setReviewAction('Aprobado')}
+                        >
+                            Aprobar
+                        </button>
+                        <button
+                            type="button"
+                            className={`rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                                reviewAction === 'Rechazado'
+                                    ? 'border-rose-600 bg-rose-50 text-rose-700'
+                                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                            }`}
+                            onClick={() => setReviewAction('Rechazado')}
+                        >
+                            Rechazar
+                        </button>
+                    </div>
+
+                    {reviewAction === 'Rechazado' && (
+                        <div className="mt-4">
+                            <label className="text-sm font-semibold text-gray-700">
+                                Motivo del rechazo
+                            </label>
+                            <textarea
+                                className="mt-2 min-h-[120px] w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                placeholder="Explica por que se rechaza el taller..."
+                                value={reviewReason}
+                                onChange={(e) => setReviewReason(e.target.value)}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-2 rounded-b-lg border-t bg-gray-50 px-6 py-3">
+                    <Button
+                        size="sm"
+                        onClick={closeWorkshopReviewModal}
+                        disabled={isSubmittingReview}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="solid"
+                        loading={isSubmittingReview}
+                        onClick={handleWorkshopReviewSubmit}
+                    >
+                        Guardar decision
+                    </Button>
+                </div>
+            </Dialog>
+
             {editModalOpen && (
                 <ConfirmDialog
                     isOpen={editModalOpen}
                     title="Editar Negocio"
+                    width={780}
+                    height="85vh"
                     confirmButtonColor="blue-600"
                     onClose={() => setEditModalOpen(false)}
                     onRequestClose={() => setEditModalOpen(false)}
                     onCancel={() => setEditModalOpen(false)}
                     onConfirm={handleEditSave}
                 >
-                    <div>
+                    <div className="max-h-[calc(85vh-11rem)] overflow-y-auto pr-2">
                         <div className="mt-2 flex justify-center gap-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10">
                             <div className="text-center">
                                 {!formData.image_perfil &&

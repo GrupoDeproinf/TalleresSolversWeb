@@ -12,7 +12,7 @@ import {
     getAuthenticatedHomePath,
     resolvePostSignInPath,
 } from '@/utils/getAuthenticatedHomePath'
-import { USER, ADMIN } from '@/constants/roles.constant'
+import { USER, ADMIN, CERTIFIER } from '@/constants/roles.constant'
 import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import useQuery from './useQuery'
@@ -141,7 +141,7 @@ function useAuth() {
                 localStorage.setItem('nombre', userInfo?.nombre ?? '')
                 const trimmedType = String(userInfo?.typeUser ?? '').trim()
                 let userAuthority: string =
-                    trimmedType === 'Certificador' ? ADMIN : trimmedType
+                    trimmedType === 'Certificador' ? CERTIFIER : trimmedType
                 if (!userAuthority) {
                     userAuthority =
                         collectionToCheck === 'Admins' ? ADMIN : USER
@@ -158,7 +158,7 @@ function useAuth() {
                         userName: userInfo?.nombre,
                         email: userInfo?.email,
                         key: userKey,
-                        authority, // ['Taller'], ['Admin'], o ['Admin'] para Certificador
+                        authority, // ['Taller'], ['Admin'] o ['Certificador']
                     }),
                 )
                 dispatch(signInSuccess(token))

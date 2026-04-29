@@ -97,8 +97,8 @@ const ConfirmDialog = (props: ConfirmDialogProps) => {
 
     return (
         <Dialog contentClassName="pb-0 px-0" {...rest}>
-            <div className="px-6 pb-6 pt-2 flex">
-                <div className="ml-4 rtl:mr-4">
+            <div className="px-6 pb-6 pt-2 w-full">
+                <div className="w-full">
                     <h5 className="mb-2">{title}</h5>
                     {children}
                 </div>

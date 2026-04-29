@@ -1,6 +1,6 @@
 import appConfig from '@/configs/app.config'
-import { TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
-import { USER } from '@/constants/roles.constant'
+import { CERTIFIER_DASHBOARD_PATH, TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
+import { CERTIFIER, USER } from '@/constants/roles.constant'
 
 /**
  * Ruta por defecto tras autenticación: el taller a su dashboard; admin/certificador al dashboard de ventas.
@@ -12,6 +12,9 @@ export function getAuthenticatedHomePath(
 ): string {
     if (authority?.includes(USER)) {
         return TALLER_DASHBOARD_PATH
+    }
+    if (authority?.includes(CERTIFIER)) {
+        return CERTIFIER_DASHBOARD_PATH
     }
     return appConfig.authenticatedEntryPath
 }
