@@ -34,7 +34,7 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import { Dialog, Drawer, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
-import * as XLSX from 'xlsx'
+import { exportStyledExcel } from '@/utils/excelExport'
 import { resolve } from 'path'
 import axios from 'axios'
 
@@ -421,7 +421,7 @@ const Subscriptions = () => {
         setSearchTerm(event.target.value)
     }
 
-    const handleExportToExcel = () => {
+    const handleExportToExcel = async () => {
         if (!startDate || !endDate) {
             toast.push(
                 <Notification title="Fechas incompletas">
@@ -443,26 +443,6 @@ const Subscriptions = () => {
             startDate: adjustedStartDate,
             endDate: adjustedEndDate,
         })
-
-        const camposDeseados = [
-            'nombre',
-            'nombre_taller',
-            'cantidad_servicios',
-            'monto',
-            'fecha_inicio',
-            'fecha_fin',
-            'status',
-        ]
-
-        const encabezados: Record<string, string> = {
-            nombre: 'Nombre Cliente',
-            nombre_taller: 'Nombre Negocio',
-            cantidad_servicios: 'Cantidad de Servicios',
-            monto: 'Monto Total',
-            fecha_inicio: 'Fecha de Inicio',
-            fecha_fin: 'Fecha de Fin',
-            status: 'Estado',
-        }
 
         // Filtrar los datos para las fechas dentro del rango (pendientes usan fecha de pago del comprobante)
         const filteredData = dataSubs.filter((row) => {
@@ -491,56 +471,73 @@ const Subscriptions = () => {
         }
 
         const tableData = filteredData.map((row) => {
-            const rowData: Record<string, any> = {}
-            camposDeseados.forEach((campo) => {
-                const value = row[campo as keyof Subscriptions]
-                const header = encabezados[campo] || campo
-                
-                // Si es el campo monto, verificar si es gratuito
-                if (campo === 'monto') {
-                    const montoNum = typeof value === 'string' ? parseFloat(value) : (typeof value === 'number' ? value : 0)
-                    if (isNaN(montoNum) || montoNum < 0.0001) {
-                        rowData[header] = 'GRATIS'
-                    } else {
-                        rowData[header] = value instanceof Timestamp
-                            ? value.toDate().toISOString().split('T')[0]
-                            : value ?? ''
-                    }
-                } else {
-                    rowData[header] =
-                        value instanceof Timestamp
-                            ? value.toDate().toISOString().split('T')[0]
-                            : value ?? ''
-                }
-            })
-
-            if (row.comprobante_pago) {
-                rowData['Método Comprobante'] =
-                    row.comprobante_pago.metodo || ''
-                rowData['Banco Origen'] = row.comprobante_pago.bancoOrigen || ''
-                rowData['Banco Destino'] =
-                    row.comprobante_pago.bancoDestino || ''
-                rowData['Cédula'] = row.comprobante_pago.cedula || ''
-                rowData['Teléfono Comprobante'] =
-                    row.comprobante_pago.telefono || ''
-                rowData['Monto'] = row.comprobante_pago.monto || ''
-                rowData['Recibo'] = row.comprobante_pago.receiptFile || ''
-                rowData['Número Referencia'] =
-                    row.comprobante_pago.numReferencia || ''
-                rowData['Fecha Pago'] = row.comprobante_pago.fechaPago
+            const montoNum = Number(row.monto ?? 0)
+            return {
+                nombreCliente: row.nombre ?? '',
+                nombreNegocio: row.nombre_taller ?? '',
+                correoNegocio: row.correo_taller ?? '',
+                cantidadServicios: String(row.cantidad_servicios ?? ''),
+                montoTotal:
+                    Number.isNaN(montoNum) || montoNum < 0.0001
+                        ? 'GRATIS'
+                        : String(row.monto ?? ''),
+                fechaInicio:
+                    row.fecha_inicio instanceof Timestamp
+                        ? row.fecha_inicio.toDate().toISOString().split('T')[0]
+                        : String(row.fecha_inicio ?? ''),
+                fechaFin:
+                    row.fecha_fin instanceof Timestamp
+                        ? row.fecha_fin.toDate().toISOString().split('T')[0]
+                        : String(row.fecha_fin ?? ''),
+                estado: row.status ?? '',
+                metodoComprobante: row.comprobante_pago?.metodo || '',
+                bancoOrigen: row.comprobante_pago?.bancoOrigen || '',
+                bancoDestino: row.comprobante_pago?.bancoDestino || '',
+                cedulaComprobante: String(row.comprobante_pago?.cedula ?? ''),
+                telefonoComprobante: String(row.comprobante_pago?.telefono ?? ''),
+                montoComprobante: String(row.comprobante_pago?.monto ?? ''),
+                recibo: row.comprobante_pago?.receiptFile || '',
+                numeroReferencia: row.comprobante_pago?.numReferencia || '',
+                fechaPago: row.comprobante_pago?.fechaPago
                     ? formatDate(row.comprobante_pago.fechaPago)
-                    : '-'
-                rowData['Correo Comprobante'] =
-                    row.comprobante_pago.correo || ''
+                    : '-',
+                correoComprobante: row.comprobante_pago?.correo || '',
             }
-
-            return rowData
         })
 
-        const worksheet = XLSX.utils.json_to_sheet(tableData)
-        const workbook = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Subscripciones')
-        XLSX.writeFile(workbook, 'subscripciones.xlsx')
+        await exportStyledExcel({
+            rows: tableData,
+            columns: [
+                { header: 'Nombre Cliente', key: 'nombreCliente' },
+                { header: 'Nombre Negocio', key: 'nombreNegocio' },
+                {
+                    header: 'Correo Negocio',
+                    key: 'correoNegocio',
+                    linkType: 'email',
+                },
+                { header: 'Cantidad de Servicios', key: 'cantidadServicios' },
+                { header: 'Monto Total', key: 'montoTotal' },
+                { header: 'Fecha de Inicio', key: 'fechaInicio' },
+                { header: 'Fecha de Fin', key: 'fechaFin' },
+                { header: 'Estado', key: 'estado' },
+                { header: 'Método Comprobante', key: 'metodoComprobante' },
+                { header: 'Banco Origen', key: 'bancoOrigen' },
+                { header: 'Banco Destino', key: 'bancoDestino' },
+                { header: 'Cédula', key: 'cedulaComprobante' },
+                { header: 'Teléfono Comprobante', key: 'telefonoComprobante' },
+                { header: 'Monto', key: 'montoComprobante' },
+                { header: 'Recibo', key: 'recibo', linkType: 'url' },
+                { header: 'Número Referencia', key: 'numeroReferencia' },
+                { header: 'Fecha Pago', key: 'fechaPago' },
+                {
+                    header: 'Correo Comprobante',
+                    key: 'correoComprobante',
+                    linkType: 'email',
+                },
+            ],
+            sheetName: 'Subscripciones',
+            fileName: 'subscripciones.xlsx',
+        })
 
         toast.push(
             <Notification title="Exportación exitosa">

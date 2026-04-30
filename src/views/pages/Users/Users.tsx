@@ -47,12 +47,14 @@ import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
 import { HiOutlineRefresh, HiOutlineSearch, HiOutlinePlus, HiOutlineMinus } from 'react-icons/hi'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
-import * as XLSX from 'xlsx'
+import * as XLSX from 'xlsx-js-style'
+import JSZip from 'jszip'
 import { components as selectComponents } from 'react-select'
 
 type Person = {
     nombre?: string
     email: string
+    instagram?: string
     cedula?: string
     phone?: string
     password: string
@@ -61,6 +63,122 @@ type Person = {
     typeUser?: string
     id: string
     estado?: string | string[]
+}
+
+type ExcelColumnConfig = {
+    header: string
+    key: string
+    isLink?: boolean
+    linkPrefix?: string
+}
+
+function createStyledWorksheet(
+    rows: Record<string, string>[],
+    columns: ExcelColumnConfig[],
+): XLSX.WorkSheet {
+    const worksheet = XLSX.utils.json_to_sheet(rows, {
+        header: columns.map((col) => col.key),
+    })
+
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
+    const headerStyle = {
+        font: { bold: true, color: { rgb: 'FFFFFF' } },
+        fill: { fgColor: { rgb: '1E3A8A' } },
+        alignment: { vertical: 'center', horizontal: 'center', wrapText: true },
+    }
+
+    // Encabezado con fondo azul, texto blanco y negrita.
+    columns.forEach((column, colIndex) => {
+        const headerCellAddress = XLSX.utils.encode_cell({ r: 0, c: colIndex })
+        const headerCell = worksheet[headerCellAddress]
+        if (headerCell) {
+            headerCell.v = column.header
+            headerCell.s = headerStyle
+        }
+    })
+
+    // Datos de contacto como links clickeables (mailto / instagram).
+    columns.forEach((column, colIndex) => {
+        if (!column.isLink) return
+        for (let rowIndex = 1; rowIndex <= range.e.r; rowIndex += 1) {
+            const cellAddress = XLSX.utils.encode_cell({ r: rowIndex, c: colIndex })
+            const cell = worksheet[cellAddress]
+            const value = String(cell?.v ?? '').trim()
+            if (!cell || !value) continue
+
+            const target = column.linkPrefix ? `${column.linkPrefix}${value}` : value
+            cell.l = { Target: target, Tooltip: value }
+            cell.s = {
+                font: { color: { rgb: '0563C1' }, underline: true },
+            }
+        }
+    })
+
+    worksheet['!autofilter'] = { ref: worksheet['!ref'] || 'A1' }
+    worksheet['!freeze'] = {
+        xSplit: '0',
+        ySplit: '1',
+        topLeftCell: 'A2',
+        activePane: 'bottomLeft',
+        state: 'frozen',
+    }
+
+    worksheet['!cols'] = columns.map((column) => {
+        const maxDataLength = rows.reduce((max, row) => {
+            const valueLength = String(row[column.key] ?? '').length
+            return Math.max(max, valueLength)
+        }, column.header.length)
+        return { wch: Math.min(Math.max(maxDataLength + 2, 12), 60) }
+    })
+
+    return worksheet
+}
+
+function enforceFrozenHeaderInSheetXml(sheetXml: string): string {
+    const sheetViewsBlock =
+        '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>'
+
+    if (sheetXml.includes('<sheetViews>')) {
+        return sheetXml.replace(/<sheetViews>[\s\S]*?<\/sheetViews>/, sheetViewsBlock)
+    }
+
+    if (sheetXml.includes('/>') && sheetXml.includes('<dimension')) {
+        return sheetXml.replace(/(<dimension[^>]*\/>)/, `$1${sheetViewsBlock}`)
+    }
+
+    return sheetXml
+}
+
+async function downloadWorkbookWithFrozenHeader(
+    workbook: XLSX.WorkBook,
+    fileName: string,
+): Promise<void> {
+    const workbookArray = XLSX.write(workbook, {
+        bookType: 'xlsx',
+        type: 'array',
+    })
+    const zip = await JSZip.loadAsync(workbookArray)
+    const firstSheetPath = 'xl/worksheets/sheet1.xml'
+    const firstSheetFile = zip.file(firstSheetPath)
+
+    if (!firstSheetFile) {
+        XLSX.writeFile(workbook, fileName)
+        return
+    }
+
+    const sheetXml = await firstSheetFile.async('text')
+    const patchedXml = enforceFrozenHeaderInSheetXml(sheetXml)
+    zip.file(firstSheetPath, patchedXml)
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    window.URL.revokeObjectURL(url)
 }
 
 const TODOS_ESTADOS_LABEL = 'Todos los estados'
@@ -515,17 +633,32 @@ const Users = () => {
         setSearchTerm(event.target.value)
     }
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
+        const columns: ExcelColumnConfig[] = [
+            { header: 'Nombre', key: 'Nombre' },
+            { header: 'Cédula', key: 'Cedula' },
+            { header: 'Email', key: 'Email', isLink: true, linkPrefix: 'mailto:' },
+            { header: 'Instagram', key: 'Instagram', isLink: true, linkPrefix: 'https://instagram.com/' },
+            { header: 'Número telefónico', key: 'Telefono' },
+            { header: 'Estado', key: 'Estado' },
+            { header: 'Tipo de usuario', key: 'TipoUsuario' },
+        ]
+
         const rows = table.getRowModel().rows.map((row) => {
             const p = row.original
             const estadoStr = formatEstadoForTableExport(p.estado)
+            const instagramRaw = String(p.instagram ?? '').trim()
+            const instagram = instagramRaw.startsWith('@')
+                ? instagramRaw.slice(1)
+                : instagramRaw
             return {
                 Nombre: p.nombre ?? '',
-                Cédula: p.cedula ?? '',
+                Cedula: p.cedula ?? '',
                 Email: p.email ?? '',
-                'Número telefónico': p.phone ?? '',
+                Instagram: instagram,
+                Telefono: p.phone ?? '',
                 Estado: estadoStr,
-                'Tipo de usuario': p.typeUser ?? '',
+                TipoUsuario: p.typeUser ?? '',
             }
         })
         if (rows.length === 0) {
@@ -536,10 +669,15 @@ const Users = () => {
             )
             return
         }
-        const worksheet = XLSX.utils.json_to_sheet(rows)
+        const worksheet = createStyledWorksheet(rows, columns)
         const workbook = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Usuarios')
-        XLSX.writeFile(workbook, 'Usuarios.xlsx')
+        try {
+            await downloadWorkbookWithFrozenHeader(workbook, 'Usuarios.xlsx')
+        } catch (error) {
+            console.error('No se pudo aplicar el congelado de encabezado:', error)
+            XLSX.writeFile(workbook, 'Usuarios.xlsx')
+        }
         toast.push(
             <Notification title="Exportación exitosa">
                 El archivo Excel se ha descargado correctamente.

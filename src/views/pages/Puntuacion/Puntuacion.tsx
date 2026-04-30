@@ -26,7 +26,7 @@ import { db } from '@/configs/firebaseAssets.config'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
-import * as XLSX from 'xlsx'
+import { exportStyledExcel } from '@/utils/excelExport'
 import { FaRegStar, FaStar } from 'react-icons/fa'
 
 type Calificacion = {
@@ -293,7 +293,7 @@ const Puntuacion = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
-    const handleExportToExcel = () => {
+    const handleExportToExcel = async () => {
         if (!startDate || !endDate) {
             toast.push(
                 <Notification title="Fechas incompletas">
@@ -323,13 +323,13 @@ const Puntuacion = () => {
                 return creationDate && creationDate >= adjustedStartDate && creationDate <= adjustedEndDate;
             })
             .map((puntuacion) => ({
-                'Nombre del negocio': puntuacion.nombre_taller || 'N/A',
-                'Puntuación': puntuacion.puntuacion || 'N/A',
-                'Fecha de Creación': puntuacion.fecha_creacion
+                nombreNegocio: puntuacion.nombre_taller || 'N/A',
+                puntuacion: String(puntuacion.puntuacion ?? 'N/A'),
+                fechaCreacion: puntuacion.fecha_creacion
                     ? puntuacion.fecha_creacion.toDate().toLocaleString()
                     : 'N/A',
-                'Nombre del Usuario': puntuacion.usuario?.nombre || 'N/A',
-                'Correo del Usuario': puntuacion.usuario?.email || 'N/A',
+                nombreUsuario: puntuacion.usuario?.nombre || 'N/A',
+                correoUsuario: puntuacion.usuario?.email || 'N/A',
             }));
     
         if (formattedData.length === 0) {
@@ -341,11 +341,22 @@ const Puntuacion = () => {
             return;
         }
     
-        // Exportar a Excel
-        const worksheet = XLSX.utils.json_to_sheet(formattedData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios');
-        XLSX.writeFile(workbook, 'ServiciosSolicitados.xlsx');
+        await exportStyledExcel({
+            rows: formattedData,
+            columns: [
+                { header: 'Nombre del negocio', key: 'nombreNegocio' },
+                { header: 'Puntuación', key: 'puntuacion' },
+                { header: 'Fecha de Creación', key: 'fechaCreacion' },
+                { header: 'Nombre del Usuario', key: 'nombreUsuario' },
+                {
+                    header: 'Correo del Usuario',
+                    key: 'correoUsuario',
+                    linkType: 'email',
+                },
+            ],
+            sheetName: 'Servicios',
+            fileName: 'ServiciosSolicitados.xlsx',
+        });
     
         toast.push(
             <Notification title="Exportación exitosa">

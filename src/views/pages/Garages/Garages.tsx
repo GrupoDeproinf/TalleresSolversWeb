@@ -57,7 +57,7 @@ import { GrMapLocation } from 'react-icons/gr'
 import Password from '@/views/account/Settings/components/Password'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
-import * as XLSX from 'xlsx'
+import { exportStyledExcel } from '@/utils/excelExport'
 import dayjs from 'dayjs'
 import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
@@ -274,68 +274,46 @@ const Garages = () => {
         )
     }
 
-    const handleExportToExcel = () => {
+    const handleExportToExcel = async () => {
         // Campos que queremos exportar
-        const camposDeseados = [
-            'nombre',
-            'rif',
-            'estado',
-            'email',
-            'phone',
-            'status',
-            'Direccion',
-            'createdAt',
-            'LinkInstagram',
-        ]
-
-        // Mapeo de encabezados en español
-        const encabezados: Record<string, string> = {
-            nombre: 'Nombre del Negocio',
-            rif: 'RIF',
-            estado: 'Estado',
-            email: 'Correo Electrónico',
-            phone: 'Número Telefónico',
-            status: 'Estado de Aprobación',
-            Direccion: 'Dirección',
-            createdAt: 'Fecha de Creación',
-            LinkInstagram: 'Link Instagram',
-        }
-
         // Obtener los datos filtrados Y ordenados de la tabla (mantiene el orden por fecha de creación)
         const filteredData = table.getRowModel().rows.map(row => row.original)
 
         // Preparar los datos para exportar
         const tableData = filteredData.map((row) => {
-            const rowData: Record<string, any> = {}
-            camposDeseados.forEach((campo) => {
-                let value = row[campo as keyof Garage]
-                const header = encabezados[campo] || campo
-                
-                // Formatear la fecha de creación si es un timestamp
-                if (campo === 'createdAt' && value) {
-                    let timestampNumber: number
-                    if (typeof value === 'number') {
-                        timestampNumber = value
-                    } else if (typeof value === 'object' && (value as any).seconds) {
-                        // Si es un timestamp de Firestore
-                        timestampNumber = (value as any).seconds * 1000
-                    } else if (typeof value === 'string') {
-                        // Si es un string, intentar convertirlo
-                        timestampNumber = new Date(value).getTime()
-                    } else {
-                        timestampNumber = 0
-                    }
-                    
-                    if (timestampNumber > 0) {
-                        value = new Date(timestampNumber).toLocaleDateString('es-ES')
-                    }
+            let createdAt = ''
+            if (row.createdAt) {
+                let timestampNumber = 0
+                if (typeof row.createdAt === 'number') {
+                    timestampNumber = row.createdAt
+                } else if (
+                    typeof row.createdAt === 'object' &&
+                    'seconds' in row.createdAt &&
+                    typeof (row.createdAt as { seconds?: unknown }).seconds ===
+                        'number'
+                ) {
+                    timestampNumber = (row.createdAt as { seconds: number }).seconds * 1000
+                } else if (typeof row.createdAt === 'string') {
+                    timestampNumber = new Date(row.createdAt).getTime()
                 }
-                
-                rowData[header] = value ?? ''
-            })
-            // Agregar columna Certificador con el email
-            rowData['Certificador'] = row.certificador_nombre ?? ''
-            return rowData
+                createdAt =
+                    timestampNumber > 0
+                        ? new Date(timestampNumber).toLocaleDateString('es-ES')
+                        : ''
+            }
+
+            return {
+                nombreNegocio: row.nombre ?? '',
+                rif: row.rif ?? '',
+                estado: row.estado ?? '',
+                correo: row.email ?? '',
+                telefono: row.phone ?? '',
+                estadoAprobacion: row.status ?? '',
+                direccion: row.Direccion ?? '',
+                fechaCreacion: createdAt,
+                instagram: row.LinkInstagram ?? '',
+                certificador: row.certificador_nombre ?? '',
+            }
         })
 
         if (tableData.length === 0) {
@@ -370,11 +348,27 @@ const Garages = () => {
         }
         fileName += '.xlsx'
 
-        // Crear el archivo Excel
-        const worksheet = XLSX.utils.json_to_sheet(tableData)
-        const workbook = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Negocios')
-        XLSX.writeFile(workbook, fileName)
+        await exportStyledExcel({
+            rows: tableData,
+            columns: [
+                { header: 'Nombre del Negocio', key: 'nombreNegocio' },
+                { header: 'RIF', key: 'rif' },
+                { header: 'Estado', key: 'estado' },
+                {
+                    header: 'Correo Electrónico',
+                    key: 'correo',
+                    linkType: 'email',
+                },
+                { header: 'Número Telefónico', key: 'telefono' },
+                { header: 'Estado de Aprobación', key: 'estadoAprobacion' },
+                { header: 'Dirección', key: 'direccion' },
+                { header: 'Fecha de Creación', key: 'fechaCreacion' },
+                { header: 'Link Instagram', key: 'instagram', linkType: 'instagram' },
+                { header: 'Certificador', key: 'certificador' },
+            ],
+            sheetName: 'Negocios',
+            fileName,
+        })
 
         toast.push(
             <Notification title="Exportación exitosa">

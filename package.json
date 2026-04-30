@@ -36,6 +36,7 @@
     "history": "^5.3.0",
     "html-react-parser": "^3.0.15",
     "i18next": "^23.7.11",
+    "jszip": "^3.10.1",
     "lodash": "^4.17.21",
     "miragejs": "^0.1.48",
     "moment": "^2.30.1",
@@ -63,6 +64,7 @@
     "redux-persist": "^6.0.0",
     "twin.macro": "^3.4.0",
     "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0",
     "yup": "^1.1.1",
     "zod": "^3.23.8"
   },

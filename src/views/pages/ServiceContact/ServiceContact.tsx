@@ -26,7 +26,7 @@ import { db } from '@/configs/firebaseAssets.config'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
-import * as XLSX from 'xlsx'
+import { exportStyledExcel } from '@/utils/excelExport'
 
 type ServicesContact = {
     nombre_servicio?: string
@@ -235,7 +235,7 @@ const Services = () => {
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
-    const handleExportToExcel = () => {
+    const handleExportToExcel = async () => {
         if (!startDate || !endDate) {
             toast.push(
                 <Notification title="Fechas incompletas">
@@ -265,14 +265,14 @@ const Services = () => {
                 return creationDate && creationDate >= adjustedStartDate && creationDate <= adjustedEndDate;
             })
             .map((service) => ({
-                'Nombre del Servicio': service.nombre_servicio || 'N/A',
-                Negocio: service.taller || 'N/A',
-                Precio: service.precio || 'N/A',
-                'Fecha de Creación': service.fecha_creacion
+                nombreServicio: service.nombre_servicio || 'N/A',
+                negocio: service.taller || 'N/A',
+                precio: String(service.precio ?? 'N/A'),
+                fechaCreacion: service.fecha_creacion
                     ? service.fecha_creacion.toDate().toLocaleString()
                     : 'N/A',
-                'Nombre del Usuario': service.usuario?.nombre || 'N/A',
-                'Correo del Usuario': service.usuario?.email || 'N/A',
+                nombreUsuario: service.usuario?.nombre || 'N/A',
+                correoUsuario: service.usuario?.email || 'N/A',
             }));
     
         if (formattedData.length === 0) {
@@ -284,11 +284,23 @@ const Services = () => {
             return;
         }
     
-        // Exportar a Excel
-        const worksheet = XLSX.utils.json_to_sheet(formattedData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios');
-        XLSX.writeFile(workbook, 'ServiciosSolicitados.xlsx');
+        await exportStyledExcel({
+            rows: formattedData,
+            columns: [
+                { header: 'Nombre del Servicio', key: 'nombreServicio' },
+                { header: 'Negocio', key: 'negocio' },
+                { header: 'Precio', key: 'precio' },
+                { header: 'Fecha de Creación', key: 'fechaCreacion' },
+                { header: 'Nombre del Usuario', key: 'nombreUsuario' },
+                {
+                    header: 'Correo del Usuario',
+                    key: 'correoUsuario',
+                    linkType: 'email',
+                },
+            ],
+            sheetName: 'Servicios',
+            fileName: 'ServiciosSolicitados.xlsx',
+        });
     
         toast.push(
             <Notification title="Exportación exitosa">

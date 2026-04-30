@@ -28,7 +28,7 @@ import type {
 } from '@tanstack/react-table'
 import { collection, getDocs, query, Timestamp, where } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
-import * as XLSX from 'xlsx'
+import { exportStyledExcel } from '@/utils/excelExport'
 
 type Vehiculo = {
     KM?: number
@@ -297,16 +297,16 @@ const RequestList = () => {
         })
     }
 
-    const handleExportToExcel = () => {
-        const encabezados: Record<string, string> = {
-            nombre_servicio: 'Servicio',
-            nombre_usuario: 'Usuario',
-            phone_usuario: 'Teléfono',
-            urgencia: 'Urgencia',
-            fecha_solicitud: 'Fecha solicitud',
-            vehiculo: 'Vehículo',
-            descripcion: 'Descripción',
-        }
+    const handleExportToExcel = async () => {
+        const columns = [
+            { header: 'Servicio', key: 'servicio' },
+            { header: 'Usuario', key: 'usuario' },
+            { header: 'Teléfono', key: 'telefono' },
+            { header: 'Urgencia', key: 'urgencia' },
+            { header: 'Fecha solicitud', key: 'fechaSolicitud' },
+            { header: 'Vehículo', key: 'vehiculo' },
+            { header: 'Descripción', key: 'descripcion' },
+        ]
         const rowsToExport = table.getFilteredRowModel().rows
         const tableData = rowsToExport.map((row) => {
             const r = row.original
@@ -317,13 +317,13 @@ const RequestList = () => {
                       .join(' ') || '—'
                 : '—'
             return {
-                [encabezados.nombre_servicio]: r.nombre_servicio ?? '',
-                [encabezados.nombre_usuario]: r.nombre_usuario ?? '',
-                [encabezados.phone_usuario]: r.phone_usuario ?? '',
-                [encabezados.urgencia]: r.urgencia ?? '',
-                [encabezados.fecha_solicitud]: formatFecha(r.fecha_solicitud),
-                [encabezados.vehiculo]: vehiculoStr,
-                [encabezados.descripcion]: (r.descripcion ?? '').slice(0, 200),
+                servicio: r.nombre_servicio ?? '',
+                usuario: r.nombre_usuario ?? '',
+                telefono: r.phone_usuario ?? '',
+                urgencia: r.urgencia ?? '',
+                fechaSolicitud: formatFecha(r.fecha_solicitud),
+                vehiculo: vehiculoStr,
+                descripcion: (r.descripcion ?? '').slice(0, 200),
             }
         })
         if (tableData.length === 0) {
@@ -334,10 +334,12 @@ const RequestList = () => {
             )
             return
         }
-        const worksheet = XLSX.utils.json_to_sheet(tableData)
-        const workbook = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Solicitudes')
-        XLSX.writeFile(workbook, 'solicitudes.xlsx')
+        await exportStyledExcel({
+            rows: tableData,
+            columns,
+            sheetName: 'Solicitudes',
+            fileName: 'solicitudes.xlsx',
+        })
         toast.push(
             <Notification title="Exportación exitosa">
                 El archivo Excel se ha descargado correctamente.
