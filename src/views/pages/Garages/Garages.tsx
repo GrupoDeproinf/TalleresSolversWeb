@@ -61,6 +61,8 @@ import { exportStyledExcel } from '@/utils/excelExport'
 import dayjs from 'dayjs'
 import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
+import { useAppSelector } from '@/store'
+import { CERTIFIER } from '@/constants/roles.constant'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -106,6 +108,10 @@ const GARAGE_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
     { value: 'Aprobado', label: 'Aprobado' },
     { value: 'En espera por aprobación', label: 'En espera por aprobación' },
     { value: 'Vencidos', label: 'Vencen hoy' },
+]
+
+const CERTIFIER_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
+    { value: 'En espera por aprobación', label: 'En espera por aprobación' },
 ]
 
 function timestampLikeToMs(value: unknown): number {
@@ -218,6 +224,8 @@ const Garages = () => {
     const [creationDateRange, setCreationDateRange] =
         useState<DatePickerRangeValue>([null, null])
     const [isLoading, setIsLoading] = useState(false) // Estado para mostrar cargando al cambiar filtros pesados
+    const authority = useAppSelector((state) => state.auth.user.authority)
+    const isCertifier = authority.includes(CERTIFIER)
 
     const isSameDay = (dateA: Date, dateB: Date) => {
         return (
@@ -237,6 +245,14 @@ const Garages = () => {
         querySnapshot.forEach((doc) => {
             const garageData = doc.data() as Garage
             if (garageData.typeUser === 'Taller') {
+                // Un certificador solo debe visualizar solicitudes pendientes de aprobación.
+                if (
+                    isCertifier &&
+                    garageData.status !== 'En espera por aprobación'
+                ) {
+                    return
+                }
+
                 // Si showEliminados es true: solo eliminados; si es false: solo no eliminados
                 if (showEliminados ? garageData.status === 'Eliminado' : garageData.status !== 'Eliminado') {
                     // Si el filtro de estado es "Vencidos", solo incluir talleres cuyo plan vence hoy
@@ -262,8 +278,23 @@ const Garages = () => {
     const navigate = useNavigate()
 
     useEffect(() => {
+        if (isCertifier) {
+            setStatusFilter('En espera por aprobación')
+            setShowEliminados(false)
+        }
+    }, [isCertifier])
+
+    useEffect(() => {
+        if (isCertifier) {
+            setFiltering(buildColumnFilters({ status: 'En espera por aprobación' }))
+            return
+        }
+        setFiltering(buildColumnFilters({ status: statusFilter }))
+    }, [isCertifier, statusFilter])
+
+    useEffect(() => {
         getData()
-    }, [showEliminados, statusFilter])
+    }, [isCertifier, showEliminados, statusFilter])
 
     const handleRefresh = async () => {
         await getData()
@@ -1052,7 +1083,7 @@ const Garages = () => {
                         >
                             <FaRegEye />
                         </button>
-                        {!isEliminado && (
+                        {!isCertifier && !isEliminado && (
                             <button
                                 onClick={() => openDialog(person)}
                                 className="text-red-700"
@@ -1170,8 +1201,10 @@ const Garages = () => {
     const endIndex = startIndex + rowsPerPage
 
     const statusFilterOption =
-        GARAGE_STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter) ??
-        GARAGE_STATUS_FILTER_OPTIONS[0]
+        (isCertifier ? CERTIFIER_STATUS_FILTER_OPTIONS : GARAGE_STATUS_FILTER_OPTIONS).find(
+            (o) => o.value === statusFilter,
+        ) ??
+        (isCertifier ? CERTIFIER_STATUS_FILTER_OPTIONS[0] : GARAGE_STATUS_FILTER_OPTIONS[0])
 
     return (
         <>
@@ -1216,14 +1249,20 @@ const Garages = () => {
                             size="sm"
                             isSearchable={false}
                             className="min-w-[12rem]"
-                            options={GARAGE_STATUS_FILTER_OPTIONS}
+                            options={
+                                isCertifier
+                                    ? CERTIFIER_STATUS_FILTER_OPTIONS
+                                    : GARAGE_STATUS_FILTER_OPTIONS
+                            }
                             value={statusFilterOption}
                             onChange={(opt) => {
+                                if (isCertifier) return
                                 const v = opt?.value ?? ''
                                 setStatusFilter(v)
                                 setFiltering(buildColumnFilters({ status: v }))
                             }}
                             placeholder="Estado de aprobación"
+                            isDisabled={isCertifier}
                         />
                     </div>
 

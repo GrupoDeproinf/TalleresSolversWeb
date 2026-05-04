@@ -4,6 +4,10 @@ import { db } from '@/configs/firebaseAssets.config'
 import { useAppSelector } from '@/store'
 import Chart from '@/components/shared/Chart'
 import Progress from '@/components/ui/Progress'
+import { Switcher } from '@/components/ui'
+import Button from '@/components/ui/Button'
+import DatePicker from '@/components/ui/DatePicker'
+import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 import {
     HiChevronRight,
     HiOutlineChartBar,
@@ -139,6 +143,41 @@ const buildLast8WeeksLabels = () => {
     return labels
 }
 
+const startOfDay = (date: Date) => {
+    const value = new Date(date)
+    value.setHours(0, 0, 0, 0)
+    return value
+}
+
+const endOfDay = (date: Date) => {
+    const value = new Date(date)
+    value.setHours(23, 59, 59, 999)
+    return value
+}
+
+const getTodayRange = () => {
+    const now = new Date()
+    return { from: startOfDay(now), to: endOfDay(now) }
+}
+
+const getCurrentWeekRange = () => {
+    const now = new Date()
+    const from = getWeekStart(now)
+    return { from: startOfDay(from), to: endOfDay(now) }
+}
+
+const getCurrentMonthRange = () => {
+    const now = new Date()
+    const from = new Date(now.getFullYear(), now.getMonth(), 1)
+    return { from: startOfDay(from), to: endOfDay(now) }
+}
+
+const getCurrentYearRange = () => {
+    const now = new Date()
+    const from = new Date(now.getFullYear(), 0, 1)
+    return { from: startOfDay(from), to: endOfDay(now) }
+}
+
 const TallerDashboard = () => {
     const { key: userKey } = useAppSelector((state) => state.auth.user)
     const { token } = useAppSelector((state) => state.auth.session)
@@ -148,6 +187,29 @@ const TallerDashboard = () => {
     const [isLoading, setIsLoading] = useState(true)
     const [currentPlanName, setCurrentPlanName] = useState<string | null>(null)
     const [hasApprovedPlan, setHasApprovedPlan] = useState(false)
+    const [isDateFilterEnabled, setIsDateFilterEnabled] = useState(false)
+    const [dateRangeDraft, setDateRangeDraft] = useState<DatePickerRangeValue>([null, null])
+    const [appliedDateRange, setAppliedDateRange] = useState<{
+        from: Date
+        to: Date
+    } | null>(null)
+
+    const applyQuickRange = (range: { from: Date; to: Date }) => {
+        setDateRangeDraft([range.from, range.to])
+        setAppliedDateRange(range)
+    }
+
+    const applySelectedRange = () => {
+        const [from, to] = dateRangeDraft
+        if (!from || !to) {
+            setAppliedDateRange(null)
+            return
+        }
+        setAppliedDateRange({
+            from: startOfDay(from as Date),
+            to: endOfDay(to as Date),
+        })
+    }
 
     useEffect(() => {
         const fetchMetrics = async () => {
@@ -214,7 +276,72 @@ const TallerDashboard = () => {
                     (docSnap) => docSnap.data() as Propuesta,
                 )
 
+                const getProposalReferenceDate = (propuesta: Propuesta) =>
+                    toDate(propuesta.fecha_propuesta) ||
+                    toDate(propuesta.fecha_actualizacion) ||
+                    toDate(propuesta.fecha_respuesta) ||
+                    toDate(propuesta.fecha_aceptada)
+
+                const shouldApplyDateFilter = isDateFilterEnabled && !!appliedDateRange
+                const isInAppliedRange = (date: Date | null) => {
+                    if (!shouldApplyDateFilter) return true
+                    if (!appliedDateRange || !date) return false
+                    const timestamp = date.getTime()
+                    return (
+                        timestamp >= appliedDateRange.from.getTime() &&
+                        timestamp <= appliedDateRange.to.getTime()
+                    )
+                }
+
+                const myPropuestasForMetrics = shouldApplyDateFilter
+                    ? myPropuestas.filter((propuesta) =>
+                          isInAppliedRange(getProposalReferenceDate(propuesta)),
+                      )
+                    : myPropuestas
+
+                const allPropuestasForMetrics = shouldApplyDateFilter
+                    ? allPropuestas.filter((propuesta) =>
+                          isInAppliedRange(getProposalReferenceDate(propuesta)),
+                      )
+                    : allPropuestas
+
                 const getUserRating = (user: Record<string, unknown>) => {
+                    const ratingCollections = [
+                        user.calificaciones,
+                        user.ratings,
+                        user.puntuaciones,
+                    ]
+
+                    for (const collectionCandidate of ratingCollections) {
+                        if (!Array.isArray(collectionCandidate) || collectionCandidate.length === 0) {
+                            continue
+                        }
+
+                        const values = collectionCandidate
+                            .map((item) => {
+                                if (typeof item === 'number') return item
+                                if (typeof item === 'object' && item !== null) {
+                                    const record = item as Record<string, unknown>
+                                    const nestedCandidates = [
+                                        record.puntuacion,
+                                        record.calificacion,
+                                        record.rating,
+                                        record.promedio,
+                                    ]
+                                    for (const nested of nestedCandidates) {
+                                        const parsed = Number(nested)
+                                        if (Number.isFinite(parsed) && parsed >= 0) return parsed
+                                    }
+                                }
+                                return null
+                            })
+                            .filter((value): value is number => value !== null)
+
+                        if (values.length > 0) {
+                            return values.reduce((acc, value) => acc + value, 0) / values.length
+                        }
+                    }
+
                     const ratingCandidates = [
                         user.puntuacion_promedio,
                         user.calificacion_promedio,
@@ -258,7 +385,7 @@ const TallerDashboard = () => {
                 const localRanking = localRankingIndex >= 0 ? localRankingIndex + 1 : 0
                 const localRankingTotal = localRatings.length
 
-                const recentProposals: RecentProposalRow[] = myPropuestas
+                const recentProposals: RecentProposalRow[] = myPropuestasForMetrics
                     .slice()
                     .sort((a, b) => {
                         const dateA =
@@ -313,8 +440,9 @@ const TallerDashboard = () => {
 
                 const now = new Date()
                 const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-                const weekLabels = buildLast8WeeksLabels()
-                const firstWeekStart = getWeekStart(new Date())
+                const anchorDate =
+                    isDateFilterEnabled && appliedDateRange ? appliedDateRange.to : new Date()
+                const firstWeekStart = getWeekStart(anchorDate)
                 firstWeekStart.setDate(firstWeekStart.getDate() - 7 * 7)
                 const weeklyResponses = new Array(8).fill(0)
 
@@ -356,7 +484,7 @@ const TallerDashboard = () => {
                     if (diffMinutes >= 0) onDiff(diffMinutes)
                 }
 
-                myPropuestas.forEach((propuesta) => {
+                myPropuestasForMetrics.forEach((propuesta) => {
                     const statusBucket = getStatusBucket(propuesta.status)
                     if (statusBucket === 'accepted') accepted += 1
                     else if (statusBucket === 'rejected') rejected += 1
@@ -364,7 +492,9 @@ const TallerDashboard = () => {
                     else pending += 1
 
                     const sentDate = toDate(propuesta.fecha_propuesta)
-                    if (sentDate && sentDate >= monthStart) {
+                    if (isDateFilterEnabled && appliedDateRange) {
+                        sentThisMonth += 1
+                    } else if (sentDate && sentDate >= monthStart) {
                         sentThisMonth += 1
                     }
 
@@ -401,7 +531,7 @@ const TallerDashboard = () => {
                     }
                 })
 
-                allPropuestas.forEach((propuesta) => {
+                allPropuestasForMetrics.forEach((propuesta) => {
                     const price = parseCurrencyToNumber(propuesta.precio_estimado)
                     if (price !== null) {
                         const category = resolveCategory(propuesta)
@@ -438,7 +568,7 @@ const TallerDashboard = () => {
                     return stat ? stat.sum / stat.count : 0
                 })
 
-                const sentTotal = myPropuestas.length
+                const sentTotal = myPropuestasForMetrics.length
                 const closureRate = sentTotal > 0 ? (accepted / sentTotal) * 100 : 0
                 const myAveragePrice = myPriceCount > 0 ? myPriceSum / myPriceCount : 0
                 const marketAveragePrice =
@@ -485,7 +615,7 @@ const TallerDashboard = () => {
         }
 
         void fetchMetrics()
-    }, [loggedTallerUid])
+    }, [loggedTallerUid, isDateFilterEnabled, appliedDateRange])
 
     const quoteStatusData = useMemo(
         () => ({
@@ -515,9 +645,13 @@ const TallerDashboard = () => {
 
     const kpiCards = [
         {
-            title: 'Cotizaciones enviadas este mes',
+            title: isDateFilterEnabled
+                ? 'Cotizaciones en el rango'
+                : 'Cotizaciones enviadas este mes',
             value: metrics.sentThisMonth,
-            hint: `${metrics.sentThisMonth} registradas en el mes actual`,
+            hint: isDateFilterEnabled
+                ? `${metrics.sentThisMonth} registradas en el periodo filtrado`
+                : `${metrics.sentThisMonth} registradas en el mes actual`,
             bgColor: 'bg-[#000B7E]',
             icon: HiOutlineChartBar,
         },
@@ -568,7 +702,23 @@ const TallerDashboard = () => {
         },
     ]
 
-    const weeklyResponseXAxis = buildLast8WeeksLabels()
+    const weeklyResponseXAxis = useMemo(() => {
+        const anchorDate =
+            isDateFilterEnabled && appliedDateRange ? appliedDateRange.to : new Date()
+        const labels: string[] = []
+        const currentWeekStart = getWeekStart(anchorDate)
+        for (let i = 7; i >= 0; i--) {
+            const start = new Date(currentWeekStart)
+            start.setDate(currentWeekStart.getDate() - i * 7)
+            labels.push(
+                `${start.toLocaleDateString('es-VE', {
+                    day: '2-digit',
+                    month: 'short',
+                })}`,
+            )
+        }
+        return labels
+    }, [isDateFilterEnabled, appliedDateRange])
 
     const isPlanOro = currentPlanName === 'Plan Oro'
     const isPlanBronce = currentPlanName === 'Plan Bronce'
@@ -730,6 +880,90 @@ const TallerDashboard = () => {
 
             {hasApprovedPlan && (
                 <div className="mt-4 space-y-4">
+                    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                            <div>
+                                <p className="text-sm font-semibold text-gray-900">
+                                    Filtro de fechas
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                    Activa el filtro para consultar historico por dia, semana,
+                                    mes, año o rango personalizado.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-700">Activar filtro</span>
+                                <Switcher
+                                    checked={isDateFilterEnabled}
+                                    onChange={() => {
+                                        setIsDateFilterEnabled((prev) => {
+                                            const next = !prev
+                                            if (!next) {
+                                                setDateRangeDraft([null, null])
+                                                setAppliedDateRange(null)
+                                            }
+                                            return next
+                                        })
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        {isDateFilterEnabled && (
+                            <div className="mt-4 flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        onClick={() => applyQuickRange(getTodayRange())}
+                                    >
+                                        Hoy
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        onClick={() => applyQuickRange(getCurrentWeekRange())}
+                                    >
+                                        Semana actual
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        onClick={() => applyQuickRange(getCurrentMonthRange())}
+                                    >
+                                        Mes actual
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        onClick={() => applyQuickRange(getCurrentYearRange())}
+                                    >
+                                        Año actual
+                                    </Button>
+                                </div>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-end xl:justify-end">
+                                    <div className="w-full sm:w-[22rem]">
+                                        <DatePicker.DatePickerRange
+                                            clearable
+                                            inputFormat="DD/MM/YYYY"
+                                            placeholder="Desde — hasta"
+                                            separator=" — "
+                                            value={dateRangeDraft}
+                                            onChange={(value) => setDateRangeDraft(value)}
+                                        />
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        onClick={applySelectedRange}
+                                    >
+                                        Buscar
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </section>
+
                     <section
                         className={`grid gap-3 md:grid-cols-2 ${
                             isPlanOro ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
@@ -870,11 +1104,11 @@ const TallerDashboard = () => {
                                         <p className="mt-2 text-sm text-gray-700">
                                             Mi promedio:{' '}
                                             <span className="font-semibold">
-                                                {metrics.myLocalRating.toFixed(2)}
+                                                {metrics.myLocalRating.toFixed(1)}⭐
                                             </span>{' '}
                                             | Zona:{' '}
                                             <span className="font-semibold">
-                                                {metrics.localAverageRating.toFixed(2)}
+                                                {metrics.localAverageRating.toFixed(1)}⭐
                                             </span>
                                         </p>
                                         <p

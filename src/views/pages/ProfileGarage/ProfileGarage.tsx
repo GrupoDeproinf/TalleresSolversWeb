@@ -187,6 +187,11 @@ type SubscriptionHistory = {
 
 type HistoricoRecord = ClienteHistorico
 
+const isFreePlanAmount = (value: unknown) => {
+    const amount = Number(value)
+    return Number.isFinite(amount) && Math.abs(amount) < 0.01
+}
+
 const ProfileGarage = () => {
     const cloudFunctions = getFunctions(app, 'us-central1')
     const sendWorkshopDecisionEmailCallable = httpsCallable(
@@ -319,6 +324,21 @@ const ProfileGarage = () => {
 
     const isPendingApprovalStatus =
         normalizeStatusValue(data?.status) === 'en espera por aprobacion'
+
+    const hasUsedFreePlan = useMemo(() => {
+        const hadFreeInHistory = subscripcionestable.some((subscription) =>
+            isFreePlanAmount(subscription.monto),
+        )
+        const hasCurrentFreePlan = isFreePlanAmount(
+            (data?.subscripcion_actual as { monto?: unknown } | undefined)?.monto,
+        )
+        return hadFreeInHistory || hasCurrentFreePlan
+    }, [subscripcionestable, data?.subscripcion_actual])
+
+    const availablePlans = useMemo(() => {
+        if (!hasUsedFreePlan) return planes
+        return planes.filter((plan) => !isFreePlanAmount(plan.monto))
+    }, [planes, hasUsedFreePlan])
 
     const getData = async () => {
         setLoading(true)
@@ -506,18 +526,16 @@ const ProfileGarage = () => {
                 return Number.isNaN(parsed) ? 0 : parsed
             }
 
-            const solicitudesSnapshot = await getDocs(collection(db, 'Solicitudes'))
+            const solicitudesSnapshot = await getDocs(
+                query(
+                    collection(db, 'Solicitudes'),
+                    where('uid_taller', '==', path),
+                ),
+            )
             const solicitudesHistorico: HistoricoRecord[] =
                 solicitudesSnapshot.docs
                     .flatMap((docSnap) => {
                         const raw = docSnap.data() as Record<string, any>
-                        const uidTaller = toText(
-                            raw.uid_taller ??
-                                raw.taller_uid ??
-                                raw.uid_taller_asignado ??
-                                raw.uid_taller_aceptado,
-                        )
-                        if (uidTaller && uidTaller !== path) return []
                         const user = raw.usuario ?? {}
                         const vehiculo = raw.vehiculo ?? {}
                         const fechaRaw =
@@ -554,14 +572,15 @@ const ProfileGarage = () => {
                     })
 
             const servicesContactSnapshot = await getDocs(
-                collection(db, 'servicesContact'),
+                query(
+                    collection(db, 'servicesContact'),
+                    where('uid_taller', '==', path),
+                ),
             )
             const servicesContactHistorico: HistoricoRecord[] =
                 servicesContactSnapshot.docs
                     .flatMap((docSnap) => {
                         const raw = docSnap.data() as Record<string, any>
-                        const uidTaller = toText(raw.uid_taller ?? raw.taller_uid)
-                        if (uidTaller && uidTaller !== path) return []
                         const user = raw.usuario ?? {}
                         const vehiculo = raw.vehiculo ?? {}
                         const fechaRaw =
@@ -590,9 +609,7 @@ const ProfileGarage = () => {
                             fechaTs: toMillis(fechaRaw),
                             descripcion: toText(raw.descripcion),
                         }
-                        return [
-                            item,
-                        ]
+                        return [item]
                     })
 
             // Promociones: de momento con data estática (MOCK_PROMOCIONES en estado inicial)
@@ -748,8 +765,16 @@ const ProfileGarage = () => {
             const newSubscriptionRef = doc(collection(db, 'Subscripciones'))
 
             // Determinar si el plan es gratuito
-            const isFreePlan =
-                plan.monto === 0 || (plan.monto < 0.01 && plan.monto > -0.01)
+            const isFreePlan = isFreePlanAmount(plan.monto)
+
+            if (isFreePlan && hasUsedFreePlan) {
+                toast.push(
+                    <Notification title="No disponible">
+                        El plan gratuito ya fue utilizado por este taller y no puede volver a seleccionarse.
+                    </Notification>,
+                )
+                return
+            }
 
             // Si es plan gratuito, aprobar automáticamente; si no, dejar pendiente
             const subscriptionStatus = isFreePlan ? 'Aprobado' : 'Por Aprobar'
@@ -1810,7 +1835,7 @@ const ProfileGarage = () => {
     })
 
     const table2 = useReactTable({
-        data: planes,
+        data: availablePlans,
         columns: columns2,
         state: {
             sorting,

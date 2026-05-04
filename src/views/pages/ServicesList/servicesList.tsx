@@ -67,6 +67,13 @@ type Service = {
     categoria?: string
     uid_subcategoria?: string
     updatedAt?: Timestamp
+    reviews_count?: number
+    latest_reviews?: {
+        comentario: string
+        puntuacion: number
+        fecha_texto: string
+        usuario_nombre: string
+    }[]
 }
 
 type Garage = {
@@ -79,6 +86,13 @@ type Garage = {
     servicios?: string[]
     id?: string
     status?: string
+}
+
+type ServiceReview = {
+    comentario: string
+    puntuacion: number
+    fecha_texto: string
+    usuario_nombre: string
 }
 
 type FilterSelectOption = { value: string; label: string }
@@ -185,6 +199,8 @@ const ServicesList = () => {
     const [rowsPerPage, setRowsPerPage] = useState(10)
     const [selectedService, setSelectedService] = useState<Service | null>(null)
     const [modalIsOpen, setModalIsOpen] = useState(false)
+    const [reviewsModalIsOpen, setReviewsModalIsOpen] = useState(false)
+    const [selectedServiceReviews, setSelectedServiceReviews] = useState<ServiceReview[]>([])
 
     const fetchData = async () => {
         try {
@@ -211,8 +227,65 @@ const ServicesList = () => {
             ])
 
             // Procesar los datos obtenidos de las colecciones
-            const servicios = servicesSnapshot.docs.map(
-                (doc) => ({ ...doc.data(), id: doc.id }) as Service,
+            const servicios = await Promise.all(
+                servicesSnapshot.docs.map(async (docSnap) => {
+                    const serviceData = docSnap.data() as Service
+                    const reviewsSnap = await getDocs(
+                        collection(db, 'Servicios', docSnap.id, 'calificaciones'),
+                    )
+                    const reviews = reviewsSnap.docs.map((reviewDoc) => {
+                        const reviewRaw = reviewDoc.data() as {
+                            comentario?: string
+                            puntuacion?: number
+                            fecha_creacion?: Timestamp | Date
+                            usuario?: { nombre?: string }
+                        }
+                        const createdAt =
+                            reviewRaw.fecha_creacion instanceof Timestamp
+                                ? reviewRaw.fecha_creacion.toDate()
+                                : reviewRaw.fecha_creacion instanceof Date
+                                  ? reviewRaw.fecha_creacion
+                                  : null
+                        return {
+                            comentario: String(reviewRaw.comentario || '').trim(),
+                            puntuacion: Number(reviewRaw.puntuacion || 0),
+                            fechaMs: createdAt?.getTime() || 0,
+                            fecha_texto: createdAt
+                                ? createdAt.toLocaleString('es-VE')
+                                : 'Sin fecha',
+                            usuario_nombre:
+                                String(reviewRaw.usuario?.nombre || '').trim() ||
+                                'Usuario sin nombre',
+                        }
+                    })
+
+                    const validScores = reviews
+                        .map((review) => review.puntuacion)
+                        .filter((score) => Number.isFinite(score))
+                    const averageScore =
+                        validScores.length > 0
+                            ? validScores.reduce((acc, score) => acc + score, 0) /
+                              validScores.length
+                            : 0
+
+                    const latestReviews = reviews
+                        .slice()
+                        .sort((a, b) => b.fechaMs - a.fechaMs)
+                        .map((review) => ({
+                            comentario: review.comentario || 'Sin comentario',
+                            puntuacion: review.puntuacion,
+                            fecha_texto: review.fecha_texto,
+                            usuario_nombre: review.usuario_nombre,
+                        }))
+
+                    return {
+                        ...serviceData,
+                        id: docSnap.id,
+                        puntuacion: averageScore,
+                        reviews_count: latestReviews.length,
+                        latest_reviews: latestReviews,
+                    } as Service
+                }),
             )
 
             const talleres = garagesSnapshot.docs
@@ -336,6 +409,17 @@ const ServicesList = () => {
     const handleModalClose = () => {
         setModalIsOpen(false)
         setSelectedService(null)
+    }
+
+    const openServiceReviews = (service: Service) => {
+        setSelectedService(service)
+        setSelectedServiceReviews(service.latest_reviews || [])
+        setReviewsModalIsOpen(true)
+    }
+
+    const handleReviewsModalClose = () => {
+        setReviewsModalIsOpen(false)
+        setSelectedServiceReviews([])
     }
 
     const columns: ColumnDef<Service>[] = [
@@ -511,6 +595,14 @@ const ServicesList = () => {
                         >
                             <HiOutlineEye className="w-4 h-4" />
                             Ver Detalles
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="solid"
+                            onClick={() => openServiceReviews(service)}
+                            className="flex items-center gap-1"
+                        >
+                            Ver reseñas
                         </Button>
                     </div>
                 )
@@ -873,6 +965,67 @@ const ServicesList = () => {
                         </div>
                     </div>
                 )}
+            </Dialog>
+
+            <Dialog
+                isOpen={reviewsModalIsOpen}
+                onClose={handleReviewsModalClose}
+                onRequestClose={handleReviewsModalClose}
+                width={800}
+            >
+                <div className="p-2">
+                    <div className="rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4">
+                        <h5 className="text-gray-900">Reseñas del servicio</h5>
+                        <p className="mt-1 text-sm text-gray-700">
+                            <span className="font-semibold">Servicio:</span>{' '}
+                            {selectedService?.nombre_servicio || 'Sin servicio'}
+                        </p>
+                        <p className="mt-1 text-sm text-gray-700">
+                            <span className="font-semibold">Promedio:</span>{' '}
+                            {(selectedService?.puntuacion || 0).toFixed(1)}
+                        </p>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                        {selectedServiceReviews.length ? (
+                            selectedServiceReviews.map((review, idx) => (
+                                <div
+                                    key={`${selectedService?.id || 'service'}-${idx}`}
+                                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                                >
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-900">
+                                                {review.usuario_nombre}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {selectedService?.nombre_servicio}
+                                            </p>
+                                        </div>
+                                        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                                            {review.fecha_texto}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className="text-xs font-medium text-blue-800">
+                                            Puntuación: {review.puntuacion}
+                                        </span>
+                                        <FaStar className="text-amber-400" />
+                                    </div>
+                                    <p className="mt-3 rounded-lg bg-gray-50 p-3 text-sm leading-relaxed text-gray-700">
+                                        {review.comentario}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+                                <p className="text-sm text-gray-500">
+                                    Este servicio aún no tiene reseñas.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </Dialog>
         </>
     )
