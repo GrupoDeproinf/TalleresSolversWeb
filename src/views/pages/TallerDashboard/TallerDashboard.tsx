@@ -62,6 +62,9 @@ type DashboardMetrics = {
     localRanking: number
     localRankingTotal: number
     recentProposals: RecentProposalRow[]
+    profileViewsTotal: number
+    contactClicksTotal: number
+    mostViewedServiceName: string
 }
 
 const EMPTY_METRICS: DashboardMetrics = {
@@ -84,6 +87,9 @@ const EMPTY_METRICS: DashboardMetrics = {
     localRanking: 0,
     localRankingTotal: 0,
     recentProposals: [],
+    profileViewsTotal: 0,
+    contactClicksTotal: 0,
+    mostViewedServiceName: 'Sin datos',
 }
 
 const STATUS_LABELS = ['Aceptada', 'Rechazada', 'Pendiente', 'Expirada']
@@ -110,12 +116,65 @@ const parseCurrencyToNumber = (value: string | number | undefined) => {
     return Number.isFinite(num) ? num : null
 }
 
+const parseRatingValue = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value !== 'string') return null
+    const cleaned = value
+        .replace(',', '.')
+        .replace(/[^\d.\-]/g, '')
+        .trim()
+    if (!cleaned) return null
+    const num = Number(cleaned)
+    return Number.isFinite(num) ? num : null
+}
+
+const normalizeLocationText = (value: unknown) =>
+    String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+
+const toDateFromUnknownTimestamp = (value: unknown): Date | null => {
+    if (!value) return null
+    if (value instanceof Timestamp) return value.toDate()
+    if (value instanceof Date) return value
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        'seconds' in (value as { seconds?: unknown }) &&
+        typeof (value as { seconds?: unknown }).seconds === 'number'
+    ) {
+        return new Date((value as { seconds: number }).seconds * 1000)
+    }
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        '_seconds' in (value as { _seconds?: unknown }) &&
+        typeof (value as { _seconds?: unknown })._seconds === 'number'
+    ) {
+        return new Date((value as { _seconds: number })._seconds * 1000)
+    }
+    return null
+}
+
 const getStatusBucket = (status: string | undefined) => {
     const normalized = String(status || '').toLowerCase()
     if (normalized.includes('acept')) return 'accepted'
     if (normalized.includes('rechaz')) return 'rejected'
     if (normalized.includes('expir')) return 'expired'
     return 'pending'
+}
+
+const SERVICE_CONTACT_TYPES = new Set(['contactar', 'llamada', 'whatsapp'])
+
+const isServiceContactInteractionType = (type: unknown) => {
+    const normalized = String(type || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+    return SERVICE_CONTACT_TYPES.has(normalized)
 }
 
 const getWeekStart = (date: Date) => {
@@ -231,6 +290,9 @@ const TallerDashboard = () => {
                     solicitudesSnap,
                     tallerDocSnap,
                     usersSnap,
+                    perfilViewsSnap,
+                    serviceContactSnap,
+                    serviciosSnap,
                 ] =
                     await Promise.all([
                         getDocs(
@@ -244,6 +306,24 @@ const TallerDashboard = () => {
                         getDocs(collection(db, 'Solicitudes')),
                         getDoc(doc(db, 'Usuarios', loggedTallerUid)),
                         getDocs(collection(db, 'Usuarios')),
+                        getDocs(
+                            query(
+                                collection(db, 'perfilViews'),
+                                where('uid_taller', '==', loggedTallerUid),
+                            ),
+                        ),
+                        getDocs(
+                            query(
+                                collection(db, 'servicesContact'),
+                                where('uid_taller', '==', loggedTallerUid),
+                            ),
+                        ),
+                        getDocs(
+                            query(
+                                collection(db, 'Servicios'),
+                                where('uid_taller', '==', loggedTallerUid),
+                            ),
+                        ),
                     ])
 
                 const tallerData = tallerDocSnap.data() as
@@ -329,8 +409,8 @@ const TallerDashboard = () => {
                                         record.promedio,
                                     ]
                                     for (const nested of nestedCandidates) {
-                                        const parsed = Number(nested)
-                                        if (Number.isFinite(parsed) && parsed >= 0) return parsed
+                                        const parsed = parseRatingValue(nested)
+                                        if (parsed !== null && parsed >= 0) return parsed
                                     }
                                 }
                                 return null
@@ -346,23 +426,31 @@ const TallerDashboard = () => {
                         user.puntuacion_promedio,
                         user.calificacion_promedio,
                         user.rating_promedio,
+                        user.promedio_calificacion,
+                        user.promedio_puntuacion,
+                        user.ratingAverage,
+                        user.puntuacion_general,
                         user.puntuacion,
                         user.calificacion,
                         user.rating,
                     ]
 
                     for (const candidate of ratingCandidates) {
-                        const value = Number(candidate)
-                        if (Number.isFinite(value) && value >= 0) return value
+                        const value = parseRatingValue(candidate)
+                        if (value !== null && value >= 0) return value
                     }
                     return 0
                 }
 
-                const myEstado = String((tallerData as Record<string, unknown> | undefined)?.estado || '')
+                const myEstadoNormalized = normalizeLocationText(
+                    (tallerData as Record<string, unknown> | undefined)?.estado,
+                )
                 const localWorkshops = usersData.filter((user) => {
                     const isWorkshop = String(user.typeUser || '').toLowerCase() === 'taller'
-                    const sameEstado = myEstado && String(user.estado || '') === myEstado
-                    return isWorkshop && sameEstado
+                    if (!isWorkshop) return false
+                    if (!myEstadoNormalized) return true
+                    const userEstadoNormalized = normalizeLocationText(user.estado)
+                    return userEstadoNormalized === myEstadoNormalized
                 })
 
                 const localRatings = localWorkshops
@@ -460,6 +548,12 @@ const TallerDashboard = () => {
 
                 const myPricesByCategory = new Map<string, { sum: number; count: number }>()
                 const marketPricesByCategory = new Map<string, { sum: number; count: number }>()
+                const servicesById = new Map<string, string>()
+
+                serviciosSnap.forEach((docSnap) => {
+                    const data = docSnap.data() as { nombre_servicio?: string }
+                    servicesById.set(docSnap.id, data?.nombre_servicio || 'Servicio sin nombre')
+                })
 
                 const resolveCategory = (propuesta: Propuesta) => {
                     const fromPropuesta =
@@ -585,6 +679,81 @@ const TallerDashboard = () => {
                         ? platformResponseMinutesSum / platformResponseMinutesCount
                         : 0
 
+                const profileViewEvents = perfilViewsSnap.docs
+                    .map((docSnap) => {
+                        const data = docSnap.data() as {
+                            fecha_creacion?: unknown
+                            createdAt?: unknown
+                            fecha?: unknown
+                        }
+                        return (
+                            toDateFromUnknownTimestamp(data.fecha_creacion) ||
+                            toDateFromUnknownTimestamp(data.createdAt) ||
+                            toDateFromUnknownTimestamp(data.fecha)
+                        )
+                    })
+                    .filter((value): value is Date => Boolean(value))
+
+                const profileViewsTotal = shouldApplyDateFilter
+                    ? profileViewEvents.filter((eventDate) => isInAppliedRange(eventDate)).length
+                    : profileViewEvents.length
+
+                const serviceContactEvents = serviceContactSnap.docs.map((docSnap) => {
+                    const data = docSnap.data() as {
+                        uid_servicio?: string
+                        nombre_servicio?: string
+                        type?: unknown
+                        fecha_creacion?: unknown
+                        createdAt?: unknown
+                        fecha?: unknown
+                    }
+                    return {
+                        uid_servicio: String(data.uid_servicio || ''),
+                        nombre_servicio: String(data.nombre_servicio || '').trim(),
+                        type: data.type,
+                        fecha:
+                            toDateFromUnknownTimestamp(data.fecha_creacion) ||
+                            toDateFromUnknownTimestamp(data.createdAt) ||
+                            toDateFromUnknownTimestamp(data.fecha),
+                    }
+                })
+
+                const serviceContactEventsInRange = shouldApplyDateFilter
+                    ? serviceContactEvents.filter(
+                          (event) => event.fecha && isInAppliedRange(event.fecha),
+                      )
+                    : serviceContactEvents
+
+                const contactClicksTotal = serviceContactEventsInRange.filter(
+                    (event) => isServiceContactInteractionType(event.type),
+                ).length
+
+                const serviceViewsCount = new Map<string, number>()
+                const serviceNameById = new Map<string, string>()
+                serviceContactEventsInRange
+                    .filter((event) => Boolean(event.uid_servicio))
+                    .forEach((event) => {
+                        if (!event.uid_servicio) return
+                        serviceViewsCount.set(
+                            event.uid_servicio,
+                            (serviceViewsCount.get(event.uid_servicio) || 0) + 1,
+                        )
+                        if (event.nombre_servicio && !serviceNameById.has(event.uid_servicio)) {
+                            serviceNameById.set(event.uid_servicio, event.nombre_servicio)
+                        }
+                    })
+
+                let mostViewedServiceName = 'Sin datos'
+                let mostViewedServiceCount = 0
+                serviceViewsCount.forEach((count, serviceId) => {
+                    if (count > mostViewedServiceCount) {
+                        mostViewedServiceCount = count
+                        mostViewedServiceName =
+                            serviceNameById.get(serviceId) ||
+                            servicesById.get(serviceId) || 'Servicio sin nombre'
+                    }
+                })
+
                 setMetrics({
                     sentThisMonth,
                     accepted,
@@ -605,6 +774,9 @@ const TallerDashboard = () => {
                     localRanking,
                     localRankingTotal,
                     recentProposals,
+                    profileViewsTotal,
+                    contactClicksTotal,
+                    mostViewedServiceName,
                 })
             } catch (error) {
                 console.error('Error al cargar mÃ©tricas del dashboard de negocio:', error)
@@ -1078,21 +1250,27 @@ const TallerDashboard = () => {
                                 <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
                                     Vistas totales del perfil
                                 </p>
-                                <p className="mt-2 text-3xl font-bold text-gray-900">--</p>
+                                <p className="mt-2 text-3xl font-bold text-gray-900">
+                                    {metrics.profileViewsTotal}
+                                </p>
                             </article>
 
                             <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
                                     Clics en contactar / WhatsApp / llamadas
                                 </p>
-                                <p className="mt-2 text-3xl font-bold text-gray-900">--</p>
+                                <p className="mt-2 text-3xl font-bold text-gray-900">
+                                    {metrics.contactClicksTotal}
+                                </p>
                             </article>
 
                             <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
                                     Servicio mas visto
                                 </p>
-                                <p className="mt-2 text-lg font-semibold text-gray-900">Sin datos</p>
+                                <p className="mt-2 text-lg font-semibold text-gray-900">
+                                    {metrics.mostViewedServiceName}
+                                </p>
                             </article>
 
                             {isPlanOro && (

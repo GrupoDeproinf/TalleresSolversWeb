@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { collection, getDocs } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
 import Chart from '@/components/shared/Chart'
+import DatePicker from '@/components/ui/DatePicker'
 
 type Usuario = {
     uid: string
@@ -12,12 +13,16 @@ type Usuario = {
     typeUser?: string
     status?: string
     certificador_nombre?: string
+    createdAt?: unknown
+    updatedAt?: unknown
+    fecha_decision?: unknown
 }
 
 type DecisionRow = {
     uid: string
     taller: string
     status: 'Aprobado' | 'Rechazado'
+    decisionDateMs: number
 }
 
 type DashboardData = {
@@ -26,6 +31,25 @@ type DashboardData = {
     total: number
     recentDecisions: DecisionRow[]
     reviewerName: string
+}
+
+const parseDateMs = (value: unknown): number => {
+    if (!value) return 0
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (value instanceof Date) return value.getTime()
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        'seconds' in (value as { seconds?: unknown }) &&
+        typeof (value as { seconds?: unknown }).seconds === 'number'
+    ) {
+        return (value as { seconds: number }).seconds * 1000
+    }
+    if (typeof value === 'string') {
+        const ms = Date.parse(value)
+        return Number.isNaN(ms) ? 0 : ms
+    }
+    return 0
 }
 
 const EMPTY_DATA: DashboardData = {
@@ -57,7 +81,10 @@ const getStatusDecision = (status: string | undefined): 'Aprobado' | 'Rechazado'
 }
 
 const CertificadorDashboard = () => {
-    const [dashboardData, setDashboardData] = useState<DashboardData>(EMPTY_DATA)
+    const [allDecisions, setAllDecisions] = useState<DecisionRow[]>([])
+    const [reviewerName, setReviewerName] = useState('')
+    const [decisionDateFrom, setDecisionDateFrom] = useState<Date | null>(null)
+    const [decisionDateTo, setDecisionDateTo] = useState<Date | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
@@ -106,24 +133,20 @@ const CertificadorDashboard = () => {
                             uid: taller.uid,
                             taller: getWorkshopName(taller),
                             status: decision,
+                            decisionDateMs:
+                                parseDateMs(taller.fecha_decision) ||
+                                parseDateMs(taller.updatedAt) ||
+                                parseDateMs(taller.createdAt),
                         } as DecisionRow
                     })
                     .filter(Boolean) as DecisionRow[]
 
-                const approved = myDecisions.filter((row) => row.status === 'Aprobado').length
-                const rejected = myDecisions.filter((row) => row.status === 'Rechazado').length
-                const reviewerName = fullName || displayName || email || 'Certificador'
-
-                setDashboardData({
-                    approved,
-                    rejected,
-                    total: approved + rejected,
-                    recentDecisions: myDecisions.slice(0, 8),
-                    reviewerName,
-                })
+                setAllDecisions(myDecisions)
+                setReviewerName(fullName || displayName || email || 'Certificador')
             } catch (error) {
                 console.error('Error al cargar dashboard del certificador:', error)
-                setDashboardData(EMPTY_DATA)
+                setAllDecisions([])
+                setReviewerName('')
             } finally {
                 setIsLoading(false)
             }
@@ -131,6 +154,38 @@ const CertificadorDashboard = () => {
 
         void fetchDashboardData()
     }, [])
+
+    const filteredDecisions = useMemo(() => {
+        const fromMs = decisionDateFrom
+            ? new Date(decisionDateFrom).setHours(0, 0, 0, 0)
+            : 0
+        const toMs = decisionDateTo
+            ? new Date(decisionDateTo).setHours(23, 59, 59, 999)
+            : 0
+        return allDecisions.filter((row) => {
+            if (!fromMs && !toMs) return true
+            if (!row.decisionDateMs) return false
+            if (fromMs && row.decisionDateMs < fromMs) return false
+            if (toMs && row.decisionDateMs > toMs) return false
+            return true
+        })
+    }, [allDecisions, decisionDateFrom, decisionDateTo])
+
+    const dashboardData = useMemo<DashboardData>(() => {
+        const approved = filteredDecisions.filter(
+            (row) => row.status === 'Aprobado',
+        ).length
+        const rejected = filteredDecisions.filter(
+            (row) => row.status === 'Rechazado',
+        ).length
+        return {
+            approved,
+            rejected,
+            total: approved + rejected,
+            recentDecisions: filteredDecisions.slice(0, 8),
+            reviewerName: reviewerName || EMPTY_DATA.reviewerName,
+        }
+    }, [filteredDecisions, reviewerName])
 
     const decisionSeries = useMemo(
         () => [dashboardData.approved, dashboardData.rejected],
@@ -145,10 +200,47 @@ const CertificadorDashboard = () => {
     return (
         <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 bg-gray-100 p-1">
             <section className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <h1 className="text-lg font-semibold text-gray-900">Dashboard del certificador</h1>
-                <p className="mt-1 text-sm text-gray-600">
-                    Vista simple de tus decisiones sobre talleres: aprobados y rechazados.
-                </p>
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <h1 className="text-lg font-semibold text-gray-900">
+                            Dashboard del certificador
+                        </h1>
+                        <p className="mt-1 text-sm text-gray-600">
+                            Vista simple de tus decisiones sobre talleres: aprobados
+                            y rechazados.
+                        </p>
+                    </div>
+                    <div className="flex w-full gap-2 md:w-auto">
+                        <div className="w-full md:w-[10rem]">
+                            <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                                Desde
+                            </span>
+                            <DatePicker
+                                clearable
+                                className="w-full"
+                                inputFormat="DD/MM/YYYY"
+                                placeholder="Desde"
+                                size="sm"
+                                value={decisionDateFrom}
+                                onChange={setDecisionDateFrom}
+                            />
+                        </div>
+                        <div className="w-full md:w-[10rem]">
+                            <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                                Hasta
+                            </span>
+                            <DatePicker
+                                clearable
+                                className="w-full"
+                                inputFormat="DD/MM/YYYY"
+                                placeholder="Hasta"
+                                size="sm"
+                                value={decisionDateTo}
+                                onChange={setDecisionDateTo}
+                            />
+                        </div>
+                    </div>
+                </div>
             </section>
 
             <section className="grid gap-3 md:grid-cols-3">
