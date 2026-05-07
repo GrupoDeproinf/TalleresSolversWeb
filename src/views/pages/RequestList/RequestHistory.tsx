@@ -7,7 +7,6 @@ import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import {
-    HiOutlineRefresh,
     HiOutlineEye,
     HiOutlineMinus,
     HiOutlinePlus,
@@ -457,7 +456,17 @@ const URGENCY_FILTER_OPTIONS: UrgenciaFilterOption[] = [
     { value: 'Normal', label: 'Normal' },
 ]
 
-const RequestList = () => {
+type RequestHistoryProps = {
+    exportSignal?: number
+    refreshSignal?: number
+    searchTerm?: string
+}
+
+const RequestList = ({
+    exportSignal = 0,
+    refreshSignal = 0,
+    searchTerm = '',
+}: RequestHistoryProps) => {
     const [dataSolicitudes, setDataSolicitudes] = useState<Solicitud[]>([])
     const [categoriaNombrePorId, setCategoriaNombrePorId] = useState<
         Record<string, string>
@@ -650,14 +659,51 @@ const RequestList = () => {
         estadosPorSolicitudId,
     ])
 
-    const handleRefresh = async () => {
-        await fetchData()
-        toast.push(
-            <Notification title="Datos actualizados">
-                La tabla ha sido actualizada con éxito.
-            </Notification>,
-        )
-    }
+    const solicitudesTrasBusqueda = useMemo(() => {
+        const term = searchTerm.toLowerCase().trim()
+        if (!term) return solicitudesTrasFiltrosToolbar
+        return solicitudesTrasFiltrosToolbar.filter((s) => {
+            const labels = solicitudUbicacionLabels(s, estadosPorSolicitudId)
+            const parts = [
+                servicioNombreSolicitud(s),
+                categoriaNombre(s, categoriaNombrePorId),
+                s.nombre_usuario,
+                s.phone_usuario,
+                s.urgencia,
+                s.descripcion,
+                s.status,
+                ...labels,
+            ]
+            return parts
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase()
+                .includes(term)
+        })
+    }, [
+        searchTerm,
+        solicitudesTrasFiltrosToolbar,
+        estadosPorSolicitudId,
+        categoriaNombrePorId,
+    ])
+
+    useEffect(() => {
+        if (refreshSignal > 0) {
+            void fetchData()
+            toast.push(
+                <Notification title="Datos actualizados">
+                    La tabla ha sido actualizada con éxito.
+                </Notification>,
+            )
+        }
+    }, [refreshSignal])
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => {
+        if (exportSignal > 0) {
+            void handleExportToExcel()
+        }
+    }, [exportSignal])
 
     const getUrgenciaBadge = (urgencia: string) => {
         const u = (urgencia || '').trim().toLowerCase()
@@ -1028,7 +1074,7 @@ const RequestList = () => {
     const { Tr, Th, Td, THead, TBody } = Table
 
     const table = useReactTable({
-        data: solicitudesTrasFiltrosToolbar,
+        data: solicitudesTrasBusqueda,
         columns,
         state: {
             sorting,
@@ -1080,21 +1126,6 @@ const RequestList = () => {
     return (
         <>
             <div className="mb-6 flex min-w-0 items-end justify-between gap-3 pb-1">
-                <div className="flex shrink-0 items-end gap-2 sm:gap-3">
-                    <h1 className="text-2xl font-bold leading-none text-[#000B7E] sm:text-3xl">
-                        Histórico de Solicitudes
-                    </h1>
-                    <button
-                        type="button"
-                        title="Actualizar datos desde el servidor"
-                        aria-label="Actualizar datos desde el servidor"
-                        onClick={handleRefresh}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
-                    >
-                        <HiOutlineRefresh className="h-5 w-5" />
-                    </button>
-                </div>
-
                 <div className="flex min-w-0 flex-1 flex-nowrap items-end justify-end gap-x-2 overflow-x-auto pb-0.5">
                 <div className="flex w-[11.25rem] shrink-0 flex-col gap-0.5 sm:w-[12rem]">
                     <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
@@ -1175,14 +1206,6 @@ const RequestList = () => {
                     className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#000B7E]/40 hover:bg-[#000B7E]/5 hover:text-[#000B7E] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     <HiOutlineX className="h-5 w-5" />
-                </button>
-                <button
-                    type="button"
-                    style={{ backgroundColor: '#10B981' }}
-                    className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
-                    onClick={handleExportToExcel}
-                >
-                    Exportar a Excel
                 </button>
                 </div>
             </div>

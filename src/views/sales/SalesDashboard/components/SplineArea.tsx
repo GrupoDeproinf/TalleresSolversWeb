@@ -4,99 +4,232 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/configs/firebaseAssets.config';
 import { COLORS } from '@/constants/chart.constant';
 import { Timestamp } from 'firebase/firestore';
-import Button from '@/components/ui/Button'
+import DatePicker from '@/components/ui/DatePicker';
 
 type SubscriptionData = {
     fechaCreacion?: Timestamp;
     comprobante_pago?: string;
     fecha_inicio?: Timestamp;
+    nombre?: string;
+    plan?: string;
+    plan_name?: string;
+    plan_nombre?: string;
+    nombre_plan?: string;
+    tipo_plan?: string;
+    pagado?: boolean;
+    status_pago?: string;
+    estado_pago?: string;
 };
 
 const SplineArea = () => {
     const [series, setSeries] = useState<{ name: string; data: number[] }[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
-    const [weekOffset, setWeekOffset] = useState(0); // Controlar la semana actual
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
 
     useEffect(() => {
+        const getSubscriptionPlan = (sub: SubscriptionData) => {
+            const planFields = [
+                sub.nombre,
+                sub.plan,
+                sub.plan_name,
+                sub.plan_nombre,
+                sub.nombre_plan,
+                sub.tipo_plan,
+            ];
+            const planName = planFields.find(
+                (field) => typeof field === 'string' && field.trim().length > 0,
+            );
+            return planName?.trim() || 'Sin plan';
+        };
+
+        const isPaidSubscription = (sub: SubscriptionData) => {
+            const planName = getSubscriptionPlan(sub).toLowerCase();
+            if (planName === 'gratis') {
+                return false;
+            }
+
+            if (planName.length > 0) {
+                return true;
+            }
+
+            if (
+                typeof sub.comprobante_pago === 'string' &&
+                sub.comprobante_pago.trim().length > 0
+            ) {
+                return true;
+            }
+
+            if (typeof sub.pagado === 'boolean') {
+                return sub.pagado;
+            }
+
+            const paymentStatus = String(sub.status_pago || sub.estado_pago || '')
+                .toLowerCase()
+                .trim();
+
+            return (
+                paymentStatus.includes('pag') ||
+                paymentStatus.includes('aprob') ||
+                paymentStatus.includes('confirm')
+            );
+        };
+
         const fetchData = async () => {
             try {
                 const subsSnapshot = await getDocs(collection(db, 'Subscripciones'));
-                const subscriptions: SubscriptionData[] = subsSnapshot.docs.map(doc => doc.data() as SubscriptionData);
+                const subscriptions: SubscriptionData[] = subsSnapshot.docs.map((doc) => doc.data() as SubscriptionData);
 
-                // Calcular rango de fechas
                 const today = new Date();
-                const startOfWeek = new Date(today);
-                startOfWeek.setDate(today.getDate() - (today.getDay() + 7 * weekOffset));
-                const endOfWeek = new Date(startOfWeek);
-                endOfWeek.setDate(startOfWeek.getDate() + 6);
+                let rangeStart = startDate
+                    ? new Date(
+                          startDate.getFullYear(),
+                          startDate.getMonth(),
+                          startDate.getDate(),
+                          0,
+                          0,
+                          0,
+                      )
+                    : null;
+                let rangeEnd = endDate
+                    ? new Date(
+                          endDate.getFullYear(),
+                          endDate.getMonth(),
+                          endDate.getDate(),
+                          23,
+                          59,
+                          59,
+                      )
+                    : null;
+
+                if (!rangeStart || !rangeEnd) {
+                    rangeStart = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0);
+                    rangeEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+                }
+
+                if (rangeStart > rangeEnd) {
+                    [rangeStart, rangeEnd] = [rangeEnd, rangeStart];
+                }
 
                 const getDateString = (date: Date) => date.toISOString().split('T')[0];
-                const last7Days = Array.from({ length: 7 }, (_, i) => {
-                    const date = new Date(startOfWeek);
-                    date.setDate(startOfWeek.getDate() + i);
-                    return getDateString(date);
+                const daysInRange: string[] = [];
+                const cursor = new Date(rangeStart);
+                while (cursor <= rangeEnd) {
+                    daysInRange.push(getDateString(cursor));
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+
+                const totalsByDay: Record<string, number> = {};
+                const freeByDay: Record<string, number> = {};
+                const paidByPlanDay: Record<string, Record<string, number>> = {};
+
+                daysInRange.forEach((day) => {
+                    totalsByDay[day] = 0;
+                    freeByDay[day] = 0;
                 });
 
-                const dataByDay: Record<string, number> = {};
-                const dataByComprobante: Record<string, number> = {};
-
-                last7Days.forEach(day => {
-                    dataByDay[day] = 0;
-                    dataByComprobante[day] = 0;
-                });
-
-                subscriptions.forEach(sub => {
-                    const dayKey = sub.fechaCreacion ? sub.fechaCreacion.toDate().toISOString().split('T')[0] : undefined;
-                    const startDayKey = sub.fecha_inicio ? sub.fecha_inicio.toDate().toISOString().split('T')[0] : undefined;
-
-                    if (dayKey && dataByDay[dayKey] !== undefined) {
-                        dataByDay[dayKey]++;
+                subscriptions.forEach((sub) => {
+                    const dateSource = sub.fecha_inicio || sub.fechaCreacion;
+                    if (!dateSource) {
+                        return;
                     }
-                    if (startDayKey && sub.comprobante_pago && dataByComprobante[startDayKey] !== undefined) {
-                        dataByComprobante[startDayKey]++;
+
+                    const subDate = dateSource.toDate();
+                    if (subDate < rangeStart! || subDate > rangeEnd!) {
+                        return;
+                    }
+
+                    const dayKey = getDateString(subDate);
+                    totalsByDay[dayKey] = (totalsByDay[dayKey] || 0) + 1;
+
+                    if (!isPaidSubscription(sub)) {
+                        freeByDay[dayKey] = (freeByDay[dayKey] || 0) + 1;
+                    } else {
+                        const plan = getSubscriptionPlan(sub);
+                        if (!paidByPlanDay[plan]) {
+                            paidByPlanDay[plan] = {};
+                        }
+                        paidByPlanDay[plan][dayKey] = (paidByPlanDay[plan][dayKey] || 0) + 1;
                     }
                 });
 
-                const series1 = last7Days.map(day => dataByDay[day]);
-                const series2 = last7Days.map(day => dataByComprobante[day]);
+                const baseSeries = [
+                    { name: 'Subscripciones totales', data: daysInRange.map((day) => totalsByDay[day] || 0) },
+                    { name: 'Subscripciones gratis', data: daysInRange.map((day) => freeByDay[day] || 0) },
+                ];
 
-                setSeries([
-                    { name: 'Subscripciones Diarias', data: series1 },
-                    { name: 'Subscripciones Pagas', data: series2 },
-                ]);
-                setCategories(last7Days);
+                const planSeries = Object.entries(paidByPlanDay)
+                    .sort((a, b) => {
+                        const totalA = Object.values(a[1]).reduce((acc, value) => acc + value, 0);
+                        const totalB = Object.values(b[1]).reduce((acc, value) => acc + value, 0);
+                        return totalB - totalA;
+                    })
+                    .slice(0, 4)
+                    .map(([plan, dataMap]) => ({
+                        name: `Pagas ${plan}`,
+                        data: daysInRange.map((day) => dataMap[day] || 0),
+                    }));
+
+                setSeries([...baseSeries, ...planSeries]);
+                setCategories(daysInRange);
             } catch (error) {
                 console.error('Error al obtener datos de subscripciones:', error);
             }
         };
 
         fetchData();
-    }, [weekOffset]); // Ejecutar cada vez que cambie el desplazamiento de la semana
+    }, [startDate, endDate]);
 
     return (
         <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex justify-between gap-2 mb-2 flex-none">
-                <Button 
-                    onClick={() => setWeekOffset(weekOffset + 1)} 
-                    style={{ backgroundColor: '#000B7E' }} 
-                    className="text-white hover:opacity-80"
-                >
-                        Semana Anterior
-                </Button>
-                <Button 
-                    onClick={() => setWeekOffset(0)}
-                    style={{ backgroundColor: '#000B7E' }} 
-                    className="text-white hover:opacity-80"
-                >
-                        Semana Actual
-                </Button>
-                <Button 
-                    onClick={() => setWeekOffset(weekOffset - 1)}
-                    style={{ backgroundColor: '#000B7E' }} 
-                    className="text-white hover:opacity-80"
+            <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50/80 p-2.5 flex-none">
+                <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        Filtrar por fecha
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setStartDate('');
+                            setEndDate('');
+                        }}
+                        className="text-[11px] font-semibold text-[#000B7E] hover:underline"
                     >
-                        Semana Siguiente
-                </Button> 
+                        Limpiar
+                    </button>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[11px] font-medium text-gray-600">
+                            Desde
+                        </span>
+                        <DatePicker
+                            value={startDate}
+                            onChange={(value) => {
+                                setStartDate(value);
+                            }}
+                            inputFormat="DD/MM/YYYY"
+                            placeholder="Seleccionar fecha"
+                            clearable
+                            className="w-full"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[11px] font-medium text-gray-600">
+                            Hasta
+                        </span>
+                        <DatePicker
+                            value={endDate}
+                            onChange={(value) => {
+                                setEndDate(value);
+                            }}
+                            inputFormat="DD/MM/YYYY"
+                            placeholder="Seleccionar fecha"
+                            clearable
+                            className="w-full"
+                        />
+                    </label>
+                </div>
             </div>
             <div className="flex-1 min-h-0 pb-2">
                 <Chart

@@ -130,6 +130,8 @@ function _Select<
         field,
         components,
         componentAs: Component = ReactSelect,
+        menuPortalTarget: menuPortalTargetProp,
+        styles: userSelectStyles,
         ...rest
     } = props
 
@@ -169,11 +171,19 @@ function _Select<
 
     const selectClass = classNames('select', `select-${selectSize}`, className)
 
+    const menuPortalTargetDefault =
+        typeof document !== 'undefined' ? document.body : null
+
     return (
         <Component<Option, IsMulti, Group>
             ref={ref}
             className={selectClass}
             classNamePrefix={'select'}
+            menuPortalTarget={
+                menuPortalTargetProp !== undefined
+                    ? menuPortalTargetProp
+                    : menuPortalTargetDefault
+            }
             styles={{
                 control: (provided, state) => {
                     return {
@@ -202,6 +212,10 @@ function _Select<
                     }
                 },
                 menu: (provided) => ({ ...provided, zIndex: 50 }),
+                menuPortal: (provided) => ({ ...provided, zIndex: 9999 }),
+                ...(typeof userSelectStyles === 'object' && userSelectStyles
+                    ? userSelectStyles
+                    : {}),
                 ...style,
             }}
             theme={(theme) => ({

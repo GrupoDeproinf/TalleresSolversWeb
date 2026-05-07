@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Button, Drawer, Input, Notification, toast, Dialog } from '@/components/ui'
+import { Drawer, Input, Notification, toast, Dialog } from '@/components/ui'
 import { Formik, Form, Field, ErrorMessage } from 'formik'
 import * as Yup from 'yup'
 import { db } from '@/configs/firebaseAssets.config'
@@ -23,6 +23,32 @@ interface MetodoPagoInfo {
     telefono?: string
     titular?: string
     newLogoFile?: File | null;
+}
+
+type PaymentFormValues = {
+    metodoPago: string
+    monto: string
+    numReferencia: string
+    telefono: string
+    correo: string
+    cedula: string
+    bancoOrigen: string
+    bancoDestino: string
+    fechaPago: string
+    newLogoFile: File | null
+}
+
+type PaymentReceipt = {
+    metodo: MetodoPago
+    monto: string
+    fechaPago: Timestamp | null
+    comprobante: string
+    numReferencia?: string
+    cedula?: string
+    bancoOrigen?: string
+    bancoDestino?: string
+    telefono?: string
+    correo?: string
 }
 
 const bancos = [
@@ -57,7 +83,6 @@ const bancos = [
 const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ subscriptionId, talleruid }) => {
     const [metodoPago, setMetodoPago] = useState<MetodoPago>('Efectivo')
     const [metodosPago, setMetodosPago] = useState<MetodoPagoInfo[]>([])
-    const [cargando, setCargando] = useState(false)
     const [openDrawer, setOpenDrawer] = useState(false)
     const [pagoReportado, setPagoReportado] = useState(false)
     const [showModal, setShowModal] = useState(false)
@@ -116,6 +141,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
 
     const TransferenciaValidationSchema = Yup.object().shape({
         monto: Yup.number().required('El monto es obligatorio').positive('El monto debe ser positivo').min(1, 'El monto debe ser mayor a cero'),
+        cedula: Yup.string().required('La cédula es obligatoria'),
         numReferencia: Yup.string().required('El número de referencia es obligatorio'),
         bancoDestino: Yup.string().required('Selecciona un banco de destino'),
         bancoOrigen: Yup.string().required('Selecciona un banco de origen'),
@@ -124,6 +150,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
 
     const PagoMovilValidationSchema = Yup.object().shape({
         monto: Yup.number().required('El monto es obligatorio').positive('El monto debe ser positivo').min(1, 'El monto debe ser mayor a cero'),
+        cedula: Yup.string().required('La cédula es obligatoria'),
         numReferencia: Yup.string().required('El número de referencia es obligatorio'),
         telefono: Yup.string()
             .required('El teléfono es obligatorio')
@@ -160,43 +187,58 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
         newLogoFile: null
     }
 
-    const validateDuplicatePayment = async (values: any, metodoPago: string) => {
+    const normalizeReference = (value: string) =>
+        value.trim().replace(/\s+/g, '').toUpperCase()
+
+    const validateDuplicatePayment = async (
+        values: PaymentFormValues,
+        metodoPago: string,
+    ) => {
         try {
             // Obtener todas las subscripciones para verificar duplicados
             const subscripcionesRef = collection(db, 'Subscripciones')
             const querySnapshot = await getDocs(subscripcionesRef)
-            
+
+            const numReferenciaActual = normalizeReference(
+                values.numReferencia ?? '',
+            )
+            const aplicaValidacionReferencia =
+                (metodoPago === 'Pago Móvil' || metodoPago === 'Transferencia') &&
+                numReferenciaActual.length > 0
+
             const fechaPago = new Date(values.fechaPago)
             const fechaPagoFormateada = `${fechaPago.getFullYear()}-${String(fechaPago.getMonth() + 1).padStart(2, '0')}-${String(fechaPago.getDate()).padStart(2, '0')}`
-            
+
             for (const docSnapshot of querySnapshot.docs) {
+                if (docSnapshot.id === subscriptionId) continue
                 const data = docSnapshot.data()
                 const comprobantePago = data.comprobante_pago
-                
+
                 if (!comprobantePago) continue
-                
+
                 // Verificar si la fecha coincide (solo día, mes, año)
                 if (comprobantePago.fechaPago) {
                     const fechaExistente = comprobantePago.fechaPago.toDate()
                     const fechaExistenteFormateada = `${fechaExistente.getFullYear()}-${String(fechaExistente.getMonth() + 1).padStart(2, '0')}-${String(fechaExistente.getDate()).padStart(2, '0')}`
-                    
-                    // Verificar si la fecha y el monto coinciden
-                    if (fechaExistenteFormateada === fechaPagoFormateada && 
-                        comprobantePago.monto === parseFloat(values.monto)) {
-                        
+
+                    if (fechaExistenteFormateada === fechaPagoFormateada) {
                         // Verificar si es el mismo taller
                         if (data.taller_uid === talleruid) {
-                            // Verificar duplicidad por número de referencia para Pago Móvil y Transferencia
-                            if ((metodoPago === 'Pago Móvil' || metodoPago === 'Transferencia') && 
-                                comprobantePago.numReferencia === values.numReferencia) {
-                                return {
-                                    isDuplicate: true,
-                                    message: `Ya existe un pago con el número de referencia ${values.numReferencia} en la fecha ${fechaPagoFormateada} para este negocio`
+                            // Verificar duplicidad por número de referencia para Pago Móvil y Transferencia (mismo día)
+                            if (aplicaValidacionReferencia) {
+                                const referenciaExistente = normalizeReference(
+                                    String(comprobantePago.numReferencia ?? ''),
+                                )
+                                if (referenciaExistente === numReferenciaActual) {
+                                    return {
+                                        isDuplicate: true,
+                                        message: `El número de referencia ${values.numReferencia} ya fue registrado hoy para este negocio`,
+                                    }
                                 }
                             }
-                            
+
                             // Verificar duplicidad por correo para Zelle
-                            if (metodoPago === 'Zelle' && 
+                            if (metodoPago === 'Zelle' &&
                                 comprobantePago.correo === values.correo) {
                                 return {
                                     isDuplicate: true,
@@ -223,13 +265,11 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
         }
     }
 
-    const handleSubmit = async (values: any) => {
+    const handleSubmit = async (values: PaymentFormValues) => {
         if (!subscriptionId) {
             console.error('Error: subscriptionId no está definido')
             return
         }
-
-        setCargando(true)
 
         try {
             // Validar duplicidad antes de proceder
@@ -240,7 +280,6 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                         {validationResult.message}
                     </Notification>
                 )
-                setCargando(false)
                 return
             }
             let imageUrl = '';
@@ -263,7 +302,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
 
             const fechaPagoTimestamp = values.fechaPago ? Timestamp.fromDate(new Date(values.fechaPago)) : null;
 
-            const comprobantePago: any = {
+            const comprobantePago: PaymentReceipt = {
                 metodo: metodoPago,
                 monto: values.monto,
                 fechaPago: fechaPagoTimestamp,
@@ -281,6 +320,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
             if (metodoPago === 'Pago Móvil') {
                 comprobantePago.cedula = values.cedula;
                 comprobantePago.telefono = values.telefono;
+                comprobantePago.numReferencia = values.numReferencia ?? '';
                 comprobantePago.bancoOrigen = values.bancoOrigen;
                 comprobantePago.bancoDestino = values.bancoDestino;
             }
@@ -301,6 +341,7 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                 const tallerRef = doc(db, 'Usuarios', talleruid);
                 await updateDoc(tallerRef, {
                     'subscripcion_actual.pago_reportado': true,
+                    'subscripcion_actual.comprobante_pago': comprobantePago,
                 });
                 setPagoReportado(true);
             }
@@ -319,7 +360,6 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                 </Notification>
             );
         } finally {
-            setCargando(false);
             setOpenDrawer(false);
         }
     }
@@ -426,6 +466,8 @@ const PaymentForm: React.FC<{ subscriptionId: string, talleruid: string }> = ({ 
                             {metodoPago === 'Zelle' && <Field id="correo" name="correo" as={Input} placeholder="Correo Zelle" />}
                             {['Transferencia', 'Pago Móvil'].includes(metodoPago!) && (
                                 <>
+                                    <Field id="cedula" name="cedula" as={Input} placeholder="Cédula" />
+                                    <ErrorMessage name="cedula" component="div" className="text-red-500" />
                                     <Field id="numReferencia" name="numReferencia" as={Input} placeholder="Número de referencia" />
                                     <ErrorMessage name="numReferencia" component="div" className="text-red-500" />
                                 </>

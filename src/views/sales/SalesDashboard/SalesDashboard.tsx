@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { collection, getDocs, Timestamp } from 'firebase/firestore'
+import { useEffect, useMemo, useState } from 'react'
+import { collection, getDocs, onSnapshot, Timestamp } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import SalesByCategories from './components/SalesByCategories'
 import SplineArea from './components/SplineArea'
@@ -14,15 +14,23 @@ import {
 } from '@tanstack/react-table'
 import type {
     ColumnDef,
-    ColumnFiltersState,
     ColumnSort,
 } from '@tanstack/react-table'
-import { FaRegStar, FaStar, FaStarHalfAlt } from 'react-icons/fa'
-import { HiOutlineUserGroup, HiOutlineOfficeBuilding, HiOutlineCreditCard, HiChevronRight } from 'react-icons/hi'
+import { FaRegStar, FaStar } from 'react-icons/fa'
+import {
+    HiOutlineUserGroup,
+    HiOutlineOfficeBuilding,
+    HiOutlineCreditCard,
+    HiChevronRight,
+    HiOutlineEye,
+    HiOutlineClipboardList,
+    HiOutlinePhone,
+} from 'react-icons/hi'
 import Table from '@/components/ui/Table'
 import Dialog from '@/components/ui/Dialog'
 import Button from '@/components/ui/Button'
 import Tabs from '@/components/ui/Tabs'
+import DatePicker from '@/components/ui/DatePicker'
 
 type Calificacion = {
     taller?: string;
@@ -39,9 +47,39 @@ type Calificacion = {
 type ServicioConCalificaciones = {
     nombre_servicio: string;
     uid_servicio: string; // ID del servicio
+    uid_taller: string;
     calificaciones: Calificacion[]; // Subcolección de calificaciones
     taller: string,
 };
+
+type EngagementViewEvent = {
+    uid_taller: string
+    uid_servicio: string
+    fecha: Date | null
+    type: string
+    nombre_taller: string
+}
+
+const SERVICE_CONTACT_TYPES = new Set([
+    'contactar',
+    'llamada',
+    'whatsapp',
+])
+
+const isServiceContactInteractionType = (type: unknown) => {
+    const t = String(type || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+    return SERVICE_CONTACT_TYPES.has(t)
+}
+
+type ServicioCatalogoItem = {
+    nombre: string
+    uid_taller: string
+    tallerNombre: string
+}
 
 type TallerActivo = {
     id: string;
@@ -57,8 +95,9 @@ type UsuarioActivo = {
     acciones: number
 }
 
+type EstadoActividadNegocio = 'activo' | 'suspendido'
+
 type PeriodoMeses = 1 | 3 | 6
-type TallerStatusFilter = 'todos' | 'aprobados' | 'rechazados' | 'espera'
 
 type FirestoreTimestampLike =
     | Timestamp
@@ -109,16 +148,6 @@ const getStartDateFromMonths = (months: PeriodoMeses) => {
     return startDate
 }
 
-const TALLER_STATUS_FILTER_OPTIONS: Array<{
-    key: TallerStatusFilter
-    label: string
-}> = [
-    { key: 'todos', label: 'Todos' },
-    { key: 'aprobados', label: 'Aprobados' },
-    { key: 'rechazados', label: 'Rechazados' },
-    { key: 'espera', label: 'En espera' },
-]
-
 const ESTADOS_NEGOCIO_FIJOS = [
     'Aprobado',
     'Rechazado',
@@ -129,10 +158,89 @@ type EstadoNegocioFiltro = 'todos' | (typeof ESTADOS_NEGOCIO_FIJOS)[number]
 
 const normalizeBusinessStatus = (status: unknown): (typeof ESTADOS_NEGOCIO_FIJOS)[number] | null => {
     const raw = String(status || '').toLowerCase()
-    if (raw.includes('aprob')) return 'Aprobado'
-    if (raw.includes('rechaz')) return 'Rechazado'
+    // Importante: "En espera por aprobación" también contiene "aprob",
+    // por eso se evalúa primero "espera".
     if (raw.includes('esper')) return 'En espera por aprobación'
+    if (raw.includes('rechaz')) return 'Rechazado'
+    if (raw.includes('aprob')) return 'Aprobado'
     return null
+}
+
+const getRegionFromEstado = (estado: unknown) => {
+    if (typeof estado !== 'string') {
+        return 'Sin estado'
+    }
+    const normalized = estado
+        .normalize('NFC')
+        .replace(/[\u200B-\u200D\uFEFF]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+
+    if (!normalized.length) {
+        return 'Sin estado'
+    }
+
+    // Unifica variaciones como "Mérida", "merida", " Mérida ".
+    const normalizedKey = normalized
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+
+    return normalizedKey
+        .split(' ')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+}
+
+const getSubscriptionPlanName = (data: Record<string, unknown>) => {
+    const planFields = [
+        data.nombre,
+        data.plan,
+        data.plan_name,
+        data.plan_nombre,
+        data.nombre_plan,
+        data.tipo_plan,
+        data.subscripcion_actual &&
+            typeof data.subscripcion_actual === 'object' &&
+            'plan' in data.subscripcion_actual
+            ? (data.subscripcion_actual as Record<string, unknown>).plan
+            : undefined,
+    ]
+
+    const validPlan = planFields.find(
+        (value) => typeof value === 'string' && value.trim().length > 0,
+    ) as string | undefined
+
+    return validPlan?.trim() || 'Sin plan'
+}
+
+const isSubscriptionPaid = (data: Record<string, unknown>) => {
+    const planName = getSubscriptionPlanName(data).toLowerCase()
+    if (planName === 'gratis') {
+        return false
+    }
+
+    if (planName.length > 0) {
+        return true
+    }
+
+    const comprobante = data.comprobante_pago
+    if (typeof comprobante === 'string' && comprobante.trim().length > 0) {
+        return true
+    }
+
+    if (typeof data.pagado === 'boolean') {
+        return data.pagado
+    }
+
+    const pagoStatus = String(data.status_pago || data.estado_pago || '')
+        .trim()
+        .toLowerCase()
+    return (
+        pagoStatus.includes('pag') ||
+        pagoStatus.includes('aprob') ||
+        pagoStatus.includes('confirm')
+    )
 }
 
 const fetchDashboardData = async () => {
@@ -148,11 +256,24 @@ const fetchDashboardData = async () => {
     }
     let subscripcionesCount = 0
     let totalMonto = 0
+    let subscripcionesPagasCount = 0
     const usuariosPorEstado: Record<string, number> = {}
     const talleresPorEstado: Record<string, number> = {}
+    const subscripcionesPorPlan: Record<string, number> = {}
+    const subscripcionesPagasPorPlan: Record<string, number> = {}
     const talleresPorEstadoYStatus: Record<
         string,
         Record<(typeof ESTADOS_NEGOCIO_FIJOS)[number], number>
+    > = {}
+    const talleresActividadPorCiudad: Array<{
+        ciudad: string
+        actividad: EstadoActividadNegocio
+        fechaFin: Date | null
+        status: (typeof ESTADOS_NEGOCIO_FIJOS)[number] | null
+    }> = []
+    const talleresMetaByUid: Record<
+        string,
+        { nombre: string; ciudad: string }
     > = {}
     let talleresVencidosHoy = 0
 
@@ -161,15 +282,39 @@ const fetchDashboardData = async () => {
     // Procesar usuarios y talleres
     usersSnapshot.forEach((doc) => {
         const data = doc.data()
-        if (data.typeUser === 'Cliente') {
+        const dataRecord = data as Record<string, unknown>
+        const normalizedTypeUser = String(data.typeUser || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase()
+
+        if (normalizedTypeUser === 'cliente') {
             clientesCount++
-            if (data.estado) {
-                usuariosPorEstado[data.estado] =
-                    (usuariosPorEstado[data.estado] || 0) + 1
+            if (dataRecord.estado || dataRecord.Estado || dataRecord.region) {
+                const estadoUsuario = getRegionFromEstado(
+                    dataRecord.estado ?? dataRecord.Estado ?? dataRecord.region,
+                )
+                usuariosPorEstado[estadoUsuario] =
+                    (usuariosPorEstado[estadoUsuario] || 0) + 1
             }
         }
-        if (data.typeUser === 'Taller') {
-            const estado = data.estado || 'Sin estado'
+        if (normalizedTypeUser === 'taller') {
+            const estado = getRegionFromEstado(
+                dataRecord.estado ?? dataRecord.Estado ?? dataRecord.region,
+            )
+            const nombreTaller =
+                String(
+                    data.nombre ||
+                        data.nombre_taller ||
+                        dataRecord.nombre ||
+                        '',
+                )
+                    .replace(/\s+/g, ' ')
+                    .trim() || 'Sin nombre'
+            talleresMetaByUid[doc.id] = {
+                nombre: nombreTaller,
+                ciudad: estado,
+            }
             tallerCount++
             talleresPorEstado[estado] = (talleresPorEstado[estado] || 0) + 1
 
@@ -181,11 +326,29 @@ const fetchDashboardData = async () => {
                 }
             }
 
-            const normalizedStatus = normalizeBusinessStatus(data.status)
+            const normalizedStatus = normalizeBusinessStatus(
+                String(data.status || '').replace(/\s+/g, ' ').trim(),
+            )
             if (normalizedStatus) {
                 talleresPorEstadoYStatus[estado][normalizedStatus] += 1
             }
             const subscripcionActual = data.subscripcion_actual
+
+            const fechaFinSubscripcion = toDateFromUnknownTimestamp(
+                (subscripcionActual as Record<string, unknown> | undefined)?.fecha_fin as
+                    | FirestoreTimestampLike
+                    | undefined,
+            )
+            const actividadNegocio: EstadoActividadNegocio =
+                fechaFinSubscripcion && fechaFinSubscripcion >= hoy
+                    ? 'activo'
+                    : 'suspendido'
+            talleresActividadPorCiudad.push({
+                ciudad: estado,
+                actividad: actividadNegocio,
+                fechaFin: fechaFinSubscripcion,
+                status: normalizedStatus,
+            })
 
             if (
                 subscripcionActual &&
@@ -198,7 +361,7 @@ const fetchDashboardData = async () => {
                     talleresVencidosHoy++
                 }
             }
-            switch (data.status) {
+            switch (normalizedStatus) {
                 case 'Aprobado':
                     talleresStats.aprobados++
                     break
@@ -216,8 +379,15 @@ const fetchDashboardData = async () => {
 
     // Procesar subscripciones
     subsSnapshot.forEach((doc) => {
-        const data = doc.data()
-        totalMonto += data.monto || 0
+        const data = doc.data() as Record<string, unknown>
+        totalMonto += typeof data.monto === 'number' ? data.monto : 0
+        const planName = getSubscriptionPlanName(data)
+        subscripcionesPorPlan[planName] = (subscripcionesPorPlan[planName] || 0) + 1
+        if (isSubscriptionPaid(data)) {
+            subscripcionesPagasCount += 1
+            subscripcionesPagasPorPlan[planName] =
+                (subscripcionesPagasPorPlan[planName] || 0) + 1
+        }
     })
     subscripcionesCount = subsSnapshot.size
 
@@ -227,9 +397,14 @@ const fetchDashboardData = async () => {
         talleresStats,
         subscripcionesCount,
         totalMonto,
+        subscripcionesPagasCount,
+        subscripcionesPorPlan,
+        subscripcionesPagasPorPlan,
         usuariosPorEstado,
         talleresPorEstado,
         talleresPorEstadoYStatus,
+        talleresActividadPorCiudad,
+        talleresMetaByUid,
         talleresVencidosHoy,
     }
 }
@@ -247,11 +422,24 @@ const SalesDashboard = () => {
         },
         subscripcionesCount: 0,
         totalMonto: 0,
+        subscripcionesPagasCount: 0,
+        subscripcionesPorPlan: {} as Record<string, number>,
+        subscripcionesPagasPorPlan: {} as Record<string, number>,
         usuariosPorEstado: {} as Record<string, number>,
         talleresPorEstado: {} as Record<string, number>,
         talleresPorEstadoYStatus: {} as Record<
             string,
             Record<(typeof ESTADOS_NEGOCIO_FIJOS)[number], number>
+        >,
+        talleresActividadPorCiudad: [] as Array<{
+            ciudad: string
+            actividad: EstadoActividadNegocio
+            fechaFin: Date | null
+            status: (typeof ESTADOS_NEGOCIO_FIJOS)[number] | null
+        }>,
+        talleresMetaByUid: {} as Record<
+            string,
+            { nombre: string; ciudad: string }
         >,
         talleresVencidosHoy: 0,
     })
@@ -272,6 +460,20 @@ const SalesDashboard = () => {
         }
 
         fetchData()
+
+        const unsubscribeUsers = onSnapshot(
+            collection(db, 'Usuarios'),
+            () => void fetchData(),
+        )
+        const unsubscribeSubs = onSnapshot(
+            collection(db, 'Subscripciones'),
+            () => void fetchData(),
+        )
+
+        return () => {
+            unsubscribeUsers()
+            unsubscribeSubs()
+        }
     }, [])
 
     useEffect(() => {
@@ -281,7 +483,12 @@ const SalesDashboard = () => {
     }, [isDashboardDataReady])
 
     const [dataPuntuacion, setDataPuntuacion] = useState<
-        { nombre_servicio: string; taller: string; promedio_puntuacion: number }[]
+        {
+            nombre_servicio: string
+            taller: string
+            uid_taller: string
+            promedio_puntuacion: number
+        }[]
     >([]);
 
     const getAllData = async () => {
@@ -308,6 +515,7 @@ const SalesDashboard = () => {
                         nombre_servicio: servicioData.nombre_servicio,
                         taller: servicioData.taller || 'Sin negocio',
                         uid_servicio,
+                        uid_taller: String(servicioData.uid_taller || ''),
                         calificaciones,
                     });
                 })
@@ -328,6 +536,7 @@ const SalesDashboard = () => {
                     return {
                         nombre_servicio: servicio.nombre_servicio,
                         taller: servicio.taller,
+                        uid_taller: servicio.uid_taller,
                         promedio_puntuacion: promedioPuntuacion,
                     };
                 })
@@ -566,7 +775,12 @@ const SalesDashboard = () => {
     const usuariosPerPage = 4
     const periodosMeses: PeriodoMeses[] = [1, 3, 6]
 
-const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_puntuacion: number }>[] = [
+const columns: ColumnDef<{
+    nombre_servicio: string
+    taller: string
+    uid_taller: string
+    promedio_puntuacion: number
+}>[] = [
     {
         header: 'Negocio',
         accessorKey: 'taller',
@@ -578,26 +792,24 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
     {
         header: 'Promedio de Calificación',
         cell: ({ row }) => {
-            const puntuacion = row.original.promedio_puntuacion || 0;
-            const maxPuntuacion = 5;
-            const estrellas = Array.from({ length: maxPuntuacion }, (_, index) => {
-                // Calcular la fracción de la estrella
-                const valorEstrella = index + 1;
-                if (valorEstrella <= puntuacion) {
-                    return <FaStar key={index} color="gold" style={{ marginRight: '2px' }} />;
-                } else if (valorEstrella - 0.5 <= puntuacion) {
-                    return <FaStarHalfAlt key={index} color="gold" style={{ marginRight: '2px' }} />;
-                } else {
-                    return <FaRegStar key={index} color="gray" style={{ marginRight: '2px' }} />;
-                }
-            });
+            // Misma lógica visual que Puntuacion.tsx: estrellas enteras (llena / vacía), sin medias.
+            const raw = row.original.promedio_puntuacion || 0
+            const puntuacion = Math.min(
+                5,
+                Math.max(0, Math.round(Number.isFinite(raw) ? raw : 0)),
+            )
+            const maxPuntuacion = 5
+            const estrellas = Array.from({ length: maxPuntuacion }, (_, index) =>
+                index < puntuacion ? (
+                    <FaStar key={index} color="gold" />
+                ) : (
+                    <FaRegStar key={index} color="gray" />
+                ),
+            )
 
             return (
-                <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex' }}>{estrellas}</div>
-                    <span style={{ marginLeft: '8px' }}>{puntuacion.toFixed(1)}</span> {/* Mostrar el valor numérico */}
-                </div>
-            );
+                <div style={{ display: 'flex', gap: '2px' }}>{estrellas}</div>
+            )
         },
     }
 ];
@@ -605,16 +817,39 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
     const { TabNav, TabList, TabContent } = Tabs
     const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [filtering, setFiltering] = useState<ColumnFiltersState>([])
+    const [filtroNegocio, setFiltroNegocio] = useState('todos')
+    const [filtroServicio, setFiltroServicio] = useState('todos')
+    const [filtroEstrellas, setFiltroEstrellas] = useState('todos')
+    const negociosDisponibles = useMemo(
+        () => Array.from(new Set(dataPuntuacion.map((item) => item.taller))).sort(),
+        [dataPuntuacion],
+    )
+    const serviciosDisponibles = useMemo(
+        () =>
+            Array.from(
+                new Set(dataPuntuacion.map((item) => item.nombre_servicio)),
+            ).sort(),
+        [dataPuntuacion],
+    )
+    const dataPuntuacionFiltrada = useMemo(() => {
+        return dataPuntuacion.filter((item) => {
+            const cumpleNegocio =
+                filtroNegocio === 'todos' || item.taller === filtroNegocio
+            const cumpleServicio =
+                filtroServicio === 'todos' || item.nombre_servicio === filtroServicio
+            const cumpleEstrellas =
+                filtroEstrellas === 'todos' ||
+                item.promedio_puntuacion >= Number(filtroEstrellas)
+            return cumpleNegocio && cumpleServicio && cumpleEstrellas
+        })
+    }, [dataPuntuacion, filtroNegocio, filtroServicio, filtroEstrellas])
     const table = useReactTable({
-        data: dataPuntuacion,
+        data: dataPuntuacionFiltrada,
         columns,
         state: {
             sorting,
-            columnFilters: filtering, // Usar el array de filtros
         },
         onSortingChange: setSorting,
-        onColumnFiltersChange: setFiltering,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -630,108 +865,239 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
         setCurrentPage(page)
     }
 
-    const onRowsPerPageChange = (newRowsPerPage: number) => {
-        setRowsPerPage(newRowsPerPage)
-        setCurrentPage(1)
-    }
-
     const {
         clientesCount,
-        tallerCount,
         talleresStats,
         subscripcionesCount,
         totalMonto,
+        subscripcionesPagasCount,
+        subscripcionesPorPlan,
         usuariosPorEstado,
-        talleresPorEstado,
-        talleresPorEstadoYStatus,
+        talleresActividadPorCiudad,
+        talleresMetaByUid,
         talleresVencidosHoy,
     } = dashboardData
 
+    const [engagementViews, setEngagementViews] = useState<EngagementViewEvent[]>(
+        [],
+    )
+    const [serviciosCatalogo, setServiciosCatalogo] = useState<
+        Record<string, ServicioCatalogoItem>
+    >({})
+    const [engagementCiudad, setEngagementCiudad] = useState('todos')
+
+    useEffect(() => {
+        let cancelled = false
+        const loadEngagement = async () => {
+            try {
+                const [vSnap, sSnap] = await Promise.all([
+                    getDocs(collection(db, 'servicesContact')),
+                    getDocs(collection(db, 'Servicios')),
+                ])
+                if (cancelled) {
+                    return
+                }
+                const views: EngagementViewEvent[] = []
+                vSnap.forEach((d) => {
+                    const x = d.data() as Record<string, unknown>
+                    views.push({
+                        uid_taller: String(x.uid_taller || ''),
+                        uid_servicio: String(x.uid_servicio || ''),
+                        fecha: toDateFromUnknownTimestamp(
+                            (x.fecha_creacion ||
+                                x.createdAt ||
+                                x.fecha) as FirestoreTimestampLike,
+                        ),
+                        type: String(x.type || ''),
+                        nombre_taller: String(x.nombre_taller || '').trim(),
+                    })
+                })
+                const catalog: Record<string, ServicioCatalogoItem> = {}
+                sSnap.forEach((docRef) => {
+                    const x = docRef.data() as Record<string, unknown>
+                    catalog[docRef.id] = {
+                        nombre: String(x.nombre_servicio || 'Servicio'),
+                        uid_taller: String(x.uid_taller || ''),
+                        tallerNombre: String(x.taller || ''),
+                    }
+                })
+                setEngagementViews(views)
+                setServiciosCatalogo(catalog)
+            } catch (error) {
+                console.error('Error métricas de vistas y contactos:', error)
+            }
+        }
+        void loadEngagement()
+        return () => {
+            cancelled = true
+        }
+    }, [])
+
+    const ciudadesEngagementLista = useMemo(() => {
+        const u = new Set(
+            Object.values(talleresMetaByUid)
+                .map((m) => m.ciudad)
+                .filter((c) => c && c !== 'Sin estado'),
+        )
+        return Array.from(u).sort()
+    }, [talleresMetaByUid])
+
+    const engagementResumen = useMemo(() => {
+        const ciudadOk = (uid: string) => {
+            if (engagementCiudad === 'todos') {
+                return true
+            }
+            const meta = talleresMetaByUid[uid]
+            return Boolean(meta && meta.ciudad === engagementCiudad)
+        }
+
+        const enCiudad = (v: EngagementViewEvent) =>
+            Boolean(v.uid_taller && ciudadOk(v.uid_taller))
+
+        const vistasFiltradas = engagementViews.filter(
+            (v) =>
+                enCiudad(v) && !isServiceContactInteractionType(v.type),
+        )
+
+        const vistasPorTaller = new Map<string, number>()
+        const vistasPorServicio = new Map<string, number>()
+        vistasFiltradas.forEach((v) => {
+            vistasPorTaller.set(
+                v.uid_taller,
+                (vistasPorTaller.get(v.uid_taller) || 0) + 1,
+            )
+            if (v.uid_servicio) {
+                vistasPorServicio.set(
+                    v.uid_servicio,
+                    (vistasPorServicio.get(v.uid_servicio) || 0) + 1,
+                )
+            }
+        })
+
+        let topVistaTallerUid = ''
+        let topVistaTallerCount = 0
+        vistasPorTaller.forEach((n, uid) => {
+            if (n > topVistaTallerCount) {
+                topVistaTallerCount = n
+                topVistaTallerUid = uid
+            }
+        })
+
+        let topVistaServicioId = ''
+        let topVistaServicioCount = 0
+        vistasPorServicio.forEach((n, sid) => {
+            if (n > topVistaServicioCount) {
+                topVistaServicioCount = n
+                topVistaServicioId = sid
+            }
+        })
+
+        const catTopServicio = serviciosCatalogo[topVistaServicioId]
+        const topServicioNombre = catTopServicio?.nombre || '—'
+        const topServicioNegocio =
+            catTopServicio?.tallerNombre ||
+            (catTopServicio?.uid_taller
+                ? talleresMetaByUid[catTopServicio.uid_taller]?.nombre
+                : '') ||
+            '—'
+
+        const contactosFiltrados = engagementViews.filter(
+            (v) =>
+                enCiudad(v) && isServiceContactInteractionType(v.type),
+        )
+        const contactosPorTaller = new Map<string, number>()
+        const nombreTallerContactoPorUid = new Map<string, string>()
+        contactosFiltrados.forEach((c) => {
+            contactosPorTaller.set(
+                c.uid_taller,
+                (contactosPorTaller.get(c.uid_taller) || 0) + 1,
+            )
+            if (
+                c.nombre_taller &&
+                !nombreTallerContactoPorUid.has(c.uid_taller)
+            ) {
+                nombreTallerContactoPorUid.set(c.uid_taller, c.nombre_taller)
+            }
+        })
+        let topContactoUid = ''
+        let topContactoCount = 0
+        contactosPorTaller.forEach((n, uid) => {
+            if (n > topContactoCount) {
+                topContactoCount = n
+                topContactoUid = uid
+            }
+        })
+
+        const acumRating: Record<string, { sum: number; n: number }> = {}
+        dataPuntuacion.forEach((row) => {
+            if (!row.uid_taller || !ciudadOk(row.uid_taller)) {
+                return
+            }
+            if (!acumRating[row.uid_taller]) {
+                acumRating[row.uid_taller] = { sum: 0, n: 0 }
+            }
+            acumRating[row.uid_taller].sum += row.promedio_puntuacion
+            acumRating[row.uid_taller].n += 1
+        })
+        const rankingMejor = Object.entries(acumRating)
+            .map(([uid, { sum, n }]) => ({
+                uid,
+                nombre: talleresMetaByUid[uid]?.nombre || 'Sin nombre',
+                promedio: n > 0 ? sum / n : 0,
+                servicios: n,
+            }))
+            .sort((a, b) => b.promedio - a.promedio)
+            .slice(0, 8)
+
+        return {
+            topVistaTallerUid,
+            topVistaTallerCount,
+            topVistaTallerNombre:
+                talleresMetaByUid[topVistaTallerUid]?.nombre || '—',
+            topServicioNombre,
+            topServicioNegocio,
+            topVistaServicioCount,
+            topContactoUid,
+            topContactoCount,
+            topContactoNombre:
+                talleresMetaByUid[topContactoUid]?.nombre ||
+                nombreTallerContactoPorUid.get(topContactoUid) ||
+                '—',
+            rankingMejor,
+        }
+    }, [
+        engagementViews,
+        engagementCiudad,
+        talleresMetaByUid,
+        serviciosCatalogo,
+        dataPuntuacion,
+    ])
+
     // Resumen crítico del día (pagos y vencimientos se pueden conectar a BD después)
-    const [pagosPendientesValidar, setPagosPendientesValidar] = useState(3)
-    const [tallerStatusFilter, setTallerStatusFilter] =
-        useState<TallerStatusFilter>('todos')
+    const [pagosPendientesValidar] = useState(3)
     const talleresNuevosEnEspera = talleresStats.espera
-
-    const chartStatusSlices = [
-        {
-            key: 'aprobados' as const,
-            label: 'Aprobados',
-            value: talleresStats.aprobados,
-            color: '#15803D',
-        },
-        {
-            key: 'rechazados' as const,
-            label: 'Rechazados',
-            value: talleresStats.rechazados,
-            color: '#C22F1C',
-        },
-        {
-            key: 'espera' as const,
-            label: 'En espera por aprobación',
-            value: talleresStats.espera,
-            color: '#2196F3',
-        },
-    ]
-
-    const visibleChartStatusSlices =
-        tallerStatusFilter === 'todos'
-            ? chartStatusSlices
-            : chartStatusSlices.filter((slice) => slice.key === tallerStatusFilter)
-
-    // Datos para el gráfico de estados de negocios
-    const chartData = {
-        labels: visibleChartStatusSlices.map((slice) => slice.label),
-        data: visibleChartStatusSlices.map((slice) => slice.value),
-        colors: visibleChartStatusSlices.map((slice) => slice.color),
-    }
 
     const totalTalleres =
         talleresStats.aprobados + talleresStats.rechazados + talleresStats.espera
 
-    const porcentajeAprobados =
-        totalTalleres > 0 ? (talleresStats.aprobados / totalTalleres) * 100 : 0
-    const porcentajeRechazados =
-        totalTalleres > 0 ? (talleresStats.rechazados / totalTalleres) * 100 : 0
-    const porcentajeEspera =
-        totalTalleres > 0 ? (talleresStats.espera / totalTalleres) * 100 : 0
-
-    const arpu =
-        subscripcionesCount > 0 ? totalMonto / subscripcionesCount : 0
+    const PLANES_FIJOS = ['GRATIS', 'Plan Bronce', 'Plan Plata', 'Plan Oro'] as const
+    const planesFijosConConteo = PLANES_FIJOS.map((plan) => [
+        plan,
+        subscripcionesPorPlan[plan] || 0,
+    ] as const)
+    const maxPlanCount =
+        Math.max(...planesFijosConConteo.map(([, count]) => count), 0) || 1
 
     const [vistaEstados, setVistaEstados] = useState<'usuarios' | 'talleres'>(
         'usuarios',
     )
     const [estadoNegocioFiltro, setEstadoNegocioFiltro] =
         useState<EstadoNegocioFiltro>('todos')
-
-    const estadosUsuarios = Object.keys(usuariosPorEstado || {})
-    const estadosTalleres = Object.keys(talleresPorEstado || {})
-
-    const estadosLabelsBase = vistaEstados === 'usuarios' ? estadosUsuarios : estadosTalleres
-
-    const estadosSeries = estadosLabelsBase.map((estado) => {
-        if (vistaEstados === 'usuarios') {
-            return { estado, valor: usuariosPorEstado[estado] || 0 }
-        }
-
-        if (estadoNegocioFiltro === 'todos') {
-            return { estado, valor: talleresPorEstado[estado] || 0 }
-        }
-
-        return {
-            estado,
-            valor: talleresPorEstadoYStatus[estado]?.[estadoNegocioFiltro] || 0,
-        }
-    })
-
-    const estadosSeriesFiltrada =
-        vistaEstados === 'talleres' && estadoNegocioFiltro !== 'todos'
-            ? estadosSeries.filter((item) => item.valor > 0)
-            : estadosSeries
-
-    const estadosLabels = estadosSeriesFiltrada.map((item) => item.estado)
-    const estadosData = estadosSeriesFiltrada.map((item) => item.valor)
+    const [actividadNegocioFiltro, setActividadNegocioFiltro] = useState<
+        'todos' | EstadoActividadNegocio
+    >('todos')
+    const [actividadDesde, setActividadDesde] = useState<Date | null>(null)
+    const [actividadHasta, setActividadHasta] = useState<Date | null>(null)
 
     const ESTADOS_COLOR_PALETTE = [
         '#000B7E',
@@ -744,14 +1110,99 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
         '#14B8A6',
     ]
 
-    const chartEstados = {
-        labels: estadosLabels,
-        data: estadosData,
-        colors: estadosSeriesFiltrada.map(
-            (_, index) =>
-                ESTADOS_COLOR_PALETTE[index % ESTADOS_COLOR_PALETTE.length],
-        ),
-    }
+    const chartEstados = useMemo(() => {
+        const colorAt = (index: number) =>
+            ESTADOS_COLOR_PALETTE[index % ESTADOS_COLOR_PALETTE.length]
+
+        if (vistaEstados === 'usuarios') {
+            const labelsBase = Object.keys(usuariosPorEstado || {}).sort()
+            const series = labelsBase.map((estado) => ({
+                estado,
+                valor: usuariosPorEstado[estado] || 0,
+            }))
+            return {
+                labels: series.map((item) => item.estado),
+                data: series.map((item) => item.valor),
+                colors: series.map((_, index) => colorAt(index)),
+            }
+        }
+
+        const desde = actividadDesde
+            ? new Date(
+                  actividadDesde.getFullYear(),
+                  actividadDesde.getMonth(),
+                  actividadDesde.getDate(),
+                  0,
+                  0,
+                  0,
+              )
+            : null
+        const hasta = actividadHasta
+            ? new Date(
+                  actividadHasta.getFullYear(),
+                  actividadHasta.getMonth(),
+                  actividadHasta.getDate(),
+                  23,
+                  59,
+                  59,
+              )
+            : null
+
+        const acumulado: Record<string, number> = {}
+        talleresActividadPorCiudad.forEach((item) => {
+            if (estadoNegocioFiltro !== 'todos') {
+                if (item.status !== estadoNegocioFiltro) {
+                    return
+                }
+            }
+            if (
+                actividadNegocioFiltro !== 'todos' &&
+                item.actividad !== actividadNegocioFiltro
+            ) {
+                return
+            }
+            if (desde || hasta) {
+                if (!item.fechaFin) {
+                    return
+                }
+                if (desde && item.fechaFin < desde) {
+                    return
+                }
+                if (hasta && item.fechaFin > hasta) {
+                    return
+                }
+            }
+            acumulado[item.ciudad] = (acumulado[item.ciudad] || 0) + 1
+        })
+
+        let series = Object.entries(acumulado)
+            .map(([estado, valor]) => ({ estado, valor }))
+            .sort((a, b) => b.valor - a.valor)
+
+        const recortePorFiltro =
+            estadoNegocioFiltro !== 'todos' ||
+            actividadNegocioFiltro !== 'todos' ||
+            Boolean(desde) ||
+            Boolean(hasta)
+
+        if (recortePorFiltro) {
+            series = series.filter((item) => item.valor > 0)
+        }
+
+        return {
+            labels: series.map((item) => item.estado),
+            data: series.map((item) => item.valor),
+            colors: series.map((_, index) => colorAt(index)),
+        }
+    }, [
+        vistaEstados,
+        usuariosPorEstado,
+        talleresActividadPorCiudad,
+        estadoNegocioFiltro,
+        actividadNegocioFiltro,
+        actividadDesde,
+        actividadHasta,
+    ])
 
     const responseRateLabel = `${responseMetrics.responseRate.toFixed(1)}%`
     const responseProgressWidth = `${Math.max(
@@ -799,7 +1250,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
     ]
 
     return (
-        <div className="flex flex-col h-[calc(100vh-6rem)] bg-gray-100 min-h-0">
+        <div className="flex flex-col min-h-[calc(100vh-6rem)] bg-gray-100">
             <Dialog
                 isOpen={isResumenCriticoPopupOpen}
                 onClose={() => setIsResumenCriticoPopupOpen(false)}
@@ -858,10 +1309,10 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                 </div>
             </Dialog>
 
-            <div className="flex-1 min-h-0 mt-3">
+            <div className="flex-1 min-h-0 mt-3 bg-gray-100 pb-4">
                 <Tabs
                     defaultValue="operativo"
-                    className="flex flex-col flex-1 min-h-0"
+                    className="flex flex-col flex-1 min-h-0 bg-gray-100"
                 >
                     <div className="mb-3 border-b border-gray-200 bg-white rounded-t-xl px-3 pt-2">
                         <TabList>
@@ -873,8 +1324,8 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                             </TabNav>
                         </TabList>
                     </div>
-                    <div className="flex-1 min-h-0">
-                        <TabContent value="operativo">
+                    <div className="flex-1 min-h-0 bg-gray-100">
+                        <TabContent value="operativo" className="h-full bg-gray-100 pb-3">
                             {/* Fila 1: 3 cards KPI */}
                             <section className="flex-none grid grid-cols-3 gap-3 mb-3">
                                 <a
@@ -931,6 +1382,46 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                     <p className="text-md text-white/80 mt-2 relative leading-snug">
                                         Aprobados, rechazados y pendientes de revisión
                                     </p>
+                                    <div className="mt-3 grid gap-1.5 relative">
+                                        {[
+                                            {
+                                                label: 'Aprobados',
+                                                value: talleresStats.aprobados,
+                                                color: 'bg-emerald-300',
+                                            },
+                                            {
+                                                label: 'En espera',
+                                                value: talleresStats.espera,
+                                                color: 'bg-sky-300',
+                                            },
+                                            {
+                                                label: 'Rechazados',
+                                                value: talleresStats.rechazados,
+                                                color: 'bg-rose-300',
+                                            },
+                                        ].map((item) => {
+                                            const width =
+                                                totalTalleres > 0
+                                                    ? `${(item.value / totalTalleres) * 100}%`
+                                                    : '0%'
+                                            return (
+                                                <div key={item.label}>
+                                                    <div className="flex items-center justify-between text-[11px] text-white/90">
+                                                        <span>{item.label}</span>
+                                                        <span className="font-semibold">
+                                                            {item.value}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                                                        <div
+                                                            className={`h-full rounded-full ${item.color}`}
+                                                            style={{ width }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
                                 </a>
                                 <a
                                     href={`${APP_PREFIX_PATH}/subscriptions`}
@@ -959,6 +1450,30 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                         </span>{' '}
                                         <span className="text-md">total recaudado</span>
                                     </p>
+                                    <p className="mt-1 text-xs text-white/80">
+                                        {subscripcionesPagasCount} suscripciones pagas
+                                    </p>
+                                    <div className="mt-2 grid gap-1.5">
+                                        {planesFijosConConteo.map(([plan, count]) => {
+                                            const percent = (count / maxPlanCount) * 100
+                                            return (
+                                                <div key={plan}>
+                                                    <div className="flex items-center justify-between text-[11px] text-white/90">
+                                                        <span className="truncate">{plan}</span>
+                                                        <span className="font-semibold">
+                                                            {count}
+                                                        </span>
+                                                    </div>
+                                                    <div className="mt-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                                                        <div
+                                                            className="h-full rounded-full bg-white/80"
+                                                            style={{ width: `${percent}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
                                 </a>
                             </section>
 
@@ -1017,37 +1532,181 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                 </div>
                             </section>
 
-                            {/* Fila 3: Gráfico de pastel + Tabla de calificaciones */}
-                            <section className="flex-1 min-h-0 grid grid-cols-[30%_70%] gap-3">
-                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0 p-3">
-                                    <div className="mb-3">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                            Estado de negocios
+                            {/* Fila 3: Destacados (30%) + Tabla de calificaciones (70%) */}
+                            <section className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,30%)_minmax(0,1fr)] gap-3">
+                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0 min-w-0 max-h-[520px] lg:max-h-none">
+                                    <div className="bg-[#000B7E] px-4 py-3 flex-none shrink-0">
+                                        <h2 className="text-sm font-semibold text-white leading-tight">
+                                            Destacados
+                                        </h2>
+                                        <p className="text-xs text-white/85 mt-1 leading-snug">
+                                            Indicadores por ciudad
                                         </p>
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            {TALLER_STATUS_FILTER_OPTIONS.map((option) => (
-                                                <button
-                                                    key={option.key}
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setTallerStatusFilter(option.key)
-                                                    }
-                                                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                                                        tallerStatusFilter === option.key
-                                                            ? 'bg-[#000B7E] text-white'
-                                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                    }`}
-                                                >
-                                                    {option.label}
-                                                </button>
-                                            ))}
+                                    </div>
+                                    <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-gray-50/90 to-white">
+                                        <div className="rounded-lg border border-gray-200/80 bg-white px-3 py-2.5 shadow-sm">
+                                            <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block mb-1.5">
+                                                Ciudad
+                                            </label>
+                                            <select
+                                                value={engagementCiudad}
+                                                onChange={(e) =>
+                                                    setEngagementCiudad(e.target.value)
+                                                }
+                                                className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50/50 px-2.5 text-xs font-medium text-gray-800 focus:border-[#000B7E]/40 focus:outline-none focus:ring-2 focus:ring-[#000B7E]/15"
+                                            >
+                                                <option value="todos">Todas las ciudades</option>
+                                                {ciudadesEngagementLista.map((c) => (
+                                                    <option key={c} value={c}>
+                                                        {c}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="grid gap-2.5">
+                                            <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
+                                                <div className="flex items-start gap-2.5">
+                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-[#000B7E]">
+                                                        <HiOutlineEye className="h-5 w-5" />
+                                                    </span>
+                                                    <div className="min-w-0 flex-1 space-y-1">
+                                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                                            Más visto
+                                                        </p>
+                                                        <p className="text-sm font-semibold text-gray-900 leading-snug truncate">
+                                                            {engagementResumen.topVistaTallerNombre}
+                                                        </p>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                            {engagementResumen.topVistaTallerCount}
+                                                        </p>
+                                                        <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                            vistas
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
+                                                <div className="flex items-start gap-2.5">
+                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-[#000B7E]">
+                                                        <HiOutlineClipboardList className="h-5 w-5" />
+                                                    </span>
+                                                    <div className="min-w-0 flex-1 space-y-1">
+                                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                                            Servicio top
+                                                        </p>
+                                                        <p className="text-sm font-semibold text-gray-900 leading-snug truncate">
+                                                            {engagementResumen.topServicioNombre}
+                                                        </p>
+                                                        <p className="text-[11px] text-gray-500 truncate">
+                                                            {engagementResumen.topServicioNegocio}
+                                                        </p>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                            {engagementResumen.topVistaServicioCount}
+                                                        </p>
+                                                        <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                            vistas
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
+                                                <div className="flex items-start gap-2.5">
+                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-[#000B7E]">
+                                                        <HiOutlinePhone className="h-5 w-5" />
+                                                    </span>
+                                                    <div className="min-w-0 flex-1 space-y-1">
+                                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                                            Más contactado
+                                                        </p>
+                                                        <p className="text-[11px] text-gray-500 leading-snug">
+                                                            Contactar, Llamada y Whatsapp
+                                                        </p>
+                                                        <p className="text-sm font-semibold text-gray-900 leading-snug truncate">
+                                                            {engagementResumen.topContactoNombre}
+                                                        </p>
+                                                    </div>
+                                                    <div className="shrink-0 text-right">
+                                                        <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                            {engagementResumen.topContactoCount}
+                                                        </p>
+                                                        <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                            contactos
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
+                                                <div className="flex items-start gap-2.5">
+                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
+                                                        <FaStar className="h-4 w-4" />
+                                                    </span>
+                                                    <div className="min-w-0 flex-1 space-y-1">
+                                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                                                            Mejor calidad
+                                                        </p>
+                                                        {engagementResumen.rankingMejor[0] ? (
+                                                            <>
+                                                                <p className="text-sm font-semibold text-gray-900 leading-snug truncate">
+                                                                    {
+                                                                        engagementResumen
+                                                                            .rankingMejor[0].nombre
+                                                                    }
+                                                                </p>
+                                                                <div className="flex gap-0.5 pt-0.5">
+                                                                    {Array.from({ length: 5 }, (_, index) =>
+                                                                        index <
+                                                                        Math.min(
+                                                                            5,
+                                                                            Math.max(
+                                                                                0,
+                                                                                Math.round(
+                                                                                    engagementResumen
+                                                                                        .rankingMejor[0]
+                                                                                        .promedio,
+                                                                                ),
+                                                                            ),
+                                                                        ) ? (
+                                                                            <FaStar
+                                                                                key={index}
+                                                                                className="h-3 w-3"
+                                                                                color="gold"
+                                                                            />
+                                                                        ) : (
+                                                                            <FaRegStar
+                                                                                key={index}
+                                                                                className="h-3 w-3"
+                                                                                color="gray"
+                                                                            />
+                                                                        ),
+                                                                    )}
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-400">—</p>
+                                                        )}
+                                                    </div>
+                                                    {engagementResumen.rankingMejor[0] ? (
+                                                        <div className="shrink-0 text-right">
+                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                                {engagementResumen.rankingMejor[0].promedio.toFixed(
+                                                                    1,
+                                                                )}
+                                                            </p>
+                                                            <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                                de 5
+                                                            </p>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="w-full h-full">
-                                        <SalesByCategories data={chartData} />
-                                    </div>
                                 </div>
-                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
+                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0 min-w-0">
                                     <div className="bg-[#000B7E] px-4 py-2 flex-none">
                                         <h2 className="text-sm font-semibold text-white">
                                             Calificaciones de los servicios
@@ -1057,6 +1716,51 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                         </p>
                                     </div>
                                     <div className="flex-1 min-h-0 overflow-auto">
+                                        <div className="grid grid-cols-3 gap-2 p-3 border-b border-gray-100 bg-gray-50">
+                                            <select
+                                                value={filtroNegocio}
+                                                onChange={(e) => {
+                                                    setFiltroNegocio(e.target.value)
+                                                    setCurrentPage(1)
+                                                }}
+                                                className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
+                                            >
+                                                <option value="todos">Todos los negocios</option>
+                                                {negociosDisponibles.map((negocio) => (
+                                                    <option key={negocio} value={negocio}>
+                                                        {negocio}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={filtroServicio}
+                                                onChange={(e) => {
+                                                    setFiltroServicio(e.target.value)
+                                                    setCurrentPage(1)
+                                                }}
+                                                className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
+                                            >
+                                                <option value="todos">Todos los servicios</option>
+                                                {serviciosDisponibles.map((servicio) => (
+                                                    <option key={servicio} value={servicio}>
+                                                        {servicio}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <select
+                                                value={filtroEstrellas}
+                                                onChange={(e) => {
+                                                    setFiltroEstrellas(e.target.value)
+                                                    setCurrentPage(1)
+                                                }}
+                                                className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
+                                            >
+                                                <option value="todos">Todas las estrellas</option>
+                                                <option value="4.5">4.5+ estrellas</option>
+                                                <option value="4">4+ estrellas</option>
+                                                <option value="3">3+ estrellas</option>
+                                            </select>
+                                        </div>
                                         <Table className="w-full text-sm">
                                             <THead>
                                                 {table.getHeaderGroups().map((headerGroup) => (
@@ -1127,7 +1831,7 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                             </section>
                         </TabContent>
 
-                        <TabContent value="estadistico">
+                        <TabContent value="estadistico" className="h-full bg-gray-100 pb-3">
                             <section className="grid grid-cols-3 gap-3 mb-3">
                                 <div className="col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
                                     <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
@@ -1136,7 +1840,8 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                                 Usuarios y negocios por estado
                                             </h3>
                                             <p className="text-xs text-gray-500">
-                                                Cambia la vista para analizar la concentración por región
+                                                Por región: estatus de aprobación, suscripción activa o
+                                                vencida y rango de fechas de fin de plan.
                                             </p>
                                         </div>
                                         <div className="inline-flex rounded-full bg-gray-100 p-1 text-xs font-medium">
@@ -1145,6 +1850,9 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                                 onClick={() => {
                                                     setVistaEstados('usuarios')
                                                     setEstadoNegocioFiltro('todos')
+                                                    setActividadNegocioFiltro('todos')
+                                                    setActividadDesde(null)
+                                                    setActividadHasta(null)
                                                 }}
                                                 className={`px-3 py-1 rounded-full transition-colors ${
                                                     vistaEstados === 'usuarios'
@@ -1171,38 +1879,115 @@ const columns: ColumnDef<{ nombre_servicio: string; taller: string; promedio_pun
                                         </div>
                                     </div>
                                     {vistaEstados === 'talleres' && (
-                                        <div className="px-4 pt-3 pb-2 border-b border-gray-100 bg-white">
-                                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                                                Filtrar por estatus
-                                            </p>
-                                            <div className="mt-2 flex flex-wrap gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setEstadoNegocioFiltro('todos')}
-                                                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                                                        estadoNegocioFiltro === 'todos'
-                                                            ? 'bg-[#000B7E] text-white'
-                                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                    }`}
-                                                >
-                                                    Todos
-                                                </button>
-                                                {ESTADOS_NEGOCIO_FIJOS.map((estado) => (
-                                                    <button
-                                                        key={estado}
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setEstadoNegocioFiltro(estado)
-                                                        }
-                                                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                                                            estadoNegocioFiltro === estado
-                                                                ? 'bg-[#000B7E] text-white'
-                                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                                        }`}
-                                                    >
-                                                        {estado}
-                                                    </button>
-                                                ))}
+                                        <div className="px-4 py-3 border-b border-gray-100 bg-white space-y-4">
+                                            <div className="grid gap-4 lg:grid-cols-2 lg:gap-6">
+                                                <div className="min-w-0">
+                                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                                        Estatus de aprobación
+                                                    </p>
+                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setEstadoNegocioFiltro('todos')
+                                                            }
+                                                            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                                                estadoNegocioFiltro === 'todos'
+                                                                    ? 'bg-[#000B7E] text-white'
+                                                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                            }`}
+                                                        >
+                                                            Todos
+                                                        </button>
+                                                        {ESTADOS_NEGOCIO_FIJOS.map((estado) => (
+                                                            <button
+                                                                key={estado}
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setEstadoNegocioFiltro(estado)
+                                                                }
+                                                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                                                    estadoNegocioFiltro === estado
+                                                                        ? 'bg-[#000B7E] text-white'
+                                                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                                }`}
+                                                            >
+                                                                {estado}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                                            Suscripción (activo / vencimiento)
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            className="text-[11px] font-semibold text-[#000B7E] hover:underline"
+                                                            onClick={() => {
+                                                                setActividadNegocioFiltro('todos')
+                                                                setActividadDesde(null)
+                                                                setActividadHasta(null)
+                                                            }}
+                                                        >
+                                                            Limpiar fechas y actividad
+                                                        </button>
+                                                    </div>
+                                                    <div className="mt-2 inline-flex flex-wrap rounded-full bg-gray-100 p-1 text-[11px] font-medium">
+                                                        {[
+                                                            { key: 'todos', label: 'Todos' },
+                                                            { key: 'activo', label: 'Activos' },
+                                                            {
+                                                                key: 'suspendido',
+                                                                label: 'Suspendidos',
+                                                            },
+                                                        ].map((option) => (
+                                                            <button
+                                                                key={option.key}
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setActividadNegocioFiltro(
+                                                                        option.key as
+                                                                            | 'todos'
+                                                                            | EstadoActividadNegocio,
+                                                                    )
+                                                                }
+                                                                className={`rounded-full px-2.5 py-1 transition-colors ${
+                                                                    actividadNegocioFiltro ===
+                                                                    option.key
+                                                                        ? 'bg-[#000B7E] text-white shadow-sm'
+                                                                        : 'text-gray-600'
+                                                                }`}
+                                                            >
+                                                                {option.label}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                        <DatePicker
+                                                            value={actividadDesde}
+                                                            onChange={setActividadDesde}
+                                                            inputFormat="DD/MM/YYYY"
+                                                            placeholder="Fin plan desde"
+                                                            clearable
+                                                            className="w-full"
+                                                        />
+                                                        <DatePicker
+                                                            value={actividadHasta}
+                                                            onChange={setActividadHasta}
+                                                            inputFormat="DD/MM/YYYY"
+                                                            placeholder="Fin plan hasta"
+                                                            clearable
+                                                            className="w-full"
+                                                        />
+                                                    </div>
+                                                    <p className="mt-1.5 text-[10px] text-gray-400 leading-snug">
+                                                        El rango filtra por fecha de fin de suscripción.
+                                                        Sin fechas, cuenta todos los negocios que cumplan
+                                                        estatus y actividad.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     )}

@@ -55,7 +55,7 @@ const appsRoute: Routes = [
     {
         key: 'appsServicegarage.servicegarage',
         path: `${APP_PREFIX_PATH}/servicegarage`,
-        component: lazy(() => import('@/views/pages/Servicegarage')),
+        component: lazy(() => import('@/views/pages/ServiceGarage')),
         authority: [ADMIN, USER],
     },
     {
@@ -161,7 +161,7 @@ const appsRoute: Routes = [
     {
         key: 'appsRequestList.requestList',
         path: `${APP_PREFIX_PATH}/requestList`,
-        component: lazy(() => import('@/views/pages/RequestList/requestList')),
+        component: lazy(() => import('@/views/pages/RequestList/RequestAndServices')),
         authority: [ADMIN, USER],
     },
     {

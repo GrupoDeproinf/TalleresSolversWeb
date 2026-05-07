@@ -5,26 +5,29 @@ export interface MarkerData {
     lat: number
     lng: number
     title: string
-    taller: string
+    ciudad: string
+    approvalStatus: 'Aprobado' | 'En espera por aprobación' | 'Rechazado' | null
+    actividad: 'activo' | 'suspendido'
+    categoryIds: string[]
 }
 
 interface MapsGaragesProps {
     markers: MarkerData[]
-    center: { lat: number; lng: number } // Prop para el centro dinámico
+    center: { lat: number; lng: number }
 }
 
 const MapsGarages: React.FC<MapsGaragesProps> = ({ markers, center }) => {
-    const zoom = 10 // Nivel de zoom predeterminado
+    const zoom =
+        markers.length === 0 ? 6 : markers.length <= 1 ? 11 : 8
 
     return (
-        <div style={{ height: '450px', width: '100%' }}>
+        <div className="w-full min-h-[420px] rounded-xl border border-gray-200 overflow-hidden bg-gray-50 shadow-inner">
             <GoogleMap
-                center={center} // Usamos el centro dinámico
+                center={center}
                 zoom={zoom}
                 mapContainerStyle={{
-                    height: '400px',
+                    height: 'min(70vh, 520px)',
                     width: '100%',
-                    marginTop: '10px',
                 }}
             >
                 {markers.map((marker) => (

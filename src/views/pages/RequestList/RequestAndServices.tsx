@@ -1,33 +1,35 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Tabs from '@/components/ui/Tabs'
-import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import Button from '@/components/ui/Button'
-import PaymentValidationPending from '@/views/pages/PaymentValidation/PaymentValidationPending'
-import SubscriptionsHistory from './SubscriptionsHistory'
+import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import RequestHistory from './RequestHistory'
+import ServiceContactHistory from '@/views/pages/ServiceContact/ServiceContactHistory'
 
 const { TabNav, TabList, TabContent } = Tabs
 
-const TAB_PENDING = 'pending'
-const TAB_HISTORY = 'history'
+const TAB_REQUESTS = 'requests'
+const TAB_SERVICES = 'services'
 
-const SubscriptionsUnified = () => {
+const RequestAndServices = () => {
     const [searchParams, setSearchParams] = useSearchParams()
-    const [refreshPendingSignal, setRefreshPendingSignal] = useState(0)
-    const [refreshHistorySignal, setRefreshHistorySignal] = useState(0)
-    const [exportPendingSignal, setExportPendingSignal] = useState(0)
-    const [exportHistorySignal, setExportHistorySignal] = useState(0)
-    const [pendingSearchTerm, setPendingSearchTerm] = useState('')
-    const [historySearchTerm, setHistorySearchTerm] = useState('')
+    const [refreshRequestsSignal, setRefreshRequestsSignal] = useState(0)
+    const [refreshServicesSignal, setRefreshServicesSignal] = useState(0)
+    const [exportRequestsSignal, setExportRequestsSignal] = useState(0)
+    const [exportServicesSignal, setExportServicesSignal] = useState(0)
+    const [requestSearchTerm, setRequestSearchTerm] = useState('')
+    const [serviceSearchTerm, setServiceSearchTerm] = useState('')
 
     const tabValue = useMemo(() => {
-        return searchParams.get('tab') === 'history' ? TAB_HISTORY : TAB_PENDING
+        return searchParams.get('tab') === TAB_SERVICES
+            ? TAB_SERVICES
+            : TAB_REQUESTS
     }, [searchParams])
 
     const handleTabChange = (val: string) => {
         const next = new URLSearchParams(searchParams)
-        if (val === TAB_HISTORY) {
-            next.set('tab', 'history')
+        if (val === TAB_SERVICES) {
+            next.set('tab', TAB_SERVICES)
         } else {
             next.delete('tab')
         }
@@ -35,37 +37,37 @@ const SubscriptionsUnified = () => {
     }
 
     const handleRefresh = () => {
-        if (tabValue === TAB_PENDING) {
-            setRefreshPendingSignal((prev) => prev + 1)
+        if (tabValue === TAB_REQUESTS) {
+            setRefreshRequestsSignal((prev) => prev + 1)
             return
         }
-        setRefreshHistorySignal((prev) => prev + 1)
+        setRefreshServicesSignal((prev) => prev + 1)
     }
 
     const handleExport = () => {
-        if (tabValue === TAB_PENDING) {
-            setExportPendingSignal((prev) => prev + 1)
+        if (tabValue === TAB_REQUESTS) {
+            setExportRequestsSignal((prev) => prev + 1)
             return
         }
-        setExportHistorySignal((prev) => prev + 1)
+        setExportServicesSignal((prev) => prev + 1)
     }
 
     const activeSearchTerm =
-        tabValue === TAB_PENDING ? pendingSearchTerm : historySearchTerm
+        tabValue === TAB_REQUESTS ? requestSearchTerm : serviceSearchTerm
 
     const handleSearchChange = (value: string) => {
-        if (tabValue === TAB_PENDING) {
-            setPendingSearchTerm(value)
+        if (tabValue === TAB_REQUESTS) {
+            setRequestSearchTerm(value)
             return
         }
-        setHistorySearchTerm(value)
+        setServiceSearchTerm(value)
     }
 
     return (
         <div>
             <div className="mb-6 flex items-center gap-3">
                 <h1 className="text-4xl font-bold text-[#000B7E]">
-                    Validación de pagos e histórico de suscripciones
+                    Solicitudes y servicios solicitados
                 </h1>
                 <button
                     type="button"
@@ -84,7 +86,11 @@ const SubscriptionsUnified = () => {
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Plan, negocio, correo, monto, fechas, comprobante, ids…"
+                                placeholder={
+                                    tabValue === TAB_REQUESTS
+                                        ? 'Solicitud, usuario, categoría, ciudad, urgencia…'
+                                        : 'Servicio, negocio, precio, usuario, correo, ids…'
+                                }
                                 className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={activeSearchTerm}
                                 onChange={(e) =>
@@ -105,22 +111,22 @@ const SubscriptionsUnified = () => {
             </div>
             <Tabs value={tabValue} onChange={handleTabChange}>
                 <TabList>
-                    <TabNav value={TAB_PENDING}>Pagos por validar</TabNav>
-                    <TabNav value={TAB_HISTORY}>Histórico de suscripciones</TabNav>
+                    <TabNav value={TAB_REQUESTS}>Histórico de solicitudes</TabNav>
+                    <TabNav value={TAB_SERVICES}>Servicios solicitados</TabNav>
                 </TabList>
                 <div className="mt-4">
-                    <TabContent value={TAB_PENDING}>
-                        <PaymentValidationPending
-                            exportSignal={exportPendingSignal}
-                            refreshSignal={refreshPendingSignal}
-                            searchTerm={pendingSearchTerm}
+                    <TabContent value={TAB_REQUESTS}>
+                        <RequestHistory
+                            exportSignal={exportRequestsSignal}
+                            refreshSignal={refreshRequestsSignal}
+                            searchTerm={requestSearchTerm}
                         />
                     </TabContent>
-                    <TabContent value={TAB_HISTORY}>
-                        <SubscriptionsHistory
-                            exportSignal={exportHistorySignal}
-                            refreshSignal={refreshHistorySignal}
-                            searchTerm={historySearchTerm}
+                    <TabContent value={TAB_SERVICES}>
+                        <ServiceContactHistory
+                            exportSignal={exportServicesSignal}
+                            refreshSignal={refreshServicesSignal}
+                            searchTerm={serviceSearchTerm}
                         />
                     </TabContent>
                 </div>
@@ -129,4 +135,4 @@ const SubscriptionsUnified = () => {
     )
 }
 
-export default SubscriptionsUnified
+export default RequestAndServices

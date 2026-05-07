@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import React from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import Pagination from '@/components/ui/Pagination'
@@ -27,6 +27,7 @@ import {
 import {
     collection,
     getDocs,
+    getCountFromServer,
     query,
     doc,
     deleteDoc,
@@ -45,7 +46,16 @@ import type { MouseEvent } from 'react'
 import { Avatar, Drawer, Select } from '@/components/ui'
 import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
-import { HiOutlineRefresh, HiOutlineSearch, HiOutlinePlus, HiOutlineMinus } from 'react-icons/hi'
+import {
+    HiOutlineRefresh,
+    HiOutlineSearch,
+    HiOutlinePlus,
+    HiOutlineMinus,
+    HiOutlineX,
+} from 'react-icons/hi'
+import dayjs from 'dayjs'
+import DatePicker from '@/components/ui/DatePicker'
+import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 import * as XLSX from 'xlsx-js-style'
 import JSZip from 'jszip'
@@ -63,6 +73,10 @@ type Person = {
     typeUser?: string
     id: string
     estado?: string | string[]
+    createdAt?: number | Timestamp | { seconds: number; nanoseconds?: number } | string
+    /** Milisegundos desde epoch; 0 = sin dato */
+    createdAtMs?: number
+    vehiculosCount?: number
 }
 
 type ExcelColumnConfig = {
@@ -257,6 +271,98 @@ function formatEstadoForTableExport(
     return estado ?? ''
 }
 
+function normalizeUserCreatedAtMs(createdAt: unknown): number {
+    if (createdAt == null) return 0
+    if (typeof createdAt === 'number' && Number.isFinite(createdAt)) {
+        return createdAt
+    }
+    if (createdAt instanceof Timestamp) return createdAt.toMillis()
+    if (
+        typeof createdAt === 'object' &&
+        createdAt !== null &&
+        'seconds' in createdAt &&
+        typeof (createdAt as { seconds: unknown }).seconds === 'number'
+    ) {
+        return (createdAt as { seconds: number }).seconds * 1000
+    }
+    if (typeof createdAt === 'string') {
+        const t = Date.parse(createdAt)
+        return Number.isNaN(t) ? 0 : t
+    }
+    return 0
+}
+
+function formatUserCreatedAtDisplay(ms: number): string {
+    if (!ms) return '—'
+    try {
+        return new Date(ms).toLocaleString('es-VE', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+        })
+    } catch {
+        return '—'
+    }
+}
+
+function personMatchesCiudadFilter(p: Person, ciudad: string): boolean {
+    if (!ciudad) return true
+    if (isTodosLosEstados(p.estado)) return true
+    if (Array.isArray(p.estado)) return p.estado.includes(ciudad)
+    return String(p.estado ?? '') === ciudad
+}
+
+function personMatchesTipoFilter(p: Person, tipo: string): boolean {
+    if (!tipo) return true
+    return p.typeUser === tipo
+}
+
+function creationRangeToYmd(range: DatePickerRangeValue): {
+    from: string
+    to: string
+} {
+    const [start, end] = range
+    return {
+        from: start ? dayjs(start).format('YYYY-MM-DD') : '',
+        to: end ? dayjs(end).format('YYYY-MM-DD') : '',
+    }
+}
+
+/** Misma lógica que el filtro por fecha de registro en Negocios (`createdAt`). */
+function personMatchesFechaRegistroYmd(
+    p: Person,
+    fromYmd: string,
+    toYmd: string,
+): boolean {
+    if (!fromYmd && !toYmd) return true
+    const timestampNumber = p.createdAtMs ?? 0
+    if (!timestampNumber) return false
+
+    const fromDate = fromYmd ? new Date(fromYmd + 'T00:00:00') : null
+    const toDate = toYmd ? new Date(toYmd + 'T23:59:59.999') : null
+
+    if (fromDate && !toDate) {
+        return timestampNumber >= fromDate.getTime()
+    }
+
+    if (!fromDate && toDate) {
+        return timestampNumber <= toDate.getTime()
+    }
+
+    if (fromDate && toDate) {
+        const fromTimestamp = fromDate.getTime()
+        const toTimestamp = toDate.getTime()
+        return (
+            timestampNumber >= fromTimestamp &&
+            timestampNumber <= toTimestamp
+        )
+    }
+
+    return true
+}
+
 function getCertificadorMultiSelectValue(
     estado: string | string[] | undefined,
 ): { value: string; label: string }[] {
@@ -353,6 +459,14 @@ function personSearchableText(p: Person): string {
         }
     }
     push(p.nombre, p.email, p.cedula, p.phone, p.typeUser, p.uid, p.id)
+    const cam = p.createdAtMs ?? normalizeUserCreatedAtMs(p.createdAt)
+    if (cam) {
+        push(formatUserCreatedAtDisplay(cam))
+        push(new Date(cam).toISOString().slice(0, 10))
+    }
+    if (p.vehiculosCount !== undefined && p.vehiculosCount !== null) {
+        parts.push(String(p.vehiculosCount))
+    }
     if (Array.isArray(p.estado)) {
         if (isTodosLosEstados(p.estado)) {
             push(TODOS_ESTADOS_LABEL)
@@ -371,6 +485,11 @@ function personSearchableText(p: Person): string {
 
 const Users = () => {
     const [dataUsers, setDataUsers] = useState<Person[]>([])
+    const [usersLoading, setUsersLoading] = useState(true)
+    const [filterCiudad, setFilterCiudad] = useState('')
+    const [filterTypeUser, setFilterTypeUser] = useState('')
+    const [creationDateRange, setCreationDateRange] =
+        useState<DatePickerRangeValue>([null, null])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
@@ -387,25 +506,45 @@ const Users = () => {
     const [imageZoom, setImageZoom] = useState(1)
 
     const getData = async () => {
-        const q = query(collection(db, 'Usuarios'))
-        const querySnapshot = await getDocs(q)
-        const usuarios: Person[] = []
+        setUsersLoading(true)
+        try {
+            const q = query(collection(db, 'Usuarios'))
+            const querySnapshot = await getDocs(q)
+            const base: Person[] = []
 
-        querySnapshot.forEach((doc) => {
-            const userData = doc.data() as Person
-            // Filtrar por typeUser "Cliente" o "Certificador"
-            if (
-                userData.typeUser === 'Cliente' ||
-                userData.typeUser === 'Certificador'
-            ) {
-                usuarios.push({
-                    ...userData,
-                    id: doc.id, // Guarda el id generado por Firebase
-                })
-            }
-        })
+            querySnapshot.forEach((docSnap) => {
+                const userData = docSnap.data() as Person
+                if (
+                    userData.typeUser === 'Cliente' ||
+                    userData.typeUser === 'Certificador'
+                ) {
+                    base.push({
+                        ...userData,
+                        id: docSnap.id,
+                    })
+                }
+            })
 
-        setDataUsers(usuarios)
+            const enriched = await Promise.all(
+                base.map(async (u) => {
+                    let vehiculosCount = 0
+                    try {
+                        const snap = await getCountFromServer(
+                            collection(db, 'Usuarios', u.id, 'Vehiculos'),
+                        )
+                        vehiculosCount = snap.data().count
+                    } catch (err) {
+                        console.error('Error contando Vehiculos', u.id, err)
+                    }
+                    const createdAtMs = normalizeUserCreatedAtMs(u.createdAt)
+                    return { ...u, createdAtMs, vehiculosCount }
+                }),
+            )
+
+            setDataUsers(enriched)
+        } finally {
+            setUsersLoading(false)
+        }
     }
 
     useEffect(() => {
@@ -594,6 +733,7 @@ const Users = () => {
                 typeUser: values.typeUser || 'Cliente',
                 uid: user.uid,
                 estado: values.typeUser === 'Certificador' ? (Array.isArray(values.estado) ? values.estado : [values.estado]) : values.estado,
+                createdAt: Date.now(),
             })
 
             await updateDoc(docRef, {
@@ -634,34 +774,8 @@ const Users = () => {
     }
 
     const handleExportExcel = async () => {
-        const columns: ExcelColumnConfig[] = [
-            { header: 'Nombre', key: 'Nombre' },
-            { header: 'Cédula', key: 'Cedula' },
-            { header: 'Email', key: 'Email', isLink: true, linkPrefix: 'mailto:' },
-            { header: 'Instagram', key: 'Instagram', isLink: true, linkPrefix: 'https://instagram.com/' },
-            { header: 'Número telefónico', key: 'Telefono' },
-            { header: 'Estado', key: 'Estado' },
-            { header: 'Tipo de usuario', key: 'TipoUsuario' },
-        ]
-
-        const rows = table.getRowModel().rows.map((row) => {
-            const p = row.original
-            const estadoStr = formatEstadoForTableExport(p.estado)
-            const instagramRaw = String(p.instagram ?? '').trim()
-            const instagram = instagramRaw.startsWith('@')
-                ? instagramRaw.slice(1)
-                : instagramRaw
-            return {
-                Nombre: p.nombre ?? '',
-                Cedula: p.cedula ?? '',
-                Email: p.email ?? '',
-                Instagram: instagram,
-                Telefono: p.phone ?? '',
-                Estado: estadoStr,
-                TipoUsuario: p.typeUser ?? '',
-            }
-        })
-        if (rows.length === 0) {
+        const tableRows = table.getRowModel().rows
+        if (tableRows.length === 0) {
             toast.push(
                 <Notification title="Sin datos">
                     No hay usuarios para exportar.
@@ -669,6 +783,32 @@ const Users = () => {
             )
             return
         }
+
+        const columns: ExcelColumnConfig[] = [
+            { header: 'Nombre', key: 'Nombre' },
+            { header: 'Cedula', key: 'Cedula' },
+            { header: 'Email', key: 'Email', isLink: true, linkPrefix: 'mailto:' },
+            { header: 'Numero Telefonico', key: 'Telefono' },
+            { header: 'Estado', key: 'Estado' },
+            { header: 'Tipo de Usuario', key: 'TipoUsuario' },
+            { header: 'Fecha de registro', key: 'FechaRegistro' },
+            { header: 'Cantidad de Vehículos', key: 'Vehiculos' },
+        ]
+
+        const rows = tableRows.map((row) => {
+            const p = row.original
+            return {
+                Nombre: p.nombre ?? '',
+                Cedula: p.cedula ?? '',
+                Email: p.email ?? '',
+                Telefono: p.phone ?? '',
+                Estado: formatEstadoForTableExport(p.estado),
+                TipoUsuario: p.typeUser ?? '',
+                FechaRegistro: formatUserCreatedAtDisplay(p.createdAtMs ?? 0),
+                Vehiculos: String(p.vehiculosCount ?? 0),
+            }
+        })
+
         const worksheet = createStyledWorksheet(rows, columns)
         const workbook = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Usuarios')
@@ -781,23 +921,26 @@ const Users = () => {
             accessorKey: 'nombre',
             cell: ({ getValue }) => getValue(),
             filterFn: 'includesString',
-            footer: (props) => props.column.id,
+            sortingFn: 'alphanumeric',
         },
         {
             header: 'Cedula',
             accessorKey: 'cedula',
             filterFn: 'includesString',
+            sortingFn: 'alphanumeric',
         },
         {
             header: 'Email',
             accessorKey: 'email',
             filterFn: 'includesString',
+            sortingFn: 'alphanumeric',
         },
 
         {
             header: 'Numero Telefonico',
             accessorKey: 'phone',
             filterFn: 'includesString',
+            sortingFn: 'alphanumeric',
             cell: ({ row }) => {
                 const nombre = row.original.nombre
                 return (
@@ -817,8 +960,10 @@ const Users = () => {
         },
         {
             header: 'Estado',
-            accessorKey: 'estado',
+            accessorFn: (row) => formatEstadoForTableExport(row.estado),
+            id: 'estado',
             filterFn: 'includesString',
+            sortingFn: 'alphanumeric',
             cell: ({ row }) => {
                 const estado = row.original.estado
                 if (isTodosLosEstados(estado)) {
@@ -848,6 +993,7 @@ const Users = () => {
         {
             header: 'Tipo de Usuario',
             accessorKey: 'typeUser',
+            sortingFn: 'alphanumeric',
             cell: ({ row }) => {
                 const typeUser = row.getValue('typeUser') as string // Aserción de tipo
                 let icon
@@ -876,7 +1022,36 @@ const Users = () => {
             },
         },
         {
-            header: ' ',
+            header: 'Fecha de registro',
+            accessorKey: 'createdAtMs',
+            sortingFn: (rowA, rowB) => {
+                const a = rowA.original.createdAtMs ?? 0
+                const b = rowB.original.createdAtMs ?? 0
+                const av = a || Number.POSITIVE_INFINITY
+                const bv = b || Number.POSITIVE_INFINITY
+                return av - bv
+            },
+            cell: ({ row }) =>
+                formatUserCreatedAtDisplay(row.original.createdAtMs ?? 0),
+        },
+        {
+            header: 'Cantidad de Vehículos',
+            accessorKey: 'vehiculosCount',
+            sortingFn: (rowA, rowB) => {
+                const a = rowA.original.vehiculosCount ?? 0
+                const b = rowB.original.vehiculosCount ?? 0
+                return a - b
+            },
+            cell: ({ row }) => (
+                <span className="tabular-nums font-medium text-gray-800">
+                    {row.original.vehiculosCount ?? 0}
+                </span>
+            ),
+        },
+        {
+            id: 'acciones',
+            header: 'Acciones',
+            enableSorting: false,
             cell: ({ row }) => {
                 const person = row.original
                 return (
@@ -934,6 +1109,31 @@ const Users = () => {
         setSelectedPerson(null)
     }
 
+    const filteredUsers = useMemo(() => {
+        const { from: fechaFromYmd, to: fechaToYmd } =
+            creationRangeToYmd(creationDateRange)
+        return dataUsers.filter(
+            (p) =>
+                personMatchesCiudadFilter(p, filterCiudad) &&
+                personMatchesTipoFilter(p, filterTypeUser) &&
+                personMatchesFechaRegistroYmd(p, fechaFromYmd, fechaToYmd),
+        )
+    }, [dataUsers, filterCiudad, filterTypeUser, creationDateRange])
+
+    const clearListFilters = () => {
+        setSearchTerm('')
+        setFilterCiudad('')
+        setFilterTypeUser('')
+        setCreationDateRange([null, null])
+    }
+
+    const hayFiltrosActivos =
+        Boolean(searchTerm.trim()) ||
+        Boolean(filterCiudad) ||
+        Boolean(filterTypeUser) ||
+        Boolean(creationDateRange[0]) ||
+        Boolean(creationDateRange[1])
+
     const handleDelete = async () => {
         if (selectedPerson) {
             console.log('Eliminando a:', selectedPerson)
@@ -967,7 +1167,7 @@ const Users = () => {
     }
 
     const table = useReactTable({
-        data: dataUsers,
+        data: filteredUsers,
         columns,
         state: {
             sorting,
@@ -1007,6 +1207,10 @@ const Users = () => {
         setCurrentPage(1)
     }
 
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [filterCiudad, filterTypeUser, creationDateRange])
+
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
@@ -1017,9 +1221,9 @@ const Users = () => {
 
     return (
         <>
-            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-4xl font-bold text-[#000B7E]">
+            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
+                <div className="flex shrink-0 items-center gap-2">
+                    <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
                         Usuarios
                     </h1>
                     <button
@@ -1032,39 +1236,102 @@ const Users = () => {
                         <HiOutlineRefresh className="h-5 w-5" />
                     </button>
                 </div>
-                <div className="flex flex-wrap items-end justify-end gap-3">
-                    <div className="w-full min-w-[12rem] max-w-sm sm:w-80">
-                        <span className="mb-1 block text-xs font-medium text-gray-600">
-                            Buscar en la tabla
+                <div className="flex w-full min-w-0 flex-1 flex-wrap items-end justify-end gap-x-2 gap-y-2 lg:flex-nowrap lg:overflow-x-auto lg:pb-0.5">
+                    <div className="w-52 shrink-0 sm:w-56">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Buscar
                         </span>
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Nombre, cédula, email, teléfono, estado, tipo, id…"
-                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                placeholder="Nombre, cédula, email…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                            <HiOutlineSearch className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                         </div>
                     </div>
-                    <Button
-                        className="h-10 w-40 shrink-0 text-sm text-white hover:opacity-80"
-                        style={{ backgroundColor: '#000B7E' }}
-                        onClick={() => setDrawerCreateIsOpen(true)}
-                    >
-                        Crear Usuario
-                    </Button>
+                    <div className="w-[8.75rem] shrink-0 sm:w-36">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Ciudad
+                        </span>
+                        <select
+                            value={filterCiudad}
+                            onChange={(e) => setFilterCiudad(e.target.value)}
+                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                        >
+                            <option value="">Todas</option>
+                            {estadoOptions.map((opt) => (
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="w-[7.5rem] shrink-0 sm:w-32">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Tipo
+                        </span>
+                        <select
+                            value={filterTypeUser}
+                            onChange={(e) => setFilterTypeUser(e.target.value)}
+                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                        >
+                            <option value="">Todos</option>
+                            <option value="Cliente">Cliente</option>
+                            <option value="Certificador">Certificador</option>
+                        </select>
+                    </div>
+                    <div className="w-[13.5rem] shrink-0 sm:w-[15rem]">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Creación
+                        </span>
+                        <DatePicker.DatePickerRange
+                            clearable
+                            className="w-full"
+                            inputFormat="DD/MM/YYYY"
+                            placeholder="Desde — hasta"
+                            separator=" — "
+                            size="sm"
+                            value={creationDateRange}
+                            onChange={setCreationDateRange}
+                        />
+                    </div>
                     <button
                         type="button"
-                        style={{ backgroundColor: '#10B981' }}
-                        className="h-10 min-w-[180px] shrink-0 whitespace-nowrap rounded-md px-4 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90"
-                        onClick={handleExportExcel}
+                        title="Limpiar filtros"
+                        aria-label="Limpiar filtros"
+                        onClick={clearListFilters}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#000B7E]/40 hover:bg-[#000B7E]/5 hover:text-[#000B7E] disabled:cursor-not-allowed disabled:opacity-40"
+                        disabled={!hayFiltrosActivos}
                     >
-                        Exportar a Excel
+                        <HiOutlineX className="h-5 w-5" />
                     </button>
+                    <div className="flex shrink-0 items-end justify-end gap-2 border-t border-gray-100 pt-2 md:border-t-0 md:pt-0 md:pl-2">
+                        <Button
+                            className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={() => setDrawerCreateIsOpen(true)}
+                        >
+                            Crear Usuario
+                        </Button>
+                        <button
+                            type="button"
+                            style={{ backgroundColor: '#10B981' }}
+                            className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
+                            onClick={handleExportExcel}
+                        >
+                            Exportar Excel
+                        </button>
+                    </div>
                 </div>
             </div>
+            {usersLoading ? (
+                <p className="mb-2 text-sm text-gray-500">
+                    Cargando usuarios y conteo de vehículos…
+                </p>
+            ) : null}
             <div className="p-3 rounded-lg shadow">
                 <Table className="w-full rounded-lg ">
                     <THead>
@@ -1078,20 +1345,31 @@ const Users = () => {
                                         >
                                             {header.isPlaceholder ? null : (
                                                 <div
-                                                    {...{
-                                                        className:
-                                                            header.column.getCanSort()
-                                                                ? 'cursor-pointer select-none'
-                                                                : '',
-                                                        onClick:
-                                                            header.column.getToggleSortingHandler(),
-                                                    }}
+                                                    className={
+                                                        header.column.getCanSort()
+                                                            ? 'inline-flex cursor-pointer select-none items-center gap-1.5'
+                                                            : ''
+                                                    }
+                                                    onClick={header.column.getToggleSortingHandler()}
+                                                    role={
+                                                        header.column.getCanSort()
+                                                            ? 'button'
+                                                            : undefined
+                                                    }
                                                 >
                                                     {flexRender(
                                                         header.column.columnDef
                                                             .header,
                                                         header.getContext(),
                                                     )}
+                                                    {header.column.getCanSort() ? (
+                                                        <Sorter
+                                                            sort={
+                                                                header.column.getIsSorted() ||
+                                                                false
+                                                            }
+                                                        />
+                                                    ) : null}
                                                 </div>
                                             )}
                                         </Th>

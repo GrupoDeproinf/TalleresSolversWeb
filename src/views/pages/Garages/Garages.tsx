@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
@@ -48,7 +48,7 @@ import Notification from '@/components/ui/Notification'
 import type { MouseEvent } from 'react'
 import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
 import { Avatar, Switcher } from '@/components/ui'
-import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import { HiOutlineRefresh, HiOutlineSearch, HiOutlineX } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
 import * as Yup from 'yup'
 import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
@@ -57,7 +57,10 @@ import { GrMapLocation } from 'react-icons/gr'
 import Password from '@/views/account/Settings/components/Password'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
-import { exportStyledExcel } from '@/utils/excelExport'
+import {
+    exportStyledExcel,
+    type ExcelColumnConfig,
+} from '@/utils/excelExport'
 import dayjs from 'dayjs'
 import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
@@ -88,10 +91,10 @@ type Garage = {
     image_perfil?: string
     image_file?: string
     Direccion?: string
-    ubicacion?: string
+    ubicacion?: string | { lat?: number; lng?: number }
     certificador_nombre?: string
+    certificador_key?: string
     createdAt?: number | { seconds: number; nanoseconds?: number } | string
-    scheduled_visit?: string
     subscripcion_actual?: Subscripcion
     id?: string
     status?: string
@@ -99,6 +102,29 @@ type Garage = {
     confirmPassword?: string
     estado?: string
     LinkInstagram?: string
+    LinkFacebook?: string
+    LinkTiktok?: string
+    whatsapp?: string
+    Caracteristicas?: string
+    Experiencia?: string
+    Garantia?: string
+    RegComercial?: string
+    Tarifa?: string
+    seguro?: string
+    token?: string
+    lat?: number
+    lng?: number
+    fotoFrenteTaller?: string
+    fotoInternaTaller?: string
+    logotipoNegocio?: string | null
+    rifIdFiscal?: string
+    permisoOperacion?: string | null
+    agenteAutorizado?: boolean
+    showModalKm?: boolean
+    motivo_eliminacion?: string
+    eliminado_en?: Timestamp | { seconds: number; nanoseconds?: number }
+    horarios_atencion?: Record<string, unknown>
+    metodos_pago?: Record<string, unknown>
 }
 
 type StatusFilterOption = { value: string; label: string }
@@ -112,6 +138,109 @@ const GARAGE_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
 
 const CERTIFIER_STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
     { value: 'En espera por aprobación', label: 'En espera por aprobación' },
+]
+
+const CIUDAD_FILTER_OPTIONS: { value: string; label: string }[] = [
+    { value: '', label: 'Todas las ciudades' },
+    { value: 'Amazonas', label: 'Amazonas' },
+    { value: 'Anzoátegui', label: 'Anzoátegui' },
+    { value: 'Apure', label: 'Apure' },
+    { value: 'Aragua', label: 'Aragua' },
+    { value: 'Barinas', label: 'Barinas' },
+    { value: 'Bolívar', label: 'Bolívar' },
+    { value: 'Carabobo', label: 'Carabobo' },
+    { value: 'Cojedes', label: 'Cojedes' },
+    { value: 'Delta Amacuro', label: 'Delta Amacuro' },
+    { value: 'Distrito Capital', label: 'Distrito Capital' },
+    { value: 'Falcón', label: 'Falcón' },
+    { value: 'Guárico', label: 'Guárico' },
+    { value: 'Lara', label: 'Lara' },
+    { value: 'La Guaira', label: 'La Guaira' },
+    { value: 'Mérida', label: 'Mérida' },
+    { value: 'Miranda', label: 'Miranda' },
+    { value: 'Monagas', label: 'Monagas' },
+    { value: 'Nueva Esparta', label: 'Nueva Esparta' },
+    { value: 'Portuguesa', label: 'Portuguesa' },
+    { value: 'Sucre', label: 'Sucre' },
+    { value: 'Táchira', label: 'Táchira' },
+    { value: 'Trujillo', label: 'Trujillo' },
+    { value: 'Yaracuy', label: 'Yaracuy' },
+    { value: 'Zulia', label: 'Zulia' },
+]
+
+const PLAN_ESTADO_FILTER_OPTIONS: { value: '' | 'activo' | 'suspendido'; label: string }[] = [
+    { value: '', label: 'Todos (plan)' },
+    { value: 'activo', label: 'ACTIVO' },
+    { value: 'suspendido', label: 'SUSPENDIDO' },
+]
+
+function getPlanNombreGarage(g: Garage): string {
+    const n = g.subscripcion_actual?.nombre
+    return String(n ?? '').trim() || '—'
+}
+
+/** Vigencia del plan: fecha_fin >= ahora */
+function getPlanActividadKey(g: Garage): 'activo' | 'suspendido' {
+    const finMs = timestampLikeToMs(g.subscripcion_actual?.fecha_fin)
+    if (!finMs) return 'suspendido'
+    return finMs >= Date.now() ? 'activo' : 'suspendido'
+}
+
+function getPlanActividadLabel(g: Garage): string {
+    return getPlanActividadKey(g) === 'activo' ? 'ACTIVO' : 'SUSPENDIDO'
+}
+
+function formatGarageCreatedAtCell(g: Garage): string {
+    const ms = timestampLikeToMs(g.createdAt)
+    if (!ms) return '—'
+    try {
+        return new Date(ms).toLocaleString('es-VE', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        })
+    } catch {
+        return '—'
+    }
+}
+
+function safeJsonForExcel(value: unknown): string {
+    if (value === undefined || value === null) return ''
+    if (typeof value === 'string') return value
+    try {
+        return JSON.stringify(value)
+    } catch {
+        return String(value)
+    }
+}
+
+/** Misma información que muestra la tabla (sin columnas solo de base de datos). */
+function buildGarageGridExcelRow(g: Garage): Record<string, string> {
+    return {
+        fechaRegistro: formatGarageCreatedAtCell(g),
+        nombre: g.nombre ?? '',
+        rif: g.rif ?? '',
+        telefono: g.phone ?? '',
+        correo: g.email ?? '',
+        ciudad: g.estado ?? '',
+        estadoAprobacion: g.status ?? '',
+        planNombre: getPlanNombreGarage(g),
+        estatusPlan: getPlanActividadLabel(g),
+        certificador: g.certificador_nombre ?? '',
+    }
+}
+
+const GARAGE_EXCEL_COLUMNS: ExcelColumnConfig[] = [
+    { header: 'Fecha de registro', key: 'fechaRegistro' },
+    { header: 'Nombre', key: 'nombre' },
+    { header: 'RIF', key: 'rif' },
+    { header: 'Teléfono', key: 'telefono' },
+    { header: 'Correo', key: 'correo', linkType: 'email' },
+    { header: 'Ciudad', key: 'ciudad' },
+    { header: 'Estado de aprobación', key: 'estadoAprobacion' },
+    { header: 'Plan', key: 'planNombre' },
+    { header: 'Estatus del plan', key: 'estatusPlan' },
+    { header: 'Certificador', key: 'certificador' },
 ]
 
 function timestampLikeToMs(value: unknown): number {
@@ -161,11 +290,14 @@ function garageSearchableText(g: Garage): string {
         g.certificador_nombre,
         g.status,
         g.Direccion,
-        g.ubicacion,
-        g.scheduled_visit,
+        typeof g.ubicacion === 'object'
+            ? safeJsonForExcel(g.ubicacion)
+            : g.ubicacion,
         g.uid,
         g.id,
         g.LinkInstagram,
+        getPlanNombreGarage(g),
+        getPlanActividadLabel(g),
     )
 
     const createdMs = timestampLikeToMs(g.createdAt)
@@ -221,6 +353,11 @@ const Garages = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
     const [exportDialogIsOpen, setExportDialogIsOpen] = useState(false) // Estado para el modal de exportación
     const [showEliminados, setShowEliminados] = useState(false) // Estado para mostrar/ocultar talleres eliminados
+    const [filterCiudad, setFilterCiudad] = useState('')
+    const [filterPlanActividad, setFilterPlanActividad] = useState<
+        '' | 'activo' | 'suspendido'
+    >('')
+    const [deleteMotivo, setDeleteMotivo] = useState('')
     const [creationDateRange, setCreationDateRange] =
         useState<DatePickerRangeValue>([null, null])
     const [isLoading, setIsLoading] = useState(false) // Estado para mostrar cargando al cambiar filtros pesados
@@ -275,6 +412,20 @@ const Garages = () => {
         setIsLoading(false)
     }
 
+    const garagesDisplayed = useMemo(() => {
+        return dataGarages.filter((g) => {
+            if (filterCiudad && String(g.estado ?? '') !== filterCiudad) {
+                return false
+            }
+            if (filterPlanActividad) {
+                if (getPlanActividadKey(g) !== filterPlanActividad) {
+                    return false
+                }
+            }
+            return true
+        })
+    }, [dataGarages, filterCiudad, filterPlanActividad])
+
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -306,46 +457,8 @@ const Garages = () => {
     }
 
     const handleExportToExcel = async () => {
-        // Campos que queremos exportar
-        // Obtener los datos filtrados Y ordenados de la tabla (mantiene el orden por fecha de creación)
-        const filteredData = table.getRowModel().rows.map(row => row.original)
-
-        // Preparar los datos para exportar
-        const tableData = filteredData.map((row) => {
-            let createdAt = ''
-            if (row.createdAt) {
-                let timestampNumber = 0
-                if (typeof row.createdAt === 'number') {
-                    timestampNumber = row.createdAt
-                } else if (
-                    typeof row.createdAt === 'object' &&
-                    'seconds' in row.createdAt &&
-                    typeof (row.createdAt as { seconds?: unknown }).seconds ===
-                        'number'
-                ) {
-                    timestampNumber = (row.createdAt as { seconds: number }).seconds * 1000
-                } else if (typeof row.createdAt === 'string') {
-                    timestampNumber = new Date(row.createdAt).getTime()
-                }
-                createdAt =
-                    timestampNumber > 0
-                        ? new Date(timestampNumber).toLocaleDateString('es-ES')
-                        : ''
-            }
-
-            return {
-                nombreNegocio: row.nombre ?? '',
-                rif: row.rif ?? '',
-                estado: row.estado ?? '',
-                correo: row.email ?? '',
-                telefono: row.phone ?? '',
-                estadoAprobacion: row.status ?? '',
-                direccion: row.Direccion ?? '',
-                fechaCreacion: createdAt,
-                instagram: row.LinkInstagram ?? '',
-                certificador: row.certificador_nombre ?? '',
-            }
-        })
+        const filteredData = table.getRowModel().rows.map((row) => row.original)
+        const tableData = filteredData.map((row) => buildGarageGridExcelRow(row))
 
         if (tableData.length === 0) {
             toast.push(
@@ -356,13 +469,18 @@ const Garages = () => {
             return
         }
 
-        // Generar nombre de archivo con información de filtros
         let fileName = 'negocios'
         if (searchTerm) {
-            fileName += `_filtro_${searchTerm}`
+            fileName += `_filtro_${searchTerm.slice(0, 24)}`
         }
         if (statusFilter) {
-            fileName += `_estado_${statusFilter}`
+            fileName += `_aprob_${statusFilter.replace(/\s+/g, '_')}`
+        }
+        if (filterCiudad) {
+            fileName += `_ciudad_${filterCiudad.replace(/\s+/g, '_')}`
+        }
+        if (filterPlanActividad) {
+            fileName += `_plan_${filterPlanActividad}`
         }
         const { from: ymdFrom, to: ymdTo } = creationRangeToYmd(creationDateRange)
         if (ymdFrom || ymdTo) {
@@ -381,32 +499,18 @@ const Garages = () => {
 
         await exportStyledExcel({
             rows: tableData,
-            columns: [
-                { header: 'Nombre del Negocio', key: 'nombreNegocio' },
-                { header: 'RIF', key: 'rif' },
-                { header: 'Estado', key: 'estado' },
-                {
-                    header: 'Correo Electrónico',
-                    key: 'correo',
-                    linkType: 'email',
-                },
-                { header: 'Número Telefónico', key: 'telefono' },
-                { header: 'Estado de Aprobación', key: 'estadoAprobacion' },
-                { header: 'Dirección', key: 'direccion' },
-                { header: 'Fecha de Creación', key: 'fechaCreacion' },
-                { header: 'Link Instagram', key: 'instagram', linkType: 'instagram' },
-                { header: 'Certificador', key: 'certificador' },
-            ],
+            columns: GARAGE_EXCEL_COLUMNS,
             sheetName: 'Negocios',
             fileName,
         })
 
         toast.push(
             <Notification title="Exportación exitosa">
-                El archivo Excel se ha descargado correctamente con {tableData.length} registros.
+                El archivo Excel se ha descargado correctamente con {tableData.length}{' '}
+                registros.
             </Notification>,
         )
-        setExportDialogIsOpen(false) // Cerrar el modal
+        setExportDialogIsOpen(false)
     }
 
     const handleOpenExportDialog = () => {
@@ -438,6 +542,7 @@ const Garages = () => {
 
     const openDialog = (person: Garage) => {
         setSelectedPerson(person)
+        setDeleteMotivo('')
         setIsOpen(true)
     }
 
@@ -745,242 +850,15 @@ const Garages = () => {
         return color
     }
 
-    // Función para convertir fecha "dd-mm-yyyy" a timestamp
-    const parseDateString = (dateString: string | undefined): number => {
-        if (!dateString) return 0
-        const parts = dateString.split('-')
-        if (parts.length !== 3) return 0
-        const day = parseInt(parts[0], 10)
-        const month = parseInt(parts[1], 10) - 1 // Los meses en JS van de 0 a 11
-        const year = parseInt(parts[2], 10)
-        return new Date(year, month, day).getTime()
-    }
-
-    // Función para verificar si la fecha ya pasó
-    const isDatePast = (dateString: string | undefined): boolean => {
-        if (!dateString) return false
-        const dateTimestamp = parseDateString(dateString)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0) // Resetear horas para comparar solo la fecha
-        return dateTimestamp < today.getTime()
-    }
-
     const columns: ColumnDef<Garage>[] = [
         {
-            header: 'Nombre',
-            accessorKey: 'nombre',
-            cell: ({ getValue, row }) => {
-                const image_perfil = row.original.image_perfil as
-                    | string
-                    | undefined // Obtener el logo de la fila
-                return (
-                    <div className="flex items-center">
-                        {image_perfil ? (
-                            <img
-                                src={image_perfil}
-                                alt="Logo"
-                                className="h-10 w-10 object-cover rounded-full mr-4"
-                            />
-                        ) : (
-                            <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center mr-2">
-                                <GiMechanicGarage
-                                    className="h-6 w-6 text-gray-400"
-                                    aria-hidden="true"
-                                />{' '}
-                            </div>
-                        )}
-                        {getValue() as string}{' '}
-                    </div>
-                )
-            },
-            filterFn: 'includesString',
-            footer: (props) => props.column.id,
-        },
-        {
-            header: 'RIF',
-            accessorKey: 'rif',
-        },
-        {
-            header: 'Estado',
-            accessorKey: 'estado',
-        },
-        {
-            header: 'Certificador',
-            accessorKey: 'certificador_nombre',
-        },
-        {
-            header: 'Email',
-            accessorKey: 'email',
-            filterFn: (row, columnId, filterValue) => {
-                const email = row.getValue(columnId) as string
-                return email?.toLowerCase().includes(filterValue.toLowerCase()) || false
-            },
-        },
-        {
-            header: 'Numero Telefonico',
-            accessorKey: 'phone',
-            cell: ({ row }) => {
-                const nombre = row.original.nombre
-                return (
-                    <div className="flex items-center">
-                        <Avatar
-                            className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
-                            style={{ backgroundColor: '#887677' }}
-                        >
-                            <span className="text-white font-bold">
-                                {getInitials(nombre)}
-                            </span>
-                        </Avatar>
-                        {row.original.phone}{' '}
-                    </div>
-                )
-            },
-        },
-        {
-            header: 'Status',
-            accessorKey: 'status',
-            filterFn: (row, columnId, filterValue) => {
-                if (!filterValue) return true
-                return row.getValue(columnId) === filterValue
-            },
-            cell: ({ row }) => {
-                const status = row.getValue('status') as string // Aserción de tipo
-                let icon
-                let color
-
-                switch (status) {
-                    case 'Aprobado':
-                        icon = <FaCheckCircle className="text-green-500 mr-1" />
-                        color = 'text-green-500' // Color para el texto
-                        break
-                    case 'Rechazado':
-                        icon = <FaTimesCircle className="text-red-500 mr-1" />
-                        color = 'text-red-500' // Color para el texto
-                        break
-                    case 'Pendiente':
-                        icon = (
-                            <FaExclamationCircle className="text-yellow-500 mr-1" />
-                        )
-                        color = 'text-yellow-500' // Color para el texto
-                        break
-                    case 'En espera por aprobación':
-                        icon = (
-                            <FaQuestionCircle className="text-blue-500 mr-1" />
-                        )
-                        color = 'text-blue-500' // Color para el texto
-                        break
-                    case 'Eliminado':
-                        icon = <FaTrash className="text-gray-500 mr-1" />
-                        color = 'text-gray-500' // Color para el texto
-                        break
-                    default:
-                        icon = null
-                }
-
-                return (
-                    <div className={`flex items-center ${color}`}>
-                        {icon}
-                        <span>{status}</span>
-                    </div>
-                )
-            },
-        },
-        {
-            header: 'Estado Subscripción',
-            accessorKey: 'subscripcion_actual',
-            cell: ({ row }) => {
-                const subscripcion = row.original.subscripcion_actual
-                
-                if (!subscripcion) {
-                    return (
-                        <div className="flex items-center text-gray-400">
-                            <span>Sin suscripción</span>
-                        </div>
-                    )
-                }
-
-                const statusSub = subscripcion.status || 'Sin estado'
-                const nombreSub = subscripcion.nombre || ''
-                let icon
-                let color
-
-                switch (statusSub) {
-                    case 'Aprobado':
-                        icon = <FaCheckCircle className="text-green-500 mr-1" />
-                        color = 'text-green-500'
-                        break
-                    case 'Rechazado':
-                        icon = <FaTimesCircle className="text-red-500 mr-1" />
-                        color = 'text-red-500'
-                        break
-                    case 'Pendiente':
-                        icon = (
-                            <FaExclamationCircle className="text-yellow-500 mr-1" />
-                        )
-                        color = 'text-yellow-500'
-                        break
-                    default:
-                        icon = <FaQuestionCircle className="text-gray-500 mr-1" />
-                        color = 'text-gray-500'
-                }
-
-                return (
-                    <div className={`flex items-center ${color}`}>
-                        {icon}
-                        <span>{nombreSub ? `${nombreSub} - ${statusSub}` : statusSub}</span>
-                    </div>
-                )
-            },
-        },
-        {
-            header: 'Fecha de Creación',
+            header: 'Fecha de registro',
             accessorKey: 'createdAt',
-            cell: ({ getValue }) => {
-                const timestamp = getValue()
-                
-                if (!timestamp) return 'N/A'
-                
-                // Convertir el timestamp a número si es necesario
-                let timestampNumber: number
-                if (typeof timestamp === 'number') {
-                    timestampNumber = timestamp
-                } else if (typeof timestamp === 'object' && (timestamp as any).seconds) {
-                    // Si es un timestamp de Firestore
-                    timestampNumber = (timestamp as any).seconds * 1000
-                } else if (typeof timestamp === 'string') {
-                    // Si es un string, intentar convertirlo
-                    timestampNumber = new Date(timestamp).getTime()
-                } else {
-                    return 'N/A'
-                }
-                
-                return new Date(timestampNumber).toLocaleDateString('es-ES')
-            },
+            cell: ({ row }) => formatGarageCreatedAtCell(row.original),
             sortingFn: (rowA, rowB, columnId) => {
-                const timestampA = rowA.getValue(columnId)
-                const timestampB = rowB.getValue(columnId)
-                
-                // Función helper para convertir timestamp a número
-                const getTimestampNumber = (timestamp: any): number => {
-                    if (!timestamp) return 0
-                    
-                    if (typeof timestamp === 'number') {
-                        return timestamp
-                    } else if (typeof timestamp === 'object' && (timestamp as any).seconds) {
-                        // Si es un timestamp de Firestore
-                        return (timestamp as any).seconds * 1000
-                    } else if (typeof timestamp === 'string') {
-                        // Si es un string, intentar convertirlo
-                        return new Date(timestamp).getTime()
-                    }
-                    return 0
-                }
-                
-                const timestampNumberA = getTimestampNumber(timestampA)
-                const timestampNumberB = getTimestampNumber(timestampB)
-                
-                // Ordenar descendente: más recientes primero (mayor timestamp primero)
-                return timestampNumberB - timestampNumberA
+                const a = timestampLikeToMs(rowA.getValue(columnId))
+                const b = timestampLikeToMs(rowB.getValue(columnId))
+                return a - b
             },
             filterFn: (row, columnId, value) => {
                 if (!value) return true
@@ -1041,33 +919,157 @@ const Garages = () => {
             },
         },
         {
-            header: 'Fecha de Visita',
-            accessorKey: 'scheduled_visit',
-            cell: ({ getValue }) => {
-                const value = getValue()
-                return value || 'N/A'
-            },
-            sortingFn: (rowA, rowB, columnId) => {
-                const valueA = rowA.getValue(columnId) as string
-                const valueB = rowB.getValue(columnId) as string
-                
-                // Si A no tiene fecha pero B sí, B va primero
-                if (!valueA && valueB) return 1
-                // Si B no tiene fecha pero A sí, A va primero
-                if (valueA && !valueB) return -1
-                // Si ninguno tiene fecha, son iguales
-                if (!valueA && !valueB) return 0
-                
-                // Si ambos tienen fecha, ordenar por fecha
-                const dateA = parseDateString(valueA)
-                const dateB = parseDateString(valueB)
-                return dateA - dateB
+            header: 'Nombre',
+            accessorKey: 'nombre',
+            cell: ({ getValue, row }) => {
+                const image_perfil = row.original.image_perfil as
+                    | string
+                    | undefined
+                return (
+                    <div className="flex items-center">
+                        {image_perfil ? (
+                            <img
+                                src={image_perfil}
+                                alt="Logo"
+                                className="h-10 w-10 object-cover rounded-full mr-4"
+                            />
+                        ) : (
+                            <div className="h-10 w-10 bg-gray-200 rounded flex items-center justify-center mr-2">
+                                <GiMechanicGarage
+                                    className="h-6 w-6 text-gray-400"
+                                    aria-hidden="true"
+                                />{' '}
+                            </div>
+                        )}
+                        {getValue() as string}{' '}
+                    </div>
+                )
             },
             filterFn: 'includesString',
-            footer: (props) => props.column.id,
         },
         {
+            header: 'RIF',
+            accessorKey: 'rif',
+        },
+        {
+            header: 'Teléfono',
+            accessorKey: 'phone',
+            cell: ({ row }) => {
+                const nombre = row.original.nombre
+                return (
+                    <div className="flex items-center">
+                        <Avatar
+                            className="mr-2 w-8 h-8 flex items-center justify-center rounded-full"
+                            style={{ backgroundColor: '#887677' }}
+                        >
+                            <span className="text-white font-bold">
+                                {getInitials(nombre)}
+                            </span>
+                        </Avatar>
+                        {row.original.phone}{' '}
+                    </div>
+                )
+            },
+        },
+        {
+            header: 'Correo',
+            accessorKey: 'email',
+            filterFn: (row, columnId, filterValue) => {
+                const email = row.getValue(columnId) as string
+                return (
+                    email?.toLowerCase().includes(
+                        String(filterValue).toLowerCase(),
+                    ) || false
+                )
+            },
+        },
+        {
+            header: 'Ciudad',
+            accessorKey: 'estado',
+        },
+        {
+            header: 'Estado de aprobación',
+            accessorKey: 'status',
+            filterFn: (row, columnId, filterValue) => {
+                if (!filterValue) return true
+                return row.getValue(columnId) === filterValue
+            },
+            cell: ({ row }) => {
+                const status = row.getValue('status') as string
+                let icon
+                let color
+
+                switch (status) {
+                    case 'Aprobado':
+                        icon = <FaCheckCircle className="text-green-500 mr-1" />
+                        color = 'text-green-500'
+                        break
+                    case 'Rechazado':
+                        icon = <FaTimesCircle className="text-red-500 mr-1" />
+                        color = 'text-red-500'
+                        break
+                    case 'Pendiente':
+                        icon = (
+                            <FaExclamationCircle className="text-yellow-500 mr-1" />
+                        )
+                        color = 'text-yellow-500'
+                        break
+                    case 'En espera por aprobación':
+                        icon = (
+                            <FaQuestionCircle className="text-blue-500 mr-1" />
+                        )
+                        color = 'text-blue-500'
+                        break
+                    case 'Eliminado':
+                        icon = <FaTrash className="text-gray-500 mr-1" />
+                        color = 'text-gray-500'
+                        break
+                    default:
+                        icon = null
+                }
+
+                return (
+                    <div className={`flex items-center ${color}`}>
+                        {icon}
+                        <span>{status}</span>
+                    </div>
+                )
+            },
+        },
+        {
+            header: 'Plan',
+            accessorFn: (row) => getPlanNombreGarage(row),
+            id: 'planNombre',
+            sortingFn: 'alphanumeric',
+        },
+        {
+            header: 'Estatus del plan',
+            accessorFn: (row) => getPlanActividadLabel(row),
+            id: 'planActividad',
+            sortingFn: 'alphanumeric',
+            cell: ({ row }) => {
+                const activo = getPlanActividadKey(row.original) === 'activo'
+                return (
+                    <span
+                        className={
+                            activo
+                                ? 'font-semibold text-emerald-700'
+                                : 'font-semibold text-amber-800'
+                        }
+                    >
+                        {getPlanActividadLabel(row.original)}
+                    </span>
+                )
+            },
+        },
+        {
+            header: 'Certificador',
+            accessorKey: 'certificador_nombre',
+        },
+        {
+            id: 'acciones',
             header: ' ',
+            enableSorting: false,
             cell: ({ row }) => {
                 const person = row.original
                 const isEliminado = person.status === 'Eliminado'
@@ -1103,18 +1105,28 @@ const Garages = () => {
     const onDialogClose = (e: MouseEvent) => {
         console.log('onDialogClose', e)
         setIsOpen(false)
-        setSelectedPerson(null) // Limpiar selección
+        setDeleteMotivo('')
+        setSelectedPerson(null)
     }
 
     const handleDelete = async () => {
         if (selectedPerson) {
-            console.log('Eliminando a:', selectedPerson)
+            const motivo = deleteMotivo.trim()
+            if (motivo.length < 5) {
+                toast.push(
+                    <Notification title="Motivo requerido" type="danger">
+                        Indica el motivo de la eliminación (mínimo 5 caracteres).
+                    </Notification>,
+                )
+                return
+            }
 
             try {
-                // 1. Cambiar el status del taller a "Eliminado"
                 const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
                 await updateDoc(userDoc, {
-                    status: 'Eliminado'
+                    status: 'Eliminado',
+                    motivo_eliminacion: motivo,
+                    eliminado_en: Timestamp.now(),
                 })
 
                 // 2. Buscar y actualizar servicios relacionados
@@ -1150,14 +1162,15 @@ const Garages = () => {
                 )
                 toast.push(errorNotification)
             } finally {
-                setIsOpen(false) // Cerrar diálogo después de la operación
-                setSelectedPerson(null) // Limpiar selección
+                setIsOpen(false)
+                setDeleteMotivo('')
+                setSelectedPerson(null)
             }
         }
     }
 
     const table = useReactTable({
-        data: dataGarages,
+        data: garagesDisplayed,
         columns,
         state: {
             sorting,
@@ -1196,6 +1209,10 @@ const Garages = () => {
         setCurrentPage(1)
     }
 
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [filterCiudad, filterPlanActividad])
+
     // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
@@ -1206,11 +1223,38 @@ const Garages = () => {
         ) ??
         (isCertifier ? CERTIFIER_STATUS_FILTER_OPTIONS[0] : GARAGE_STATUS_FILTER_OPTIONS[0])
 
+    const hayFiltrosToolbar =
+        creationDateRange[0] != null ||
+        creationDateRange[1] != null ||
+        Boolean(filterCiudad) ||
+        Boolean(filterPlanActividad) ||
+        Boolean(searchTerm.trim()) ||
+        (!isCertifier && Boolean(statusFilter))
+
+    const clearGarageFilters = () => {
+        setCreationDateRange([null, null])
+        setFilterCiudad('')
+        setFilterPlanActividad('')
+        setSearchTerm('')
+        if (!isCertifier) {
+            setStatusFilter('')
+            setFiltering(buildColumnFilters({ status: '', dateFrom: '', dateTo: '' }))
+        } else {
+            setFiltering(
+                buildColumnFilters({
+                    status: 'En espera por aprobación',
+                    dateFrom: '',
+                    dateTo: '',
+                }),
+            )
+        }
+    }
+
     return (
         <>
-            <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-4xl font-bold text-[#000B7E]">
+            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
+                <div className="flex shrink-0 items-center gap-2">
+                    <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
                         Negocios
                     </h1>
                     <button
@@ -1224,14 +1268,14 @@ const Garages = () => {
                     </button>
                 </div>
 
-                <div className="flex flex-wrap items-end gap-3 min-w-0">
-                    <div className="flex min-w-[14rem] max-w-[20rem] shrink-0 flex-col gap-1">
-                        <span className="text-xs font-medium text-gray-600">
-                            Fecha de creación
+                <div className="flex w-full min-w-0 flex-1 flex-wrap items-end justify-end gap-x-2 gap-y-2 lg:flex-nowrap lg:overflow-x-auto lg:pb-0.5">
+                    <div className="w-[13.5rem] shrink-0 sm:w-[15rem]">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Creación
                         </span>
                         <DatePicker.DatePickerRange
                             clearable
-                            className="w-full min-w-[14rem]"
+                            className="w-full"
                             inputFormat="DD/MM/YYYY"
                             placeholder="Desde — hasta"
                             separator=" — "
@@ -1241,14 +1285,14 @@ const Garages = () => {
                         />
                     </div>
 
-                    <div className="flex min-w-[12rem] max-w-[16rem] shrink-0 flex-col gap-1">
-                        <span className="text-xs font-medium text-gray-600">
-                            Vista rápida
+                    <div className="w-[10.5rem] shrink-0 sm:w-44">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Aprobación
                         </span>
                         <Select<StatusFilterOption, false>
                             size="sm"
                             isSearchable={false}
-                            className="min-w-[12rem]"
+                            className="w-full"
                             options={
                                 isCertifier
                                     ? CERTIFIER_STATUS_FILTER_OPTIONS
@@ -1261,30 +1305,77 @@ const Garages = () => {
                                 setStatusFilter(v)
                                 setFiltering(buildColumnFilters({ status: v }))
                             }}
-                            placeholder="Estado de aprobación"
+                            placeholder="Estado"
                             isDisabled={isCertifier}
                         />
                     </div>
 
-                    <div className="w-full min-w-[12rem] max-w-xs shrink-0 sm:w-72">
-                        <span className="mb-1 block text-xs font-medium text-gray-600">
-                            Buscar en la tabla
+                    <div className="w-[9.5rem] shrink-0 sm:w-40">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Ciudad
+                        </span>
+                        <Select<{ value: string; label: string }, false>
+                            size="sm"
+                            isSearchable
+                            className="w-full"
+                            options={CIUDAD_FILTER_OPTIONS}
+                            value={
+                                CIUDAD_FILTER_OPTIONS.find(
+                                    (o) => o.value === filterCiudad,
+                                ) ?? CIUDAD_FILTER_OPTIONS[0]
+                            }
+                            onChange={(opt) => {
+                                setFilterCiudad(opt?.value ?? '')
+                            }}
+                            placeholder="Ciudad"
+                        />
+                    </div>
+
+                    <div className="w-[8.5rem] shrink-0 sm:w-36">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Plan
+                        </span>
+                        <Select<(typeof PLAN_ESTADO_FILTER_OPTIONS)[number], false>
+                            size="sm"
+                            isSearchable={false}
+                            className="w-full"
+                            options={PLAN_ESTADO_FILTER_OPTIONS}
+                            value={
+                                PLAN_ESTADO_FILTER_OPTIONS.find(
+                                    (o) => o.value === filterPlanActividad,
+                                ) ?? PLAN_ESTADO_FILTER_OPTIONS[0]
+                            }
+                            onChange={(opt) => {
+                                setFilterPlanActividad(
+                                    (opt?.value ?? '') as
+                                        | ''
+                                        | 'activo'
+                                        | 'suspendido',
+                                )
+                            }}
+                            placeholder="Plan"
+                        />
+                    </div>
+
+                    <div className="w-52 shrink-0 sm:w-56">
+                        <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
+                            Buscar
                         </span>
                         <div className="relative">
                             <input
                                 type="text"
-                                placeholder="Nombre, RIF, email, teléfono, suscripción…"
-                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                placeholder="Nombre, RIF, correo…"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
-                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+                            <HiOutlineSearch className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shrink-0">
-                        <span className="text-sm text-gray-600 whitespace-nowrap">
-                            Mostrar eliminados
+                    <div className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5">
+                        <span className="text-[11px] font-medium text-gray-600 whitespace-nowrap sm:text-xs">
+                            Eliminados
                         </span>
                         <Switcher
                             checked={showEliminados}
@@ -1292,22 +1383,34 @@ const Garages = () => {
                         />
                     </div>
 
-                    <Button
-                        className="h-10 w-36 shrink-0 text-sm text-white hover:opacity-80"
-                        style={{ backgroundColor: '#000B7E' }}
-                        onClick={() => setDrawerCreateIsOpen(true)}
-                    >
-                        Crear Negocio
-                    </Button>
-
                     <button
                         type="button"
-                        style={{ backgroundColor: '#10B981' }}
-                        className="h-10 w-36 shrink-0 rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 whitespace-nowrap"
-                        onClick={handleOpenExportDialog}
+                        title="Limpiar filtros"
+                        aria-label="Limpiar filtros"
+                        onClick={clearGarageFilters}
+                        disabled={!hayFiltrosToolbar}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#000B7E]/40 hover:bg-[#000B7E]/5 hover:text-[#000B7E] disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                        Exportar a Excel
+                        <HiOutlineX className="h-5 w-5" />
                     </button>
+
+                    <div className="flex shrink-0 items-end gap-2 border-t border-gray-100 pt-2 md:border-t-0 md:pt-0 md:pl-1">
+                        <Button
+                            className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={() => setDrawerCreateIsOpen(true)}
+                        >
+                            Crear Negocio
+                        </Button>
+                        <button
+                            type="button"
+                            style={{ backgroundColor: '#10B981' }}
+                            className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
+                            onClick={handleOpenExportDialog}
+                        >
+                            Exportar Excel
+                        </button>
+                    </div>
                 </div>
             </div>
             <div className="relative p-3 rounded-lg shadow min-h-[200px]">
@@ -1359,28 +1462,19 @@ const Garages = () => {
                             .rows.slice(startIndex, endIndex)
                             .map((row) => {
                                 const isEliminado = row.original.status === 'Eliminado'
-                                const isPastVisit = isDatePast(row.original.scheduled_visit)
-                                
-                                // Determinar el estilo de la fila
-                                let rowClassName = ''
-                                if (isEliminado) {
-                                    rowClassName = 'opacity-50 bg-gray-50'
-                                } else if (isPastVisit) {
-                                    rowClassName = 'bg-red-100 hover:bg-red-200'
-                                }
-                                
+                                const rowClassName = isEliminado
+                                    ? 'opacity-50 bg-gray-50'
+                                    : ''
+
                                 return (
                                     <Tr 
                                         key={row.id}
                                         className={rowClassName}
                                     >
                                         {row.getVisibleCells().map((cell) => {
-                                            let cellClassName = ''
-                                            if (isEliminado) {
-                                                cellClassName = 'line-through text-gray-500'
-                                            } else if (isPastVisit) {
-                                                cellClassName = 'text-red-900 font-medium'
-                                            }
+                                            const cellClassName = isEliminado
+                                                ? 'line-through text-gray-500'
+                                                : ''
                                             
                                             return (
                                                 <Td 
@@ -1413,11 +1507,22 @@ const Garages = () => {
                 onClose={onDialogClose}
                 onRequestClose={onDialogClose}
             >
-                <h5 className="mb-4">Confirmar Eliminación</h5>
-                <p>
-                    ¿Estás seguro de que deseas marcar como eliminado al negocio{' '}
-                    {selectedPerson?.nombre}? Esta acción también desactivará todos los servicios asociados.
+                <h5 className="mb-4">Confirmar eliminación</h5>
+                <p className="mb-3 text-gray-700">
+                    ¿Marcar como eliminado al negocio{' '}
+                    <strong>{selectedPerson?.nombre}</strong>? Se desactivarán los
+                    servicios asociados.
                 </p>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Motivo de la eliminación <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                    className="mb-4 w-full min-h-[100px] rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                    placeholder="Describe el motivo (mínimo 5 caracteres)…"
+                    value={deleteMotivo}
+                    onChange={(e) => setDeleteMotivo(e.target.value)}
+                    maxLength={2000}
+                />
                 <div className="text-right mt-6">
                     <Button
                         className="ltr:mr-2 rtl:ml-2"
@@ -1440,9 +1545,11 @@ const Garages = () => {
                 onClose={handleCloseExportDialog}
                 onRequestClose={handleCloseExportDialog}
             >
-                <h5 className="mb-4">Confirmar Exportación</h5>
+                <h5 className="mb-4">Confirmar exportación</h5>
                 <p>
-                    ¿Estás seguro de que deseas exportar todos los negocios a Excel?
+                    Se exportarán los negocios que ves en la tabla con los filtros
+                    actuales (incluye columnas de la vista y datos internos del
+                    documento).
                 </p>
                 <div className="text-right mt-6">
                     <Button
