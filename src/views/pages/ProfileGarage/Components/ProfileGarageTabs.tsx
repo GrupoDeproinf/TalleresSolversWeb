@@ -19,6 +19,8 @@ import {
 import PaymentDrawer from './PaymentForm'
 import type { DocumentData } from 'firebase/firestore'
 import type { ReactNode } from 'react'
+import { useAppSelector } from '@/store'
+import { SUPPORT } from '@/constants/roles.constant'
 
 const { TabNav, TabList, TabContent } = Tabs
 const { Tr, Th, Td, THead, TBody } = Table
@@ -120,6 +122,10 @@ export default function ProfileGarageTabs({
     historicoClientes,
     openDocumentModal,
 }: ProfileGarageTabsProps) {
+    const userAuthority = useAppSelector((state) => state.auth.user.authority)
+    const isSupportRole = userAuthority?.includes(SUPPORT)
+    const canManagePlans = !isSupportRole
+    const canManageServices = !isSupportRole
     const [historicoSearch, setHistoricoSearch] = useState('')
     const [historicoExpandedId, setHistoricoExpandedId] = useState<
         string | null
@@ -207,12 +213,14 @@ export default function ProfileGarageTabs({
                                             Puede visualizar y suscribirse a un
                                             plan para su negocio...
                                         </p>
-                                        <button
-                                            onClick={onOpenPlansDialog}
-                                            className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
-                                        >
-                                            Ver Planes
-                                        </button>
+                                        {canManagePlans ? (
+                                            <button
+                                                onClick={onOpenPlansDialog}
+                                                className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition duration-200"
+                                            >
+                                                Ver Planes
+                                            </button>
+                                        ) : null}
                                     </div>
                                 ) : (
                                     <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 lg:flex-row lg:items-center lg:justify-between">
@@ -294,7 +302,9 @@ export default function ProfileGarageTabs({
                                                 </div>
                                             </div>
                                         </div>
-                                        {subscription?.status === 'Vencido' && (
+                                        {canManagePlans &&
+                                            subscription?.status ===
+                                                'Vencido' && (
                                             <div className="flex justify-end gap-2 mt-2">
                                                 <button
                                                     onClick={onOpenPlansDialog}
@@ -313,7 +323,8 @@ export default function ProfileGarageTabs({
                                                 )}
                                             </div>
                                         )}
-                                        {subscription?.status ===
+                                        {canManagePlans &&
+                                            subscription?.status ===
                                             'Aprobado' && (
                                             <div className="flex justify-end mt-2">
                                                 <button
@@ -443,14 +454,16 @@ export default function ProfileGarageTabs({
                                 <h6 className="flex justify-start">
                                     Lista de Servicios
                                 </h6>
-                                <Button
-                                    size="sm"
-                                    variant="solid"
-                                    icon={<HiPlus />}
-                                    onClick={onOpenCreateService}
-                                >
-                                    Crear servicio
-                                </Button>
+                                {canManageServices ? (
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        icon={<HiPlus />}
+                                        onClick={onOpenCreateService}
+                                    >
+                                        Crear servicio
+                                    </Button>
+                                ) : null}
                             </div>
                             <Table className="w-full rounded-lg">
                                 <THead>

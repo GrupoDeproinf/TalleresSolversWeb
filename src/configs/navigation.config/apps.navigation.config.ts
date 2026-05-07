@@ -1,10 +1,14 @@
-import { APP_PREFIX_PATH, CERTIFIER_DASHBOARD_PATH, TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
+import {
+    APP_PREFIX_PATH,
+    CERTIFIER_DASHBOARD_PATH,
+    TALLER_DASHBOARD_PATH,
+} from '@/constants/route.constant'
 import {
     NAV_ITEM_TYPE_TITLE,
     NAV_ITEM_TYPE_COLLAPSE,
     NAV_ITEM_TYPE_ITEM,
 } from '@/constants/navigation.constant'
-import { ADMIN, CERTIFIER, USER } from '@/constants/roles.constant'
+import { ADMIN, CERTIFIER, SUPPORT, USER } from '@/constants/roles.constant'
 import type { NavigationTree } from '@/@types/navigation'
 
 const appsNavigationConfig: NavigationTree[] = [
@@ -15,7 +19,7 @@ const appsNavigationConfig: NavigationTree[] = [
         translateKey: 'nav.apps',
         icon: 'apps',
         type: NAV_ITEM_TYPE_TITLE,
-        authority: [ADMIN, USER, CERTIFIER],
+        authority: [ADMIN, USER, CERTIFIER, SUPPORT],
         subMenu: [
             {
                 key: 'apps.project',
@@ -55,7 +59,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Usuarios',
                 icon: 'user',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN],
+                authority: [ADMIN, SUPPORT],
                 subMenu: [],
             },
             {
@@ -95,7 +99,7 @@ const appsNavigationConfig: NavigationTree[] = [
                 translateKey: 'Negocios',
                 icon: 'cars',
                 type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN, CERTIFIER],
+                authority: [ADMIN, CERTIFIER, SUPPORT],
                 subMenu: [],
             },
             {

@@ -1,6 +1,10 @@
 import { lazy } from 'react'
-import { APP_PREFIX_PATH, CERTIFIER_DASHBOARD_PATH, TALLER_DASHBOARD_PATH } from '@/constants/route.constant'
-import { ADMIN, CERTIFIER, USER } from '@/constants/roles.constant'
+import {
+    APP_PREFIX_PATH,
+    CERTIFIER_DASHBOARD_PATH,
+    TALLER_DASHBOARD_PATH,
+} from '@/constants/route.constant'
+import { ADMIN, CERTIFIER, SUPPORT, USER } from '@/constants/roles.constant'
 import type { Routes } from '@/@types/routes'
 
 const appsRoute: Routes = [
@@ -32,13 +36,13 @@ const appsRoute: Routes = [
         key: 'appsUsers.users',
         path: `${APP_PREFIX_PATH}/users`,
         component: lazy(() => import('@/views/pages/Users')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN, SUPPORT, USER],
     },
     {
         key: 'appsGarages.garages',
         path: `${APP_PREFIX_PATH}/garages`,
         component: lazy(() => import('@/views/pages/Garages')),
-        authority: [ADMIN, USER, CERTIFIER],
+        authority: [ADMIN, USER, CERTIFIER, SUPPORT],
     },
     {
         key: 'appsServices.services',
@@ -146,7 +150,7 @@ const appsRoute: Routes = [
         component: lazy(
             () => import('@/views/pages/ProfileGarage/ProfileGarage'),
         ),
-        authority: [ADMIN, USER, CERTIFIER],
+        authority: [ADMIN, USER, CERTIFIER, SUPPORT],
         meta: {
             header: '',
             headerContainer: true,

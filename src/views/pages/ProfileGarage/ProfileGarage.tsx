@@ -68,6 +68,7 @@ import { SiZelle } from 'react-icons/si'
 import PaymentDrawer from './Components/PaymentForm'
 import { BsWhatsapp } from 'react-icons/bs'
 import { useAppSelector } from '@/store'
+import { SUPPORT } from '@/constants/roles.constant'
 import {
     deleteObject,
     getDownloadURL,
@@ -309,6 +310,7 @@ const ProfileGarage = () => {
     )
     const navigate = useNavigate()
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
+    const isSupportRole = userAuthority?.includes(SUPPORT)
 
     const canGoBack =
         userAuthority?.includes('Admin') || userAuthority?.includes('Certificador')
@@ -760,6 +762,14 @@ const ProfileGarage = () => {
     }
 
     const handleSubscribe = async (plan: any) => {
+        if (isSupportRole) {
+            toast.push(
+                <Notification title="Acción no permitida" type="warning">
+                    El rol Soporte no puede modificar planes del taller.
+                </Notification>,
+            )
+            return
+        }
         try {
             const usuarioDocRef = doc(db, 'Usuarios', path)
             const newSubscriptionRef = doc(collection(db, 'Subscripciones'))
@@ -1539,6 +1549,18 @@ const ProfileGarage = () => {
                         row.original.estatus ?? false,
                     )
                     const handleStatusChange = async (val: boolean) => {
+                        if (isSupportRole) {
+                            toast.push(
+                                <Notification
+                                    title="Acción no permitida"
+                                    type="warning"
+                                >
+                                    El rol Soporte no puede encender ni apagar
+                                    servicios.
+                                </Notification>,
+                            )
+                            return
+                        }
                         // Si intenta encender el servicio, verificar que el plan esté activo y aprobado
                         if (val === true) {
                             if (subscription?.status !== 'Aprobado') {
@@ -1666,6 +1688,7 @@ const ProfileGarage = () => {
                             <Switcher
                                 checked={estatus}
                                 onChange={() => handleStatusChange(!estatus)}
+                                disabled={isSupportRole}
                             />
                         </div>
                     )
@@ -1677,20 +1700,22 @@ const ProfileGarage = () => {
                 cell: ({ row }) => {
                     return (
                         <div className="">
-                            <Button
-                                size="sm"
-                                variant="solid"
-                                onClick={() => handleEditService(row.original)}
-                                className="text-blue-900 hover:bg-blue-700"
-                            >
-                                <FaEdit />
-                            </Button>
+                            {!isSupportRole ? (
+                                <Button
+                                    size="sm"
+                                    variant="solid"
+                                    onClick={() => handleEditService(row.original)}
+                                    className="text-blue-900 hover:bg-blue-700"
+                                >
+                                    <FaEdit />
+                                </Button>
+                            ) : null}
                         </div>
                     )
                 },
             },
         ],
-        [subscription, services, handleEditService],
+        [subscription, services, handleEditService, isSupportRole],
     )
 
     const columns2: ColumnDef<Planes>[] = [
@@ -2298,7 +2323,11 @@ const ProfileGarage = () => {
                     data={data}
                     historicoClientes={historicoClientes}
                     openDocumentModal={openDocumentModal}
-                    onOpenCreateService={() => setIsCreateServiceDrawerOpen(true)}
+                    onOpenCreateService={
+                        isSupportRole
+                            ? undefined
+                            : () => setIsCreateServiceDrawerOpen(true)
+                    }
                 />
             </div>
 
@@ -2368,7 +2397,7 @@ const ProfileGarage = () => {
                                                 )}
                                             </Th>
                                         ))}
-                                        <Th>Acción</Th>{' '}
+                                        {!isSupportRole ? <Th>Acción</Th> : null}
                                     </Tr>
                                 ))}
                             </THead>
@@ -2392,18 +2421,20 @@ const ProfileGarage = () => {
                                                         )}
                                                     </Td>
                                                 ))}
-                                            <Td>
-                                                <button
-                                                    className="bg-[#1d1e56] text-white px-4 py-2 rounded"
-                                                    onClick={() =>
-                                                        handleSubscribe(
-                                                            row.original,
-                                                        )
-                                                    }
-                                                >
-                                                    Suscribirse
-                                                </button>
-                                            </Td>
+                                            {!isSupportRole ? (
+                                                <Td>
+                                                    <button
+                                                        className="bg-[#1d1e56] text-white px-4 py-2 rounded"
+                                                        onClick={() =>
+                                                            handleSubscribe(
+                                                                row.original,
+                                                            )
+                                                        }
+                                                    >
+                                                        Suscribirse
+                                                    </button>
+                                                </Td>
+                                            ) : null}
                                         </Tr>
                                     ))}
                             </TBody>

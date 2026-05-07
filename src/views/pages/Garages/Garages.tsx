@@ -65,7 +65,7 @@ import dayjs from 'dayjs'
 import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 import { useAppSelector } from '@/store'
-import { CERTIFIER } from '@/constants/roles.constant'
+import { CERTIFIER, SUPPORT } from '@/constants/roles.constant'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -363,6 +363,7 @@ const Garages = () => {
     const [isLoading, setIsLoading] = useState(false) // Estado para mostrar cargando al cambiar filtros pesados
     const authority = useAppSelector((state) => state.auth.user.authority)
     const isCertifier = authority.includes(CERTIFIER)
+    const isSupportRole = authority.includes(SUPPORT)
 
     const isSameDay = (dateA: Date, dateB: Date) => {
         return (
@@ -1085,7 +1086,7 @@ const Garages = () => {
                         >
                             <FaRegEye />
                         </button>
-                        {!isCertifier && !isEliminado && (
+                        {!isCertifier && !isSupportRole && !isEliminado && (
                             <button
                                 onClick={() => openDialog(person)}
                                 className="text-red-700"
@@ -1110,6 +1111,17 @@ const Garages = () => {
     }
 
     const handleDelete = async () => {
+        if (isSupportRole) {
+            toast.push(
+                <Notification title="Acción no permitida" type="warning">
+                    El rol Soporte no tiene permisos para eliminar negocios.
+                </Notification>,
+            )
+            setIsOpen(false)
+            setDeleteMotivo('')
+            setSelectedPerson(null)
+            return
+        }
         if (selectedPerson) {
             const motivo = deleteMotivo.trim()
             if (motivo.length < 5) {

@@ -60,6 +60,8 @@ import { ErrorMessage, Field, Form, Formik, useFormikContext } from 'formik'
 import * as XLSX from 'xlsx-js-style'
 import JSZip from 'jszip'
 import { components as selectComponents } from 'react-select'
+import { useAppSelector } from '@/store'
+import { SUPPORT } from '@/constants/roles.constant'
 
 type Person = {
     nombre?: string
@@ -484,6 +486,10 @@ function personSearchableText(p: Person): string {
 }
 
 const Users = () => {
+    const currentUserAuthority = useAppSelector(
+        (state) => state.auth.user.authority,
+    )
+    const isSupportRole = currentUserAuthority.includes(SUPPORT)
     const [dataUsers, setDataUsers] = useState<Person[]>([])
     const [usersLoading, setUsersLoading] = useState(true)
     const [filterCiudad, setFilterCiudad] = useState('')
@@ -516,7 +522,8 @@ const Users = () => {
                 const userData = docSnap.data() as Person
                 if (
                     userData.typeUser === 'Cliente' ||
-                    userData.typeUser === 'Certificador'
+                    userData.typeUser === 'Certificador' ||
+                    userData.typeUser === 'Soporte'
                 ) {
                     base.push({
                         ...userData,
@@ -648,10 +655,11 @@ const Users = () => {
             .matches(/^[1-9]\d{9}$/, 'El teléfono debe tener 10 dígitos y no puede comenzar con 0')
             .required('El teléfono es obligatorio'),
         typeUser: Yup.string()
-            .oneOf(['Cliente', 'Certificador'], 'Tipo de usuario inválido')
+            .oneOf(['Cliente', 'Certificador', 'Soporte'], 'Tipo de usuario inválido')
             .required('El tipo de usuario es obligatorio'),
         estado: Yup.mixed().when('typeUser', {
-            is: 'Certificador',
+            is: (typeUser: string) =>
+                typeUser === 'Certificador' || typeUser === 'Soporte',
             then: () => Yup.array().min(1, 'Debe seleccionar al menos un estado').required('El estado es obligatorio'),
             otherwise: () => Yup.string().required('El estado es obligatorio'),
         }),
@@ -732,7 +740,13 @@ const Users = () => {
                 Password: values.password,
                 typeUser: values.typeUser || 'Cliente',
                 uid: user.uid,
-                estado: values.typeUser === 'Certificador' ? (Array.isArray(values.estado) ? values.estado : [values.estado]) : values.estado,
+                estado:
+                    values.typeUser === 'Certificador' ||
+                    values.typeUser === 'Soporte'
+                        ? Array.isArray(values.estado)
+                            ? values.estado
+                            : [values.estado]
+                        : values.estado,
                 createdAt: Date.now(),
             })
 
@@ -878,7 +892,13 @@ const Users = () => {
                     cedula: selectedPerson.cedula,
                     phone: selectedPerson.phone,
                     typeUser: selectedPerson.typeUser,
-                    estado: selectedPerson.typeUser === 'Certificador' ? (Array.isArray(selectedPerson.estado) ? selectedPerson.estado : [selectedPerson.estado]) : selectedPerson.estado
+                    estado:
+                        selectedPerson.typeUser === 'Certificador' ||
+                        selectedPerson.typeUser === 'Soporte'
+                            ? Array.isArray(selectedPerson.estado)
+                                ? selectedPerson.estado
+                                : [selectedPerson.estado]
+                            : selectedPerson.estado,
                 }
 
                 await updateDoc(userDoc, updateData)
@@ -1008,6 +1028,10 @@ const Users = () => {
                         icon = <FaUserShield className="text-yellow-500 mr-1" />
                         color = 'text-yellow-500'
                         break
+                    case 'Soporte':
+                        icon = <FaUserShield className="text-blue-500 mr-1" />
+                        color = 'text-blue-500'
+                        break
                     default:
                         icon = null
                         color = 'text-gray-500'
@@ -1070,13 +1094,15 @@ const Users = () => {
                         >
                             <FaEdit />
                         </button>
-                        <button
-                            onClick={() => openDialog(person)}
-                            className="text-red-700"
-                            title="Eliminar"
-                        >
-                            <FaTrash />
-                        </button>
+                        {!isSupportRole ? (
+                            <button
+                                onClick={() => openDialog(person)}
+                                className="text-red-700"
+                                title="Eliminar"
+                            >
+                                <FaTrash />
+                            </button>
+                        ) : null}
                     </div>
                 )
             },
@@ -1135,6 +1161,16 @@ const Users = () => {
         Boolean(creationDateRange[1])
 
     const handleDelete = async () => {
+        if (isSupportRole) {
+            toast.push(
+                <Notification title="Acción no permitida" type="warning">
+                    El rol Soporte no tiene permisos para eliminar usuarios.
+                </Notification>,
+            )
+            setIsOpen(false)
+            setSelectedPerson(null)
+            return
+        }
         if (selectedPerson) {
             console.log('Eliminando a:', selectedPerson)
 
@@ -1281,6 +1317,7 @@ const Users = () => {
                             <option value="">Todos</option>
                             <option value="Cliente">Cliente</option>
                             <option value="Certificador">Certificador</option>
+                            <option value="Soporte">Soporte</option>
                         </select>
                     </div>
                     <div className="w-[13.5rem] shrink-0 sm:w-[15rem]">
@@ -1768,6 +1805,7 @@ const Users = () => {
                         </span>
                         <select
                             value={selectedPerson?.typeUser || 'Cliente'}
+                            disabled={isSupportRole}
                             onChange={(e) => {
                                 const newTypeUser = e.target.value
                                 setSelectedPerson((prev: any) => {
@@ -1777,16 +1815,22 @@ const Users = () => {
                                         ...prev,
                                         typeUser: newTypeUser,
                                         estado:
-                                            newTypeUser === 'Certificador'
+                                            newTypeUser === 'Certificador' ||
+                                            newTypeUser === 'Soporte'
                                                 ? []
                                                 : '',
                                     }
                                 })
                             }}
-                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
+                            className={`mt-1 p-3 border border-gray-300 rounded-lg transition duration-200 ${
+                                isSupportRole
+                                    ? 'bg-gray-100 cursor-not-allowed'
+                                    : 'focus:outline-none focus:ring-2 focus:ring-blue-500'
+                            }`}
                         >
                             <option value="Cliente">Cliente</option>
                             <option value="Certificador">Certificador</option>
+                            <option value="Soporte">Soporte</option>
                         </select>
                     </label>
 
@@ -1795,7 +1839,8 @@ const Users = () => {
                             <span className="font-semibold text-gray-700">
                                 Estado:
                             </span>
-                            {selectedPerson?.typeUser === 'Certificador' ? (
+                            {selectedPerson?.typeUser === 'Certificador' ||
+                            selectedPerson?.typeUser === 'Soporte' ? (
                                 <Select
                                     isMulti
                                     options={certificadorEstadoSelectOptions}
@@ -1885,7 +1930,10 @@ const Users = () => {
                     {({ isSubmitting, setFieldValue, values }) => {
                         // Efecto para limpiar el estado cuando cambie el tipo de usuario
                         React.useEffect(() => {
-                            if (values.typeUser === 'Certificador') {
+                            if (
+                                values.typeUser === 'Certificador' ||
+                                values.typeUser === 'Soporte'
+                            ) {
                                 setFieldValue('estado', [])
                             } else {
                                 setFieldValue('estado', '')
@@ -2024,6 +2072,7 @@ const Users = () => {
                                     <option value="Certificador">
                                         Certificador
                                     </option>
+                                    <option value="Soporte">Soporte</option>
                                 </Field>
                                 <ErrorMessage
                                     name="typeUser"
@@ -2035,7 +2084,7 @@ const Users = () => {
                             {/* Campo para Estados */}
 <div className="flex flex-col">
     <label className="font-semibold text-gray-700">Estado:</label>
-    {values.typeUser === 'Certificador' ? (
+    {values.typeUser === 'Certificador' || values.typeUser === 'Soporte' ? (
         <Field name="estado">
             {({ field, form }: any) => (
                 <Select

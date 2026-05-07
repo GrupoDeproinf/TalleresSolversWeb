@@ -12,7 +12,7 @@ import {
     getAuthenticatedHomePath,
     resolvePostSignInPath,
 } from '@/utils/getAuthenticatedHomePath'
-import { USER, ADMIN, CERTIFIER } from '@/constants/roles.constant'
+import { USER, ADMIN, CERTIFIER, SUPPORT } from '@/constants/roles.constant'
 import { REDIRECT_URL_KEY } from '@/constants/app.constant'
 import { useNavigate } from 'react-router-dom'
 import useQuery from './useQuery'
@@ -67,7 +67,11 @@ function useAuth() {
             // Si el usuario está en la colección Usuarios
             const firstUserDoc = usuariosSnapshot.docs[0]
             const potentialUser = firstUserDoc.data()
-            if (potentialUser.typeUser === 'Taller' || potentialUser.typeUser === 'Certificador') {
+            if (
+                potentialUser.typeUser === 'Taller' ||
+                potentialUser.typeUser === 'Certificador' ||
+                potentialUser.typeUser === 'Soporte'
+            ) {
                 collectionToCheck = 'Usuarios'
                 userData = potentialUser
                 matchedUserKey = firstUserDoc.id
@@ -141,7 +145,11 @@ function useAuth() {
                 localStorage.setItem('nombre', userInfo?.nombre ?? '')
                 const trimmedType = String(userInfo?.typeUser ?? '').trim()
                 let userAuthority: string =
-                    trimmedType === 'Certificador' ? CERTIFIER : trimmedType
+                    trimmedType === 'Certificador'
+                        ? CERTIFIER
+                        : trimmedType === 'Soporte'
+                          ? SUPPORT
+                          : trimmedType
                 if (!userAuthority) {
                     userAuthority =
                         collectionToCheck === 'Admins' ? ADMIN : USER
