@@ -9,10 +9,13 @@ type SalesByCategoriesProps = {
         data: number[]
         colors: string[]
     }
+    /** Texto bajo el total en el gráfico donut (p. ej. usuarios vs negocios). */
+    donutText?: string
 }
 
 const SalesByCategories = ({
     data = { labels: [], data: [], colors: [] },
+    donutText = 'Cantidad de Negocios',
 }: SalesByCategoriesProps) => {
     return (
         <Card className="shadow-none border-0 p-0 h-full">
@@ -22,7 +25,7 @@ const SalesByCategories = ({
                         <div className="flex-1 min-w-0">
                             <Chart
                                 donutTitle={`${data.data.reduce((a, b) => a + b, 0)}`}
-                                donutText="Cantidad de Negocios"
+                                donutText={donutText}
                                 series={data.data}
                                 customOptions={{
                                     labels: data.labels,

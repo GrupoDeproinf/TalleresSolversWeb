@@ -1997,7 +1997,14 @@ const columns: ColumnDef<{
                                                 Aún no hay datos de estados disponibles.
                                             </p>
                                         ) : (
-                                            <SalesByCategories data={chartEstados} />
+                                            <SalesByCategories
+                                                data={chartEstados}
+                                                donutText={
+                                                    vistaEstados === 'usuarios'
+                                                        ? 'Cantidad de usuarios'
+                                                        : 'Cantidad de negocios'
+                                                }
+                                            />
                                         )}
                                     </div>
                                 </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { Drawer } from '@/components/ui'
@@ -103,11 +103,21 @@ const STATUS_FILTER_OPTIONS: FilterSelectOption[] = [
     { value: 'inactivo', label: 'Inactivo' },
 ]
 
-const TYPE_SERVICE_FILTER_OPTIONS: FilterSelectOption[] = [
-    { value: 'todos', label: 'Todos los tipos' },
-    { value: 'domicilio', label: 'A domicilio' },
-    { value: 'local', label: 'En el local' },
-]
+function getCategoryFilterKey(s: Service): string {
+    const label = (s.categoria || s.nombre_categoria || '').trim()
+    const uid = (s.uid_categoria || '').trim()
+    if (label) return `name:${label.toLowerCase()}`
+    if (uid) return `uid:${uid}`
+    return 'key:__none__'
+}
+
+function getCategoryFilterLabel(s: Service): string {
+    const label = (s.categoria || s.nombre_categoria || '').trim()
+    const uid = (s.uid_categoria || '').trim()
+    if (label) return label
+    if (uid) return uid
+    return 'Sin categoría'
+}
 
 function subcategoriaToSearchParts(
     sub: Service['subcategoria'],
@@ -192,7 +202,7 @@ const ServicesList = () => {
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState<string>('todos')
-    const [typeServiceFilter, setTypeServiceFilter] = useState<string>('todos') // 'todos' | 'local' | 'domicilio'
+    const [categoryFilter, setCategoryFilter] = useState<string>('todos')
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [currentPage, setCurrentPage] = useState(1)
@@ -304,10 +314,34 @@ const ServicesList = () => {
         fetchData()
     }, [isTallerUser, loggedInUserId])
 
-    // Aplicar filtros de estado y tipo de servicio cuando cambien
+    const categoryFilterOptions = useMemo(() => {
+        const byKey = new Map<string, FilterSelectOption>()
+        byKey.set('todos', { value: 'todos', label: 'Todas las categorías' })
+        for (const s of dataServices) {
+            const key = getCategoryFilterKey(s)
+            if (!byKey.has(key)) {
+                byKey.set(key, {
+                    value: key,
+                    label: getCategoryFilterLabel(s),
+                })
+            }
+        }
+        const rest = [...byKey.entries()]
+            .filter(([k]) => k !== 'todos')
+            .sort((a, b) =>
+                a[1].label.localeCompare(b[1].label, 'es', {
+                    sensitivity: 'base',
+                }),
+            )
+            .map(([, v]) => v)
+        return [byKey.get('todos')!, ...rest]
+    }, [dataServices])
+
     useEffect(() => {
-        applyFilters()
-    }, [statusFilter, typeServiceFilter])
+        if (categoryFilter === 'todos') return
+        const ok = categoryFilterOptions.some((o) => o.value === categoryFilter)
+        if (!ok) setCategoryFilter('todos')
+    }, [categoryFilterOptions, categoryFilter])
 
     const handleRefresh = async () => {
         await fetchData()
@@ -330,14 +364,19 @@ const ServicesList = () => {
                 value: statusFilter === 'activo' ? true : false,
             })
         }
-        if (typeServiceFilter !== 'todos') {
+        if (categoryFilter !== 'todos') {
             filters.push({
-                id: 'typeService',
-                value: typeServiceFilter, // 'local' | 'domicilio'
+                id: 'categoria',
+                value: categoryFilter,
             })
         }
         setFiltering(filters)
     }
+
+    // Aplicar filtros de estado y categoría cuando cambien
+    useEffect(() => {
+        applyFilters()
+    }, [statusFilter, categoryFilter])
 
     const getStatusIcon = (estatus: boolean) => {
         if (estatus) {
@@ -478,6 +517,10 @@ const ServicesList = () => {
         {
             header: 'Categoría',
             accessorKey: 'categoria',
+            filterFn: (row, _columnId, filterValue) => {
+                if (!filterValue || filterValue === 'todos') return true
+                return getCategoryFilterKey(row.original) === filterValue
+            },
             cell: ({ row }) => {
                 const service = row.original
                 return (
@@ -682,9 +725,9 @@ const ServicesList = () => {
     const statusFilterOption =
         STATUS_FILTER_OPTIONS.find((o) => o.value === statusFilter) ??
         STATUS_FILTER_OPTIONS[0]
-    const typeServiceFilterOption =
-        TYPE_SERVICE_FILTER_OPTIONS.find((o) => o.value === typeServiceFilter) ??
-        TYPE_SERVICE_FILTER_OPTIONS[0]
+    const categoryFilterOption =
+        categoryFilterOptions.find((o) => o.value === categoryFilter) ??
+        categoryFilterOptions[0]
 
     return (
         <>
@@ -720,20 +763,20 @@ const ServicesList = () => {
                             placeholder="Estado"
                         />
                     </div>
-                    <div className="flex min-w-[11rem] max-w-[14rem] shrink-0 flex-col gap-1">
+                    <div className="flex min-w-[11rem] max-w-[18rem] shrink-0 flex-col gap-1">
                         <span className="text-xs font-medium text-gray-600">
-                            Tipo de servicio
+                            Categoría
                         </span>
                         <Select<FilterSelectOption, false>
                             size="sm"
-                            isSearchable={false}
+                            isSearchable={categoryFilterOptions.length > 8}
                             className="min-w-[11rem]"
-                            options={TYPE_SERVICE_FILTER_OPTIONS}
-                            value={typeServiceFilterOption}
+                            options={categoryFilterOptions}
+                            value={categoryFilterOption}
                             onChange={(opt) =>
-                                setTypeServiceFilter(opt?.value ?? 'todos')
+                                setCategoryFilter(opt?.value ?? 'todos')
                             }
-                            placeholder="Tipo"
+                            placeholder="Categoría"
                         />
                     </div>
                     <div className="w-full min-w-[12rem] max-w-sm shrink-0 sm:w-80">
