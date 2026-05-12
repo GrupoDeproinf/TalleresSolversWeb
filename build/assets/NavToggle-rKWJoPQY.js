@@ -1,0 +1,1 @@
+import{j as s}from"./index-ObPtJ5w-.js";import{_ as i,$ as r}from"./index.esm-AfzvVFOM.js";const u=({toggled:t,className:e})=>s.jsx("div",{className:e,children:t?s.jsx(i,{}):s.jsx(r,{})});export{u as N};
