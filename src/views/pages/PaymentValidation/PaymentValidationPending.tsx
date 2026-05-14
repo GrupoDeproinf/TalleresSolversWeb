@@ -28,6 +28,11 @@ import {
     writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
+import {
+    collectActiveTallerDocIdsFromUsersSnapshot,
+    getSubscriptionTallerUid,
+} from '@/utils/activeTallerSubscriptionGuards'
+import { isPendingPaymentValidationSubscription } from '@/utils/pendingPaymentValidation'
 import Button from '@/components/ui/Button'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
@@ -352,13 +357,23 @@ const PaymentValidationPending = ({
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
 
     const getData = async () => {
-        const q = query(
-            collection(db, 'Subscripciones'),
-            where('status', '==', 'Por Aprobar'),
-        )
-        const querySnapshot = await getDocs(q)
+        const [usersSnap, subsSnap] = await Promise.all([
+            getDocs(collection(db, 'Usuarios')),
+            getDocs(collection(db, 'Subscripciones')),
+        ])
+        const activeTallerIds =
+            collectActiveTallerDocIdsFromUsersSnapshot(usersSnap)
 
-        const promises = querySnapshot.docs.map(async (docSnap) => {
+        const pendingDocSnaps = subsSnap.docs.filter((docSnap) => {
+            const data = docSnap.data() as Record<string, unknown>
+            const tallerUid = getSubscriptionTallerUid(data)
+            if (tallerUid && !activeTallerIds.has(tallerUid)) {
+                return false
+            }
+            return isPendingPaymentValidationSubscription(data)
+        })
+
+        const promises = pendingDocSnaps.map(async (docSnap) => {
             const subsData = docSnap.data() as Subscriptions
 
             let nombre_taller = 'Negocio no encontrado'
@@ -378,18 +393,7 @@ const PaymentValidationPending = ({
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
-        // Solo mostrar suscripciones de pago (excluir gratuitas, no requieren validación)
-        const soloPago = resolvedSubcripciones.filter((sub) => {
-            const monto = sub.monto
-            const montoNum =
-                typeof monto === 'string'
-                    ? parseFloat(monto)
-                    : typeof monto === 'number'
-                      ? monto
-                      : 0
-            return !isNaN(montoNum) && montoNum >= 0.0001
-        })
-        setDataSubs(soloPago)
+        setDataSubs(resolvedSubcripciones)
     }
 
     useEffect(() => {

@@ -63,10 +63,17 @@ const SubscriptionsUnified = () => {
 
     return (
         <div>
-            <div className="mb-6 flex items-center gap-3">
-                <h1 className="text-4xl font-bold text-[#000B7E]">
-                    Validación de pagos e histórico de suscripciones
-                </h1>
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                <div className="min-w-0 flex-1">
+                    <h1 className="text-4xl font-bold text-[#000B7E]">
+                        Validación de pagos e histórico de suscripciones
+                    </h1>
+                    <p className="mt-2 max-w-3xl text-sm leading-snug text-gray-600">
+                        Solo se listan suscripciones de negocios activos en la
+                        plataforma (se excluyen los marcados como Eliminado en
+                        Usuarios), alineado con el dashboard de ventas.
+                    </p>
+                </div>
                 <button
                     type="button"
                     title="Actualizar datos desde el servidor"

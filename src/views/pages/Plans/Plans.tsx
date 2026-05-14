@@ -33,6 +33,7 @@ import { Drawer, Switcher } from '@/components/ui'
 import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import { sortPlansByDisplayOrder } from '@/utils/sortPlansByDisplayOrder'
 
 type Plans = {
     nombre?: string
@@ -79,7 +80,7 @@ const Plans = () => {
             planes.push({ ...plansData, uid: doc.id })
         })
 
-        setDataPlans(planes)
+        setDataPlans(sortPlansByDisplayOrder(planes))
     }
 
     useEffect(() => {

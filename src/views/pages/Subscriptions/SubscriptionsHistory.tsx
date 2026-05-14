@@ -19,6 +19,11 @@ import {
     getDoc,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
+import {
+    collectActiveTallerDocIdsFromUsersSnapshot,
+    subscriptionIsFromActiveTaller,
+} from '@/utils/activeTallerSubscriptionGuards'
+import { getSubscriptionPlanName } from '@/utils/subscriptionPlanLabel'
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import DatePicker from '@/components/ui/DatePicker'
@@ -43,7 +48,7 @@ type Subscriptions = {
     /** Se completa al cargar desde Firestore junto con `nombre_taller`. */
     correo_taller?: string
     ciudad_taller?: string
-    comprobante_pago: {
+    comprobante_pago?: {
         monto?: number
         metodo?: string
         banco?: string
@@ -56,6 +61,32 @@ type Subscriptions = {
         bancoOrigen?: string
         bancoDestino?: string
     }
+}
+
+function firestoreTimestampMs(value: unknown): number {
+    if (value == null) return 0
+    if (value instanceof Timestamp) return value.toMillis()
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        'seconds' in value &&
+        typeof (value as { seconds: unknown }).seconds === 'number'
+    ) {
+        return (value as { seconds: number }).seconds * 1000
+    }
+    return 0
+}
+
+/** Fecha más reciente asociada al registro (útil para listar el histórico de más nuevo a más viejo). */
+function subscriptionRecencyMs(row: Subscriptions): number {
+    const raw = row as unknown as Record<string, unknown>
+    return Math.max(
+        firestoreTimestampMs(raw.fechaCreacion),
+        firestoreTimestampMs(raw.fecha_creacion),
+        firestoreTimestampMs(row.fecha_inicio),
+        firestoreTimestampMs(row.fecha_fin),
+        firestoreTimestampMs(row.comprobante_pago?.fechaPago),
+    )
 }
 
 type StatusFilterOption = { value: string; label: string }
@@ -76,6 +107,56 @@ const ALL_METHODS_OPTION: MethodFilterOption = {
 const ALL_CITIES_OPTION: CityFilterOption = {
     value: '',
     label: 'Todas las ciudades',
+}
+
+type PlanFiltroHistorico = 'todos' | 'gratis' | 'oro' | 'plata' | 'bronce'
+
+type PlanFilterOption = { value: PlanFiltroHistorico; label: string }
+
+const PLAN_FILTER_OPTIONS: PlanFilterOption[] = [
+    { value: 'todos', label: 'Todos los planes' },
+    { value: 'gratis', label: 'Gratis' },
+    { value: 'bronce', label: 'Bronce' },
+    { value: 'plata', label: 'Plata' },
+    { value: 'oro', label: 'Oro' },
+]
+
+const PLAN_FILTRO_KEYS: Record<
+    Exclude<PlanFiltroHistorico, 'todos'>,
+    string
+> = {
+    gratis: 'GRATIS',
+    oro: 'Plan Oro',
+    plata: 'Plan Plata',
+    bronce: 'Plan Bronce',
+}
+
+const normalizePlanLabel = (s: string) =>
+    s
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+
+const subscriptionRowMatchesPlanFilter = (
+    row: Subscriptions,
+    filtro: PlanFiltroHistorico,
+): boolean => {
+    if (filtro === 'todos') {
+        return true
+    }
+    const label = getSubscriptionPlanName(row as unknown as Record<string, unknown>)
+    const n = normalizePlanLabel(label)
+    if (filtro === 'gratis') {
+        return (
+            n === 'gratis' ||
+            n.includes('gratis') ||
+            label.trim().toUpperCase() === 'GRATIS'
+        )
+    }
+    const target = normalizePlanLabel(PLAN_FILTRO_KEYS[filtro])
+    return n === target
 }
 
 function formatTsForSearch(ts: unknown): string {
@@ -148,6 +229,8 @@ const SubscriptionsHistory = ({
     const [selectedStatus, setSelectedStatus] = useState<string>('')
     const [selectedMethod, setSelectedMethod] = useState<string>('')
     const [selectedCity, setSelectedCity] = useState<string>('')
+    const [selectedPlan, setSelectedPlan] =
+        useState<PlanFiltroHistorico>('todos')
     const [selectedPerson, setSelectedPerson] = useState<Subscriptions | null>(
         null,
     )
@@ -159,7 +242,12 @@ const SubscriptionsHistory = ({
 
     const getData = async () => {
         const q = query(collection(db, 'Subscripciones'))
-        const querySnapshot = await getDocs(q)
+        const [usersSnap, querySnapshot] = await Promise.all([
+            getDocs(collection(db, 'Usuarios')),
+            getDocs(q),
+        ])
+        const activeTallerIds =
+            collectActiveTallerDocIdsFromUsersSnapshot(usersSnap)
 
         const promises = querySnapshot.docs.map(async (docSnap) => {
             const subsData = docSnap.data() as Subscriptions
@@ -194,8 +282,20 @@ const SubscriptionsHistory = ({
         })
 
         const resolvedSubcripciones = await Promise.all(promises)
+        const deTalleresActivos = resolvedSubcripciones.filter((sub) =>
+            subscriptionIsFromActiveTaller(
+                sub as unknown as Record<string, unknown>,
+                activeTallerIds,
+            ),
+        )
+        const ordenados = deTalleresActivos.slice().sort((a, b) => {
+            const mb = subscriptionRecencyMs(b)
+            const ma = subscriptionRecencyMs(a)
+            if (mb !== ma) return mb - ma
+            return (b.uid || '').localeCompare(a.uid || '')
+        })
         //console.log('Data de suscripciones:', resolvedSubcripciones) // Agrega este console.log
-        setDataSubs(resolvedSubcripciones)
+        setDataSubs(ordenados)
     }
 
     useEffect(() => {
@@ -284,7 +384,8 @@ const SubscriptionsHistory = ({
         })
 
         // Filtrar los datos para las fechas dentro del rango
-        const filteredData = dataSubs.filter((row) => {
+        const filteredData = dataSubs
+            .filter((row) => {
             // Convertir `fecha_inicio` a Date si es un Timestamp
             const fechaInicio =
                 row.fecha_inicio instanceof Timestamp
@@ -314,6 +415,13 @@ const SubscriptionsHistory = ({
                 fechaInicio.getTime() <= adjustedEndDate.getTime() // Fecha dentro del rango de fin
             )
         })
+            .slice()
+            .sort((a, b) => {
+                const mb = subscriptionRecencyMs(b)
+                const ma = subscriptionRecencyMs(a)
+                if (mb !== ma) return mb - ma
+                return (b.uid || '').localeCompare(a.uid || '')
+            })
 
         if (filteredData.length === 0) {
             toast.push(
@@ -569,6 +677,9 @@ const SubscriptionsHistory = ({
         if (rangeEnd) rangeEnd.setHours(23, 59, 59, 999)
 
         return dataSubs.filter((row) => {
+            if (!subscriptionRowMatchesPlanFilter(row, selectedPlan)) {
+                return false
+            }
             if (selectedStatus && row.status !== selectedStatus) return false
             if (selectedMethod && row.comprobante_pago?.metodo !== selectedMethod)
                 return false
@@ -587,6 +698,7 @@ const SubscriptionsHistory = ({
         })
     }, [
         dataSubs,
+        selectedPlan,
         selectedStatus,
         selectedMethod,
         selectedCity,
@@ -621,6 +733,9 @@ const SubscriptionsHistory = ({
     const cityFilterOption =
         cityFilterOptions.find((o) => o.value === selectedCity) ??
         cityFilterOptions[0]
+    const planFilterOption =
+        PLAN_FILTER_OPTIONS.find((o) => o.value === selectedPlan) ??
+        PLAN_FILTER_OPTIONS[0]
 
     return (
         <>
@@ -683,6 +798,23 @@ const SubscriptionsHistory = ({
                             size="sm"
                             value={paymentDateRange}
                             onChange={setPaymentDateRange}
+                        />
+                    </div>
+                    <div className="w-[12rem] shrink-0">
+                        <span className="text-xs font-medium text-gray-600">
+                            Plan
+                        </span>
+                        <Select<PlanFilterOption, false>
+                            size="sm"
+                            isSearchable={false}
+                            className="min-w-[12rem]"
+                            options={PLAN_FILTER_OPTIONS}
+                            value={planFilterOption}
+                            placeholder="Plan"
+                            onChange={(opt) => {
+                                setSelectedPlan(opt?.value ?? 'todos')
+                                setCurrentPage(1)
+                            }}
                         />
                     </div>
                 </div>

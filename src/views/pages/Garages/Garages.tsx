@@ -223,10 +223,15 @@ function buildGarageGridExcelRow(g: Garage): Record<string, string> {
         telefono: g.phone ?? '',
         correo: g.email ?? '',
         ciudad: g.estado ?? '',
+        direccionNegocio: g.Direccion ?? '',
         estadoAprobacion: g.status ?? '',
         planNombre: getPlanNombreGarage(g),
         estatusPlan: getPlanActividadLabel(g),
         certificador: g.certificador_nombre ?? '',
+        redFacebook: g.LinkFacebook ?? '',
+        redInstagram: g.LinkInstagram ?? '',
+        redTiktok: g.LinkTiktok ?? '',
+        redWhatsapp: g.whatsapp ?? '',
     }
 }
 
@@ -237,10 +242,15 @@ const GARAGE_EXCEL_COLUMNS: ExcelColumnConfig[] = [
     { header: 'Teléfono', key: 'telefono' },
     { header: 'Correo', key: 'correo', linkType: 'email' },
     { header: 'Ciudad', key: 'ciudad' },
+    { header: 'Dirección del negocio', key: 'direccionNegocio' },
     { header: 'Estado de aprobación', key: 'estadoAprobacion' },
     { header: 'Plan', key: 'planNombre' },
     { header: 'Estatus del plan', key: 'estatusPlan' },
     { header: 'Certificador', key: 'certificador' },
+    { header: 'Facebook', key: 'redFacebook', linkType: 'url' },
+    { header: 'Instagram', key: 'redInstagram', linkType: 'url' },
+    { header: 'TikTok', key: 'redTiktok', linkType: 'url' },
+    { header: 'WhatsApp', key: 'redWhatsapp' },
 ]
 
 function timestampLikeToMs(value: unknown): number {
@@ -296,6 +306,9 @@ function garageSearchableText(g: Garage): string {
         g.uid,
         g.id,
         g.LinkInstagram,
+        g.LinkFacebook,
+        g.LinkTiktok,
+        g.whatsapp,
         getPlanNombreGarage(g),
         getPlanActividadLabel(g),
     )

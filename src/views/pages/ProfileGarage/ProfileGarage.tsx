@@ -68,7 +68,7 @@ import { SiZelle } from 'react-icons/si'
 import PaymentDrawer from './Components/PaymentForm'
 import { BsWhatsapp } from 'react-icons/bs'
 import { useAppSelector } from '@/store'
-import { SUPPORT } from '@/constants/roles.constant'
+import { ADMIN, SUPPORT } from '@/constants/roles.constant'
 import {
     deleteObject,
     getDownloadURL,
@@ -85,6 +85,7 @@ import ProfileGarageTabs, {
     type ClienteHistorico,
 } from './Components/ProfileGarageTabs'
 import axios from 'axios'
+import { sortPlansByDisplayOrder } from '@/utils/sortPlansByDisplayOrder'
 
 type Service = {
     nombre_servicio: string
@@ -184,6 +185,45 @@ type SubscriptionHistory = {
     fecha_inicio: Timestamp
     taller_uid: string
     fechaCreacion: Timestamp
+}
+
+function firestoreTimestampMs(value: unknown): number {
+    if (value == null) return 0
+    if (value instanceof Timestamp) return value.toMillis()
+    if (
+        typeof value === 'object' &&
+        value !== null &&
+        'seconds' in value &&
+        typeof (value as { seconds: unknown }).seconds === 'number'
+    ) {
+        return (value as { seconds: number }).seconds * 1000
+    }
+    return 0
+}
+
+/** Fecha más reciente del registro (creación, inicio o fin) para ordenar el historial. */
+function subscriptionDocRecencyMs(data: DocumentData): number {
+    return Math.max(
+        firestoreTimestampMs(data.fechaCreacion),
+        firestoreTimestampMs(data.fecha_creacion),
+        firestoreTimestampMs(data.fecha_inicio),
+        firestoreTimestampMs(data.fecha_fin),
+    )
+}
+
+function coerceFirestoreTimestamp(value: unknown): Timestamp {
+    if (value instanceof Timestamp) return value
+    if (
+        value &&
+        typeof value === 'object' &&
+        'seconds' in value &&
+        typeof (value as { seconds: unknown }).seconds === 'number'
+    ) {
+        const s = (value as { seconds: number }).seconds
+        const ns = (value as { nanoseconds?: number }).nanoseconds ?? 0
+        return new Timestamp(s, ns)
+    }
+    return Timestamp.fromMillis(0)
 }
 
 type HistoricoRecord = ClienteHistorico
@@ -311,6 +351,7 @@ const ProfileGarage = () => {
     const navigate = useNavigate()
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
     const isSupportRole = userAuthority?.includes(SUPPORT)
+    const isAdminRole = userAuthority?.includes(ADMIN)
 
     const canGoBack =
         userAuthority?.includes('Admin') || userAuthority?.includes('Certificador')
@@ -338,9 +379,9 @@ const ProfileGarage = () => {
     }, [subscripcionestable, data?.subscripcion_actual])
 
     const availablePlans = useMemo(() => {
-        if (!hasUsedFreePlan) return planes
+        if (isAdminRole) return planes
         return planes.filter((plan) => !isFreePlanAmount(plan.monto))
-    }, [planes, hasUsedFreePlan])
+    }, [planes, isAdminRole])
 
     const getData = async () => {
         setLoading(true)
@@ -369,8 +410,20 @@ const ProfileGarage = () => {
             )
 
             const subscripcionesSnapshot = await getDocs(subscripcionesQuery)
-            const subscripciones = subscripcionesSnapshot.docs.map((doc) => {
+            const sortedSubscriptionDocs = subscripcionesSnapshot.docs
+                .slice()
+                .sort((docA, docB) => {
+                    const mb = subscriptionDocRecencyMs(docB.data())
+                    const ma = subscriptionDocRecencyMs(docA.data())
+                    if (mb !== ma) return mb - ma
+                    return docB.id.localeCompare(docA.id)
+                })
+
+            const subscripciones = sortedSubscriptionDocs.map((doc) => {
                 const data = doc.data()
+                const fechaCreacion = coerceFirestoreTimestamp(
+                    data.fechaCreacion ?? data.fecha_creacion,
+                )
 
                 return {
                     uid: doc.id,
@@ -382,7 +435,7 @@ const ProfileGarage = () => {
                     fecha_fin: data.fecha_fin || 'no hay fecha',
                     fecha_inicio: data.fecha_inicio || 'no hay fecha',
                     taller_uid: data.taller_uid || '', // UID del taller
-                    fechaCreacion: Timestamp.fromDate(new Date()),
+                    fechaCreacion,
                 }
             })
 
@@ -622,15 +675,17 @@ const ProfileGarage = () => {
 
             // Obtener todos los planes desde la colección 'Planes'
             const planesSnapshot = await getDocs(collection(db, 'Planes'))
-            const planes = planesSnapshot.docs.map((doc) => ({
-                uid: doc.id,
-                nombre: doc.data().nombre || '',
-                descripcion: doc.data().descripcion || '',
-                monto: doc.data().monto || 0,
-                status: doc.data().status || '',
-                vigencia: doc.data().vigencia || '',
-                cantidad_servicios: doc.data().cantidad_servicios || 0,
-            }))
+            const planes = sortPlansByDisplayOrder(
+                planesSnapshot.docs.map((doc) => ({
+                    uid: doc.id,
+                    nombre: doc.data().nombre || '',
+                    descripcion: doc.data().descripcion || '',
+                    monto: doc.data().monto || 0,
+                    status: doc.data().status || '',
+                    vigencia: doc.data().vigencia || '',
+                    cantidad_servicios: doc.data().cantidad_servicios || 0,
+                })),
+            )
 
             setData(dataFinal)
             setServices(services)
@@ -777,7 +832,7 @@ const ProfileGarage = () => {
             // Determinar si el plan es gratuito
             const isFreePlan = isFreePlanAmount(plan.monto)
 
-            if (isFreePlan && hasUsedFreePlan) {
+            if (isFreePlan && hasUsedFreePlan && !isAdminRole) {
                 toast.push(
                     <Notification title="No disponible">
                         El plan gratuito ya fue utilizado por este taller y no puede volver a seleccionarse.
@@ -1481,6 +1536,9 @@ const ProfileGarage = () => {
     }
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
+    const [sortingHistorialSubs, setSortingHistorialSubs] = useState<
+        ColumnSort[]
+    >([{ id: 'fecha_fin', desc: true }])
 
     const handleEditService = (service: Service) => {
         setSelectedService(service)
@@ -1766,6 +1824,12 @@ const ProfileGarage = () => {
         {
             header: 'Fecha de vencimiento',
             accessorKey: 'fecha_fin',
+            sortingFn: (rowA, rowB, columnId) => {
+                const a = rowA.getValue(columnId) as unknown
+                const b = rowB.getValue(columnId) as unknown
+                const ms = (v: unknown) => firestoreTimestampMs(v)
+                return ms(a) - ms(b)
+            },
             cell: ({ row }) => {
                 const fecha = formatDate(row.original.fecha_fin)
                 return `${fecha}`
@@ -1876,10 +1940,10 @@ const ProfileGarage = () => {
         data: subscripcionestable,
         columns: columns3,
         state: {
-            sorting,
+            sorting: sortingHistorialSubs,
             columnFilters: filtering,
         },
-        onSortingChange: setSorting,
+        onSortingChange: setSortingHistorialSubs,
         onColumnFiltersChange: setFiltering,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),

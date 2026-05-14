@@ -496,7 +496,9 @@ const Users = () => {
     const [filterTypeUser, setFilterTypeUser] = useState('')
     const [creationDateRange, setCreationDateRange] =
         useState<DatePickerRangeValue>([null, null])
-    const [sorting, setSorting] = useState<ColumnSort[]>([])
+    const [sorting, setSorting] = useState<ColumnSort[]>([
+        { id: 'createdAtMs', desc: true },
+    ])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
@@ -807,21 +809,64 @@ const Users = () => {
             { header: 'Tipo de Usuario', key: 'TipoUsuario' },
             { header: 'Fecha de registro', key: 'FechaRegistro' },
             { header: 'Cantidad de Vehículos', key: 'Vehiculos' },
+            { header: 'Marca vehículo', key: 'VehMarca' },
+            { header: 'Modelo vehículo', key: 'VehModelo' },
+            { header: 'Año vehículo', key: 'VehAnio' },
+            { header: 'Placa', key: 'VehPlaca' },
+            { header: 'Color vehículo', key: 'VehColor' },
+            { header: 'Kilometraje', key: 'VehKm' },
         ]
 
-        const rows = tableRows.map((row) => {
-            const p = row.original
-            return {
-                Nombre: p.nombre ?? '',
-                Cedula: p.cedula ?? '',
-                Email: p.email ?? '',
-                Telefono: p.phone ?? '',
-                Estado: formatEstadoForTableExport(p.estado),
-                TipoUsuario: p.typeUser ?? '',
-                FechaRegistro: formatUserCreatedAtDisplay(p.createdAtMs ?? 0),
-                Vehiculos: String(p.vehiculosCount ?? 0),
-            }
-        })
+        const emptyVeh = {
+            VehMarca: '',
+            VehModelo: '',
+            VehAnio: '',
+            VehPlaca: '',
+            VehColor: '',
+            VehKm: '',
+        }
+
+        const rowsNested = await Promise.all(
+            tableRows.map(async (row) => {
+                const p = row.original
+                const base = {
+                    Nombre: p.nombre ?? '',
+                    Cedula: p.cedula ?? '',
+                    Email: p.email ?? '',
+                    Telefono: p.phone ?? '',
+                    Estado: formatEstadoForTableExport(p.estado),
+                    TipoUsuario: p.typeUser ?? '',
+                    FechaRegistro: formatUserCreatedAtDisplay(p.createdAtMs ?? 0),
+                    Vehiculos: String(p.vehiculosCount ?? 0),
+                }
+                try {
+                    const snap = await getDocs(
+                        collection(db, 'Usuarios', p.id, 'Vehiculos'),
+                    )
+                    const vehs = snap.docs.map((d) => d.data() as VehicleData)
+                    if (vehs.length === 0) {
+                        return [{ ...base, ...emptyVeh }]
+                    }
+                    return vehs.map((v) => ({
+                        ...base,
+                        VehMarca: String(v.vehiculo_marca ?? ''),
+                        VehModelo: String(v.vehiculo_modelo ?? ''),
+                        VehAnio:
+                            v.vehiculo_anio != null ? String(v.vehiculo_anio) : '',
+                        VehPlaca: String(v.vehiculo_placa ?? ''),
+                        VehColor: String(v.vehiculo_color ?? ''),
+                        VehKm:
+                            v.KM != null && Number.isFinite(Number(v.KM))
+                                ? String(v.KM)
+                                : '',
+                    }))
+                } catch (err) {
+                    console.error('Error leyendo Vehiculos para export', p.id, err)
+                    return [{ ...base, ...emptyVeh }]
+                }
+            }),
+        )
+        const rows = rowsNested.flat()
 
         const worksheet = createStyledWorksheet(rows, columns)
         const workbook = XLSX.utils.book_new()
@@ -1051,8 +1096,8 @@ const Users = () => {
             sortingFn: (rowA, rowB) => {
                 const a = rowA.original.createdAtMs ?? 0
                 const b = rowB.original.createdAtMs ?? 0
-                const av = a || Number.POSITIVE_INFINITY
-                const bv = b || Number.POSITIVE_INFINITY
+                const av = a > 0 ? a : -1
+                const bv = b > 0 ? b : -1
                 return av - bv
             },
             cell: ({ row }) =>

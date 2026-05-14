@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { collection, getDocs, onSnapshot, Timestamp } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import SalesByCategories from './components/SalesByCategories'
@@ -21,6 +21,7 @@ import {
     HiOutlineUserGroup,
     HiOutlineOfficeBuilding,
     HiOutlineCreditCard,
+    HiChevronDown,
     HiChevronRight,
     HiOutlineEye,
     HiOutlineClipboardList,
@@ -31,6 +32,16 @@ import Dialog from '@/components/ui/Dialog'
 import Button from '@/components/ui/Button'
 import Tabs from '@/components/ui/Tabs'
 import DatePicker from '@/components/ui/DatePicker'
+import {
+    collectActiveTallerDocIdsFromUsersSnapshot,
+    getSubscriptionTallerUid,
+    isTallerUsuarioEliminado,
+} from '@/utils/activeTallerSubscriptionGuards'
+import { getSubscriptionPlanName } from '@/utils/subscriptionPlanLabel'
+import {
+    isPendingPaymentValidationSubscription,
+    subscriptionMontoNumerico,
+} from '@/utils/pendingPaymentValidation'
 
 type Calificacion = {
     taller?: string;
@@ -44,12 +55,36 @@ type Calificacion = {
     id?: string; // ID de la calificación
 };
 
+type ServicioCategoriaCampos = {
+    categoria?: string
+    nombre_categoria?: string
+    uid_categoria?: string
+}
+
+const getCategoryFilterKeyFromFields = (s: ServicioCategoriaCampos): string => {
+    const label = (s.categoria || s.nombre_categoria || '').trim()
+    const uid = (s.uid_categoria || '').trim()
+    if (label) return `name:${label.toLowerCase()}`
+    if (uid) return `uid:${uid}`
+    return 'key:__none__'
+}
+
+const getCategoryFilterLabelFromFields = (s: ServicioCategoriaCampos): string => {
+    const label = (s.categoria || s.nombre_categoria || '').trim()
+    const uid = (s.uid_categoria || '').trim()
+    if (label) return label
+    if (uid) return uid
+    return 'Sin categoría'
+}
+
 type ServicioConCalificaciones = {
     nombre_servicio: string;
     uid_servicio: string; // ID del servicio
     uid_taller: string;
     calificaciones: Calificacion[]; // Subcolección de calificaciones
     taller: string,
+    categoria_filtro_key: string
+    categoria_display: string
 };
 
 type EngagementViewEvent = {
@@ -192,28 +227,6 @@ const getRegionFromEstado = (estado: unknown) => {
         .join(' ')
 }
 
-const getSubscriptionPlanName = (data: Record<string, unknown>) => {
-    const planFields = [
-        data.nombre,
-        data.plan,
-        data.plan_name,
-        data.plan_nombre,
-        data.nombre_plan,
-        data.tipo_plan,
-        data.subscripcion_actual &&
-            typeof data.subscripcion_actual === 'object' &&
-            'plan' in data.subscripcion_actual
-            ? (data.subscripcion_actual as Record<string, unknown>).plan
-            : undefined,
-    ]
-
-    const validPlan = planFields.find(
-        (value) => typeof value === 'string' && value.trim().length > 0,
-    ) as string | undefined
-
-    return validPlan?.trim() || 'Sin plan'
-}
-
 const isSubscriptionPaid = (data: Record<string, unknown>) => {
     const planName = getSubscriptionPlanName(data).toLowerCase()
     if (planName === 'gratis') {
@@ -245,11 +258,13 @@ const isSubscriptionPaid = (data: Record<string, unknown>) => {
 
 const fetchDashboardData = async () => {
     const usersSnapshot = await getDocs(collection(db, 'Usuarios'))
+    const activeTallerDocIds =
+        collectActiveTallerDocIdsFromUsersSnapshot(usersSnapshot)
     const subsSnapshot = await getDocs(collection(db, 'Subscripciones'))
 
     let clientesCount = 0
     let tallerCount = 0
-    let talleresStats = {
+    const talleresStats = {
         aprobados: 0,
         rechazados: 0,
         espera: 0,
@@ -299,6 +314,9 @@ const fetchDashboardData = async () => {
             }
         }
         if (normalizedTypeUser === 'taller') {
+            if (isTallerUsuarioEliminado(dataRecord.status ?? data.status)) {
+                return
+            }
             const estado = getRegionFromEstado(
                 dataRecord.estado ?? dataRecord.Estado ?? dataRecord.region,
             )
@@ -377,19 +395,28 @@ const fetchDashboardData = async () => {
         }
     })
 
-    // Procesar subscripciones
+    // Procesar subscripciones (solo talleres activos, no eliminados)
+    let pagosPendientesValidar = 0
     subsSnapshot.forEach((doc) => {
         const data = doc.data() as Record<string, unknown>
-        totalMonto += typeof data.monto === 'number' ? data.monto : 0
+        const tallerUid = getSubscriptionTallerUid(data)
+        if (tallerUid && !activeTallerDocIds.has(tallerUid)) {
+            return
+        }
+
+        totalMonto += subscriptionMontoNumerico(data)
         const planName = getSubscriptionPlanName(data)
         subscripcionesPorPlan[planName] = (subscripcionesPorPlan[planName] || 0) + 1
+        subscripcionesCount += 1
         if (isSubscriptionPaid(data)) {
             subscripcionesPagasCount += 1
             subscripcionesPagasPorPlan[planName] =
                 (subscripcionesPagasPorPlan[planName] || 0) + 1
         }
+        if (isPendingPaymentValidationSubscription(data)) {
+            pagosPendientesValidar += 1
+        }
     })
-    subscripcionesCount = subsSnapshot.size
 
     return {
         clientesCount,
@@ -406,8 +433,43 @@ const fetchDashboardData = async () => {
         talleresActividadPorCiudad,
         talleresMetaByUid,
         talleresVencidosHoy,
+        pagosPendientesValidar,
     }
 }
+
+const DASHBOARD_FILTER_SELECT_CLASS =
+    'peer block w-full min-w-0 h-9 appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-10 text-xs font-medium text-gray-800 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 hover:border-gray-300 hover:bg-gray-50/60 focus:border-[#000B7E] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#000B7E]/18'
+
+type DashboardFilterSelectFieldProps = {
+    label: string
+    value: string
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void
+    children: ReactNode
+}
+
+const DashboardFilterSelectField = ({
+    label,
+    value,
+    onChange,
+    children,
+}: DashboardFilterSelectFieldProps) => (
+    <div className="min-w-0">
+        <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            {label}
+        </label>
+        <div className="relative">
+            <select value={value} onChange={onChange} className={DASHBOARD_FILTER_SELECT_CLASS}>
+                {children}
+            </select>
+            <span
+                className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-gray-400 transition-colors peer-focus:text-[#000B7E]"
+                aria-hidden
+            >
+                <HiChevronDown className="h-4 w-4 shrink-0 opacity-70" />
+            </span>
+        </div>
+    </div>
+)
 
 const SalesDashboard = () => {
     const [isResumenCriticoPopupOpen, setIsResumenCriticoPopupOpen] = useState(false)
@@ -442,6 +504,7 @@ const SalesDashboard = () => {
             { nombre: string; ciudad: string }
         >,
         talleresVencidosHoy: 0,
+        pagosPendientesValidar: 0,
     })
 
     useEffect(() => {
@@ -488,6 +551,8 @@ const SalesDashboard = () => {
             taller: string
             uid_taller: string
             promedio_puntuacion: number
+            categoria_filtro_key: string
+            categoria_display: string
         }[]
     >([]);
 
@@ -511,12 +576,22 @@ const SalesDashboard = () => {
                         id: calDoc.id,
                     })) as Calificacion[];
 
+                    const catFields: ServicioCategoriaCampos = {
+                        categoria: servicioData.categoria as string | undefined,
+                        nombre_categoria: servicioData.nombre_categoria as
+                            | string
+                            | undefined,
+                        uid_categoria: servicioData.uid_categoria as string | undefined,
+                    }
+
                     serviciosConCalificaciones.push({
                         nombre_servicio: servicioData.nombre_servicio,
                         taller: servicioData.taller || 'Sin negocio',
                         uid_servicio,
                         uid_taller: String(servicioData.uid_taller || ''),
                         calificaciones,
+                        categoria_filtro_key: getCategoryFilterKeyFromFields(catFields),
+                        categoria_display: getCategoryFilterLabelFromFields(catFields),
                     });
                 })
             );
@@ -538,6 +613,8 @@ const SalesDashboard = () => {
                         taller: servicio.taller,
                         uid_taller: servicio.uid_taller,
                         promedio_puntuacion: promedioPuntuacion,
+                        categoria_filtro_key: servicio.categoria_filtro_key,
+                        categoria_display: servicio.categoria_display,
                     };
                 })
                 .filter((servicio) => servicio.promedio_puntuacion > 0); // Excluye servicios con promedio 0
@@ -780,13 +857,19 @@ const columns: ColumnDef<{
     taller: string
     uid_taller: string
     promedio_puntuacion: number
+    categoria_filtro_key: string
+    categoria_display: string
 }>[] = [
     {
         header: 'Negocio',
         accessorKey: 'taller',
     },
     {
-        header: 'Servicio',
+        header: 'Categoría',
+        accessorKey: 'categoria_display',
+    },
+    {
+        header: 'Servicio calificado',
         accessorKey: 'nombre_servicio',
     },
     {
@@ -814,35 +897,61 @@ const columns: ColumnDef<{
     }
 ];
 
-    const { Tr, Th, Td, THead, TBody, Sorter } = Table
+    const { Tr, Th, Td, THead, TBody } = Table
     const { TabNav, TabList, TabContent } = Tabs
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtroNegocio, setFiltroNegocio] = useState('todos')
-    const [filtroServicio, setFiltroServicio] = useState('todos')
+    const [filtroCategoria, setFiltroCategoria] = useState('todos')
     const [filtroEstrellas, setFiltroEstrellas] = useState('todos')
     const negociosDisponibles = useMemo(
         () => Array.from(new Set(dataPuntuacion.map((item) => item.taller))).sort(),
         [dataPuntuacion],
     )
-    const serviciosDisponibles = useMemo(
-        () =>
-            Array.from(
-                new Set(dataPuntuacion.map((item) => item.nombre_servicio)),
-            ).sort(),
-        [dataPuntuacion],
-    )
+    const opcionesCategoriaFiltro = useMemo(() => {
+        const byKey = new Map<string, { value: string; label: string }>()
+        byKey.set('todos', { value: 'todos', label: 'Todas las categorías' })
+        for (const item of dataPuntuacion) {
+            if (!byKey.has(item.categoria_filtro_key)) {
+                byKey.set(item.categoria_filtro_key, {
+                    value: item.categoria_filtro_key,
+                    label: item.categoria_display,
+                })
+            }
+        }
+        const rest = [...byKey.entries()]
+            .filter(([k]) => k !== 'todos')
+            .sort((a, b) =>
+                a[1].label.localeCompare(b[1].label, 'es', {
+                    sensitivity: 'base',
+                }),
+            )
+            .map(([, v]) => v)
+        return [byKey.get('todos')!, ...rest]
+    }, [dataPuntuacion])
+
+    useEffect(() => {
+        if (filtroCategoria === 'todos') {
+            return
+        }
+        const ok = opcionesCategoriaFiltro.some((o) => o.value === filtroCategoria)
+        if (!ok) {
+            setFiltroCategoria('todos')
+        }
+    }, [opcionesCategoriaFiltro, filtroCategoria])
+
     const dataPuntuacionFiltrada = useMemo(() => {
         return dataPuntuacion.filter((item) => {
             const cumpleNegocio =
                 filtroNegocio === 'todos' || item.taller === filtroNegocio
-            const cumpleServicio =
-                filtroServicio === 'todos' || item.nombre_servicio === filtroServicio
+            const cumpleCategoria =
+                filtroCategoria === 'todos' ||
+                item.categoria_filtro_key === filtroCategoria
             const cumpleEstrellas =
                 filtroEstrellas === 'todos' ||
                 item.promedio_puntuacion >= Number(filtroEstrellas)
-            return cumpleNegocio && cumpleServicio && cumpleEstrellas
+            return cumpleNegocio && cumpleCategoria && cumpleEstrellas
         })
-    }, [dataPuntuacion, filtroNegocio, filtroServicio, filtroEstrellas])
+    }, [dataPuntuacion, filtroNegocio, filtroCategoria, filtroEstrellas])
     const table = useReactTable({
         data: dataPuntuacionFiltrada,
         columns,
@@ -856,7 +965,7 @@ const columns: ColumnDef<{
     })
 
     const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(5)
+    const [rowsPerPage] = useState(5)
 
     const data = table.getRowModel().rows
     const totalRows = data.length
@@ -876,6 +985,7 @@ const columns: ColumnDef<{
         talleresActividadPorCiudad,
         talleresMetaByUid,
         talleresVencidosHoy,
+        pagosPendientesValidar,
     } = dashboardData
 
     const [engagementViews, setEngagementViews] = useState<EngagementViewEvent[]>(
@@ -1073,8 +1183,6 @@ const columns: ColumnDef<{
         dataPuntuacion,
     ])
 
-    // Resumen crítico del día (pagos y vencimientos se pueden conectar a BD después)
-    const [pagosPendientesValidar] = useState(3)
     const talleresNuevosEnEspera = talleresStats.espera
 
     const totalTalleres =
@@ -1214,14 +1322,6 @@ const columns: ColumnDef<{
             ? `${responseMetrics.averageMinutes.toFixed(1)} min`
             : '— min'
 
-    const topServicios = [...dataPuntuacion]
-        .sort(
-            (a, b) =>
-                (b.promedio_puntuacion ?? 0) -
-                (a.promedio_puntuacion ?? 0),
-        )
-        .slice(0, 5)
-
     const resumenDiaItems = [
         {
             concepto: 'Negocios en espera de revisión',
@@ -1236,8 +1336,8 @@ const columns: ColumnDef<{
             valor: pagosPendientesValidar,
             Icono: HiOutlineCreditCard,
             colorBadge: 'bg-amber-100 text-amber-700',
-            emptyMessage: 'Sin pagos pendientes hoy',
-            activeMessage: 'Validaciones por atender hoy',
+            emptyMessage: 'Sin pagos por validar',
+            activeMessage: 'Pagos por validar en cola',
         },
         {
             concepto: 'Negocios que vencieron hoy',
@@ -1544,16 +1644,13 @@ const columns: ColumnDef<{
                                         </p>
                                     </div>
                                     <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-gray-50/90 to-white">
-                                        <div className="rounded-lg border border-gray-200/80 bg-white px-3 py-2.5 shadow-sm">
-                                            <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 block mb-1.5">
-                                                Ciudad
-                                            </label>
-                                            <select
+                                        <div className="rounded-lg border border-gray-200/80 bg-white px-3 py-2.5 shadow-sm ring-1 ring-black/[0.02]">
+                                            <DashboardFilterSelectField
+                                                label="Ciudad"
                                                 value={engagementCiudad}
                                                 onChange={(e) =>
                                                     setEngagementCiudad(e.target.value)
                                                 }
-                                                className="h-9 w-full rounded-lg border border-gray-200 bg-gray-50/50 px-2.5 text-xs font-medium text-gray-800 focus:border-[#000B7E]/40 focus:outline-none focus:ring-2 focus:ring-[#000B7E]/15"
                                             >
                                                 <option value="todos">Todas las ciudades</option>
                                                 {ciudadesEngagementLista.map((c) => (
@@ -1561,7 +1658,7 @@ const columns: ColumnDef<{
                                                         {c}
                                                     </option>
                                                 ))}
-                                            </select>
+                                            </DashboardFilterSelectField>
                                         </div>
                                         <div className="grid gap-2.5">
                                             <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
@@ -1712,54 +1809,56 @@ const columns: ColumnDef<{
                                             Calificaciones de los servicios
                                         </h2>
                                         <p className="text-xs text-white/90 mt-0.5">
-                                            Promedio por negocio y servicio
+                                            Promedio por categoría, negocio y servicio
+                                            calificado
                                         </p>
                                     </div>
                                     <div className="flex-1 min-h-0 overflow-auto">
-                                        <div className="grid grid-cols-3 gap-2 p-3 border-b border-gray-100 bg-gray-50">
-                                            <select
-                                                value={filtroNegocio}
-                                                onChange={(e) => {
-                                                    setFiltroNegocio(e.target.value)
-                                                    setCurrentPage(1)
-                                                }}
-                                                className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
-                                            >
-                                                <option value="todos">Todos los negocios</option>
-                                                {negociosDisponibles.map((negocio) => (
-                                                    <option key={negocio} value={negocio}>
-                                                        {negocio}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <select
-                                                value={filtroServicio}
-                                                onChange={(e) => {
-                                                    setFiltroServicio(e.target.value)
-                                                    setCurrentPage(1)
-                                                }}
-                                                className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
-                                            >
-                                                <option value="todos">Todos los servicios</option>
-                                                {serviciosDisponibles.map((servicio) => (
-                                                    <option key={servicio} value={servicio}>
-                                                        {servicio}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <select
-                                                value={filtroEstrellas}
-                                                onChange={(e) => {
-                                                    setFiltroEstrellas(e.target.value)
-                                                    setCurrentPage(1)
-                                                }}
-                                                className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
-                                            >
-                                                <option value="todos">Todas las estrellas</option>
-                                                <option value="4.5">4.5+ estrellas</option>
-                                                <option value="4">4+ estrellas</option>
-                                                <option value="3">3+ estrellas</option>
-                                            </select>
+                                        <div className="border-b border-gray-100 bg-gradient-to-b from-gray-50/95 to-gray-50/40 p-3">
+                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2.5">
+                                                <DashboardFilterSelectField
+                                                    label="Negocio"
+                                                    value={filtroNegocio}
+                                                    onChange={(e) => {
+                                                        setFiltroNegocio(e.target.value)
+                                                        setCurrentPage(1)
+                                                    }}
+                                                >
+                                                    <option value="todos">Todos los negocios</option>
+                                                    {negociosDisponibles.map((negocio) => (
+                                                        <option key={negocio} value={negocio}>
+                                                            {negocio}
+                                                        </option>
+                                                    ))}
+                                                </DashboardFilterSelectField>
+                                                <DashboardFilterSelectField
+                                                    label="Categoría"
+                                                    value={filtroCategoria}
+                                                    onChange={(e) => {
+                                                        setFiltroCategoria(e.target.value)
+                                                        setCurrentPage(1)
+                                                    }}
+                                                >
+                                                    {opcionesCategoriaFiltro.map((opt) => (
+                                                        <option key={opt.value} value={opt.value}>
+                                                            {opt.label}
+                                                        </option>
+                                                    ))}
+                                                </DashboardFilterSelectField>
+                                                <DashboardFilterSelectField
+                                                    label="Calificación mín."
+                                                    value={filtroEstrellas}
+                                                    onChange={(e) => {
+                                                        setFiltroEstrellas(e.target.value)
+                                                        setCurrentPage(1)
+                                                    }}
+                                                >
+                                                    <option value="todos">Todas las estrellas</option>
+                                                    <option value="4.5">4.5+ estrellas</option>
+                                                    <option value="4">4+ estrellas</option>
+                                                    <option value="3">3+ estrellas</option>
+                                                </DashboardFilterSelectField>
+                                            </div>
                                         </div>
                                         <Table className="w-full text-sm">
                                             <THead>
