@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import React from 'react'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
 import Pagination from '@/components/ui/Pagination'
@@ -42,8 +42,10 @@ import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
-import type { MouseEvent } from 'react'
+import type { MouseEvent, ChangeEvent } from 'react'
 import { Avatar, Drawer, Select } from '@/components/ui'
+import Checkbox from '@/components/ui/Checkbox'
+import type { CheckboxProps } from '@/components/ui/Checkbox'
 import * as Yup from 'yup'
 import Password from '@/views/account/Settings/components/Password'
 import {
@@ -62,6 +64,12 @@ import JSZip from 'jszip'
 import { components as selectComponents } from 'react-select'
 import { useAppSelector } from '@/store'
 import { SUPPORT } from '@/constants/roles.constant'
+import { deleteAuthUsers } from '@/utils/deleteAuthUsers'
+import {
+    findUsersWithHistorico,
+    type EntityHistoricoHit,
+} from '@/utils/entityDeleteHistoryCheck'
+import { DeleteHistoricoWarning } from '@/components/shared/DeleteHistoricoWarning'
 
 type Person = {
     nombre?: string
@@ -485,6 +493,34 @@ function personSearchableText(p: Person): string {
     return parts.join(' ').toLowerCase()
 }
 
+type CheckBoxChangeEvent = ChangeEvent<HTMLInputElement>
+
+interface IndeterminateCheckboxProps extends Omit<CheckboxProps, 'onChange'> {
+    onChange: (event: CheckBoxChangeEvent) => void
+    indeterminate: boolean
+}
+
+function IndeterminateCheckbox({
+    indeterminate,
+    onChange,
+    ...rest
+}: IndeterminateCheckboxProps) {
+    const ref = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (typeof indeterminate === 'boolean' && ref.current) {
+            ref.current.indeterminate = !rest.checked && indeterminate
+        }
+    }, [indeterminate, rest.checked])
+
+    return <Checkbox ref={ref} onChange={(_, e) => onChange(e)} {...rest} />
+}
+
+async function deleteUserRecord(person: Person): Promise<void> {
+    const userDoc = doc(db, 'Usuarios', person.id)
+    await deleteDoc(userDoc)
+}
+
 const Users = () => {
     const currentUserAuthority = useAppSelector(
         (state) => state.auth.user.authority,
@@ -512,6 +548,17 @@ const Users = () => {
     const [imagePopupOpen, setImagePopupOpen] = useState(false)
     const [imagePopupUrl, setImagePopupUrl] = useState<string | null>(null)
     const [imageZoom, setImageZoom] = useState(1)
+    const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
+    const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+    const [singleDeleteHistorico, setSingleDeleteHistorico] = useState<{
+        loading: boolean
+        items: EntityHistoricoHit[]
+    }>({ loading: false, items: [] })
+    const [bulkDeleteHistorico, setBulkDeleteHistorico] = useState<{
+        loading: boolean
+        items: EntityHistoricoHit[]
+    }>({ loading: false, items: [] })
 
     const getData = async () => {
         setUsersLoading(true)
@@ -981,6 +1028,31 @@ const Users = () => {
             .join('')
     }
     const columns: ColumnDef<Person>[] = [
+        ...(!isSupportRole
+            ? [
+                  {
+                      id: 'select',
+                      header: ({ table }) => (
+                          <IndeterminateCheckbox
+                              checked={table.getIsAllPageRowsSelected()}
+                              indeterminate={table.getIsSomePageRowsSelected()}
+                              onChange={table.getToggleAllPageRowsSelectedHandler()}
+                          />
+                      ),
+                      cell: ({ row }) => (
+                          <div className="px-1">
+                              <IndeterminateCheckbox
+                                  checked={row.getIsSelected()}
+                                  disabled={!row.getCanSelect()}
+                                  indeterminate={row.getIsSomeSelected()}
+                                  onChange={row.getToggleSelectedHandler()}
+                              />
+                          </div>
+                      ),
+                      enableSorting: false,
+                  } as ColumnDef<Person>,
+              ]
+            : []),
         {
             header: 'Nombre',
             accessorKey: 'nombre',
@@ -1162,6 +1234,25 @@ const Users = () => {
         setSelectedPerson(null)
     }
 
+    const onBulkDeleteDialogClose = () => {
+        setBulkDeleteDialogOpen(false)
+    }
+
+    const openBulkDeleteDialog = () => {
+        const selectedCount = Object.keys(rowSelection).filter(
+            (key) => rowSelection[key],
+        ).length
+        if (selectedCount === 0) {
+            toast.push(
+                <Notification title="Sin selección" type="warning">
+                    Selecciona al menos un usuario para eliminar.
+                </Notification>,
+            )
+            return
+        }
+        setBulkDeleteDialogOpen(true)
+    }
+
     const handleDrawerClose = (e: MouseEvent) => {
         setDrawerCreateIsOpen(false)
         setNewUser({
@@ -1220,8 +1311,22 @@ const Users = () => {
             console.log('Eliminando a:', selectedPerson)
 
             try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.id)
-                await deleteDoc(userDoc)
+                await deleteUserRecord(selectedPerson)
+
+                try {
+                    await deleteAuthUsers([selectedPerson.id])
+                } catch (authError) {
+                    console.error(
+                        'Error eliminando cuenta de Auth:',
+                        authError,
+                    )
+                    toast.push(
+                        <Notification title="Advertencia" type="warning">
+                            El usuario fue eliminado de la base de datos, pero
+                            no se pudo eliminar la cuenta de autenticación.
+                        </Notification>,
+                    )
+                }
 
                 const toastNotification = (
                     <Notification title="Éxito">
@@ -1254,7 +1359,11 @@ const Users = () => {
             sorting,
             columnFilters: filtering,
             globalFilter: searchTerm,
+            rowSelection,
         },
+        enableRowSelection: true,
+        onRowSelectionChange: setRowSelection,
+        getRowId: (row) => row.id,
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
         onGlobalFilterChange: (updater) => {
@@ -1270,6 +1379,85 @@ const Users = () => {
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
     })
+
+    const selectedUsersCount = Object.keys(rowSelection).filter(
+        (key) => rowSelection[key],
+    ).length
+
+    const handleBulkDelete = async () => {
+        if (isSupportRole) {
+            toast.push(
+                <Notification title="Acción no permitida" type="warning">
+                    El rol Soporte no tiene permisos para eliminar usuarios.
+                </Notification>,
+            )
+            onBulkDeleteDialogClose()
+            return
+        }
+
+        const selectedUsers = filteredUsers.filter(
+            (person) => rowSelection[person.id],
+        )
+        if (selectedUsers.length === 0) {
+            toast.push(
+                <Notification title="Sin selección" type="warning">
+                    No hay usuarios seleccionados para eliminar.
+                </Notification>,
+            )
+            onBulkDeleteDialogClose()
+            return
+        }
+
+        setIsBulkDeleting(true)
+        try {
+            for (const person of selectedUsers) {
+                await deleteUserRecord(person)
+            }
+
+            let authDeleted = 0
+            let authFailed = 0
+            try {
+                const authResult = await deleteAuthUsers(
+                    selectedUsers.map((person) => person.id),
+                )
+                authDeleted = authResult.deletedCount
+                authFailed = authResult.failedCount
+            } catch (authError) {
+                console.error('Error eliminando cuentas de Auth:', authError)
+                authFailed = selectedUsers.length
+            }
+
+            setRowSelection({})
+            await getData()
+            onBulkDeleteDialogClose()
+
+            if (authFailed > 0) {
+                toast.push(
+                    <Notification title="Eliminación parcial" type="warning">
+                        Se eliminaron {selectedUsers.length} usuario(s) de la
+                        base de datos. Cuentas Auth eliminadas: {authDeleted};
+                        fallidas: {authFailed}.
+                    </Notification>,
+                )
+            } else {
+                toast.push(
+                    <Notification title="Éxito" type="success">
+                        Se eliminaron {selectedUsers.length} usuario(s) con
+                        éxito.
+                    </Notification>,
+                )
+            }
+        } catch (error) {
+            console.error('Error eliminando usuarios en lote:', error)
+            toast.push(
+                <Notification title="Error">
+                    Hubo un error eliminando los usuarios seleccionados.
+                </Notification>,
+            )
+        } finally {
+            setIsBulkDeleting(false)
+        }
+    }
 
     const [currentPage, setCurrentPage] = useState(1)
     const [rowsPerPage, setRowsPerPage] = useState(10)
@@ -1292,6 +1480,85 @@ const Users = () => {
         setCurrentPage(1)
     }, [filterCiudad, filterTypeUser, creationDateRange])
 
+    useEffect(() => {
+        if (!dialogIsOpen || !selectedPerson) {
+            setSingleDeleteHistorico({ loading: false, items: [] })
+            return
+        }
+
+        let cancelled = false
+        setSingleDeleteHistorico({ loading: true, items: [] })
+
+        findUsersWithHistorico([
+            {
+                id: selectedPerson.id,
+                nombre: selectedPerson.nombre,
+                email: selectedPerson.email,
+                vehiculosCount: selectedPerson.vehiculosCount,
+            },
+        ])
+            .then((items) => {
+                if (!cancelled) {
+                    setSingleDeleteHistorico({ loading: false, items })
+                }
+            })
+            .catch((error) => {
+                console.error('Error verificando histórico del usuario:', error)
+                if (!cancelled) {
+                    setSingleDeleteHistorico({ loading: false, items: [] })
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [dialogIsOpen, selectedPerson])
+
+    useEffect(() => {
+        if (!bulkDeleteDialogOpen) {
+            setBulkDeleteHistorico({ loading: false, items: [] })
+            return
+        }
+
+        const selectedUsers = filteredUsers.filter(
+            (person) => rowSelection[person.id],
+        )
+        if (selectedUsers.length === 0) {
+            setBulkDeleteHistorico({ loading: false, items: [] })
+            return
+        }
+
+        let cancelled = false
+        setBulkDeleteHistorico({ loading: true, items: [] })
+
+        findUsersWithHistorico(
+            selectedUsers.map((person) => ({
+                id: person.id,
+                nombre: person.nombre,
+                email: person.email,
+                vehiculosCount: person.vehiculosCount,
+            })),
+        )
+            .then((items) => {
+                if (!cancelled) {
+                    setBulkDeleteHistorico({ loading: false, items })
+                }
+            })
+            .catch((error) => {
+                console.error(
+                    'Error verificando histórico de usuarios:',
+                    error,
+                )
+                if (!cancelled) {
+                    setBulkDeleteHistorico({ loading: false, items: [] })
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [bulkDeleteDialogOpen, rowSelection, filteredUsers])
+
     const startIndex = (currentPage - 1) * rowsPerPage
     const endIndex = startIndex + rowsPerPage
 
@@ -1302,22 +1569,59 @@ const Users = () => {
 
     return (
         <>
-            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
-                <div className="flex shrink-0 items-center gap-2">
-                    <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
-                        Usuarios
-                    </h1>
-                    <button
-                        type="button"
-                        title="Actualizar datos desde el servidor"
-                        aria-label="Actualizar datos desde el servidor"
-                        onClick={handleRefresh}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
-                    >
-                        <HiOutlineRefresh className="h-5 w-5" />
-                    </button>
+            <div className="mb-6 flex flex-col gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex shrink-0 items-center gap-2">
+                        <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
+                            Usuarios
+                        </h1>
+                        <button
+                            type="button"
+                            title="Actualizar datos desde el servidor"
+                            aria-label="Actualizar datos desde el servidor"
+                            onClick={handleRefresh}
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
+                        >
+                            <HiOutlineRefresh className="h-5 w-5" />
+                        </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                        {!isSupportRole && (
+                            <Button
+                                className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
+                                style={{ backgroundColor: '#B91C1C' }}
+                                disabled={
+                                    selectedUsersCount === 0 || isBulkDeleting
+                                }
+                                loading={isBulkDeleting}
+                                onClick={openBulkDeleteDialog}
+                            >
+                                Eliminar Usuarios
+                                {selectedUsersCount > 0
+                                    ? ` (${selectedUsersCount})`
+                                    : ''}
+                            </Button>
+                        )}
+                        <Button
+                            className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={() => setDrawerCreateIsOpen(true)}
+                        >
+                            Crear Usuario
+                        </Button>
+                        <button
+                            type="button"
+                            style={{ backgroundColor: '#10B981' }}
+                            className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
+                            onClick={handleExportExcel}
+                        >
+                            Exportar Excel
+                        </button>
+                    </div>
                 </div>
-                <div className="flex w-full min-w-0 flex-1 flex-wrap items-end justify-end gap-x-2 gap-y-2 lg:flex-nowrap lg:overflow-x-auto lg:pb-0.5">
+
+                <div className="flex flex-wrap items-end gap-2">
                     <div className="w-52 shrink-0 sm:w-56">
                         <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
                             Buscar
@@ -1390,23 +1694,6 @@ const Users = () => {
                     >
                         <HiOutlineX className="h-5 w-5" />
                     </button>
-                    <div className="flex shrink-0 items-end justify-end gap-2 border-t border-gray-100 pt-2 md:border-t-0 md:pt-0 md:pl-2">
-                        <Button
-                            className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
-                            style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)}
-                        >
-                            Crear Usuario
-                        </Button>
-                        <button
-                            type="button"
-                            style={{ backgroundColor: '#10B981' }}
-                            className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
-                            onClick={handleExportExcel}
-                        >
-                            Exportar Excel
-                        </button>
-                    </div>
                 </div>
             </div>
             {usersLoading ? (
@@ -1493,9 +1780,16 @@ const Users = () => {
                 onRequestClose={onDialogClose}
             >
                 <h5 className="mb-4">Confirmar Eliminación</h5>
+                <DeleteHistoricoWarning
+                    loading={singleDeleteHistorico.loading}
+                    items={singleDeleteHistorico.items}
+                    entitySingular="usuario"
+                    entityPlural="usuarios"
+                />
                 <p>
                     ¿Estás seguro de que deseas eliminar a{' '}
-                    {selectedPerson?.nombre}?
+                    {selectedPerson?.nombre}? También se eliminará su cuenta de
+                    autenticación.
                 </p>
                 <div className="text-right mt-6">
                     <Button
@@ -1511,6 +1805,44 @@ const Users = () => {
                         onClick={handleDelete}
                     >
                         Eliminar
+                    </Button>
+                </div>
+            </Dialog>
+
+            <Dialog
+                isOpen={bulkDeleteDialogOpen}
+                onClose={onBulkDeleteDialogClose}
+                onRequestClose={onBulkDeleteDialogClose}
+            >
+                <h5 className="mb-4">Confirmar eliminación múltiple</h5>
+                <DeleteHistoricoWarning
+                    loading={bulkDeleteHistorico.loading}
+                    items={bulkDeleteHistorico.items}
+                    entitySingular="usuario"
+                    entityPlural="usuarios"
+                />
+                <p className="mb-3 text-gray-700">
+                    ¿Estás seguro de que deseas eliminar{' '}
+                    <strong>{selectedUsersCount}</strong> usuario(s)
+                    seleccionado(s)? Se eliminarán de la base de datos y de
+                    autenticación.
+                </p>
+                <div className="text-right mt-6">
+                    <Button
+                        className="ltr:mr-2 rtl:ml-2"
+                        variant="plain"
+                        onClick={onBulkDeleteDialogClose}
+                        disabled={isBulkDeleting}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        style={{ backgroundColor: '#B91C1C' }}
+                        className="text-white hover:opacity-80"
+                        onClick={handleBulkDelete}
+                        loading={isBulkDeleting}
+                    >
+                        Eliminar Usuarios
                     </Button>
                 </div>
             </Dialog>

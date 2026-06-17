@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { createUserWithEmailAndPassword } from 'firebase/auth'
@@ -40,13 +40,15 @@ import {
     Timestamp,
 } from 'firebase/firestore'
 import { db, auth } from '@/configs/firebaseAssets.config'
+import Checkbox from '@/components/ui/Checkbox'
+import type { CheckboxProps } from '@/components/ui/Checkbox'
+import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
 import Button from '@/components/ui/Button'
 import Select from '@/components/ui/Select'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
-import type { MouseEvent } from 'react'
-import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
+import type { MouseEvent, ChangeEvent } from 'react'
 import { Avatar, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch, HiOutlineX } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
@@ -66,6 +68,12 @@ import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 import { useAppSelector } from '@/store'
 import { CERTIFIER, SUPPORT } from '@/constants/roles.constant'
+import { deleteAuthUsers } from '@/utils/deleteAuthUsers'
+import {
+    findGaragesWithHistorico,
+    type EntityHistoricoHit,
+} from '@/utils/entityDeleteHistoryCheck'
+import { DeleteHistoricoWarning } from '@/components/shared/DeleteHistoricoWarning'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -350,6 +358,57 @@ function creationRangeToYmd(range: DatePickerRangeValue): {
     }
 }
 
+type CheckBoxChangeEvent = ChangeEvent<HTMLInputElement>
+
+interface IndeterminateCheckboxProps extends Omit<CheckboxProps, 'onChange'> {
+    onChange: (event: CheckBoxChangeEvent) => void
+    indeterminate: boolean
+}
+
+function IndeterminateCheckbox({
+    indeterminate,
+    onChange,
+    ...rest
+}: IndeterminateCheckboxProps) {
+    const ref = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        if (typeof indeterminate === 'boolean' && ref.current) {
+            ref.current.indeterminate = !rest.checked && indeterminate
+        }
+    }, [indeterminate, rest.checked])
+
+    return <Checkbox ref={ref} onChange={(_, e) => onChange(e)} {...rest} />
+}
+
+async function markGarageAsDeleted(
+    garage: Garage,
+    motivo: string,
+): Promise<number> {
+    const userDoc = doc(db, 'Usuarios', garage.uid)
+    await updateDoc(userDoc, {
+        status: 'Eliminado',
+        motivo_eliminacion: motivo,
+        eliminado_en: Timestamp.now(),
+    })
+
+    const serviciosQuery = query(
+        collection(db, 'Servicios'),
+        where('uid_taller', '==', garage.uid),
+    )
+    const serviciosSnapshot = await getDocs(serviciosQuery)
+
+    await Promise.all(
+        serviciosSnapshot.docs.map((servicioDoc) =>
+            updateDoc(doc(db, 'Servicios', servicioDoc.id), {
+                estatus: false,
+            }),
+        ),
+    )
+
+    return serviciosSnapshot.docs.length
+}
+
 const Garages = () => {
     const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(
         null,
@@ -371,6 +430,18 @@ const Garages = () => {
         '' | 'activo' | 'suspendido'
     >('')
     const [deleteMotivo, setDeleteMotivo] = useState('')
+    const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
+    const [bulkDeleteMotivo, setBulkDeleteMotivo] = useState('')
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+    const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
+    const [singleDeleteHistorico, setSingleDeleteHistorico] = useState<{
+        loading: boolean
+        items: EntityHistoricoHit[]
+    }>({ loading: false, items: [] })
+    const [bulkDeleteHistorico, setBulkDeleteHistorico] = useState<{
+        loading: boolean
+        items: EntityHistoricoHit[]
+    }>({ loading: false, items: [] })
     const [creationDateRange, setCreationDateRange] =
         useState<DatePickerRangeValue>([null, null])
     const [isLoading, setIsLoading] = useState(false) // Estado para mostrar cargando al cambiar filtros pesados
@@ -865,6 +936,31 @@ const Garages = () => {
     }
 
     const columns: ColumnDef<Garage>[] = [
+        ...(!isCertifier && !isSupportRole
+            ? [
+                  {
+                      id: 'select',
+                      header: ({ table }) => (
+                          <IndeterminateCheckbox
+                              checked={table.getIsAllPageRowsSelected()}
+                              indeterminate={table.getIsSomePageRowsSelected()}
+                              onChange={table.getToggleAllPageRowsSelectedHandler()}
+                          />
+                      ),
+                      cell: ({ row }) => (
+                          <div className="px-1">
+                              <IndeterminateCheckbox
+                                  checked={row.getIsSelected()}
+                                  disabled={!row.getCanSelect()}
+                                  indeterminate={row.getIsSomeSelected()}
+                                  onChange={row.getToggleSelectedHandler()}
+                              />
+                          </div>
+                      ),
+                      enableSorting: false,
+                  } as ColumnDef<Garage>,
+              ]
+            : []),
         {
             header: 'Fecha de registro',
             accessorKey: 'createdAt',
@@ -1123,6 +1219,27 @@ const Garages = () => {
         setSelectedPerson(null)
     }
 
+    const onBulkDeleteDialogClose = () => {
+        setBulkDeleteDialogOpen(false)
+        setBulkDeleteMotivo('')
+    }
+
+    const openBulkDeleteDialog = () => {
+        const selectedCount = Object.keys(rowSelection).filter(
+            (key) => rowSelection[key],
+        ).length
+        if (selectedCount === 0) {
+            toast.push(
+                <Notification title="Sin selección" type="warning">
+                    Selecciona al menos un negocio para eliminar.
+                </Notification>,
+            )
+            return
+        }
+        setBulkDeleteMotivo('')
+        setBulkDeleteDialogOpen(true)
+    }
+
     const handleDelete = async () => {
         if (isSupportRole) {
             toast.push(
@@ -1147,31 +1264,30 @@ const Garages = () => {
             }
 
             try {
-                const userDoc = doc(db, 'Usuarios', selectedPerson.uid)
-                await updateDoc(userDoc, {
-                    status: 'Eliminado',
-                    motivo_eliminacion: motivo,
-                    eliminado_en: Timestamp.now(),
-                })
+                const serviciosCount = await markGarageAsDeleted(
+                    selectedPerson,
+                    motivo,
+                )
 
-                // 2. Buscar y actualizar servicios relacionados
-                const serviciosRef = collection(db, 'Servicios')
-                const serviciosQuery = query(serviciosRef, where('uid_taller', '==', selectedPerson.uid))
-                const serviciosSnapshot = await getDocs(serviciosQuery)
-
-                // Actualizar todos los servicios encontrados
-                const updatePromises = serviciosSnapshot.docs.map(async (servicioDoc) => {
-                    await updateDoc(doc(db, 'Servicios', servicioDoc.id), {
-                        estatus: false
-                    })
-                })
-
-                // Esperar a que se completen todas las actualizaciones
-                await Promise.all(updatePromises)
+                try {
+                    await deleteAuthUsers([selectedPerson.uid])
+                } catch (authError) {
+                    console.error(
+                        'Error eliminando cuenta de Auth:',
+                        authError,
+                    )
+                    toast.push(
+                        <Notification title="Advertencia" type="warning">
+                            El negocio fue marcado como eliminado, pero no se
+                            pudo eliminar la cuenta de autenticación.
+                        </Notification>,
+                    )
+                }
 
                 const toastNotification = (
                     <Notification title="Éxito">
-                        Negocio {selectedPerson.nombre} eliminado con éxito. Se actualizaron {serviciosSnapshot.docs.length} servicios relacionados.
+                        Negocio {selectedPerson.nombre} eliminado con éxito. Se
+                        actualizaron {serviciosCount} servicios relacionados.
                     </Notification>
                 )
                 toast.push(toastNotification)
@@ -1201,7 +1317,11 @@ const Garages = () => {
             sorting,
             columnFilters: filtering,
             globalFilter: searchTerm,
+            rowSelection,
         },
+        enableRowSelection: (row) => row.original.status !== 'Eliminado',
+        onRowSelectionChange: setRowSelection,
+        getRowId: (row) => row.uid,
         onSortingChange: setSorting,
         onColumnFiltersChange: setFiltering,
         onGlobalFilterChange: (updater) => {
@@ -1217,6 +1337,98 @@ const Garages = () => {
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
     })
+
+    const selectedGaragesCount = Object.keys(rowSelection).filter(
+        (key) => rowSelection[key],
+    ).length
+
+    const handleBulkDelete = async () => {
+        if (isSupportRole) {
+            toast.push(
+                <Notification title="Acción no permitida" type="warning">
+                    El rol Soporte no tiene permisos para eliminar negocios.
+                </Notification>,
+            )
+            onBulkDeleteDialogClose()
+            return
+        }
+
+        const motivo = bulkDeleteMotivo.trim()
+        if (motivo.length < 5) {
+            toast.push(
+                <Notification title="Motivo requerido" type="danger">
+                    Indica el motivo de la eliminación (mínimo 5 caracteres).
+                </Notification>,
+            )
+            return
+        }
+
+        const selectedGarages = garagesDisplayed.filter(
+            (garage) => rowSelection[garage.uid],
+        )
+        if (selectedGarages.length === 0) {
+            toast.push(
+                <Notification title="Sin selección" type="warning">
+                    No hay negocios seleccionados para eliminar.
+                </Notification>,
+            )
+            onBulkDeleteDialogClose()
+            return
+        }
+
+        setIsBulkDeleting(true)
+        try {
+            let totalServicios = 0
+            for (const garage of selectedGarages) {
+                totalServicios += await markGarageAsDeleted(garage, motivo)
+            }
+
+            let authDeleted = 0
+            let authFailed = 0
+            try {
+                const authResult = await deleteAuthUsers(
+                    selectedGarages.map((garage) => garage.uid),
+                )
+                authDeleted = authResult.deletedCount
+                authFailed = authResult.failedCount
+            } catch (authError) {
+                console.error('Error eliminando cuentas de Auth:', authError)
+                authFailed = selectedGarages.length
+            }
+
+            setRowSelection({})
+            await getData()
+            onBulkDeleteDialogClose()
+
+            if (authFailed > 0) {
+                toast.push(
+                    <Notification title="Eliminación parcial" type="warning">
+                        Se marcaron {selectedGarages.length} negocio(s) como
+                        eliminados y se desactivaron {totalServicios}{' '}
+                        servicio(s). Cuentas Auth eliminadas: {authDeleted};
+                        fallidas: {authFailed}.
+                    </Notification>,
+                )
+            } else {
+                toast.push(
+                    <Notification title="Éxito" type="success">
+                        Se eliminaron {selectedGarages.length} negocio(s) con
+                        éxito. Se actualizaron {totalServicios} servicio(s)
+                        relacionados.
+                    </Notification>,
+                )
+            }
+        } catch (error) {
+            console.error('Error eliminando negocios en lote:', error)
+            toast.push(
+                <Notification title="Error">
+                    Hubo un error eliminando los negocios seleccionados.
+                </Notification>,
+            )
+        } finally {
+            setIsBulkDeleting(false)
+        }
+    }
 
     const [currentPage, setCurrentPage] = useState(1)
     const [rowsPerPage, setRowsPerPage] = useState(10)
@@ -1237,6 +1449,81 @@ const Garages = () => {
     useEffect(() => {
         setCurrentPage(1)
     }, [filterCiudad, filterPlanActividad])
+
+    useEffect(() => {
+        if (!dialogIsOpen || !selectedPerson) {
+            setSingleDeleteHistorico({ loading: false, items: [] })
+            return
+        }
+
+        let cancelled = false
+        setSingleDeleteHistorico({ loading: true, items: [] })
+
+        findGaragesWithHistorico([
+            {
+                uid: selectedPerson.uid,
+                nombre: selectedPerson.nombre,
+            },
+        ])
+            .then((items) => {
+                if (!cancelled) {
+                    setSingleDeleteHistorico({ loading: false, items })
+                }
+            })
+            .catch((error) => {
+                console.error('Error verificando histórico del negocio:', error)
+                if (!cancelled) {
+                    setSingleDeleteHistorico({ loading: false, items: [] })
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [dialogIsOpen, selectedPerson])
+
+    useEffect(() => {
+        if (!bulkDeleteDialogOpen) {
+            setBulkDeleteHistorico({ loading: false, items: [] })
+            return
+        }
+
+        const selectedGarages = garagesDisplayed.filter(
+            (garage) => rowSelection[garage.uid],
+        )
+        if (selectedGarages.length === 0) {
+            setBulkDeleteHistorico({ loading: false, items: [] })
+            return
+        }
+
+        let cancelled = false
+        setBulkDeleteHistorico({ loading: true, items: [] })
+
+        findGaragesWithHistorico(
+            selectedGarages.map((garage) => ({
+                uid: garage.uid,
+                nombre: garage.nombre,
+            })),
+        )
+            .then((items) => {
+                if (!cancelled) {
+                    setBulkDeleteHistorico({ loading: false, items })
+                }
+            })
+            .catch((error) => {
+                console.error(
+                    'Error verificando histórico de negocios:',
+                    error,
+                )
+                if (!cancelled) {
+                    setBulkDeleteHistorico({ loading: false, items: [] })
+                }
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [bulkDeleteDialogOpen, rowSelection, garagesDisplayed])
 
     // Calcular el índice de inicio y fin para la paginación
     const startIndex = (currentPage - 1) * rowsPerPage
@@ -1277,23 +1564,59 @@ const Garages = () => {
 
     return (
         <>
-            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
-                <div className="flex shrink-0 items-center gap-2">
-                    <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
-                        Negocios
-                    </h1>
-                    <button
-                        type="button"
-                        title="Actualizar datos desde el servidor"
-                        aria-label="Actualizar datos desde el servidor"
-                        onClick={handleRefresh}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
-                    >
-                        <HiOutlineRefresh className="h-5 w-5" />
-                    </button>
+            <div className="mb-6 flex flex-col gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex shrink-0 items-center gap-2">
+                        <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
+                            Negocios
+                        </h1>
+                        <button
+                            type="button"
+                            title="Actualizar datos desde el servidor"
+                            aria-label="Actualizar datos desde el servidor"
+                            onClick={handleRefresh}
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
+                        >
+                            <HiOutlineRefresh className="h-5 w-5" />
+                        </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                        {!isCertifier && !isSupportRole && (
+                            <Button
+                                className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
+                                style={{ backgroundColor: '#B91C1C' }}
+                                disabled={
+                                    selectedGaragesCount === 0 || isBulkDeleting
+                                }
+                                loading={isBulkDeleting}
+                                onClick={openBulkDeleteDialog}
+                            >
+                                Eliminar Negocios
+                                {selectedGaragesCount > 0
+                                    ? ` (${selectedGaragesCount})`
+                                    : ''}
+                            </Button>
+                        )}
+                        <Button
+                            className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={() => setDrawerCreateIsOpen(true)}
+                        >
+                            Crear Negocio
+                        </Button>
+                        <button
+                            type="button"
+                            style={{ backgroundColor: '#10B981' }}
+                            className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
+                            onClick={handleOpenExportDialog}
+                        >
+                            Exportar Excel
+                        </button>
+                    </div>
                 </div>
 
-                <div className="flex w-full min-w-0 flex-1 flex-wrap items-end justify-end gap-x-2 gap-y-2 lg:flex-nowrap lg:overflow-x-auto lg:pb-0.5">
+                <div className="flex flex-wrap items-end gap-2">
                     <div className="w-[13.5rem] shrink-0 sm:w-[15rem]">
                         <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
                             Creación
@@ -1418,24 +1741,6 @@ const Garages = () => {
                     >
                         <HiOutlineX className="h-5 w-5" />
                     </button>
-
-                    <div className="flex shrink-0 items-end gap-2 border-t border-gray-100 pt-2 md:border-t-0 md:pt-0 md:pl-1">
-                        <Button
-                            className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
-                            style={{ backgroundColor: '#000B7E' }}
-                            onClick={() => setDrawerCreateIsOpen(true)}
-                        >
-                            Crear Negocio
-                        </Button>
-                        <button
-                            type="button"
-                            style={{ backgroundColor: '#10B981' }}
-                            className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
-                            onClick={handleOpenExportDialog}
-                        >
-                            Exportar Excel
-                        </button>
-                    </div>
                 </div>
             </div>
             <div className="relative p-3 rounded-lg shadow min-h-[200px]">
@@ -1533,10 +1838,16 @@ const Garages = () => {
                 onRequestClose={onDialogClose}
             >
                 <h5 className="mb-4">Confirmar eliminación</h5>
+                <DeleteHistoricoWarning
+                    loading={singleDeleteHistorico.loading}
+                    items={singleDeleteHistorico.items}
+                    entitySingular="negocio"
+                    entityPlural="negocios"
+                />
                 <p className="mb-3 text-gray-700">
                     ¿Marcar como eliminado al negocio{' '}
                     <strong>{selectedPerson?.nombre}</strong>? Se desactivarán los
-                    servicios asociados.
+                    servicios asociados y se eliminará su cuenta de autenticación.
                 </p>
                 <label className="mb-1 block text-sm font-medium text-gray-700">
                     Motivo de la eliminación <span className="text-red-600">*</span>
@@ -1562,6 +1873,54 @@ const Garages = () => {
                         onClick={handleDelete}
                     >
                         Eliminar
+                    </Button>
+                </div>
+            </Dialog>
+            <Dialog
+                isOpen={bulkDeleteDialogOpen}
+                onClose={onBulkDeleteDialogClose}
+                onRequestClose={onBulkDeleteDialogClose}
+            >
+                <h5 className="mb-4">Confirmar eliminación múltiple</h5>
+                <DeleteHistoricoWarning
+                    loading={bulkDeleteHistorico.loading}
+                    items={bulkDeleteHistorico.items}
+                    entitySingular="negocio"
+                    entityPlural="negocios"
+                />
+                <p className="mb-3 text-gray-700">
+                    ¿Marcar como eliminados{' '}
+                    <strong>{selectedGaragesCount}</strong> negocio(s)
+                    seleccionado(s)? Se desactivarán sus servicios asociados y se
+                    eliminarán sus cuentas de autenticación.
+                </p>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Motivo de la eliminación{' '}
+                    <span className="text-red-600">*</span>
+                </label>
+                <textarea
+                    className="mb-4 w-full min-h-[100px] rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                    placeholder="Describe el motivo (mínimo 5 caracteres)…"
+                    value={bulkDeleteMotivo}
+                    onChange={(e) => setBulkDeleteMotivo(e.target.value)}
+                    maxLength={2000}
+                />
+                <div className="text-right mt-6">
+                    <Button
+                        className="ltr:mr-2 rtl:ml-2"
+                        variant="plain"
+                        onClick={onBulkDeleteDialogClose}
+                        disabled={isBulkDeleting}
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        style={{ backgroundColor: '#B91C1C' }}
+                        className="text-white hover:opacity-80"
+                        onClick={handleBulkDelete}
+                        loading={isBulkDeleting}
+                    >
+                        Eliminar Negocios
                     </Button>
                 </div>
             </Dialog>

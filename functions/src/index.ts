@@ -6,6 +6,7 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https"
 import * as logger from "firebase-functions/logger"
 import {initializeApp} from "firebase-admin/app"
+import {getAuth} from "firebase-admin/auth"
 import nodemailer from "nodemailer"
 
 try {
@@ -182,3 +183,52 @@ export const sendWorkshopDecisionEmail = onCall(async (request) => {
     throw new HttpsError("internal", "Error interno del servidor")
   }
 })
+
+/** Elimina cuentas de Firebase Auth (uids). */
+export const deleteAuthUsers = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Debe iniciar sesión para eliminar usuarios.",
+    )
+  }
+
+  const {uids} = request.data ?? {}
+  if (!Array.isArray(uids) || uids.length === 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Se requiere un arreglo de uids.",
+    )
+  }
+
+  const auth = getAuth()
+  const results: Array<{uid: string; success: boolean; error?: string}> = []
+
+  for (const rawUid of uids) {
+    const uid = String(rawUid ?? "").trim()
+    if (!uid) continue
+
+    try {
+      await auth.deleteUser(uid)
+      results.push({uid, success: true})
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Error desconocido"
+      logger.warn("No se pudo eliminar usuario de Auth", {uid, message})
+      results.push({uid, success: false, error: message})
+    }
+  }
+
+  const deletedCount = results.filter((item) => item.success).length
+  const failedCount = results.length - deletedCount
+
+  return {
+    success: failedCount === 0,
+    deletedCount,
+    failedCount,
+    results,
+  }
+})
+
+/** @deprecated Usar deleteAuthUsers */
+export const deleteWorkshopAuthUsers = deleteAuthUsers

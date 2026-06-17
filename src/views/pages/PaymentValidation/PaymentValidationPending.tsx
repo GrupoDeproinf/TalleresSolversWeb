@@ -25,9 +25,9 @@ import {
     deleteDoc,
     Timestamp,
     getDoc,
-    writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
+import { maybeActivateServicesOnSubscription } from '@/utils/subscriptionServiceActivation'
 import {
     collectActiveTallerDocIdsFromUsersSnapshot,
     getSubscriptionTallerUid,
@@ -128,67 +128,6 @@ function paymentValidationSearchableText(
     return parts.join(' ').toLowerCase()
 }
 
-function parseCantidadServicios(raw: unknown): number {
-    if (raw === undefined || raw === null) return 0
-    if (typeof raw === 'number') {
-        return Number.isFinite(raw) ? raw : 0
-    }
-    if (typeof raw === 'string') {
-        const n = Number(String(raw).trim())
-        return Number.isFinite(n) ? n : 0
-    }
-    return 0
-}
-
-/**
- * Cupo del plan anterior: última suscripción Aprobada del mismo taller
- * (excluye el doc actual, típicamente aún Por Aprobar). En Firestore el
- * estado sigue siendo Aprobado aunque la UI muestre Vencido por fecha.
- */
-async function getPreviousApprovedSubscriptionServiceLimit(
-    tallerUid: string,
-    currentSubscriptionDocId: string,
-): Promise<number> {
-    const snap = await getDocs(
-        query(
-            collection(db, 'Subscripciones'),
-            where('taller_uid', '==', tallerUid),
-        ),
-    )
-    type Cand = { fechaFinMs: number; cantidad: number }
-    const candidates: Cand[] = []
-    snap.docs.forEach((d) => {
-        if (d.id === currentSubscriptionDocId) return
-        const data = d.data() as {
-            status?: string
-            cantidad_servicios?: unknown
-            fecha_fin?: unknown
-        }
-        if (data.status !== 'Aprobado') return
-        const f = data.fecha_fin
-        const fechaFinMs = f instanceof Timestamp ? f.toMillis() : 0
-        candidates.push({
-            fechaFinMs,
-            cantidad: parseCantidadServicios(data.cantidad_servicios),
-        })
-    })
-    if (candidates.length === 0) return 0
-    candidates.sort((a, b) => b.fechaFinMs - a.fechaFinMs)
-    return candidates[0].cantidad
-}
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-    const chunks: T[][] = []
-    for (let i = 0; i < arr.length; i += size) {
-        chunks.push(arr.slice(i, i + size))
-    }
-    return chunks
-}
-
-function wasServiceOff(data: { estatus?: unknown }): boolean {
-    return data.estatus !== true
-}
-
 /** FCM / push guardado en `Usuarios.token` (dispositivo del taller). */
 function getUsuarioPushToken(
     userData: Record<string, unknown> | undefined,
@@ -197,67 +136,6 @@ function getUsuarioPushToken(
     if (typeof raw !== 'string') return null
     const t = raw.trim()
     return t.length > 0 ? t : null
-}
-
-/**
- * Compara cantidad_servicios del plan anterior (última aprobada) vs el nuevo.
- * - Igual o nuevo mayor: enciende todos los servicios del taller (estatus true,
- *   lastActive true) y calcula `subscripcion_actual.cantidad_servicios`:
- *   - Si las cantidades del plan son iguales: debe quedar en 0.
- *   - Si el plan nuevo trae más cupos: cupo del plan nuevo menos cuántos
- *     servicios pasaron de estatus false a true.
- * - Nuevo menor: no modifica servicios.
- */
-async function maybeActivateAllTallerServicesAfterApproval(params: {
-    tallerUid: string
-    subscriptionDocId: string
-    newPlanCantidadServiciosRaw: unknown
-}): Promise<{ usuarioCantidadServicios?: string }> {
-    const { tallerUid, subscriptionDocId, newPlanCantidadServiciosRaw } =
-        params
-    const oldLimit = await getPreviousApprovedSubscriptionServiceLimit(
-        tallerUid,
-        subscriptionDocId,
-    )
-    const newLimit = parseCantidadServicios(newPlanCantidadServiciosRaw)
-    if (newLimit < oldLimit) {
-        return {}
-    }
-
-    const serviciosSnap = await getDocs(
-        query(
-            collection(db, 'Servicios'),
-            where('uid_taller', '==', tallerUid),
-        ),
-    )
-    if (serviciosSnap.empty) {
-        return {}
-    }
-
-    const flippedFalseToTrue = serviciosSnap.docs.filter((d) =>
-        wasServiceOff(d.data() as { estatus?: unknown }),
-    ).length
-
-    for (const chunk of chunkArray(serviciosSnap.docs, 500)) {
-        const batch = writeBatch(db)
-        for (const d of chunk) {
-            batch.update(doc(db, 'Servicios', d.id), {
-                estatus: true,
-                lastActive: true,
-            })
-        }
-        await batch.commit()
-    }
-
-    let usuarioCantidadServicios: string
-    if (newLimit === oldLimit) {
-        usuarioCantidadServicios = '0'
-    } else {
-        usuarioCantidadServicios = String(
-            Math.max(0, newLimit - flippedFalseToTrue),
-        )
-    }
-    return { usuarioCantidadServicios }
 }
 
 async function approveSubscriptionAsApproved(
@@ -305,10 +183,11 @@ async function approveSubscriptionAsApproved(
     }
     await updateDoc(doc(db, 'Subscripciones', sub.uid), updateData)
     if (sub.taller_uid) {
-        const activation = await maybeActivateAllTallerServicesAfterApproval({
+        const activation = await maybeActivateServicesOnSubscription({
             tallerUid: sub.taller_uid,
             subscriptionDocId: sub.uid,
             newPlanCantidadServiciosRaw: sub.cantidad_servicios,
+            newPlanMontoRaw: sub.monto,
         })
         const usuarioSubscripcion =
             activation.usuarioCantidadServicios !== undefined

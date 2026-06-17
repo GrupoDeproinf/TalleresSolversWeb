@@ -86,6 +86,10 @@ import ProfileGarageTabs, {
 } from './Components/ProfileGarageTabs'
 import axios from 'axios'
 import { sortPlansByDisplayOrder } from '@/utils/sortPlansByDisplayOrder'
+import {
+    isFreePlanAmount,
+    maybeActivateServicesOnSubscription,
+} from '@/utils/subscriptionServiceActivation'
 
 type Service = {
     nombre_servicio: string
@@ -227,11 +231,6 @@ function coerceFirestoreTimestamp(value: unknown): Timestamp {
 }
 
 type HistoricoRecord = ClienteHistorico
-
-const isFreePlanAmount = (value: unknown) => {
-    const amount = Number(value)
-    return Number.isFinite(amount) && Math.abs(amount) < 0.01
-}
 
 const ProfileGarage = () => {
     const cloudFunctions = getFunctions(app, 'us-central1')
@@ -878,6 +877,21 @@ const ProfileGarage = () => {
                     fecha_fin: Timestamp.fromDate(fechaFin),
                 },
             })
+
+            if (isFreePlan) {
+                const activation = await maybeActivateServicesOnSubscription({
+                    tallerUid: path,
+                    subscriptionDocId: newSubscriptionRef.id,
+                    newPlanCantidadServiciosRaw: plan.cantidad_servicios,
+                    newPlanMontoRaw: plan.monto,
+                })
+                if (activation.usuarioCantidadServicios !== undefined) {
+                    await updateDoc(usuarioDocRef, {
+                        'subscripcion_actual.cantidad_servicios':
+                            activation.usuarioCantidadServicios,
+                    })
+                }
+            }
 
             setIsSuscrito(true)
             await getData()
