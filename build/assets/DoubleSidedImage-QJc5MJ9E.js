@@ -1,1 +1,0 @@
-import{u as n,j as a,bn as c}from"./index-NE0lhnJe.js";const{MODE_DARK:p}=c,E=({src:e,darkModeSrc:s,alt:o="",...t})=>{const m=n(r=>r.theme.mode);return a.jsx("img",{src:m===p?s:e,alt:o,...t})};export{E as D};
