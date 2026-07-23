@@ -74,6 +74,7 @@ import {
     type EntityHistoricoHit,
 } from '@/utils/entityDeleteHistoryCheck'
 import { DeleteHistoricoWarning } from '@/components/shared/DeleteHistoricoWarning'
+import { assignFreePlanToNewTaller } from '@/utils/subscriptionServiceActivation'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -740,6 +741,21 @@ const Garages = () => {
 
             await setDoc(docRef, initialData);
 
+            const freePlanResult = await assignFreePlanToNewTaller(user.uid)
+            if (!freePlanResult.ok) {
+                console.error(
+                    'No se pudo asignar el plan gratis al negocio nuevo:',
+                    freePlanResult,
+                )
+                toast.push(
+                    <Notification title="Advertencia" type="warning">
+                        {freePlanResult.reason === 'plan_not_found'
+                            ? 'Negocio creado, pero no se encontró un plan gratis en Planes para asignarlo automáticamente.'
+                            : 'Negocio creado, pero hubo un error al asignar el plan gratis automáticamente.'}
+                    </Notification>,
+                )
+            }
+
             // Cerrar drawer inmediatamente después de crear el usuario
             setDrawerCreateIsOpen(false);
             setSelectedPlace(null);
@@ -748,7 +764,9 @@ const Garages = () => {
             // Mostrar notificación de éxito
             toast.push(
                 <Notification title="Éxito">
-                    Negocio creado exitosamente. Los documentos se están subiendo en segundo plano.
+                    {freePlanResult.ok
+                        ? `Negocio creado exitosamente con plan ${freePlanResult.planNombre} asignado. Los documentos se están subiendo en segundo plano.`
+                        : 'Negocio creado exitosamente. Los documentos se están subiendo en segundo plano.'}
                 </Notification>
             );
             

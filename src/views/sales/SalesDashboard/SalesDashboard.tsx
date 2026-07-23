@@ -32,6 +32,7 @@ import Dialog from '@/components/ui/Dialog'
 import Button from '@/components/ui/Button'
 import Tabs from '@/components/ui/Tabs'
 import DatePicker from '@/components/ui/DatePicker'
+import Tooltip from '@/components/ui/Tooltip'
 import {
     collectActiveTallerDocIdsFromUsersSnapshot,
     getSubscriptionTallerUid,
@@ -88,12 +89,42 @@ type ServicioConCalificaciones = {
 };
 
 type EngagementViewEvent = {
+    id: string
     uid_taller: string
     uid_servicio: string
     fecha: Date | null
     type: string
     nombre_taller: string
+    nombre_servicio: string
+    usuarioNombre: string
+    usuarioEmail: string
+    usuarioId: string
 }
+
+type EngagementDetallePersona = {
+    id: string
+    nombre: string
+    email: string
+    fecha: Date | null
+    detalle: string
+}
+
+type CalificacionDetalleRow = {
+    id: string
+    uid_taller: string
+    taller: string
+    nombre_servicio: string
+    puntuacion: number
+    usuarioNombre: string
+    usuarioEmail: string
+    fecha: Date | null
+}
+
+type DestacadoDetalleKind =
+    | 'vistaTaller'
+    | 'vistaServicio'
+    | 'contacto'
+    | 'calidad'
 
 const SERVICE_CONTACT_TYPES = new Set([
     'contactar',
@@ -109,6 +140,28 @@ const isServiceContactInteractionType = (type: unknown) => {
         .replace(/[\u0300-\u036f]/g, '')
     return SERVICE_CONTACT_TYPES.has(t)
 }
+
+const formatEngagementFecha = (fecha: Date | null) => {
+    if (!fecha) return 'Sin fecha'
+    return fecha.toLocaleString('es-VE', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    })
+}
+
+const mapEventToDetallePersona = (
+    event: EngagementViewEvent,
+    detalle: string,
+): EngagementDetallePersona => ({
+    id: event.id,
+    nombre: event.usuarioNombre || 'Usuario no identificado',
+    email: event.usuarioEmail || 'Sin correo',
+    fecha: event.fecha,
+    detalle,
+})
 
 type ServicioCatalogoItem = {
     nombre: string
@@ -555,11 +608,15 @@ const SalesDashboard = () => {
             categoria_display: string
         }[]
     >([]);
+    const [calificacionesDetalle, setCalificacionesDetalle] = useState<
+        CalificacionDetalleRow[]
+    >([])
 
     const getAllData = async () => {
         try {
             const serviciosSnapshot = await getDocs(collection(db, 'Servicios'));
             const serviciosConCalificaciones: ServicioConCalificaciones[] = [];
+            const calificacionesFlat: CalificacionDetalleRow[] = []
 
             // Itera por cada servicio y carga las calificaciones
             await Promise.all(
@@ -584,11 +641,35 @@ const SalesDashboard = () => {
                         uid_categoria: servicioData.uid_categoria as string | undefined,
                     }
 
+                    const uidTaller = String(servicioData.uid_taller || '')
+                    const tallerNombre = String(servicioData.taller || 'Sin negocio')
+                    const nombreServicio = String(
+                        servicioData.nombre_servicio || 'Servicio',
+                    )
+
+                    calificaciones.forEach((calificacion) => {
+                        calificacionesFlat.push({
+                            id: `${uid_servicio}-${calificacion.id || ''}`,
+                            uid_taller: uidTaller,
+                            taller: tallerNombre,
+                            nombre_servicio: nombreServicio,
+                            puntuacion: Number(calificacion.puntuacion ?? 0),
+                            usuarioNombre:
+                                calificacion.usuario?.nombre?.trim() ||
+                                'Usuario no identificado',
+                            usuarioEmail:
+                                calificacion.usuario?.email?.trim() || 'Sin correo',
+                            fecha: toDateFromUnknownTimestamp(
+                                calificacion.fecha_creacion as FirestoreTimestampLike,
+                            ),
+                        })
+                    })
+
                     serviciosConCalificaciones.push({
                         nombre_servicio: servicioData.nombre_servicio,
                         taller: servicioData.taller || 'Sin negocio',
                         uid_servicio,
-                        uid_taller: String(servicioData.uid_taller || ''),
+                        uid_taller: uidTaller,
                         calificaciones,
                         categoria_filtro_key: getCategoryFilterKeyFromFields(catFields),
                         categoria_display: getCategoryFilterLabelFromFields(catFields),
@@ -620,6 +701,7 @@ const SalesDashboard = () => {
                 .filter((servicio) => servicio.promedio_puntuacion > 0); // Excluye servicios con promedio 0
 
             setDataPuntuacion(dataPuntuacion);
+            setCalificacionesDetalle(calificacionesFlat)
         } catch (error) {
             console.error('Error obteniendo los datos:', error);
         }
@@ -995,6 +1077,19 @@ const columns: ColumnDef<{
         Record<string, ServicioCatalogoItem>
     >({})
     const [engagementCiudad, setEngagementCiudad] = useState('todos')
+    const [destacadoDetalleOpen, setDestacadoDetalleOpen] = useState(false)
+    const [destacadoDetalleKind, setDestacadoDetalleKind] =
+        useState<DestacadoDetalleKind | null>(null)
+
+    const openDestacadoDetalle = (kind: DestacadoDetalleKind) => {
+        setDestacadoDetalleKind(kind)
+        setDestacadoDetalleOpen(true)
+    }
+
+    const closeDestacadoDetalle = () => {
+        setDestacadoDetalleOpen(false)
+        setDestacadoDetalleKind(null)
+    }
 
     useEffect(() => {
         let cancelled = false
@@ -1010,7 +1105,12 @@ const columns: ColumnDef<{
                 const views: EngagementViewEvent[] = []
                 vSnap.forEach((d) => {
                     const x = d.data() as Record<string, unknown>
+                    const usuario =
+                        x.usuario && typeof x.usuario === 'object'
+                            ? (x.usuario as Record<string, unknown>)
+                            : {}
                     views.push({
+                        id: d.id,
                         uid_taller: String(x.uid_taller || ''),
                         uid_servicio: String(x.uid_servicio || ''),
                         fecha: toDateFromUnknownTimestamp(
@@ -1019,7 +1119,17 @@ const columns: ColumnDef<{
                                 x.fecha) as FirestoreTimestampLike,
                         ),
                         type: String(x.type || ''),
-                        nombre_taller: String(x.nombre_taller || '').trim(),
+                        nombre_taller: String(x.nombre_taller || x.taller || '').trim(),
+                        nombre_servicio: String(x.nombre_servicio || '').trim(),
+                        usuarioNombre: String(
+                            usuario.nombre || x.nombre_usuario || '',
+                        ).trim(),
+                        usuarioEmail: String(
+                            usuario.email || x.email_usuario || '',
+                        ).trim(),
+                        usuarioId: String(
+                            usuario.id || usuario.uid || x.uid_usuario || '',
+                        ).trim(),
                     })
                 })
                 const catalog: Record<string, ServicioCatalogoItem> = {}
@@ -1159,11 +1269,82 @@ const columns: ColumnDef<{
             .sort((a, b) => b.promedio - a.promedio)
             .slice(0, 8)
 
+        const mejorTallerUid = rankingMejor[0]?.uid || ''
+
+        const sortByFechaDesc = (
+            a: EngagementDetallePersona,
+            b: EngagementDetallePersona,
+        ) => (b.fecha?.getTime() || 0) - (a.fecha?.getTime() || 0)
+
+        const detalleTopVistaTaller = topVistaTallerUid
+            ? vistasFiltradas
+                  .filter((v) => v.uid_taller === topVistaTallerUid)
+                  .map((v) =>
+                      mapEventToDetallePersona(
+                          v,
+                          v.nombre_servicio ||
+                              serviciosCatalogo[v.uid_servicio]?.nombre ||
+                              'Vista de perfil/servicio',
+                      ),
+                  )
+                  .sort(sortByFechaDesc)
+            : []
+
+        const detalleTopServicio = topVistaServicioId
+            ? vistasFiltradas
+                  .filter((v) => v.uid_servicio === topVistaServicioId)
+                  .map((v) =>
+                      mapEventToDetallePersona(
+                          v,
+                          v.nombre_servicio ||
+                              catTopServicio?.nombre ||
+                              'Servicio',
+                      ),
+                  )
+                  .sort(sortByFechaDesc)
+            : []
+
+        const detalleTopContacto = topContactoUid
+            ? contactosFiltrados
+                  .filter((c) => c.uid_taller === topContactoUid)
+                  .map((c) => {
+                      const tipo = c.type
+                          ? c.type.charAt(0).toUpperCase() + c.type.slice(1)
+                          : 'Contacto'
+                      return mapEventToDetallePersona(
+                          c,
+                          `${tipo}${c.nombre_servicio ? ` · ${c.nombre_servicio}` : ''}`,
+                      )
+                  })
+                  .sort(sortByFechaDesc)
+            : []
+
+        const detalleMejorCalidad = mejorTallerUid
+            ? calificacionesDetalle
+                  .filter(
+                      (c) =>
+                          c.uid_taller === mejorTallerUid &&
+                          ciudadOk(c.uid_taller) &&
+                          c.puntuacion > 0,
+                  )
+                  .map(
+                      (c): EngagementDetallePersona => ({
+                          id: c.id,
+                          nombre: c.usuarioNombre,
+                          email: c.usuarioEmail,
+                          fecha: c.fecha,
+                          detalle: `${c.nombre_servicio} · ${c.puntuacion.toFixed(1)}★`,
+                      }),
+                  )
+                  .sort(sortByFechaDesc)
+            : []
+
         return {
             topVistaTallerUid,
             topVistaTallerCount,
             topVistaTallerNombre:
                 talleresMetaByUid[topVistaTallerUid]?.nombre || '—',
+            topVistaServicioId,
             topServicioNombre,
             topServicioNegocio,
             topVistaServicioCount,
@@ -1174,6 +1355,10 @@ const columns: ColumnDef<{
                 nombreTallerContactoPorUid.get(topContactoUid) ||
                 '—',
             rankingMejor,
+            detalleTopVistaTaller,
+            detalleTopServicio,
+            detalleTopContacto,
+            detalleMejorCalidad,
         }
     }, [
         engagementViews,
@@ -1181,7 +1366,63 @@ const columns: ColumnDef<{
         talleresMetaByUid,
         serviciosCatalogo,
         dataPuntuacion,
+        calificacionesDetalle,
     ])
+
+    const destacadoDetalleMeta = useMemo(() => {
+        if (!destacadoDetalleKind) {
+            return {
+                title: '',
+                subtitle: '',
+                rows: [] as EngagementDetallePersona[],
+                countLabel: '',
+                Icon: HiOutlineEye,
+            }
+        }
+
+        switch (destacadoDetalleKind) {
+            case 'vistaTaller':
+                return {
+                    title: 'Más visto',
+                    subtitle: engagementResumen.topVistaTallerNombre,
+                    rows: engagementResumen.detalleTopVistaTaller,
+                    countLabel: 'vistas',
+                    Icon: HiOutlineEye,
+                }
+            case 'vistaServicio':
+                return {
+                    title: 'Servicio top',
+                    subtitle: `${engagementResumen.topServicioNombre} · ${engagementResumen.topServicioNegocio}`,
+                    rows: engagementResumen.detalleTopServicio,
+                    countLabel: 'vistas',
+                    Icon: HiOutlineClipboardList,
+                }
+            case 'contacto':
+                return {
+                    title: 'Más contactado',
+                    subtitle: engagementResumen.topContactoNombre,
+                    rows: engagementResumen.detalleTopContacto,
+                    countLabel: 'contactos',
+                    Icon: HiOutlinePhone,
+                }
+            case 'calidad':
+                return {
+                    title: 'Mejor calidad',
+                    subtitle: engagementResumen.rankingMejor[0]?.nombre || '—',
+                    rows: engagementResumen.detalleMejorCalidad,
+                    countLabel: 'calificaciones',
+                    Icon: FaStar,
+                }
+            default:
+                return {
+                    title: '',
+                    subtitle: '',
+                    rows: [] as EngagementDetallePersona[],
+                    countLabel: '',
+                    Icon: HiOutlineEye,
+                }
+        }
+    }, [destacadoDetalleKind, engagementResumen])
 
     const talleresNuevosEnEspera = talleresStats.espera
 
@@ -1349,6 +1590,8 @@ const columns: ColumnDef<{
         },
     ]
 
+    const DestacadoDetalleIcon = destacadoDetalleMeta.Icon
+
     return (
         <div className="flex flex-col min-h-[calc(100vh-6rem)] bg-gray-100">
             <Dialog
@@ -1406,6 +1649,110 @@ const columns: ColumnDef<{
                     >
                         <span className="text-sm font-semibold">Ver dashboard</span>
                     </Button>
+                </div>
+            </Dialog>
+
+            <Dialog
+                isOpen={destacadoDetalleOpen}
+                onClose={closeDestacadoDetalle}
+                onRequestClose={closeDestacadoDetalle}
+                width={680}
+                closable={false}
+                contentClassName="!p-0 overflow-hidden"
+            >
+                <div className="overflow-hidden">
+                    <div className="bg-[#000B7E] px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex items-start gap-3">
+                                <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
+                                    <DestacadoDetalleIcon className="h-5 w-5" />
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-white/80">
+                                        Detalle del indicador
+                                    </p>
+                                    <h4 className="mt-0.5 text-lg font-semibold text-white leading-tight truncate">
+                                        {destacadoDetalleMeta.title}
+                                    </h4>
+                                    <p className="mt-1 text-xs text-white/85 truncate">
+                                        {destacadoDetalleMeta.subtitle}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                                <p className="text-2xl font-bold tabular-nums leading-none text-white">
+                                    {destacadoDetalleMeta.rows.length}
+                                </p>
+                                <p className="mt-1 text-[10px] font-medium text-white/80">
+                                    {destacadoDetalleMeta.countLabel}
+                                </p>
+                            </div>
+                        </div>
+                        <p className="mt-3 text-[11px] text-white/75">
+                            {engagementCiudad !== 'todos'
+                                ? `Ciudad: ${engagementCiudad}`
+                                : 'Todas las ciudades'}
+                        </p>
+                    </div>
+
+                    <div className="bg-gradient-to-b from-gray-50/90 to-white p-3">
+                        <div className="max-h-[420px] overflow-y-auto space-y-2.5 pr-0.5">
+                            {destacadoDetalleMeta.rows.length > 0 ? (
+                                destacadoDetalleMeta.rows.map((row, index) => (
+                                    <div
+                                        key={`${row.id}-${index}`}
+                                        className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]"
+                                    >
+                                        <div className="flex items-start gap-2.5">
+                                            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-xs font-bold text-[#000B7E]">
+                                                {index + 1}
+                                            </span>
+                                            <div className="min-w-0 flex-1 space-y-0.5">
+                                                <p className="text-sm font-semibold text-gray-900 leading-snug truncate">
+                                                    {row.nombre}
+                                                </p>
+                                                <p className="text-[11px] text-gray-500 truncate">
+                                                    {row.email}
+                                                </p>
+                                                <p className="text-[11px] text-gray-600 truncate">
+                                                    {row.detalle}
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0 text-right">
+                                                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                                                    Fecha
+                                                </p>
+                                                <p className="mt-0.5 text-[11px] font-medium text-gray-600 tabular-nums leading-snug">
+                                                    {formatEngagementFecha(row.fecha)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-10 text-center shadow-sm">
+                                    <p className="text-sm font-medium text-gray-500">
+                                        No hay registros para mostrar en este indicador.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 border-t border-gray-100 bg-white px-4 py-3">
+                        <p className="text-xs text-gray-500">
+                            {destacadoDetalleMeta.rows.length}{' '}
+                            {destacadoDetalleMeta.countLabel} sincronizados
+                        </p>
+                        <Button
+                            size="sm"
+                            variant="solid"
+                            style={{ backgroundColor: '#000B7E' }}
+                            onClick={closeDestacadoDetalle}
+                        >
+                            Cerrar
+                        </Button>
+                    </div>
                 </div>
             </Dialog>
 
@@ -1674,13 +2021,32 @@ const columns: ColumnDef<{
                                                             {engagementResumen.topVistaTallerNombre}
                                                         </p>
                                                     </div>
-                                                    <div className="shrink-0 text-right">
-                                                        <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
-                                                            {engagementResumen.topVistaTallerCount}
-                                                        </p>
-                                                        <p className="text-[10px] font-medium text-gray-400 mt-1">
-                                                            vistas
-                                                        </p>
+                                                    <div className="shrink-0 flex items-start gap-1.5">
+                                                        <div className="text-right">
+                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                                {engagementResumen.topVistaTallerCount}
+                                                            </p>
+                                                            <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                                vistas
+                                                            </p>
+                                                        </div>
+                                                        <Tooltip title="Ver detalle">
+                                                            <button
+                                                                type="button"
+                                                                disabled={
+                                                                    engagementResumen.topVistaTallerCount <=
+                                                                    0
+                                                                }
+                                                                onClick={() =>
+                                                                    openDestacadoDetalle(
+                                                                        'vistaTaller',
+                                                                    )
+                                                                }
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <HiOutlineEye className="h-7 w-7" />
+                                                            </button>
+                                                        </Tooltip>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1700,13 +2066,32 @@ const columns: ColumnDef<{
                                                             {engagementResumen.topServicioNegocio}
                                                         </p>
                                                     </div>
-                                                    <div className="shrink-0 text-right">
-                                                        <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
-                                                            {engagementResumen.topVistaServicioCount}
-                                                        </p>
-                                                        <p className="text-[10px] font-medium text-gray-400 mt-1">
-                                                            vistas
-                                                        </p>
+                                                    <div className="shrink-0 flex items-start gap-1.5">
+                                                        <div className="text-right">
+                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                                {engagementResumen.topVistaServicioCount}
+                                                            </p>
+                                                            <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                                vistas
+                                                            </p>
+                                                        </div>
+                                                        <Tooltip title="Ver detalle">
+                                                            <button
+                                                                type="button"
+                                                                disabled={
+                                                                    engagementResumen.topVistaServicioCount <=
+                                                                    0
+                                                                }
+                                                                onClick={() =>
+                                                                    openDestacadoDetalle(
+                                                                        'vistaServicio',
+                                                                    )
+                                                                }
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <HiOutlineEye className="h-7 w-7" />
+                                                            </button>
+                                                        </Tooltip>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1726,13 +2111,32 @@ const columns: ColumnDef<{
                                                             {engagementResumen.topContactoNombre}
                                                         </p>
                                                     </div>
-                                                    <div className="shrink-0 text-right">
-                                                        <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
-                                                            {engagementResumen.topContactoCount}
-                                                        </p>
-                                                        <p className="text-[10px] font-medium text-gray-400 mt-1">
-                                                            contactos
-                                                        </p>
+                                                    <div className="shrink-0 flex items-start gap-1.5">
+                                                        <div className="text-right">
+                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                                {engagementResumen.topContactoCount}
+                                                            </p>
+                                                            <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                                contactos
+                                                            </p>
+                                                        </div>
+                                                        <Tooltip title="Ver detalle">
+                                                            <button
+                                                                type="button"
+                                                                disabled={
+                                                                    engagementResumen.topContactoCount <=
+                                                                    0
+                                                                }
+                                                                onClick={() =>
+                                                                    openDestacadoDetalle(
+                                                                        'contacto',
+                                                                    )
+                                                                }
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                            >
+                                                                <HiOutlineEye className="h-7 w-7" />
+                                                            </button>
+                                                        </Tooltip>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1787,15 +2191,35 @@ const columns: ColumnDef<{
                                                         )}
                                                     </div>
                                                     {engagementResumen.rankingMejor[0] ? (
-                                                        <div className="shrink-0 text-right">
-                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
-                                                                {engagementResumen.rankingMejor[0].promedio.toFixed(
-                                                                    1,
-                                                                )}
-                                                            </p>
-                                                            <p className="text-[10px] font-medium text-gray-400 mt-1">
-                                                                de 5
-                                                            </p>
+                                                        <div className="shrink-0 flex items-start gap-1.5">
+                                                            <div className="text-right">
+                                                                <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                                    {engagementResumen.rankingMejor[0].promedio.toFixed(
+                                                                        1,
+                                                                    )}
+                                                                </p>
+                                                                <p className="text-[10px] font-medium text-gray-400 mt-1">
+                                                                    de 5
+                                                                </p>
+                                                            </div>
+                                                            <Tooltip title="Ver detalle">
+                                                                <button
+                                                                    type="button"
+                                                                    disabled={
+                                                                        engagementResumen
+                                                                            .detalleMejorCalidad
+                                                                            .length <= 0
+                                                                    }
+                                                                    onClick={() =>
+                                                                        openDestacadoDetalle(
+                                                                            'calidad',
+                                                                        )
+                                                                    }
+                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                >
+                                                                    <HiOutlineEye className="h-7 w-7" />
+                                                                </button>
+                                                            </Tooltip>
                                                         </div>
                                                     ) : null}
                                                 </div>

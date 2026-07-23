@@ -7,6 +7,7 @@ import {
     getDocs,
     getDoc,
     updateDoc,
+    deleteDoc,
     collection,
     where,
     DocumentData,
@@ -47,7 +48,7 @@ import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
 import Table from '@/components/ui/Table'
 import { Dialog, Notification, Pagination, toast } from '@/components/ui'
-import { FaEdit, FaStar, FaStarHalfAlt } from 'react-icons/fa'
+import { FaEdit, FaStar, FaStarHalfAlt, FaTrash } from 'react-icons/fa'
 import {
     flexRender,
     getCoreRowModel,
@@ -1559,6 +1560,133 @@ const ProfileGarage = () => {
         setIsEditDrawerOpen(true)
     }
 
+    const [isDeleteServiceDialogOpen, setIsDeleteServiceDialogOpen] =
+        useState(false)
+    const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null)
+    const [isDeletingService, setIsDeletingService] = useState(false)
+
+    const openDeleteServiceDialog = (service: Service) => {
+        if (isSupportRole) {
+            toast.push(
+                <Notification title="Acción no permitida" type="warning">
+                    El rol Soporte no puede eliminar servicios.
+                </Notification>,
+            )
+            return
+        }
+        setServiceToDelete(service)
+        setIsDeleteServiceDialogOpen(true)
+    }
+
+    const closeDeleteServiceDialog = () => {
+        if (isDeletingService) return
+        setIsDeleteServiceDialogOpen(false)
+        setServiceToDelete(null)
+    }
+
+    /** Desactiva un servicio activo y libera el cupo del plan (mismo proceso del switch). */
+    const deactivateServiceForDelete = async (
+        service: Service,
+    ): Promise<boolean> => {
+        const usuarioDocRef = doc(db, 'Usuarios', path)
+        const usuarioSnapshot = await getDoc(usuarioDocRef)
+        const usuarioData = usuarioSnapshot.data()
+        const subscripcionActual = usuarioData?.subscripcion_actual
+        const cantidadServiciosRaw = subscripcionActual?.cantidad_servicios
+
+        if (
+            !subscripcionActual ||
+            cantidadServiciosRaw === undefined ||
+            cantidadServiciosRaw === null ||
+            String(cantidadServiciosRaw).trim() === ''
+        ) {
+            toast.push(
+                <Notification title="Configuración incompleta" type="warning">
+                    No se puede desactivar el servicio porque falta la
+                    configuración de cantidad de servicios en la suscripción.
+                </Notification>,
+            )
+            return false
+        }
+
+        const cantidadServiciosActual = Number(cantidadServiciosRaw)
+        if (!Number.isFinite(cantidadServiciosActual)) {
+            toast.push(
+                <Notification title="Configuración inválida" type="warning">
+                    La cantidad de servicios de la suscripción no es válida.
+                </Notification>,
+            )
+            return false
+        }
+
+        const nuevaCantidadServicios = cantidadServiciosActual + 1
+        const docRef = doc(db, 'Servicios', service.uid_servicio)
+
+        await updateDoc(docRef, { estatus: false })
+        await updateDoc(usuarioDocRef, {
+            'subscripcion_actual.cantidad_servicios': String(
+                nuevaCantidadServicios,
+            ),
+        })
+
+        setData((prev) =>
+            prev
+                ? {
+                      ...prev,
+                      subscripcion_actual: {
+                          ...prev.subscripcion_actual,
+                          cantidad_servicios: String(nuevaCantidadServicios),
+                      },
+                  }
+                : prev,
+        )
+
+        return true
+    }
+
+    const handleDeleteService = async () => {
+        if (!serviceToDelete || isSupportRole || isDeletingService) return
+
+        setIsDeletingService(true)
+        try {
+            // 1) Si está activo, primero desactivar para liberar cupo
+            if (serviceToDelete.estatus) {
+                const deactivated =
+                    await deactivateServiceForDelete(serviceToDelete)
+                if (!deactivated) return
+            }
+
+            // 2) Eliminar el documento del servicio
+            await deleteDoc(doc(db, 'Servicios', serviceToDelete.uid_servicio))
+
+            setServices((prev) =>
+                prev.filter(
+                    (service) =>
+                        service.uid_servicio !== serviceToDelete.uid_servicio,
+                ),
+            )
+
+            toast.push(
+                <Notification title="Éxito" type="success">
+                    Servicio {serviceToDelete.nombre_servicio} eliminado
+                    correctamente.
+                </Notification>,
+            )
+
+            setIsDeleteServiceDialogOpen(false)
+            setServiceToDelete(null)
+        } catch (error) {
+            console.error('Error al eliminar el servicio:', error)
+            toast.push(
+                <Notification title="Error" type="danger">
+                    Hubo un error al eliminar el servicio.
+                </Notification>,
+            )
+        } finally {
+            setIsDeletingService(false)
+        }
+    }
+
     const [isPromoDrawerOpen, setIsPromoDrawerOpen] = useState(false)
     const [selectedPromotion, setSelectedPromotion] =
         useState<Promotion | null>(null)
@@ -1771,23 +1899,45 @@ const ProfileGarage = () => {
                 id: 'actions',
                 cell: ({ row }) => {
                     return (
-                        <div className="">
+                        <div className="flex items-center gap-2">
                             {!isSupportRole ? (
-                                <Button
-                                    size="sm"
-                                    variant="solid"
-                                    onClick={() => handleEditService(row.original)}
-                                    className="text-blue-900 hover:bg-blue-700"
-                                >
-                                    <FaEdit />
-                                </Button>
+                                <>
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        onClick={() =>
+                                            handleEditService(row.original)
+                                        }
+                                        className="text-blue-900 hover:bg-blue-700"
+                                    >
+                                        <FaEdit />
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        onClick={() =>
+                                            openDeleteServiceDialog(
+                                                row.original,
+                                            )
+                                        }
+                                        className="bg-red-700 hover:bg-red-800 text-white"
+                                    >
+                                        <FaTrash />
+                                    </Button>
+                                </>
                             ) : null}
                         </div>
                     )
                 },
             },
         ],
-        [subscription, services, handleEditService, isSupportRole],
+        [
+            subscription,
+            services,
+            handleEditService,
+            openDeleteServiceDialog,
+            isSupportRole,
+        ],
     )
 
     const columns2: ColumnDef<Planes>[] = [
@@ -3539,6 +3689,32 @@ const ProfileGarage = () => {
                     </div>
                 </ConfirmDialog>
             )}
+
+            <ConfirmDialog
+                isOpen={isDeleteServiceDialogOpen}
+                type="danger"
+                title="Eliminar servicio"
+                confirmText="Eliminar"
+                confirmButtonColor="red-600"
+                cancelText="Cancelar"
+                onClose={closeDeleteServiceDialog}
+                onRequestClose={closeDeleteServiceDialog}
+                onCancel={closeDeleteServiceDialog}
+                onConfirm={handleDeleteService}
+            >
+                <p>
+                    ¿Estás seguro de que deseas eliminar el servicio{' '}
+                    <strong>{serviceToDelete?.nombre_servicio}</strong>?
+                    {serviceToDelete?.estatus
+                        ? ' Primero se desactivará para liberar el cupo del plan y luego se eliminará.'
+                        : ''}
+                </p>
+                {isDeletingService ? (
+                    <p className="mt-2 text-sm text-gray-500">
+                        Procesando eliminación...
+                    </p>
+                ) : null}
+            </ConfirmDialog>
 
             {/* Drawer para editar servicio */}
             <EditServiceDrawer

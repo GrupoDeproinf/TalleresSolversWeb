@@ -3,7 +3,9 @@ import {
     doc,
     getDocs,
     query,
+    setDoc,
     Timestamp,
+    updateDoc,
     where,
     writeBatch,
 } from 'firebase/firestore'
@@ -232,4 +234,96 @@ export async function maybeActivateServicesOnSubscription(params: {
         newPlanCantidadServiciosRaw,
         previousLimit: previous?.cantidad ?? 0,
     })
+}
+
+export type FreePlanAssignmentResult =
+    | { ok: true; planNombre: string; subscriptionId: string }
+    | { ok: false; reason: 'plan_not_found' | 'error'; message?: string }
+
+/**
+ * Asigna automáticamente el plan gratuito (monto ≈ 0) a un taller recién creado:
+ * crea el doc en Subscripciones y actualiza Usuarios.subscripcion_actual (Aprobado).
+ */
+export async function assignFreePlanToNewTaller(
+    tallerUid: string,
+): Promise<FreePlanAssignmentResult> {
+    try {
+        const planesSnap = await getDocs(collection(db, 'Planes'))
+        const freePlanDoc = planesSnap.docs.find((planDoc) =>
+            isFreePlanAmount(planDoc.data().monto),
+        )
+
+        if (!freePlanDoc) {
+            return { ok: false, reason: 'plan_not_found' }
+        }
+
+        const plan = freePlanDoc.data()
+        const planNombre = String(plan.nombre || 'GRATIS')
+        const planMonto = plan.monto ?? 0
+        const planVigencia = String(plan.vigencia ?? '30')
+        const planCantidadServicios = plan.cantidad_servicios ?? 0
+
+        const newSubscriptionRef = doc(collection(db, 'Subscripciones'))
+        const fechaInicio = new Date()
+        const vigenciaDias = parseInt(planVigencia, 10) || 30
+        const fechaFin = new Date(fechaInicio)
+        fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
+
+        const fechaInicioTs = Timestamp.fromDate(fechaInicio)
+        const fechaFinTs = Timestamp.fromDate(fechaFin)
+
+        await setDoc(newSubscriptionRef, {
+            uid: newSubscriptionRef.id,
+            nombre: planNombre,
+            monto: planMonto,
+            vigencia: planVigencia,
+            cantidad_servicios: planCantidadServicios,
+            status: 'Aprobado',
+            taller_uid: tallerUid,
+            fechaCreacion: Timestamp.fromDate(new Date()),
+            fecha_inicio: fechaInicioTs,
+            fecha_fin: fechaFinTs,
+        })
+
+        const usuarioDocRef = doc(db, 'Usuarios', tallerUid)
+        await updateDoc(usuarioDocRef, {
+            subscripcion_actual: {
+                uid: newSubscriptionRef.id,
+                nombre: planNombre,
+                monto: planMonto,
+                vigencia: planVigencia,
+                cantidad_servicios: planCantidadServicios,
+                status: 'Aprobado',
+                fecha_inicio: fechaInicioTs,
+                fecha_fin: fechaFinTs,
+            },
+        })
+
+        const activation = await maybeActivateServicesOnSubscription({
+            tallerUid,
+            subscriptionDocId: newSubscriptionRef.id,
+            newPlanCantidadServiciosRaw: planCantidadServicios,
+            newPlanMontoRaw: planMonto,
+        })
+
+        if (activation.usuarioCantidadServicios !== undefined) {
+            await updateDoc(usuarioDocRef, {
+                'subscripcion_actual.cantidad_servicios':
+                    activation.usuarioCantidadServicios,
+            })
+        }
+
+        return {
+            ok: true,
+            planNombre,
+            subscriptionId: newSubscriptionRef.id,
+        }
+    } catch (error) {
+        console.error('Error asignando plan gratis al taller:', error)
+        return {
+            ok: false,
+            reason: 'error',
+            message: error instanceof Error ? error.message : String(error),
+        }
+    }
 }

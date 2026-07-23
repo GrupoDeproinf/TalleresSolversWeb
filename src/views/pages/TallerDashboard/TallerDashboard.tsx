@@ -17,6 +17,7 @@ import {
     HiOutlineCurrencyDollar,
     HiOutlineXCircle,
 } from 'react-icons/hi'
+import { isFreePlanAmount } from '@/utils/subscriptionServiceActivation'
 
 type Propuesta = {
     uid_taller?: string
@@ -94,6 +95,20 @@ const EMPTY_METRICS: DashboardMetrics = {
 
 const STATUS_LABELS = ['Aceptada', 'Rechazada', 'Pendiente', 'Expirada']
 const STATUS_COLORS = ['#16A34A', '#EF4444', '#F59E0B', '#64748B']
+const KNOWN_PAID_PLANS = ['Plan Oro', 'Plan Plata', 'Plan Bronce'] as const
+
+const normalizePlanName = (value: string) =>
+    value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim()
+
+const isGratisPlanName = (planName: string | null | undefined) => {
+    if (!planName) return false
+    const normalized = normalizePlanName(planName)
+    return normalized === 'gratis' || normalized.includes('gratis')
+}
 
 const toDate = (
     value: Timestamp | Date | { seconds?: number; _seconds?: number } | null | undefined,
@@ -327,17 +342,31 @@ const TallerDashboard = () => {
                     ])
 
                 const tallerData = tallerDocSnap.data() as
-                    | { subscripcion_actual?: { nombre?: string; status?: string } }
+                    | {
+                          subscripcion_actual?: {
+                              nombre?: string
+                              status?: string
+                              monto?: number | string
+                          }
+                      }
                     | undefined
                 const subscripcionActual = tallerData?.subscripcion_actual
                 const planName = subscripcionActual?.nombre || null
                 const statusNormalized = String(subscripcionActual?.status || '').toLowerCase()
                 const isApprovedPlan = statusNormalized.includes('aprob')
-                const isKnownPlan = ['Plan Oro', 'Plan Plata', 'Plan Bronce'].includes(
-                    String(planName || ''),
-                )
+                const isFreePlan =
+                    isFreePlanAmount(subscripcionActual?.monto) ||
+                    isGratisPlanName(planName)
+                const isKnownPlan =
+                    (KNOWN_PAID_PLANS as readonly string[]).includes(
+                        String(planName || ''),
+                    ) || isFreePlan
 
-                setCurrentPlanName(isKnownPlan ? planName : null)
+                setCurrentPlanName(
+                    isKnownPlan
+                        ? planName || (isFreePlan ? 'GRATIS' : null)
+                        : null,
+                )
                 setHasApprovedPlan(isApprovedPlan && isKnownPlan)
 
                 const usersData: Array<Record<string, unknown> & { id: string }> =
@@ -893,7 +922,9 @@ const TallerDashboard = () => {
     }, [isDateFilterEnabled, appliedDateRange])
 
     const isPlanOro = currentPlanName === 'Plan Oro'
-    const isPlanBronce = currentPlanName === 'Plan Bronce'
+    // Plan Gratis usa los mismos indicadores / layout que Plan Bronce
+    const isPlanBronce =
+        currentPlanName === 'Plan Bronce' || isGratisPlanName(currentPlanName)
     const isPlanPlataOrOro = currentPlanName === 'Plan Plata' || isPlanOro
     const visibleKpiCards = isPlanOro
         ? kpiCards
