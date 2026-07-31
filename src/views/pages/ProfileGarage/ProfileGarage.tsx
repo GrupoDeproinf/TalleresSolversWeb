@@ -91,6 +91,11 @@ import {
     isFreePlanAmount,
     maybeActivateServicesOnSubscription,
 } from '@/utils/subscriptionServiceActivation'
+import {
+    formatPrefixedDocumentId,
+    getPrefixedDocumentNumber,
+    getPrefixedDocumentPrefix,
+} from '@/utils/prefixedDocumentId'
 
 type Service = {
     nombre_servicio: string
@@ -712,7 +717,10 @@ const ProfileGarage = () => {
                 image_perfil: dataFinal?.image_perfil ?? '',
                 email: dataFinal?.email ?? '',
                 phone: dataFinal?.phone ?? '',
-                rif: dataFinal?.rif ?? '',
+                rif: formatPrefixedDocumentId(
+                    getPrefixedDocumentPrefix(dataFinal?.rif, 'J'),
+                    getPrefixedDocumentNumber(dataFinal?.rif, 'J'),
+                ),
                 status: dataFinal?.status ?? '',
                 Direccion: dataFinal?.Direccion ?? '',
                 LinkFacebook: dataFinal?.LinkFacebook ?? '',
@@ -1014,11 +1022,16 @@ const ProfileGarage = () => {
             return
         }
 
-        if (!formData.rif || !/^[JVEGCP]-\d+$/.test(formData.rif)) {
+        const rifNormalized = formatPrefixedDocumentId(
+            getPrefixedDocumentPrefix(formData.rif, 'J'),
+            getPrefixedDocumentNumber(formData.rif, 'J'),
+        )
+
+        if (!rifNormalized || !/^[JVEGCP]-\d{9}$/.test(rifNormalized)) {
             toast.push(
                 <Notification title="Error">
-                    El RIF debe estar en un formato válido (Ejemplo:
-                    J-12345678).
+                    El RIF debe tener exactamente 9 dígitos (Ejemplo:
+                    J-123456789).
                 </Notification>,
             )
             return
@@ -1089,7 +1102,7 @@ const ProfileGarage = () => {
 
             // Verifica si el RIF ya está registrado
             const rifExiste = querySnapshot.docs.some(
-                (doc) => doc.data().rif === formData.rif && doc.id !== path, // Excluye el documento actual
+                (doc) => doc.data().rif === rifNormalized && doc.id !== path, // Excluye el documento actual
             )
 
             if (rifExiste) {
@@ -1321,6 +1334,7 @@ const ProfileGarage = () => {
             const docRef = doc(db, 'Usuarios', path)
             const updatedData = {
                 ...formData,
+                rif: rifNormalized,
                 image_perfil: newImageUrl,
                 ...documentUpdates,
             }
@@ -2991,16 +3005,20 @@ const ProfileGarage = () => {
                                 </span>
                                 <div className="flex items-center mt-1">
                                     <select
-                                        value={
-                                            formData.rif?.split('-')[0] || 'J'
-                                        }
+                                        value={getPrefixedDocumentPrefix(
+                                            formData.rif,
+                                            'J',
+                                        )}
                                         onChange={(e) =>
                                             setFormData((prev: any) => ({
                                                 ...prev,
-                                                rif: `${e.target.value}-${
-                                                    prev?.rif?.split('-')[1] ||
-                                                    ''
-                                                }`,
+                                                rif: formatPrefixedDocumentId(
+                                                    e.target.value,
+                                                    getPrefixedDocumentNumber(
+                                                        prev?.rif,
+                                                        'J',
+                                                    ),
+                                                ),
                                             }))
                                         }
                                         className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -3015,16 +3033,22 @@ const ProfileGarage = () => {
                                     <input
                                         disabled
                                         type="text"
-                                        value={
-                                            formData.rif?.split('-')[1] || ''
-                                        }
+                                        inputMode="numeric"
+                                        maxLength={9}
+                                        value={getPrefixedDocumentNumber(
+                                            formData.rif,
+                                            'J',
+                                        )}
                                         onChange={(e) =>
                                             setFormData((prev: any) => ({
                                                 ...prev,
-                                                rif: `${
-                                                    prev?.rif?.split('-')[0] ||
-                                                    'J'
-                                                }-${e.target.value}`,
+                                                rif: formatPrefixedDocumentId(
+                                                    getPrefixedDocumentPrefix(
+                                                        prev?.rif,
+                                                        'J',
+                                                    ),
+                                                    e.target.value,
+                                                ),
                                             }))
                                         }
                                         className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"

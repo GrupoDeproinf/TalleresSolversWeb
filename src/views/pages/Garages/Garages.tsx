@@ -75,6 +75,11 @@ import {
 } from '@/utils/entityDeleteHistoryCheck'
 import { DeleteHistoricoWarning } from '@/components/shared/DeleteHistoricoWarning'
 import { assignFreePlanToNewTaller } from '@/utils/subscriptionServiceActivation'
+import {
+    formatPrefixedDocumentId,
+    getPrefixedDocumentNumber,
+    getPrefixedDocumentPrefix,
+} from '@/utils/prefixedDocumentId'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -650,7 +655,7 @@ const Garages = () => {
                 (value) => value?.endsWith('.com') ?? false,
             ),
         rif: Yup.string()
-            .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
+            .matches(/^[VECGJP]-\d{9}$/, 'El RIF debe tener exactamente 9 dígitos')
             .required('El rif es obligatoria'),
         phone: Yup.string()
             .matches(/^[1-9]\d{9}$/, 'El teléfono debe tener 10 dígitos y no puede comenzar con 0')
@@ -698,7 +703,11 @@ const Garages = () => {
             }
     
             // Validar RIF único
-            const rifQuery = query(userRef, where('rif', '==', values.rif));
+            const rifNormalized = formatPrefixedDocumentId(
+                getPrefixedDocumentPrefix(values.rif, 'J'),
+                getPrefixedDocumentNumber(values.rif, 'J'),
+            );
+            const rifQuery = query(userRef, where('rif', '==', rifNormalized));
             const rifSnapshot = await getDocs(rifQuery);
             if (!rifSnapshot.empty) {
                 setIsCreating(false);
@@ -728,7 +737,7 @@ const Garages = () => {
                 uid: user.uid,
                 nombre: values.nombre,
                 email: emailLower,
-                rif: values.rif,
+                rif: rifNormalized,
                 phone: values.phone,
                 typeUser: 'Taller',
                 status: 'Aprobado',
@@ -2085,17 +2094,21 @@ const Garages = () => {
                                     <div className="flex items-center mt-1">
                                         <select
                                             name="rifPrefix"
-                                            value={
-                                                values.rif.split('-')[0] || 'J'
-                                            }
+                                            value={getPrefixedDocumentPrefix(
+                                                values.rif,
+                                                'J',
+                                            )}
                                             onChange={(e) => {
-                                                const newCedula = `${
-                                                    e.target.value
-                                                }-${
-                                                    values.rif.split('-')[1] ||
-                                                    ''
-                                                }`
-                                                setFieldValue('rif', newCedula)
+                                                setFieldValue(
+                                                    'rif',
+                                                    formatPrefixedDocumentId(
+                                                        e.target.value,
+                                                        getPrefixedDocumentNumber(
+                                                            values.rif,
+                                                            'J',
+                                                        ),
+                                                    ),
+                                                )
                                             }}
                                             className="mx-2 p-3 border border-gray-300 rounded-l-lg"
                                         >
@@ -2109,15 +2122,23 @@ const Garages = () => {
                                         <Field
                                             type="text"
                                             name="rif"
-                                            value={
-                                                values.rif.split('-')[1] || ''
-                                            }
+                                            inputMode="numeric"
+                                            maxLength={9}
+                                            value={getPrefixedDocumentNumber(
+                                                values.rif,
+                                                'J',
+                                            )}
                                             onChange={(e: any) => {
-                                                const newCedula = `${
-                                                    values.rif.split('-')[0] ||
-                                                    'J'
-                                                }-${e.target.value}`
-                                                setFieldValue('rif', newCedula)
+                                                setFieldValue(
+                                                    'rif',
+                                                    formatPrefixedDocumentId(
+                                                        getPrefixedDocumentPrefix(
+                                                            values.rif,
+                                                            'J',
+                                                        ),
+                                                        e.target.value,
+                                                    ),
+                                                )
                                             }}
                                             className="mx-2 p-3 border border-gray-300 rounded-l-lg"
                                         />

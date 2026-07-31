@@ -70,6 +70,11 @@ import {
     type EntityHistoricoHit,
 } from '@/utils/entityDeleteHistoryCheck'
 import { DeleteHistoricoWarning } from '@/components/shared/DeleteHistoricoWarning'
+import {
+    formatPrefixedDocumentId,
+    getPrefixedDocumentNumber,
+    getPrefixedDocumentPrefix,
+} from '@/utils/prefixedDocumentId'
 
 type Person = {
     nombre?: string
@@ -698,7 +703,10 @@ const Users = () => {
                 (value) => value?.endsWith('.com') ?? false,
             ),
         cedula: Yup.string()
-            .matches(/^[V,E,C,G,J,P]-\d{7,10}$/, 'tener entre 7 y 10 dígitos')
+            .matches(
+                /^[VECGJP]-\d{7,10}$/,
+                'La cédula/RIF debe tener entre 7 y 10 dígitos',
+            )
             .required('La cédula es obligatoria'),
         phone: Yup.string()
             .matches(/^[1-9]\d{9}$/, 'El teléfono debe tener 10 dígitos y no puede comenzar con 0')
@@ -727,9 +735,14 @@ const Users = () => {
             const usersRef = collection(db, 'Usuarios')
             const emailLower = values.email.toLowerCase();
 
+            const cedulaNormalized = formatPrefixedDocumentId(
+                getPrefixedDocumentPrefix(values.cedula, 'V'),
+                getPrefixedDocumentNumber(values.cedula, 'V'),
+            )
+
             const cedulaQuery = query(
                 usersRef,
-                where('cedula', '==', values.cedula),
+                where('cedula', '==', cedulaNormalized),
             )
             const cedulaSnapshot = await getDocs(cedulaQuery)
 
@@ -784,7 +797,7 @@ const Users = () => {
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
                 email: emailLower,
-                cedula: values.cedula,
+                cedula: cedulaNormalized,
                 phone: values.phone,
                 Password: values.password,
                 typeUser: values.typeUser || 'Cliente',
@@ -937,9 +950,13 @@ const Users = () => {
                 const usersRef = collection(db, 'Usuarios')
                 const emailLower = selectedPerson.email.toLowerCase();
 
+                const cedulaNormalized = formatPrefixedDocumentId(
+                    getPrefixedDocumentPrefix(selectedPerson.cedula, 'V'),
+                    getPrefixedDocumentNumber(selectedPerson.cedula, 'V'),
+                )
                 const cedulaQuery = query(
                     usersRef,
-                    where('cedula', '==', selectedPerson.cedula),
+                    where('cedula', '==', cedulaNormalized),
                 )
                 const cedulaSnapshot = await getDocs(cedulaQuery)
 
@@ -981,7 +998,7 @@ const Users = () => {
                 const updateData: any = {
                     nombre: selectedPerson.nombre,
                     email: emailLower,
-                    cedula: selectedPerson.cedula,
+                    cedula: cedulaNormalized,
                     phone: selectedPerson.phone,
                     typeUser: selectedPerson.typeUser,
                     estado:
@@ -2110,15 +2127,20 @@ const Users = () => {
                         </span>
                         <div className="flex items-center mt-1">
                             <select
-                                value={
-                                    selectedPerson?.cedula?.split('-')[0] || 'V'
-                                }
+                                value={getPrefixedDocumentPrefix(
+                                    selectedPerson?.cedula,
+                                    'V',
+                                )}
                                 onChange={(e) =>
                                     setSelectedPerson((prev: any) => ({
                                         ...prev,
-                                        cedula: `${e.target.value}-${
-                                            prev?.cedula?.split('-')[1] || ''
-                                        }`,
+                                        cedula: formatPrefixedDocumentId(
+                                            e.target.value,
+                                            getPrefixedDocumentNumber(
+                                                prev?.cedula,
+                                                'V',
+                                            ),
+                                        ),
                                     }))
                                 }
                                 className="mx-2 p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -2132,15 +2154,22 @@ const Users = () => {
                             </select>
                             <input
                                 type="text"
-                                value={
-                                    selectedPerson?.cedula?.split('-')[1] || ''
-                                }
+                                inputMode="numeric"
+                                maxLength={10}
+                                value={getPrefixedDocumentNumber(
+                                    selectedPerson?.cedula,
+                                    'V',
+                                )}
                                 onChange={(e) =>
                                     setSelectedPerson((prev: any) => ({
                                         ...prev,
-                                        cedula: `${
-                                            prev?.cedula?.split('-')[0] || 'V'
-                                        }-${e.target.value}`,
+                                        cedula: formatPrefixedDocumentId(
+                                            getPrefixedDocumentPrefix(
+                                                prev?.cedula,
+                                                'V',
+                                            ),
+                                            e.target.value,
+                                        ),
                                     }))
                                 }
                                 className="p-3 border border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mx-2 w-full"
@@ -2361,17 +2390,21 @@ const Users = () => {
                                 <div className="flex items-center mt-1">
                                     <select
                                         name="cedulaPrefix"
-                                        value={
-                                            values.cedula.split('-')[0] || 'V'
-                                        }
+                                        value={getPrefixedDocumentPrefix(
+                                            values.cedula,
+                                            'V',
+                                        )}
                                         onChange={(e) => {
-                                            const newCedula = `${
-                                                e.target.value
-                                            }-${
-                                                values.cedula.split('-')[1] ||
-                                                ''
-                                            }`
-                                            setFieldValue('cedula', newCedula)
+                                            setFieldValue(
+                                                'cedula',
+                                                formatPrefixedDocumentId(
+                                                    e.target.value,
+                                                    getPrefixedDocumentNumber(
+                                                        values.cedula,
+                                                        'V',
+                                                    ),
+                                                ),
+                                            )
                                         }}
                                         className="mx-2 p-3 border border-gray-300 rounded-l-lg"
                                     >
@@ -2385,15 +2418,23 @@ const Users = () => {
                                     <Field
                                         type="text"
                                         name="cedula"
-                                        value={
-                                            values.cedula.split('-')[1] || ''
-                                        }
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        value={getPrefixedDocumentNumber(
+                                            values.cedula,
+                                            'V',
+                                        )}
                                         onChange={(e: any) => {
-                                            const newCedula = `${
-                                                values.cedula.split('-')[0] ||
-                                                'V'
-                                            }-${e.target.value}`
-                                            setFieldValue('cedula', newCedula)
+                                            setFieldValue(
+                                                'cedula',
+                                                formatPrefixedDocumentId(
+                                                    getPrefixedDocumentPrefix(
+                                                        values.cedula,
+                                                        'V',
+                                                    ),
+                                                    e.target.value,
+                                                ),
+                                            )
                                         }}
                                         className="p-3 border border-gray-300 rounded-r-lg mx-2 w-full"
                                     />

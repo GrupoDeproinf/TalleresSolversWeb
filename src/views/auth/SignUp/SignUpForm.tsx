@@ -12,6 +12,11 @@ import useAuth from '@/utils/hooks/useAuth'
 import type { CommonProps } from '@/@types/common'
 import { Notification, toast } from '@/components/ui'
 import { useNavigate } from 'react-router-dom'
+import {
+    formatPrefixedDocumentId,
+    getPrefixedDocumentNumber,
+    getPrefixedDocumentPrefix,
+} from '@/utils/prefixedDocumentId'
 
 interface SignUpFormProps extends CommonProps {
     disableSubmit?: boolean
@@ -50,15 +55,17 @@ const validationSchema = Yup.object().shape({
         is: 'Taller',
         then: () =>
             Yup.string()
-                .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
-                .min(3, 'No puede tener menos de 3 dígitos')
-                .max(12, 'No puede tener más de 10 dígitos')
+                .matches(
+                    /^[VECGJP]-\d{9}$/,
+                    'El RIF debe tener exactamente 9 dígitos',
+                )
                 .required('Este campo es obligatorio'),
         otherwise: () =>
             Yup.string()
-                .matches(/^[V,E,C,G,J,P]-\d+$/, 'Solo se permiten números')
-                .min(3, 'No puede tener menos de 3 dígitos')
-                .max(12, 'No puede tener más de 10 dígitos')
+                .matches(
+                    /^[VECGJP]-\d{7,10}$/,
+                    'La cédula debe tener entre 7 y 10 dígitos',
+                )
                 .required('Este campo es obligatorio'),
     }),
     phone: Yup.string()
@@ -78,6 +85,12 @@ const SignUpForm = (props: SignUpFormProps) => {
     ) => {
         setSubmitting(true);
     
+        const defaultPrefix = values.typeUser === 'Cliente' ? 'V' : 'J'
+        const cedulaOrifNormalized = formatPrefixedDocumentId(
+            getPrefixedDocumentPrefix(values.cedulaOrif, defaultPrefix),
+            getPrefixedDocumentNumber(values.cedulaOrif, defaultPrefix),
+        )
+
         const newUser = {
             nombre: values.nombre,
             email: values.email.toLowerCase(), // Convierte el email a minúsculas
@@ -87,8 +100,8 @@ const SignUpForm = (props: SignUpFormProps) => {
             status: 'En espera por aprobación',
             createdAt: Date.now(), // Timestamp en milisegundos
             ...(values.typeUser === 'Cliente'
-                ? { cedula: values.cedulaOrif }
-                : { rif: values.cedulaOrif }),
+                ? { cedula: cedulaOrifNormalized }
+                : { rif: cedulaOrifNormalized }),
         };
     
         signUp(newUser)
@@ -223,24 +236,25 @@ const SignUpForm = (props: SignUpFormProps) => {
                                 >
                                     <div className="flex items-center">
                                         <select
-                                            value={
-                                                values.cedulaOrif
-                                                    ? values.cedulaOrif.split(
-                                                          '-',
-                                                      )[0]
-                                                    : values.typeUser ===
-                                                        'Cliente'
-                                                      ? 'V'
-                                                      : 'J'
-                                            }
+                                            value={getPrefixedDocumentPrefix(
+                                                values.cedulaOrif,
+                                                values.typeUser === 'Cliente'
+                                                    ? 'V'
+                                                    : 'J',
+                                            )}
                                             onChange={(e) => {
-                                                const suffix =
-                                                    values.cedulaOrif?.split(
-                                                        '-',
-                                                    )[1] || ''
                                                 setFieldValue(
                                                     'cedulaOrif',
-                                                    `${e.target.value}-${suffix}`,
+                                                    formatPrefixedDocumentId(
+                                                        e.target.value,
+                                                        getPrefixedDocumentNumber(
+                                                            values.cedulaOrif,
+                                                            values.typeUser ===
+                                                                'Cliente'
+                                                                ? 'V'
+                                                                : 'J',
+                                                        ),
+                                                    ),
                                                 )
                                             }}
                                             className=" p-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200"
@@ -256,29 +270,36 @@ const SignUpForm = (props: SignUpFormProps) => {
                                             type="text" // Cambiado a texto para permitir la validación de Yup
                                             autoComplete="off"
                                             name="cedulaOrif"
+                                            inputMode="numeric"
+                                            maxLength={
+                                                values.typeUser === 'Taller'
+                                                    ? 9
+                                                    : 10
+                                            }
                                             placeholder={
                                                 values.typeUser === 'Cliente'
                                                     ? 'Ingrese su cédula'
                                                     : 'Ingrese su Rif'
                                             }
-                                            value={
-                                                values.cedulaOrif?.split(
-                                                    '-',
-                                                )[1] || ''
-                                            }
+                                            value={getPrefixedDocumentNumber(
+                                                values.cedulaOrif,
+                                                values.typeUser === 'Cliente'
+                                                    ? 'V'
+                                                    : 'J',
+                                            )}
                                             onChange={(e: any) => {
-                                                const prefix =
-                                                    values.cedulaOrif?.split(
-                                                        '-',
-                                                    )[0] || 'V'
-                                                const newSuffix =
-                                                    e.target.value.replace(
-                                                        /\D/g,
-                                                        '',
-                                                    ) // Asegura que solo haya números
                                                 setFieldValue(
                                                     'cedulaOrif',
-                                                    `${prefix}-${newSuffix}`,
+                                                    formatPrefixedDocumentId(
+                                                        getPrefixedDocumentPrefix(
+                                                            values.cedulaOrif,
+                                                            values.typeUser ===
+                                                                'Cliente'
+                                                                ? 'V'
+                                                                : 'J',
+                                                        ),
+                                                        e.target.value,
+                                                    ),
                                                 )
                                             }}
                                             component={Input}
