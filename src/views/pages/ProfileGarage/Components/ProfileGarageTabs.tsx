@@ -448,7 +448,7 @@ export default function ProfileGarageTabs({
                     </TabContent>
                 </div>
                 <TabContent value="tab2">
-                    <div className="w-full h-full">
+                    <div className="w-full h-full">{/* Servicios que ofrece: categorias del negocio (campo categorias) */}<div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"><h6 className="flex justify-start">Servicios que ofrece</h6>{Array.isArray(data?.categorias) && data.categorias.length > 0 ? (<div className="mt-3 flex flex-wrap gap-2">{data.categorias.map((cat: any, idx: number) => (<span key={cat?.uid || idx} className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">{cat?.nombre || cat?.uid_categoria || cat?.uid || 'Categoria'}</span>))}</div>) : (<p className="mt-2 text-sm text-gray-400">Sin servicios seleccionados</p>)}</div>
                         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-6 mt-4 flex items-center justify-between">
                                 <h6 className="flex justify-start">
