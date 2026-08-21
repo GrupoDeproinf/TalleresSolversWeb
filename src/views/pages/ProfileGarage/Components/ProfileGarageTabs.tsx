@@ -450,15 +450,28 @@ export default function ProfileGarageTabs({
                 <TabContent value="tab2">
                     <div className="w-full h-full">
                         {/* Servicios que ofrece: categorías que el negocio
-                            seleccionó en la app (campo `categorias`). Se
-                            muestran como chips arriba de la lista de servicios. */}
-                        <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                            <h6 className="flex justify-start">
-                                Servicios que ofrece
-                            </h6>
+                            seleccionó en la app (campo `categorias`), junto al
+                            botón para crear servicios desde el panel y la lista
+                            de servicios creados — todo en una sola sección. */}
+                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                            <div className="mb-4 mt-2 flex items-center justify-between">
+                                <h6 className="flex justify-start">
+                                    Servicios que ofrece
+                                </h6>
+                                {canManageServices ? (
+                                    <Button
+                                        size="sm"
+                                        variant="solid"
+                                        icon={<HiPlus />}
+                                        onClick={onOpenCreateService}
+                                    >
+                                        Crear servicio
+                                    </Button>
+                                ) : null}
+                            </div>
                             {Array.isArray(data?.categorias) &&
                             data.categorias.length > 0 ? (
-                                <div className="mt-3 flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2">
                                     {data.categorias.map(
                                         (cat: any, idx: number) => (
                                             <span
@@ -474,28 +487,11 @@ export default function ProfileGarageTabs({
                                     )}
                                 </div>
                             ) : (
-                                <p className="mt-2 text-sm text-gray-400">
+                                <p className="text-sm text-gray-400">
                                     Sin servicios seleccionados
                                 </p>
                             )}
-                        </div>
-                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                            <div className="mb-6 mt-4 flex items-center justify-between">
-                                <h6 className="flex justify-start">
-                                    Lista de Servicios
-                                </h6>
-                                {canManageServices ? (
-                                    <Button
-                                        size="sm"
-                                        variant="solid"
-                                        icon={<HiPlus />}
-                                        onClick={onOpenCreateService}
-                                    >
-                                        Crear servicio
-                                    </Button>
-                                ) : null}
-                            </div>
-                            <Table className="w-full rounded-lg">
+                            <Table className="mt-6 w-full rounded-lg">
                                 <THead>
                                     {table
                                         .getHeaderGroups()

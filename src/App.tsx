@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react'
 import store, { persistor } from './store'
 import Theme from '@/components/template/Theme'
 import Layout from '@/components/layouts'
-import mockServer from './mock'
 import appConfig from '@/configs/app.config'
 import loadingSolversNew from '@/assets/loading/loadingSolversNew.gif'
 import './locales'
@@ -13,7 +12,11 @@ import './locales'
 const environment = process.env.NODE_ENV
 
 if (appConfig.enableMock) {
-    mockServer({ environment })
+    // Import dinámico: miragejs (servidor mock) solo se descarga y ejecuta
+    // cuando enableMock está activo, así no se empaqueta en producción.
+    import('./mock').then(({ default: mockServer }) => {
+        mockServer({ environment })
+    })
 }
 
 const GLOBAL_LOADING_DELAY_MS = 350

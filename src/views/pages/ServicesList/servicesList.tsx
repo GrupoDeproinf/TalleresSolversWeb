@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { readViewCache, writeViewCache } from '@/utils/viewDataCache'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import { Drawer } from '@/components/ui'
@@ -47,6 +48,9 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import { useAppSelector } from '@/store'
+import { backfillServiceRatings } from '@/utils/serviceRatings'
+import { clearViewCache } from '@/utils/viewDataCache'
+import { ADMIN } from '@/constants/roles.constant'
 
 type Service = {
     nombre_servicio?: string
@@ -74,18 +78,6 @@ type Service = {
         fecha_texto: string
         usuario_nombre: string
     }[]
-}
-
-type Garage = {
-    nombre?: string
-    email?: string
-    rif?: string
-    phone?: string
-    uid: string
-    typeUser?: string
-    servicios?: string[]
-    id?: string
-    status?: string
 }
 
 type ServiceReview = {
@@ -197,9 +189,13 @@ const ServicesList = () => {
     const isTallerUser = (userAuthority || []).some(
         (role) => String(role).toLowerCase() === 'taller',
     )
+    // Solo el administrador puede recalcular las calificaciones de todos
+    // los servicios (proceso puntual de migración).
+    const isAdminUser = (userAuthority || []).some(
+        (role) => String(role).toLowerCase() === ADMIN.toLowerCase(),
+    )
 
     const [dataServices, setDataServices] = useState<Service[]>([])
-    const [dataGarages, setDataGarages] = useState<Garage[]>([])
     const [searchTerm, setSearchTerm] = useState('')
     const [statusFilter, setStatusFilter] = useState<string>('todos')
     const [categoryFilter, setCategoryFilter] = useState<string>('todos')
@@ -211,8 +207,9 @@ const ServicesList = () => {
     const [modalIsOpen, setModalIsOpen] = useState(false)
     const [reviewsModalIsOpen, setReviewsModalIsOpen] = useState(false)
     const [selectedServiceReviews, setSelectedServiceReviews] = useState<ServiceReview[]>([])
+    const [recalculando, setRecalculando] = useState(false)
 
-    const fetchData = async () => {
+    const fetchData = async (opts?: { preferCache?: boolean }) => {
         try {
             // Si es taller y aún no hay UID de sesión, evitamos traer servicios globales.
             if (isTallerUser && !loggedInUserId) {
@@ -220,7 +217,25 @@ const ServicesList = () => {
                 return
             }
 
-            // Consultas para obtener datos
+            const cacheKey = `servicesList|${isTallerUser}|${loggedInUserId || ''}`
+
+            // Al ENTRAR a la vista, pintar de inmediato lo último descargado.
+            if (opts?.preferCache) {
+                const cached = readViewCache<{
+                    servicios: Service[]
+                }>(cacheKey)
+                if (cached) {
+                    setDataServices(cached.servicios)
+                }
+            }
+
+            // Consultas para obtener datos.
+            //
+            // Antes esta vista descargaba TAMBIÉN la colección completa de
+            // negocios (~868 documentos, unos 3 MB) para guardarla en un estado
+            // que nunca se leía: el nombre del negocio de cada fila ya viene
+            // dentro del propio servicio (campo `taller`). Se eliminó esa
+            // consulta.
             const servicesQuery =
                 isTallerUser && loggedInUserId
                     ? query(
@@ -228,18 +243,60 @@ const ServicesList = () => {
                           where('uid_taller', '==', loggedInUserId),
                       )
                     : query(collection(db, 'Servicios'))
-            const garagesQuery = query(collection(db, 'Usuarios'))
 
-            // Ejecutar todas las consultas en paralelo
-            const [servicesSnapshot, garagesSnapshot] = await Promise.all([
-                getDocs(servicesQuery),
-                getDocs(garagesQuery),
-            ])
+            const servicesSnapshot = await getDocs(servicesQuery)
 
-            // Procesar los datos obtenidos de las colecciones
-            const servicios = await Promise.all(
-                servicesSnapshot.docs.map(async (docSnap) => {
-                    const serviceData = docSnap.data() as Service
+            // 1) Mostrar los servicios de INMEDIATO, con calificaciones vacías.
+            //    Antes se esperaba a leer las calificaciones de CADA servicio
+            //    (N+1: una consulta por servicio) antes de pintar la lista, lo
+            //    que hacía muy lenta la apertura de la vista.
+            const serviciosBase = servicesSnapshot.docs.map((docSnap) => {
+                const raw = docSnap.data() as Service & {
+                    puntuacion_promedio?: number
+                    reviews_count?: number
+                }
+                return {
+                    ...raw,
+                    id: docSnap.id,
+                    // Promedio y conteo ya vienen calculados en el documento
+                    // (los mantiene una Cloud Function), así no hay que leer
+                    // las calificaciones de cada servicio al abrir la vista.
+                    puntuacion: Number(raw.puntuacion_promedio ?? 0),
+                    reviews_count: Number(raw.reviews_count ?? 0),
+                    latest_reviews: [],
+                } as Service
+            })
+            setDataServices(serviciosBase)
+            writeViewCache(cacheKey, { servicios: serviciosBase })
+
+            // Compatibilidad: si un servicio todavía NO tiene el promedio
+            // denormalizado (porque aún no se ejecutó el recálculo inicial),
+            // se calcula leyendo sus calificaciones, como antes. Una vez hecho
+            // el recálculo, esta lista queda vacía y no se consulta nada.
+            const pendientes = servicesSnapshot.docs.filter((docSnap) => {
+                const raw = docSnap.data() as { reviews_count?: unknown }
+                return typeof raw?.reviews_count !== 'number'
+            })
+
+            pendientes.forEach(async (docSnap) => {
+                try {
+                    const reviewsCacheKey = `reviews|${docSnap.id}`
+                    const cachedReviews = readViewCache<{
+                        puntuacion: number
+                        reviews_count: number
+                        latest_reviews: ServiceReview[]
+                    }>(reviewsCacheKey)
+                    if (cachedReviews) {
+                        setDataServices((prev) =>
+                            prev.map((s) =>
+                                s.id === docSnap.id
+                                    ? { ...s, ...cachedReviews }
+                                    : s,
+                            ),
+                        )
+                        return
+                    }
+
                     const reviewsSnap = await getDocs(
                         collection(db, 'Servicios', docSnap.id, 'calificaciones'),
                     )
@@ -274,8 +331,10 @@ const ServicesList = () => {
                         .filter((score) => Number.isFinite(score))
                     const averageScore =
                         validScores.length > 0
-                            ? validScores.reduce((acc, score) => acc + score, 0) /
-                              validScores.length
+                            ? validScores.reduce(
+                                  (acc, score) => acc + score,
+                                  0,
+                              ) / validScores.length
                             : 0
 
                     const latestReviews = reviews
@@ -288,30 +347,36 @@ const ServicesList = () => {
                             usuario_nombre: review.usuario_nombre,
                         }))
 
-                    return {
-                        ...serviceData,
-                        id: docSnap.id,
+                    writeViewCache(reviewsCacheKey, {
                         puntuacion: averageScore,
                         reviews_count: latestReviews.length,
                         latest_reviews: latestReviews,
-                    } as Service
-                }),
-            )
+                    })
 
-            const talleres = garagesSnapshot.docs
-                .map((doc) => ({ ...doc.data(), id: doc.id }) as Garage)
-                .filter((garage) => garage.typeUser === 'Taller')
-
-            // Asignar datos a los estados correspondientes
-            setDataServices(servicios)
-            setDataGarages(talleres)
+                    setDataServices((prev) =>
+                        prev.map((s) =>
+                            s.id === docSnap.id
+                                ? {
+                                      ...s,
+                                      puntuacion: averageScore,
+                                      reviews_count: latestReviews.length,
+                                      latest_reviews: latestReviews,
+                                  }
+                                : s,
+                        ),
+                    )
+                } catch (e) {
+                    // Ignorar errores puntuales de un servicio.
+                }
+            })
         } catch (error) {
             console.error('Error fetching data:', error)
         }
     }
 
     useEffect(() => {
-        fetchData()
+        // preferCache: pinta al instante lo último descargado y revalida detrás.
+        fetchData({ preferCache: true })
     }, [isTallerUser, loggedInUserId])
 
     const categoryFilterOptions = useMemo(() => {
@@ -350,6 +415,38 @@ const ServicesList = () => {
                 La tabla ha sido actualizada con éxito.
             </Notification>,
         )
+    }
+
+    /**
+     * Recalcula el promedio y el número de reseñas de todos los servicios y
+     * los guarda dentro de cada documento. Solo hace falta ejecutarlo una vez;
+     * después una Cloud Function los mantiene al día automáticamente.
+     */
+    const handleRecalcularCalificaciones = async () => {
+        if (recalculando) return
+        setRecalculando(true)
+        try {
+            const { updated, failed } = await backfillServiceRatings()
+            clearViewCache('servicesList')
+            clearViewCache('reviews')
+            await fetchData()
+            toast.push(
+                <Notification title="Calificaciones recalculadas">
+                    {`Se actualizaron ${updated} servicios${
+                        failed > 0 ? ` (${failed} con error)` : ''
+                    }.`}
+                </Notification>,
+            )
+        } catch (error) {
+            console.error('Error al recalcular calificaciones:', error)
+            toast.push(
+                <Notification title="No se pudo recalcular" type="danger">
+                    Ocurrió un error al recalcular las calificaciones.
+                </Notification>,
+            )
+        } finally {
+            setRecalculando(false)
+        }
     }
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -450,10 +547,62 @@ const ServicesList = () => {
         setSelectedService(null)
     }
 
-    const openServiceReviews = (service: Service) => {
+    const openServiceReviews = async (service: Service) => {
         setSelectedService(service)
-        setSelectedServiceReviews(service.latest_reviews || [])
         setReviewsModalIsOpen(true)
+
+        // Las reseñas completas se leen solo cuando se abren (antes se
+        // descargaban las de TODOS los servicios al abrir la vista).
+        if (service.latest_reviews && service.latest_reviews.length > 0) {
+            setSelectedServiceReviews(service.latest_reviews)
+            return
+        }
+
+        if (!service.id) {
+            setSelectedServiceReviews([])
+            return
+        }
+
+        setSelectedServiceReviews([])
+        try {
+            const reviewsSnap = await getDocs(
+                collection(db, 'Servicios', service.id, 'calificaciones'),
+            )
+            const reviews = reviewsSnap.docs
+                .map((reviewDoc) => {
+                    const reviewRaw = reviewDoc.data() as {
+                        comentario?: string
+                        puntuacion?: number
+                        fecha_creacion?: Timestamp | Date
+                        usuario?: { nombre?: string }
+                    }
+                    const createdAt =
+                        reviewRaw.fecha_creacion instanceof Timestamp
+                            ? reviewRaw.fecha_creacion.toDate()
+                            : reviewRaw.fecha_creacion instanceof Date
+                              ? reviewRaw.fecha_creacion
+                              : null
+                    return {
+                        comentario:
+                            String(reviewRaw.comentario || '').trim() ||
+                            'Sin comentario',
+                        puntuacion: Number(reviewRaw.puntuacion || 0),
+                        fechaMs: createdAt?.getTime() || 0,
+                        fecha_texto: createdAt
+                            ? createdAt.toLocaleString('es-VE')
+                            : 'Sin fecha',
+                        usuario_nombre:
+                            String(reviewRaw.usuario?.nombre || '').trim() ||
+                            'Usuario sin nombre',
+                    }
+                })
+                .sort((a, b) => b.fechaMs - a.fechaMs)
+                .map(({ fechaMs: _fechaMs, ...review }) => review)
+
+            setSelectedServiceReviews(reviews)
+        } catch (e) {
+            setSelectedServiceReviews([])
+        }
     }
 
     const handleReviewsModalClose = () => {
@@ -745,6 +894,17 @@ const ServicesList = () => {
                     >
                         <HiOutlineRefresh className="h-5 w-5" />
                     </button>
+                    {isAdminUser ? (
+                        <Button
+                            size="sm"
+                            variant="default"
+                            loading={recalculando}
+                            title="Recalcula el promedio de reseñas de todos los servicios"
+                            onClick={handleRecalcularCalificaciones}
+                        >
+                            Recalcular calificaciones
+                        </Button>
+                    ) : null}
                 </div>
                 <div className="flex flex-wrap justify-end items-end gap-3">
                     <div className="flex min-w-[10.5rem] max-w-[13rem] shrink-0 flex-col gap-1">

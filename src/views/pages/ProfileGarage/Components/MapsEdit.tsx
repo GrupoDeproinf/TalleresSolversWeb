@@ -1,5 +1,6 @@
 import { GoogleMap, Marker } from '@react-google-maps/api'
 import { useEffect, useState } from 'react'
+import useGoogleMapsReady from '@/utils/hooks/useGoogleMapsReady'
 
 interface MapsProfileProps {
     initialLocation: {
@@ -17,6 +18,7 @@ const LocationEditor: React.FC<MapsProfileProps> = ({
         null,
     )
     const [zoom] = useState(17)
+    const mapsReady = useGoogleMapsReady()
 
     // Sincroniza initialLocation con el estado local
     useEffect(() => {
@@ -46,6 +48,14 @@ const LocationEditor: React.FC<MapsProfileProps> = ({
             setLocation(newLocation)
             onLocationChange(newLocation)
         }
+    }
+
+    if (!mapsReady) {
+        return (
+            <div className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-sm text-gray-400 shadow-sm" style={{ height: '400px' }}>
+                Cargando mapa…
+            </div>
+        )
     }
 
     return (

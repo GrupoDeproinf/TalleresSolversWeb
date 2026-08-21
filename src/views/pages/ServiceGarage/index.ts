@@ -1,3 +1,3 @@
-import ServiceGarage from './servicegarage'
+import ServiceGarage from './serviceGarage'
 
 export default ServiceGarage
