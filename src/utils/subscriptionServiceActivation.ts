@@ -1,6 +1,7 @@
 import {
     collection,
     doc,
+    getDoc,
     getDocs,
     query,
     setDoc,
@@ -10,6 +11,15 @@ import {
     writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
+
+/**
+ * Dias por defecto del plan gratis cuando el documento del plan no trae
+ * vigencia. Requerimiento 001 punto 6: bajo de 30 a 5.
+ * El valor real vive en Firestore (Planes/<plan gratis>.vigencia).
+ */
+export const FREE_PLAN_DIAS_POR_DEFECTO = 5
+
+const MS_POR_DIA = 24 * 60 * 60 * 1000
 
 export const isFreePlanAmount = (value: unknown) => {
     const amount = Number(value)
@@ -260,18 +270,14 @@ export async function assignFreePlanToNewTaller(
         const plan = freePlanDoc.data()
         const planNombre = String(plan.nombre || 'GRATIS')
         const planMonto = plan.monto ?? 0
-        const planVigencia = String(plan.vigencia ?? '30')
+        const planVigencia = String(plan.vigencia ?? FREE_PLAN_DIAS_POR_DEFECTO)
         const planCantidadServicios = plan.cantidad_servicios ?? 0
 
         const newSubscriptionRef = doc(collection(db, 'Subscripciones'))
-        const fechaInicio = new Date()
-        const vigenciaDias = parseInt(planVigencia, 10) || 30
-        const fechaFin = new Date(fechaInicio)
-        fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
 
-        const fechaInicioTs = Timestamp.fromDate(fechaInicio)
-        const fechaFinTs = Timestamp.fromDate(fechaFin)
-
+        // Requerimiento 001 punto 6: los dias del plan gratis NO arrancan al
+        // registrarse. Quedan pendientes hasta que el certificador apruebe el
+        // comercio (ver startPendingSubscriptionOnApproval).
         await setDoc(newSubscriptionRef, {
             uid: newSubscriptionRef.id,
             nombre: planNombre,
@@ -281,8 +287,9 @@ export async function assignFreePlanToNewTaller(
             status: 'Aprobado',
             taller_uid: tallerUid,
             fechaCreacion: Timestamp.fromDate(new Date()),
-            fecha_inicio: fechaInicioTs,
-            fecha_fin: fechaFinTs,
+            fecha_inicio: null,
+            fecha_fin: null,
+            pendiente_inicio: true,
         })
 
         const usuarioDocRef = doc(db, 'Usuarios', tallerUid)
@@ -294,8 +301,9 @@ export async function assignFreePlanToNewTaller(
                 vigencia: planVigencia,
                 cantidad_servicios: planCantidadServicios,
                 status: 'Aprobado',
-                fecha_inicio: fechaInicioTs,
-                fecha_fin: fechaFinTs,
+                fecha_inicio: null,
+                fecha_fin: null,
+                pendiente_inicio: true,
             },
         })
 
@@ -326,4 +334,110 @@ export async function assignFreePlanToNewTaller(
             message: error instanceof Error ? error.message : String(error),
         }
     }
+}
+
+
+/**
+ * Requerimiento 001 punto 6: arranca la vigencia del plan cuando el
+ * certificador aprueba el comercio. Si la suscripcion ya tenia fechas y no
+ * quedo marcada como pendiente, no se toca.
+ */
+export async function startPendingSubscriptionOnApproval(
+    tallerUid: string,
+): Promise<{ started: boolean; reason?: string }> {
+    const usuarioDocRef = doc(db, 'Usuarios', tallerUid)
+    const usuarioSnap = await getDoc(usuarioDocRef)
+    if (!usuarioSnap.exists()) return { started: false, reason: 'sin_usuario' }
+
+    const sub = (usuarioSnap.data() || {}).subscripcion_actual as
+        | {
+              vigencia?: unknown
+              fecha_inicio?: unknown
+              pendiente_inicio?: unknown
+          }
+        | undefined
+    if (!sub) return { started: false, reason: 'sin_suscripcion' }
+    if (sub.fecha_inicio && sub.pendiente_inicio !== true) {
+        return { started: false, reason: 'ya_iniciada' }
+    }
+
+    const dias =
+        parseInt(String(sub.vigencia ?? ''), 10) || FREE_PLAN_DIAS_POR_DEFECTO
+    const inicio = Timestamp.now()
+    const fin = Timestamp.fromMillis(inicio.toMillis() + dias * MS_POR_DIA)
+
+    await updateDoc(usuarioDocRef, {
+        'subscripcion_actual.fecha_inicio': inicio,
+        'subscripcion_actual.fecha_fin': fin,
+        'subscripcion_actual.pendiente_inicio': false,
+    })
+
+    const pendientes = await getDocs(
+        query(
+            collection(db, 'Subscripciones'),
+            where('taller_uid', '==', tallerUid),
+            where('pendiente_inicio', '==', true),
+        ),
+    )
+    for (const chunk of chunkArray(pendientes.docs, 500)) {
+        const batch = writeBatch(db)
+        for (const d of chunk) {
+            batch.update(doc(db, 'Subscripciones', d.id), {
+                fecha_inicio: inicio,
+                fecha_fin: fin,
+                pendiente_inicio: false,
+            })
+        }
+        await batch.commit()
+    }
+
+    return { started: true }
+}
+
+/**
+ * Requerimiento 001 puntos 6 y 7: al aprobar formalmente el comercio, todos
+ * sus servicios pasan a Activo y arranca la vigencia del plan.
+ * Nunca lanza: la aprobacion del taller no debe fallar por esto.
+ */
+export async function activateOnWorkshopApproval(tallerUid: string): Promise<{
+    serviciosEncendidos: number
+    planIniciado: boolean
+}> {
+    let serviciosEncendidos = 0
+    let planIniciado = false
+
+    try {
+        const serviciosSnap = await getDocs(
+            query(
+                collection(db, 'Servicios'),
+                where('uid_taller', '==', tallerUid),
+            ),
+        )
+        const apagados = serviciosSnap.docs.filter((d) =>
+            wasServiceOff(d.data() as { estatus?: unknown }),
+        ).length
+
+        for (const chunk of chunkArray(serviciosSnap.docs, 500)) {
+            const batch = writeBatch(db)
+            for (const d of chunk) {
+                batch.update(doc(db, 'Servicios', d.id), {
+                    estatus: true,
+                    lastActive: true,
+                })
+            }
+            await batch.commit()
+        }
+        serviciosEncendidos = apagados
+    } catch (error) {
+        console.error('activateOnWorkshopApproval (servicios):', error)
+    }
+
+    try {
+        const r = await startPendingSubscriptionOnApproval(tallerUid)
+        planIniciado = r.started
+    } catch (error) {
+        console.error('activateOnWorkshopApproval (plan):', error)
+    }
+
+    return { serviciosEncendidos, planIniciado }
 }

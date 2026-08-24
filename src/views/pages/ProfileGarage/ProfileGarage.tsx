@@ -91,6 +91,7 @@ import { sortPlansByDisplayOrder } from '@/utils/sortPlansByDisplayOrder'
 import {
     isFreePlanAmount,
     maybeActivateServicesOnSubscription,
+    activateOnWorkshopApproval,
 } from '@/utils/subscriptionServiceActivation'
 import {
     formatPrefixedDocumentId,
@@ -1536,6 +1537,17 @@ const ProfileGarage = () => {
             }
 
             if (reviewAction === 'Aprobado') {
+                // Requerimiento 001 puntos 6 y 7: activar todos los servicios
+                // del comercio y arrancar la vigencia de su plan.
+                try {
+                    await activateOnWorkshopApproval(path)
+                } catch (error) {
+                    console.error(
+                        'Error al activar servicios/plan tras aprobar:',
+                        error,
+                    )
+                }
+
                 if (dataOrigin?.token) {
                     try {
                         await axios.post(
