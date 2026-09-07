@@ -190,11 +190,12 @@ const Plans = () => {
         if (selectedPerson) {
             try {
                 const userDoc = doc(db, 'Planes', selectedPerson.uid)
+                // Requerimiento 002 punto 3: el monto no se modifica desde el panel.
+                // Se omite a proposito para que conserve el valor de Firestore.
                 await updateDoc(userDoc, {
                     nombre: selectedPerson.nombre,
                     descripcion: selectedPerson.descripcion,
                     cantidad_servicios: selectedPerson.cantidad_servicios,
-                    monto: selectedPerson.monto,
                     status: selectedPerson.status,
                     vigencia: selectedPerson.vigencia,
                 })
