@@ -105,8 +105,8 @@ const SignUpForm = (props: SignUpFormProps) => {
         };
     
         signUp(newUser)
-            .then((resp) => {
-                console.log(resp);
+            .then(() => {
+                navigate('/sign-in')
             })
             .catch((error) => {
                 console.error(error);
