@@ -3,6 +3,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import './utils/apiSesion'
 
 // Tras un nuevo deploy, un usuario con la app abierta puede tener en memoria
 // nombres de chunks viejos que ya no existen en el hosting. Cuando un import
