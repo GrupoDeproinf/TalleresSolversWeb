@@ -38,12 +38,7 @@ const validationSchema = Yup.object().shape({
     nombre: Yup.string().required('Por favor ingrese su nombre'),
     email: Yup.string()
         .email('Email inválido')
-        .required('Por favor ingrese su email')
-        .test(
-            'termina-en-com',
-            'El email debe terminar en ".com"',
-            (value) => value?.endsWith('.com') ?? false,
-        ),
+        .required('Por favor ingrese su email'),
     password: Yup.string()
         .min(6, 'La contraseña debe tener al menos 6 caracteres')
         .required('Por favor ingrese una contraseña'),
@@ -105,8 +100,8 @@ const SignUpForm = (props: SignUpFormProps) => {
         };
     
         signUp(newUser)
-            .then((resp) => {
-                console.log(resp);
+            .then(() => {
+                navigate('/sign-in')
             })
             .catch((error) => {
                 console.error(error);
@@ -170,37 +165,6 @@ const SignUpForm = (props: SignUpFormProps) => {
                 {({ touched, errors, isSubmitting, values, setFieldValue }) => (
                     <Form>
                         <FormContainer>
-                            <div className="mb-4">
-                                <label>Tipo de usuario:</label>
-                                <div className="flex space-x-4 mt-2">
-                                    <Button
-                                        variant={
-                                            values.typeUser === 'Cliente'
-                                                ? 'solid'
-                                                : 'default'
-                                        }
-                                        onClick={() =>
-                                            setFieldValue('typeUser', 'Cliente')
-                                        }
-                                        type="button"
-                                    >
-                                        Cliente
-                                    </Button>
-                                    <Button
-                                        variant={
-                                            values.typeUser === 'Taller'
-                                                ? 'solid'
-                                                : 'default'
-                                        }
-                                        onClick={() =>
-                                            setFieldValue('typeUser', 'Taller')
-                                        }
-                                        type="button"
-                                    >
-                                        Negocio
-                                    </Button>
-                                </div>
-                            </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <FormItem
                                     label={

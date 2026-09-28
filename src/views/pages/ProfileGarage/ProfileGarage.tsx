@@ -42,7 +42,8 @@ import {
     FaArrowsAltV,
 } from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
-import { app, db, storage } from '@/configs/firebaseAssets.config'
+import { app, db, storage, auth } from '@/configs/firebaseAssets.config'
+import { onAuthStateChanged } from 'firebase/auth'
 import { useNavigate } from 'react-router-dom'
 import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
@@ -90,6 +91,7 @@ import { sortPlansByDisplayOrder } from '@/utils/sortPlansByDisplayOrder'
 import {
     isFreePlanAmount,
     maybeActivateServicesOnSubscription,
+    activateOnWorkshopApproval,
 } from '@/utils/subscriptionServiceActivation'
 import {
     formatPrefixedDocumentId,
@@ -759,7 +761,21 @@ const ProfileGarage = () => {
     }
 
     useEffect(() => {
-        getData()
+        // Esperar a que Firebase Auth restaure la sesión antes de leer
+        // Firestore. En recarga en duro o al abrir por URL directa, getData()
+        // se disparaba antes de que la sesión estuviera lista y, con las reglas
+        // bloqueadas (request.auth != null), todo volvía "no disponible"
+        // (nombre, categorías, etc.), aunque el dato sí exista.
+        if (auth.currentUser) {
+            getData()
+            return
+        }
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                getData()
+            }
+        })
+        return () => unsubscribe()
     }, [])
 
     type CustomerInfoFieldProps = {
@@ -1521,6 +1537,17 @@ const ProfileGarage = () => {
             }
 
             if (reviewAction === 'Aprobado') {
+                // Requerimiento 001 puntos 6 y 7: activar todos los servicios
+                // del comercio y arrancar la vigencia de su plan.
+                try {
+                    await activateOnWorkshopApproval(path)
+                } catch (error) {
+                    console.error(
+                        'Error al activar servicios/plan tras aprobar:',
+                        error,
+                    )
+                }
+
                 if (dataOrigin?.token) {
                     try {
                         await axios.post(
@@ -2409,6 +2436,7 @@ const ProfileGarage = () => {
                                     data?.Direccion || 'Direccion no disponible'
                                 }
                             />
+
                             {/* <CustomerInfoField
                                 title="Ubicación"
                                 value=

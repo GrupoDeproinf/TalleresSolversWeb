@@ -449,10 +449,14 @@ export default function ProfileGarageTabs({
                 </div>
                 <TabContent value="tab2">
                     <div className="w-full h-full">
+                        {/* Servicios que ofrece: categorías que el negocio
+                            seleccionó en la app (campo `categorias`), junto al
+                            botón para crear servicios desde el panel y la lista
+                            de servicios creados — todo en una sola sección. */}
                         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                            <div className="mb-6 mt-4 flex items-center justify-between">
+                            <div className="mb-4 mt-2 flex items-center justify-between">
                                 <h6 className="flex justify-start">
-                                    Lista de Servicios
+                                    Servicios que ofrece
                                 </h6>
                                 {canManageServices ? (
                                     <Button
@@ -465,7 +469,29 @@ export default function ProfileGarageTabs({
                                     </Button>
                                 ) : null}
                             </div>
-                            <Table className="w-full rounded-lg">
+                            {Array.isArray(data?.categorias) &&
+                            data.categorias.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {data.categorias.map(
+                                        (cat: any, idx: number) => (
+                                            <span
+                                                key={cat?.uid || idx}
+                                                className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+                                            >
+                                                {cat?.nombre ||
+                                                    cat?.uid_categoria ||
+                                                    cat?.uid ||
+                                                    'Categoría'}
+                                            </span>
+                                        ),
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-400">
+                                    Sin servicios seleccionados
+                                </p>
+                            )}
+                            <Table className="mt-6 w-full rounded-lg">
                                 <THead>
                                     {table
                                         .getHeaderGroups()

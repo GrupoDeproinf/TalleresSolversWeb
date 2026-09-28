@@ -206,52 +206,20 @@ function useAuth() {
     
 
     const signUp = async (values: any) => {
-        return new Promise((resolve, reject) => {
-            console.log(values)
-            const auth = getAuth()
-            createUserWithEmailAndPassword(auth, values.email, values.password)
-                .then((userCredential) => {
-                    const user = userCredential.user
-                    console.log('aqui')
-                    console.log(user?.uid)
-                    if (user?.uid) {
-                        console.log(user?.uid)
-                        const token = user?.uid
-                        console.log(token)
-
-                        values.uid = user?.uid
-                        setDoc(doc(db, 'Usuarios', token), values).then(
-                            (resp) => {
-                                console.log(resp)
-                                
-                                const redirectUrl ='/sign-in'
-                                navigate(redirectUrl)
-
-                                return {
-                                    status: 'success',
-                                    message: 'Usuario creado exitosamente',
-                                }
-                            },
-                            (err) => {},
-                        )
-                    } else {
-                        console.log('Error en Guardado en BD')
-                        return {
-                            status: 'failed',
-                            message: 'Error',
-                        }
-                    }
-                })
-                .catch((error) => {
-                    console.log(error)
-                    const errorMessage = error.message
-                    reject(errorMessage)
-                    // return {
-                    //     status: 'failed',
-                    //     message: errorMessage.toString(),
-                    // }
-                })
-        })
+        const auth = getAuth()
+        // Nunca guardar la contraseña en Firestore: solo vive en Firebase Auth.
+        const { password, confirmPassword, ...profile } = values ?? {}
+        const userCredential = await createUserWithEmailAndPassword(
+            auth,
+            values.email,
+            password,
+        )
+        const uid = userCredential.user?.uid
+        if (!uid) {
+            throw { code: 'signup/no-uid', message: 'No se pudo crear la cuenta' }
+        }
+        await setDoc(doc(db, 'Usuarios', uid), { ...profile, uid })
+        return { status: 'success', uid, message: 'Usuario creado exitosamente' }
     }
 
     const handleSignOut = () => {

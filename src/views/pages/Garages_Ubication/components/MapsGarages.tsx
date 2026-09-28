@@ -1,4 +1,5 @@
 import { GoogleMap, Marker } from '@react-google-maps/api'
+import useGoogleMapsReady from '@/utils/hooks/useGoogleMapsReady'
 
 export interface MarkerData {
     id: string
@@ -19,6 +20,15 @@ interface MapsGaragesProps {
 const MapsGarages: React.FC<MapsGaragesProps> = ({ markers, center }) => {
     const zoom =
         markers.length === 0 ? 6 : markers.length <= 1 ? 11 : 8
+    const mapsReady = useGoogleMapsReady()
+
+    if (!mapsReady) {
+        return (
+            <div className="flex w-full min-h-[420px] items-center justify-center rounded-xl border border-gray-200 overflow-hidden bg-gray-50 text-sm text-gray-400 shadow-inner">
+                Cargando mapa…
+            </div>
+        )
+    }
 
     return (
         <div className="w-full min-h-[420px] rounded-xl border border-gray-200 overflow-hidden bg-gray-50 shadow-inner">
