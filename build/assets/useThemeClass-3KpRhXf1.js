@@ -1,0 +1,1 @@
+import{Z as t}from"./index-X6rnA_kP.js";function n(){const{themeColor:r,primaryColorLevel:o}=t(),e=`${r}-${o}`;return{ringTheme:`ring-${e}`,borderTheme:`border-${e}`,bgTheme:`bg-${e}`,textTheme:`text-${e}`}}export{n as u};
