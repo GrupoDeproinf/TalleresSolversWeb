@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { collection, getDocs, onSnapshot, Timestamp } from 'firebase/firestore'
+import {
+    collection,
+    getDocs,
+    onSnapshot,
+    Timestamp,
+    type DocumentData,
+    type QuerySnapshot,
+} from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import SalesByCategories from './components/SalesByCategories'
 import SplineArea from './components/SplineArea'
@@ -309,11 +316,13 @@ const isSubscriptionPaid = (data: Record<string, unknown>) => {
     )
 }
 
-const fetchDashboardData = async () => {
-    const usersSnapshot = await getDocs(collection(db, 'Usuarios'))
+// Calcula las cifras a partir de las dos colecciones ya descargadas.
+const buildDashboardData = (
+    usersSnapshot: QuerySnapshot<DocumentData>,
+    subsSnapshot: QuerySnapshot<DocumentData>,
+) => {
     const activeTallerDocIds =
         collectActiveTallerDocIdsFromUsersSnapshot(usersSnapshot)
-    const subsSnapshot = await getDocs(collection(db, 'Subscripciones'))
 
     let clientesCount = 0
     let tallerCount = 0
@@ -561,29 +570,46 @@ const SalesDashboard = () => {
     })
 
     useEffect(() => {
-        const fetchData = async () => {
+        // Antes cada coleccion se descargaba completa tres veces al abrir
+        // (getDocs + la carga inicial de onSnapshot + la recarga que este
+        // disparaba). Ahora los dos listeners son la unica fuente: una sola
+        // descarga, en paralelo, y siguen actualizando en vivo.
+        let usersSnapshot: QuerySnapshot<DocumentData> | null = null
+        let subsSnapshot: QuerySnapshot<DocumentData> | null = null
+
+        const recompute = () => {
+            if (!usersSnapshot || !subsSnapshot) return
             try {
-                const data = await fetchDashboardData()
-                setDashboardData(data)
-                setIsDashboardDataReady(true)
+                setDashboardData(buildDashboardData(usersSnapshot, subsSnapshot))
             } catch (error) {
                 console.error(
-                    'Error al obtener los datos del dashboard:',
+                    'Error al calcular los datos del dashboard:',
                     error,
                 )
-                setIsDashboardDataReady(true)
             }
+            setIsDashboardDataReady(true)
         }
 
-        fetchData()
+        const onListenError = (error: unknown) => {
+            console.error('Error al obtener los datos del dashboard:', error)
+            setIsDashboardDataReady(true)
+        }
 
         const unsubscribeUsers = onSnapshot(
             collection(db, 'Usuarios'),
-            () => void fetchData(),
+            (snap) => {
+                usersSnapshot = snap
+                recompute()
+            },
+            onListenError,
         )
         const unsubscribeSubs = onSnapshot(
             collection(db, 'Subscripciones'),
-            () => void fetchData(),
+            (snap) => {
+                subsSnapshot = snap
+                recompute()
+            },
+            onListenError,
         )
 
         return () => {
@@ -1757,6 +1783,16 @@ const columns: ColumnDef<{
             </Dialog>
 
             <div className="flex-1 min-h-0 mt-3 bg-gray-100 pb-4">
+                {!isDashboardDataReady && (
+                    <div
+                        role="status"
+                        className="mb-3 flex items-center gap-3 rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-[#000B7E] shadow-sm"
+                    >
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#000B7E] border-t-transparent" />
+                        Cargando los datos del negocio… las cifras aparecerán
+                        en unos segundos.
+                    </div>
+                )}
                 <Tabs
                     defaultValue="operativo"
                     className="flex flex-col flex-1 min-h-0 bg-gray-100"
