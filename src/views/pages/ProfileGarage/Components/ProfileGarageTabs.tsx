@@ -45,6 +45,10 @@ export type SubscriptionTab = {
     monto?: number
     fecha_fin?: unknown
     uid?: string
+    comprobante_pago?: {
+        metodo?: string
+        fechaPago?: unknown
+    }
 }
 
 export type PaymentMethodOption = {
@@ -276,6 +280,29 @@ export default function ProfileGarageTabs({
                                                                     ? 'Gratis'
                                                                     : `$${subscription.monto}`
                                                                 : '---'}
+                                                        </span>
+                                                    </p>
+                                                    <p>
+                                                        Fecha de pago:{' '}
+                                                        <span className="font-bold text-gray-800">
+                                                            {subscription
+                                                                ?.comprobante_pago
+                                                                ?.fechaPago
+                                                                ? formatDate(
+                                                                      subscription
+                                                                          .comprobante_pago
+                                                                          .fechaPago,
+                                                                  )
+                                                                : 'Sin pago registrado'}
+                                                        </span>
+                                                    </p>
+                                                    <p>
+                                                        Método de pago:{' '}
+                                                        <span className="font-bold text-gray-800">
+                                                            {subscription
+                                                                ?.comprobante_pago
+                                                                ?.metodo ||
+                                                                'Sin pago registrado'}
                                                         </span>
                                                     </p>
                                                     {subscription?.status ===

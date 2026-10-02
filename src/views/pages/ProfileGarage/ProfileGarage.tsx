@@ -407,7 +407,7 @@ const ProfileGarage = () => {
             }))
 
             // Obtener información de la suscripción actual
-            const subscripcionActual = dataFinal?.subscripcion_actual || null
+            let subscripcionActual = dataFinal?.subscripcion_actual || null
 
             setIsSuscrito(!!subscripcionActual)
 
@@ -445,6 +445,24 @@ const ProfileGarage = () => {
                     fechaCreacion,
                 }
             })
+
+            // Req. 003: el perfil muestra fecha y metodo de pago de la suscripcion
+            // actual. El comprobante vive en el documento de 'Subscripciones'.
+            if (subscripcionActual) {
+                const docActual =
+                    sortedSubscriptionDocs.find(
+                        (d) => d.id === subscripcionActual.uid,
+                    ) ?? sortedSubscriptionDocs[0]
+                const comprobante =
+                    subscripcionActual.comprobante_pago ??
+                    docActual?.data()?.comprobante_pago
+                if (comprobante) {
+                    subscripcionActual = {
+                        ...subscripcionActual,
+                        comprobante_pago: comprobante,
+                    }
+                }
+            }
 
             // Obtener detalles de cada servicio basado en los IDs
             const servicesQuery = query(

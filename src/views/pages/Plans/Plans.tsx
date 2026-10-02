@@ -19,6 +19,7 @@ import {
     collection,
     getDocs,
     query,
+    where,
     doc,
     deleteDoc,
     updateDoc,
@@ -61,6 +62,16 @@ function planSearchableText(p: Plans): string {
     return parts.join(' ').toLowerCase()
 }
 
+// Clave para emparejar el plan de un negocio con el plan del catalogo
+// ("GRATIS", "Plan Oro "...): sin mayusculas, acentos ni espacios sobrantes.
+function planKey(nombre?: string): string {
+    return (nombre || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase()
+}
+
 const Plans = () => {
     const [dataPlans, setDataPlans] = useState<Plans[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
@@ -69,6 +80,11 @@ const Plans = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Plans | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
+    // null = no se pudo cargar el conteo
+    const [subscribersByPlan, setSubscribersByPlan] = useState<Record<
+        string,
+        number
+    > | null>({})
 
     const getData = async () => {
         const q = query(collection(db, 'Planes'))
@@ -81,6 +97,32 @@ const Plans = () => {
         })
 
         setDataPlans(sortPlansByDisplayOrder(planes))
+
+        // Req. 003: suscriptores por plan. Se cuentan los negocios activos en
+        // la plataforma (no eliminados) segun el plan de su suscripcion actual.
+        try {
+            const talleresSnap = await getDocs(
+                query(
+                    collection(db, 'Usuarios'),
+                    where('typeUser', '==', 'Taller'),
+                ),
+            )
+            const conteo: Record<string, number> = {}
+            talleresSnap.forEach((t) => {
+                const data = t.data() as {
+                    status?: string
+                    subscripcion_actual?: { nombre?: string }
+                }
+                if (data.status === 'Eliminado') return
+                const clave = planKey(data.subscripcion_actual?.nombre)
+                if (!clave) return
+                conteo[clave] = (conteo[clave] || 0) + 1
+            })
+            setSubscribersByPlan(conteo)
+        } catch (error) {
+            console.warn('No se pudo contar suscriptores por plan:', error)
+            setSubscribersByPlan(null)
+        }
     }
 
     useEffect(() => {
@@ -250,6 +292,14 @@ const Plans = () => {
             header: 'Cantidad de Servicios',
             accessorKey: 'cantidad_servicios',
             filterFn: 'includesString',
+        },
+        {
+            header: 'Suscriptores',
+            id: 'suscriptores',
+            cell: ({ row }) =>
+                subscribersByPlan === null
+                    ? '—'
+                    : subscribersByPlan[planKey(row.original.nombre)] || 0,
         },
 
         {
