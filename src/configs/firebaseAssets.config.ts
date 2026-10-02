@@ -23,8 +23,11 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig)
 const auth = getAuth(app)
+// Antes: experimentalForceLongPolling (obligaba a usar siempre el transporte
+// mas lento). Con deteccion automatica Firestore usa la conexion continua
+// (rapida) y solo cae a long polling si la red o un proxy la bloquea.
 const db = initializeFirestore(app, {
-    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: true,
 })
 export const storage = getStorage(app)
 export { app, auth, db }
