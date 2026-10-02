@@ -25,7 +25,7 @@ const appsNavigationConfig: NavigationTree[] = [
             // principal ("Estadisticas"), sin el desplegable "Project".
             {
                 key: 'appsSales.dashboard',
-                path: `${APP_PREFIX_PATH}/sales/SalesDashboard`,
+                path: `${APP_PREFIX_PATH}/sales/dashboard`,
                 title: 'Estadísticas',
                 translateKey: 'Estadísticas',
                 icon: 'project',
