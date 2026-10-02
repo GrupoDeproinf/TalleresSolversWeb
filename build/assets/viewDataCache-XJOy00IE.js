@@ -1,0 +1,1 @@
+const n=new Map,a=5*60*1e3;function s(e,t=a){const r=n.get(e);return r?Date.now()-r.ts>t?(n.delete(e),null):r.data:null}function c(e,t){n.set(e,{data:t,ts:Date.now()})}function o(e){if(!e){n.clear();return}for(const t of[...n.keys()])t.startsWith(e)&&n.delete(t)}export{o as c,s as r,c as w};
