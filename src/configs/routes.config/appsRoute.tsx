@@ -20,6 +20,15 @@ const appsRoute: Routes = [
         component: lazy(() => import('@/views/pages/CertificadorDashboard')),
         authority: [CERTIFIER],
     },
+    // Inicio del administrador (appConfig.authenticatedEntryPath) y destino de
+    // "Estadisticas". Se habia quitado junto con las rutas demo (5865e6d2) y
+    // el panel quedaba en blanco, en bucle de redirecciones, tras el login.
+    {
+        key: 'appsSales.dashboard',
+        path: `${APP_PREFIX_PATH}/sales/dashboard`,
+        component: lazy(() => import('@/views/sales/SalesDashboard')),
+        authority: [ADMIN],
+    },
     {
         key: 'appsProject.dashboard',
         path: `${APP_PREFIX_PATH}/project/dashboard`,

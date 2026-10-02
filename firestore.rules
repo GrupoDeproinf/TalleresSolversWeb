@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// ============================================================================
+// Solvers — Firestore Security Rules
+// Fase 0 (Contención): cierra el acceso PÚBLICO no autenticado.
+//
+// Contexto verificado en auditoría:
+//  - La app móvil NO accede a Firestore directamente (solo FCM); todo su acceso
+//    a datos pasa por el backend Express (firebase-admin), que NO evalúa estas
+//    reglas. => Endurecer aquí NO afecta a la app.
+//  - El panel web es el único cliente Firestore y sus usuarios están
+//    autenticados con Firebase Auth. Requisito: el login debe autenticar ANTES
+//    de leer Firestore (fix aplicado en useAuth.signIn).
+//
+// Esta versión exige sesión para toda lectura/escritura. La restricción fina
+// por rol (least-privilege por colección) se aplica en firestore.rules.rolebased
+// tras validarse en el emulador contra las operaciones reales del panel.
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+  }
+}
