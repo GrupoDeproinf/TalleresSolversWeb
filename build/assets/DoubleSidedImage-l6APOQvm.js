@@ -1,1 +1,0 @@
-import{u as a,j as c,a6 as n}from"./index-X6rnA_kP.js";const{MODE_DARK:p}=n,E=({src:e,darkModeSrc:s,alt:o="",...t})=>{const m=a(r=>r.theme.mode);return c.jsx("img",{src:m===p?s:e,alt:o,...t})};export{E as D};
