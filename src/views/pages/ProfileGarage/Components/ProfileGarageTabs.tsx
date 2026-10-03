@@ -23,6 +23,75 @@ import { useAppSelector } from '@/store'
 import { SUPPORT } from '@/constants/roles.constant'
 
 const { TabNav, TabList, TabContent } = Tabs
+
+// Req. 003: resultado de comparar el documento RIF con el RIF declarado.
+// Lo calcula el servidor al registrarse el taller o al subir el documento.
+type RifVerificacion = {
+    estado?: 'verificado' | 'no_coincide' | 'no_legible'
+    metodo?: 'pdf_texto' | 'qr' | null
+    rifDocumento?: string | null
+    razonSocial?: string | null
+    fechaVencimiento?: string | null
+    vencido?: boolean | null
+    mensaje?: string
+}
+
+const RifVerificacionAviso = ({
+    verificacion,
+    rifDeclarado,
+}: {
+    verificacion?: RifVerificacion | null
+    rifDeclarado?: string
+}) => {
+    if (!verificacion?.estado) return null
+
+    const estilos = {
+        verificado: 'border-green-200 bg-green-50 text-green-800',
+        no_coincide: 'border-red-200 bg-red-50 text-red-800',
+        no_legible: 'border-yellow-200 bg-yellow-50 text-yellow-800',
+    }[verificacion.estado]
+
+    const titulo = {
+        verificado: 'RIF verificado: el documento coincide con el RIF registrado',
+        no_coincide: 'El documento NO coincide con el RIF registrado',
+        no_legible:
+            'No se pudo leer el RIF automáticamente: revísalo a mano',
+    }[verificacion.estado]
+
+    const vence = verificacion.fechaVencimiento
+        ? verificacion.fechaVencimiento.split('-').reverse().join('/')
+        : null
+
+    return (
+        <div className={`mb-5 rounded-xl border px-4 py-3 text-sm ${estilos}`}>
+            <p className="font-bold">{titulo}</p>
+            <ul className="mt-1 space-y-0.5">
+                {rifDeclarado ? <li>RIF registrado: {rifDeclarado}</li> : null}
+                {verificacion.rifDocumento ? (
+                    <li>RIF en el documento: {verificacion.rifDocumento}</li>
+                ) : null}
+                {verificacion.razonSocial ? (
+                    <li>Razón social: {verificacion.razonSocial}</li>
+                ) : null}
+                {vence ? (
+                    <li className={verificacion.vencido ? 'font-bold' : ''}>
+                        Vence: {vence}
+                        {verificacion.vencido ? ' — COMPROBANTE VENCIDO' : ''}
+                    </li>
+                ) : null}
+                <li className="opacity-80">
+                    {verificacion.metodo === 'pdf_texto'
+                        ? 'Leído del texto del PDF.'
+                        : verificacion.metodo === 'qr'
+                          ? 'Leído del código QR del comprobante.'
+                          : 'Sin lectura automática.'}{' '}
+                    Confirma coincidencia con lo registrado, no autenticidad
+                    ante el SENIAT.
+                </li>
+            </ul>
+        </div>
+    )
+}
 const { Tr, Th, Td, THead, TBody } = Table
 const HISTORICO_ROWS_PER_PAGE = 5
 
@@ -609,6 +678,10 @@ export default function ProfileGarageTabs({
                         <h6 className="mb-6 flex justify-start mt-4">
                             Documentos del Negocio
                         </h6>
+                        <RifVerificacionAviso
+                            verificacion={data?.rif_verificacion}
+                            rifDeclarado={data?.rif}
+                        />
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {data?.rifIdFiscal && (
                                 <div
