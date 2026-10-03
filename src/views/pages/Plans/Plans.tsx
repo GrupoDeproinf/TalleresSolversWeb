@@ -62,6 +62,9 @@ function planSearchableText(p: Plans): string {
     return parts.join(' ').toLowerCase()
 }
 
+// IVA de Venezuela (16%). Se aplica sobre el monto del plan.
+const IVA_RATE = 0.16
+
 // Clave para emparejar el plan de un negocio con el plan del catalogo
 // ("GRATIS", "Plan Oro "...): sin mayusculas, acentos ni espacios sobrantes.
 function planKey(nombre?: string): string {
@@ -162,9 +165,6 @@ const Plans = () => {
         nombre: Yup.string()
             .required('El nombre es obligatorio')
             .min(3, 'El nombre debe tener al menos 3 caracteres'),
-        descripcion: Yup.string()
-            .required('La descripción es obligatoria')
-            .min(5, 'La descripción debe tener al menos 5 caracteres'),
         cantidad_servicios: Yup.number()
             .typeError('Debe ingresar un número en la cantidad de servicios')
             .required('La cantidad de servicios es obligatoria')
@@ -185,7 +185,9 @@ const Plans = () => {
             const userRef = collection(db, 'Planes')
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
-                descripcion: values.descripcion,
+                // Req. 003: nombre y descripcion cumplian la misma funcion; solo
+                // se pide el nombre y la descripcion lo replica.
+                descripcion: values.nombre,
                 cantidad_servicios: values.cantidad_servicios,
                 monto: values.monto,
                 status: 'Activo',
@@ -284,11 +286,6 @@ const Plans = () => {
             footer: (props) => props.column.id,
         },
         {
-            header: 'Descripcion',
-            accessorKey: 'descripcion',
-            filterFn: 'includesString',
-        },
-        {
             header: 'Cantidad de Servicios',
             accessorKey: 'cantidad_servicios',
             filterFn: 'includesString',
@@ -309,6 +306,25 @@ const Plans = () => {
             cell: ({ row }) => {
                 const monto = parseFloat(row.original.monto) // Asegúrate de que sea un número
                 return `$${monto.toFixed(2)}`
+            },
+        },
+        // Req. 003: precios + IVA. El monto guardado es el precio sin IVA.
+        {
+            header: `IVA (${Math.round(IVA_RATE * 100)}%)`,
+            id: 'iva',
+            cell: ({ row }) => {
+                const monto = parseFloat(row.original.monto) || 0
+                return monto > 0 ? `$${(monto * IVA_RATE).toFixed(2)}` : '—'
+            },
+        },
+        {
+            header: 'Total con IVA',
+            id: 'totalConIva',
+            cell: ({ row }) => {
+                const monto = parseFloat(row.original.monto) || 0
+                return monto > 0
+                    ? `$${(monto * (1 + IVA_RATE)).toFixed(2)}`
+                    : 'Gratis'
             },
         },
         {
@@ -621,17 +637,6 @@ const Plans = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
                         />
                     </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Descripcion:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.descripcion || ''}
-                            readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
                     {/* Campo para Cantidad de Servicios */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
@@ -712,33 +717,6 @@ const Plans = () => {
                                 />
                                 <ErrorMessage
                                     name="nombre"
-                                    component="div"
-                                    className="text-red-600 text-sm mt-1"
-                                />
-                            </div>
-
-                            <div className="flex flex-col">
-                                <label className="font-semibold text-gray-700">
-                                    Descripción:
-                                </label>
-                                <Field
-                                    as="textarea"
-                                    name="descripcion"
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                                    rows={1} // Altura inicial
-                                    style={{
-                                        maxHeight: '150px', // Límite máximo de altura
-                                        overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                                    }}
-                                    onInput={(e: any) => {
-                                        const target =
-                                            e.target as HTMLTextAreaElement
-                                        target.style.height = 'auto' // Resetea la altura
-                                        target.style.height = `${target.scrollHeight}px` // Ajusta la altura según el contenido
-                                    }}
-                                />
-                                <ErrorMessage
-                                    name="descripcion"
                                     component="div"
                                     className="text-red-600 text-sm mt-1"
                                 />
