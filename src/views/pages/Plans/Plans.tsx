@@ -19,6 +19,7 @@ import {
     collection,
     getDocs,
     query,
+    where,
     doc,
     deleteDoc,
     updateDoc,
@@ -61,6 +62,19 @@ function planSearchableText(p: Plans): string {
     return parts.join(' ').toLowerCase()
 }
 
+// IVA de Venezuela (16%). Se aplica sobre el monto del plan.
+const IVA_RATE = 0.16
+
+// Clave para emparejar el plan de un negocio con el plan del catalogo
+// ("GRATIS", "Plan Oro "...): sin mayusculas, acentos ni espacios sobrantes.
+function planKey(nombre?: string): string {
+    return (nombre || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .trim()
+        .toLowerCase()
+}
+
 const Plans = () => {
     const [dataPlans, setDataPlans] = useState<Plans[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
@@ -69,6 +83,11 @@ const Plans = () => {
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Plans | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
+    // null = no se pudo cargar el conteo
+    const [subscribersByPlan, setSubscribersByPlan] = useState<Record<
+        string,
+        number
+    > | null>({})
 
     const getData = async () => {
         const q = query(collection(db, 'Planes'))
@@ -81,6 +100,32 @@ const Plans = () => {
         })
 
         setDataPlans(sortPlansByDisplayOrder(planes))
+
+        // Req. 003: suscriptores por plan. Se cuentan los negocios activos en
+        // la plataforma (no eliminados) segun el plan de su suscripcion actual.
+        try {
+            const talleresSnap = await getDocs(
+                query(
+                    collection(db, 'Usuarios'),
+                    where('typeUser', '==', 'Taller'),
+                ),
+            )
+            const conteo: Record<string, number> = {}
+            talleresSnap.forEach((t) => {
+                const data = t.data() as {
+                    status?: string
+                    subscripcion_actual?: { nombre?: string }
+                }
+                if (data.status === 'Eliminado') return
+                const clave = planKey(data.subscripcion_actual?.nombre)
+                if (!clave) return
+                conteo[clave] = (conteo[clave] || 0) + 1
+            })
+            setSubscribersByPlan(conteo)
+        } catch (error) {
+            console.warn('No se pudo contar suscriptores por plan:', error)
+            setSubscribersByPlan(null)
+        }
     }
 
     useEffect(() => {
@@ -120,9 +165,6 @@ const Plans = () => {
         nombre: Yup.string()
             .required('El nombre es obligatorio')
             .min(3, 'El nombre debe tener al menos 3 caracteres'),
-        descripcion: Yup.string()
-            .required('La descripción es obligatoria')
-            .min(5, 'La descripción debe tener al menos 5 caracteres'),
         cantidad_servicios: Yup.number()
             .typeError('Debe ingresar un número en la cantidad de servicios')
             .required('La cantidad de servicios es obligatoria')
@@ -143,7 +185,9 @@ const Plans = () => {
             const userRef = collection(db, 'Planes')
             const docRef = await addDoc(userRef, {
                 nombre: values.nombre,
-                descripcion: values.descripcion,
+                // Req. 003: nombre y descripcion cumplian la misma funcion; solo
+                // se pide el nombre y la descripcion lo replica.
+                descripcion: values.nombre,
                 cantidad_servicios: values.cantidad_servicios,
                 monto: values.monto,
                 status: 'Activo',
@@ -188,13 +232,24 @@ const Plans = () => {
     }
     const handleSaveChanges = async () => {
         if (selectedPerson) {
+            const cantidad = Number(selectedPerson.cantidad_servicios)
+            if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 999) {
+                toast.push(
+                    <Notification title="Revisa la cantidad">
+                        La cantidad de servicios debe ser un número entero
+                        entre 1 y 999.
+                    </Notification>,
+                )
+                return
+            }
             try {
                 const userDoc = doc(db, 'Planes', selectedPerson.uid)
+                // Requerimiento 002 punto 3: el monto no se modifica desde el panel.
+                // Se omite a proposito para que conserve el valor de Firestore.
                 await updateDoc(userDoc, {
                     nombre: selectedPerson.nombre,
                     descripcion: selectedPerson.descripcion,
-                    cantidad_servicios: selectedPerson.cantidad_servicios,
-                    monto: selectedPerson.monto,
+                    cantidad_servicios: cantidad,
                     status: selectedPerson.status,
                     vigencia: selectedPerson.vigencia,
                 })
@@ -241,14 +296,17 @@ const Plans = () => {
             footer: (props) => props.column.id,
         },
         {
-            header: 'Descripcion',
-            accessorKey: 'descripcion',
-            filterFn: 'includesString',
-        },
-        {
             header: 'Cantidad de Servicios',
             accessorKey: 'cantidad_servicios',
             filterFn: 'includesString',
+        },
+        {
+            header: 'Suscriptores',
+            id: 'suscriptores',
+            cell: ({ row }) =>
+                subscribersByPlan === null
+                    ? '—'
+                    : subscribersByPlan[planKey(row.original.nombre)] || 0,
         },
 
         {
@@ -258,6 +316,25 @@ const Plans = () => {
             cell: ({ row }) => {
                 const monto = parseFloat(row.original.monto) // Asegúrate de que sea un número
                 return `$${monto.toFixed(2)}`
+            },
+        },
+        // Req. 003: precios + IVA. El monto guardado es el precio sin IVA.
+        {
+            header: `IVA (${Math.round(IVA_RATE * 100)}%)`,
+            id: 'iva',
+            cell: ({ row }) => {
+                const monto = parseFloat(row.original.monto) || 0
+                return monto > 0 ? `$${(monto * IVA_RATE).toFixed(2)}` : '—'
+            },
+        },
+        {
+            header: 'Total con IVA',
+            id: 'totalConIva',
+            cell: ({ row }) => {
+                const monto = parseFloat(row.original.monto) || 0
+                return monto > 0
+                    ? `$${(monto * (1 + IVA_RATE)).toFixed(2)}`
+                    : 'Gratis'
             },
         },
         {
@@ -523,7 +600,7 @@ const Plans = () => {
                 className="rounded-md shadow" // Añadir estilo al Drawer
             >
                 <div className="grid grid-cols-2">
-                    <h2 className="flex mb-4 text-xl font-bold">Ver Plan</h2>
+                    <h2 className="flex mb-4 text-xl font-bold">Editar Plan</h2>
                     <div className="flex items-center">
                         <Switcher
                             defaultChecked={selectedPerson?.status === 'Activo'} // Determina si el Switcher debe estar activado o no
@@ -570,27 +647,33 @@ const Plans = () => {
                             className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
                         />
                     </label>
-                    <label className="flex flex-col">
-                        <span className="font-semibold text-gray-700">
-                            Descripcion:
-                        </span>
-                        <input
-                            type="text"
-                            value={selectedPerson?.descripcion || ''}
-                            readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
-                        />
-                    </label>
                     {/* Campo para Cantidad de Servicios */}
                     <label className="flex flex-col">
                         <span className="font-semibold text-gray-700">
                             Cantidad de Servicios:
                         </span>
+                        {/* Req. 003: la cantidad de servicios por plan se modifica desde el panel. */}
                         <input
-                            type="text"
-                            value={selectedPerson?.cantidad_servicios || ''}
-                            readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
+                            type="number"
+                            min={1}
+                            step={1}
+                            inputMode="numeric"
+                            value={selectedPerson?.cantidad_servicios ?? ''}
+                            onChange={(e) => {
+                                const soloDigitos = e.target.value.replace(/\D/g, '')
+                                setSelectedPerson((prev: any) =>
+                                    prev
+                                        ? {
+                                              ...prev,
+                                              cantidad_servicios:
+                                                  soloDigitos === ''
+                                                      ? ''
+                                                      : parseInt(soloDigitos, 10),
+                                          }
+                                        : prev,
+                                )
+                            }}
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </label>
                     {/* Campo para Monto */}
@@ -661,33 +744,6 @@ const Plans = () => {
                                 />
                                 <ErrorMessage
                                     name="nombre"
-                                    component="div"
-                                    className="text-red-600 text-sm mt-1"
-                                />
-                            </div>
-
-                            <div className="flex flex-col">
-                                <label className="font-semibold text-gray-700">
-                                    Descripción:
-                                </label>
-                                <Field
-                                    as="textarea"
-                                    name="descripcion"
-                                    className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none overflow-hidden"
-                                    rows={1} // Altura inicial
-                                    style={{
-                                        maxHeight: '150px', // Límite máximo de altura
-                                        overflowY: 'auto', // Scroll vertical cuando se excede el límite
-                                    }}
-                                    onInput={(e: any) => {
-                                        const target =
-                                            e.target as HTMLTextAreaElement
-                                        target.style.height = 'auto' // Resetea la altura
-                                        target.style.height = `${target.scrollHeight}px` // Ajusta la altura según el contenido
-                                    }}
-                                />
-                                <ErrorMessage
-                                    name="descripcion"
                                     component="div"
                                     className="text-red-600 text-sm mt-1"
                                 />

@@ -23,6 +23,75 @@ import { useAppSelector } from '@/store'
 import { SUPPORT } from '@/constants/roles.constant'
 
 const { TabNav, TabList, TabContent } = Tabs
+
+// Req. 003: resultado de comparar el documento RIF con el RIF declarado.
+// Lo calcula el servidor al registrarse el taller o al subir el documento.
+type RifVerificacion = {
+    estado?: 'verificado' | 'no_coincide' | 'no_legible'
+    metodo?: 'pdf_texto' | 'qr' | null
+    rifDocumento?: string | null
+    razonSocial?: string | null
+    fechaVencimiento?: string | null
+    vencido?: boolean | null
+    mensaje?: string
+}
+
+const RifVerificacionAviso = ({
+    verificacion,
+    rifDeclarado,
+}: {
+    verificacion?: RifVerificacion | null
+    rifDeclarado?: string
+}) => {
+    if (!verificacion?.estado) return null
+
+    const estilos = {
+        verificado: 'border-green-200 bg-green-50 text-green-800',
+        no_coincide: 'border-red-200 bg-red-50 text-red-800',
+        no_legible: 'border-yellow-200 bg-yellow-50 text-yellow-800',
+    }[verificacion.estado]
+
+    const titulo = {
+        verificado: 'RIF verificado: el documento coincide con el RIF registrado',
+        no_coincide: 'El documento NO coincide con el RIF registrado',
+        no_legible:
+            'No se pudo leer el RIF automáticamente: revísalo a mano',
+    }[verificacion.estado]
+
+    const vence = verificacion.fechaVencimiento
+        ? verificacion.fechaVencimiento.split('-').reverse().join('/')
+        : null
+
+    return (
+        <div className={`mb-5 rounded-xl border px-4 py-3 text-sm ${estilos}`}>
+            <p className="font-bold">{titulo}</p>
+            <ul className="mt-1 space-y-0.5">
+                {rifDeclarado ? <li>RIF registrado: {rifDeclarado}</li> : null}
+                {verificacion.rifDocumento ? (
+                    <li>RIF en el documento: {verificacion.rifDocumento}</li>
+                ) : null}
+                {verificacion.razonSocial ? (
+                    <li>Razón social: {verificacion.razonSocial}</li>
+                ) : null}
+                {vence ? (
+                    <li className={verificacion.vencido ? 'font-bold' : ''}>
+                        Vence: {vence}
+                        {verificacion.vencido ? ' — COMPROBANTE VENCIDO' : ''}
+                    </li>
+                ) : null}
+                <li className="opacity-80">
+                    {verificacion.metodo === 'pdf_texto'
+                        ? 'Leído del texto del PDF.'
+                        : verificacion.metodo === 'qr'
+                          ? 'Leído del código QR del comprobante.'
+                          : 'Sin lectura automática.'}{' '}
+                    Confirma coincidencia con lo registrado, no autenticidad
+                    ante el SENIAT.
+                </li>
+            </ul>
+        </div>
+    )
+}
 const { Tr, Th, Td, THead, TBody } = Table
 const HISTORICO_ROWS_PER_PAGE = 5
 
@@ -45,6 +114,10 @@ export type SubscriptionTab = {
     monto?: number
     fecha_fin?: unknown
     uid?: string
+    comprobante_pago?: {
+        metodo?: string
+        fechaPago?: unknown
+    }
 }
 
 export type PaymentMethodOption = {
@@ -278,6 +351,29 @@ export default function ProfileGarageTabs({
                                                                 : '---'}
                                                         </span>
                                                     </p>
+                                                    <p>
+                                                        Fecha de pago:{' '}
+                                                        <span className="font-bold text-gray-800">
+                                                            {subscription
+                                                                ?.comprobante_pago
+                                                                ?.fechaPago
+                                                                ? formatDate(
+                                                                      subscription
+                                                                          .comprobante_pago
+                                                                          .fechaPago,
+                                                                  )
+                                                                : 'Sin pago registrado'}
+                                                        </span>
+                                                    </p>
+                                                    <p>
+                                                        Método de pago:{' '}
+                                                        <span className="font-bold text-gray-800">
+                                                            {subscription
+                                                                ?.comprobante_pago
+                                                                ?.metodo ||
+                                                                'Sin pago registrado'}
+                                                        </span>
+                                                    </p>
                                                     {subscription?.status ===
                                                         'Aprobado' && (
                                                         <>
@@ -449,10 +545,14 @@ export default function ProfileGarageTabs({
                 </div>
                 <TabContent value="tab2">
                     <div className="w-full h-full">
+                        {/* Servicios que ofrece: categorías que el negocio
+                            seleccionó en la app (campo `categorias`), junto al
+                            botón para crear servicios desde el panel y la lista
+                            de servicios creados — todo en una sola sección. */}
                         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                            <div className="mb-6 mt-4 flex items-center justify-between">
+                            <div className="mb-4 mt-2 flex items-center justify-between">
                                 <h6 className="flex justify-start">
-                                    Lista de Servicios
+                                    Servicios que ofrece
                                 </h6>
                                 {canManageServices ? (
                                     <Button
@@ -465,7 +565,29 @@ export default function ProfileGarageTabs({
                                     </Button>
                                 ) : null}
                             </div>
-                            <Table className="w-full rounded-lg">
+                            {Array.isArray(data?.categorias) &&
+                            data.categorias.length > 0 ? (
+                                <div className="flex flex-wrap gap-2">
+                                    {data.categorias.map(
+                                        (cat: any, idx: number) => (
+                                            <span
+                                                key={cat?.uid || idx}
+                                                className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+                                            >
+                                                {cat?.nombre ||
+                                                    cat?.uid_categoria ||
+                                                    cat?.uid ||
+                                                    'Categoría'}
+                                            </span>
+                                        ),
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-400">
+                                    Sin servicios seleccionados
+                                </p>
+                            )}
+                            <Table className="mt-6 w-full rounded-lg">
                                 <THead>
                                     {table
                                         .getHeaderGroups()
@@ -556,6 +678,10 @@ export default function ProfileGarageTabs({
                         <h6 className="mb-6 flex justify-start mt-4">
                             Documentos del Negocio
                         </h6>
+                        <RifVerificacionAviso
+                            verificacion={data?.rif_verificacion}
+                            rifDeclarado={data?.rif}
+                        />
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {data?.rifIdFiscal && (
                                 <div

@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { collection, getDocs, onSnapshot, Timestamp } from 'firebase/firestore'
+import {
+    collection,
+    getDocs,
+    onSnapshot,
+    Timestamp,
+    type DocumentData,
+    type QuerySnapshot,
+} from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
+import { useNavigate } from 'react-router-dom'
 import SalesByCategories from './components/SalesByCategories'
 import SplineArea from './components/SplineArea'
 import { APP_PREFIX_PATH } from '@/constants/route.constant'
@@ -309,11 +317,13 @@ const isSubscriptionPaid = (data: Record<string, unknown>) => {
     )
 }
 
-const fetchDashboardData = async () => {
-    const usersSnapshot = await getDocs(collection(db, 'Usuarios'))
+// Calcula las cifras a partir de las dos colecciones ya descargadas.
+const buildDashboardData = (
+    usersSnapshot: QuerySnapshot<DocumentData>,
+    subsSnapshot: QuerySnapshot<DocumentData>,
+) => {
     const activeTallerDocIds =
         collectActiveTallerDocIdsFromUsersSnapshot(usersSnapshot)
-    const subsSnapshot = await getDocs(collection(db, 'Subscripciones'))
 
     let clientesCount = 0
     let tallerCount = 0
@@ -561,29 +571,46 @@ const SalesDashboard = () => {
     })
 
     useEffect(() => {
-        const fetchData = async () => {
+        // Antes cada coleccion se descargaba completa tres veces al abrir
+        // (getDocs + la carga inicial de onSnapshot + la recarga que este
+        // disparaba). Ahora los dos listeners son la unica fuente: una sola
+        // descarga, en paralelo, y siguen actualizando en vivo.
+        let usersSnapshot: QuerySnapshot<DocumentData> | null = null
+        let subsSnapshot: QuerySnapshot<DocumentData> | null = null
+
+        const recompute = () => {
+            if (!usersSnapshot || !subsSnapshot) return
             try {
-                const data = await fetchDashboardData()
-                setDashboardData(data)
-                setIsDashboardDataReady(true)
+                setDashboardData(buildDashboardData(usersSnapshot, subsSnapshot))
             } catch (error) {
                 console.error(
-                    'Error al obtener los datos del dashboard:',
+                    'Error al calcular los datos del dashboard:',
                     error,
                 )
-                setIsDashboardDataReady(true)
             }
+            setIsDashboardDataReady(true)
         }
 
-        fetchData()
+        const onListenError = (error: unknown) => {
+            console.error('Error al obtener los datos del dashboard:', error)
+            setIsDashboardDataReady(true)
+        }
 
         const unsubscribeUsers = onSnapshot(
             collection(db, 'Usuarios'),
-            () => void fetchData(),
+            (snap) => {
+                usersSnapshot = snap
+                recompute()
+            },
+            onListenError,
         )
         const unsubscribeSubs = onSnapshot(
             collection(db, 'Subscripciones'),
-            () => void fetchData(),
+            (snap) => {
+                subsSnapshot = snap
+                recompute()
+            },
+            onListenError,
         )
 
         return () => {
@@ -1426,6 +1453,13 @@ const columns: ColumnDef<{
 
     const talleresNuevosEnEspera = talleresStats.espera
 
+    // Cada alerta del resumen diario lleva a la lista donde se atiende.
+    const navigate = useNavigate()
+    const irDesdeResumen = (ruta: string) => {
+        setIsResumenCriticoPopupOpen(false)
+        navigate(ruta)
+    }
+
     const totalTalleres =
         talleresStats.aprobados + talleresStats.rechazados + talleresStats.espera
 
@@ -1613,32 +1647,56 @@ const columns: ColumnDef<{
                 </div>
 
                 <div className="mt-4 grid gap-3">
-                    <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 flex items-center justify-between">
+                    <button
+                        type="button"
+                        title="Ver los negocios en espera de revisión"
+                        onClick={() => irDesdeResumen(`${APP_PREFIX_PATH}/garages?estado=${encodeURIComponent('En espera por aprobación')}`)}
+                        className="w-full cursor-pointer rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5 flex items-center justify-between text-left transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    >
                         <p className="text-base font-semibold text-blue-900">
                             Negocios nuevos en espera de revisión
                         </p>
-                        <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-blue-700">
-                            {talleresNuevosEnEspera}
+                        <span className="flex items-center gap-2">
+                            <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-blue-700">
+                                {talleresNuevosEnEspera}
+                            </span>
+                            <span aria-hidden className="text-lg font-bold text-blue-700">›</span>
                         </span>
-                    </div>
+                    </button>
 
-                    <div className="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5 flex items-center justify-between">
+                    <button
+                        type="button"
+                        title="Ver los pagos pendientes por validar"
+                        onClick={() => irDesdeResumen(`${APP_PREFIX_PATH}/subscriptions`)}
+                        className="w-full cursor-pointer rounded-lg border border-amber-100 bg-amber-50 px-3 py-2.5 flex items-center justify-between text-left transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                    >
                         <p className="text-base font-semibold text-amber-900">
                             Pagos pendientes por validar
                         </p>
-                        <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-amber-700">
-                            {pagosPendientesValidar}
+                        <span className="flex items-center gap-2">
+                            <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-amber-700">
+                                {pagosPendientesValidar}
+                            </span>
+                            <span aria-hidden className="text-lg font-bold text-amber-700">›</span>
                         </span>
-                    </div>
+                    </button>
 
-                    <div className="rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 flex items-center justify-between">
+                    <button
+                        type="button"
+                        title="Ver los negocios que vencen hoy"
+                        onClick={() => irDesdeResumen(`${APP_PREFIX_PATH}/garages?estado=Vencidos`)}
+                        className="w-full cursor-pointer rounded-lg border border-rose-100 bg-rose-50 px-3 py-2.5 flex items-center justify-between text-left transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-rose-300"
+                    >
                         <p className="text-base font-semibold text-rose-900">
                             Negocios con vencimiento hoy
                         </p>
-                        <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-rose-700">
-                            {talleresVencidosHoy}
+                        <span className="flex items-center gap-2">
+                            <span className="rounded-full bg-white px-3 py-1 text-sm font-extrabold text-rose-700">
+                                {talleresVencidosHoy}
+                            </span>
+                            <span aria-hidden className="text-lg font-bold text-rose-700">›</span>
                         </span>
-                    </div>
+                    </button>
                 </div>
 
                 <div className="mt-5 flex justify-end border-t border-gray-100 pt-4">
@@ -1757,6 +1815,16 @@ const columns: ColumnDef<{
             </Dialog>
 
             <div className="flex-1 min-h-0 mt-3 bg-gray-100 pb-4">
+                {!isDashboardDataReady && (
+                    <div
+                        role="status"
+                        className="mb-3 flex items-center gap-3 rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-[#000B7E] shadow-sm"
+                    >
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#000B7E] border-t-transparent" />
+                        Cargando los datos del negocio… las cifras aparecerán
+                        en unos segundos.
+                    </div>
+                )}
                 <Tabs
                     defaultValue="operativo"
                     className="flex flex-col flex-1 min-h-0 bg-gray-100"

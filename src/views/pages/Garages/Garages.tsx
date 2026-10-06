@@ -67,8 +67,13 @@ import dayjs from 'dayjs'
 import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 import { useAppSelector } from '@/store'
-import { CERTIFIER, SUPPORT } from '@/constants/roles.constant'
+import { ADMIN, CERTIFIER, SUPPORT } from '@/constants/roles.constant'
 import { deleteAuthUsers } from '@/utils/deleteAuthUsers'
+import { clearViewCache, readViewCache, writeViewCache } from '@/utils/viewDataCache'
+import {
+    TALLERES_INDEX_COLLECTION,
+    backfillTalleresIndex,
+} from '@/utils/talleresIndex'
 import {
     findGaragesWithHistorico,
     type EntityHistoricoHit,
@@ -425,7 +430,14 @@ const Garages = () => {
     ])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
-    const [statusFilter, setStatusFilter] = useState<string>('') // '' = Todos, 'Aprobado', 'En espera por aprobación', 'Vencidos'
+    // '' = Todos, 'Aprobado', 'En espera por aprobación', 'Vencidos'.
+    // Admite llegar ya filtrado con ?estado=... (alertas del resumen diario).
+    const [statusFilter, setStatusFilter] = useState<string>(() => {
+        const estado = new URLSearchParams(window.location.search).get('estado') || ''
+        return ['Aprobado', 'En espera por aprobación', 'Vencidos'].includes(estado)
+            ? estado
+            : ''
+    })
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
@@ -454,6 +466,42 @@ const Garages = () => {
     const authority = useAppSelector((state) => state.auth.user.authority)
     const isCertifier = authority.includes(CERTIFIER)
     const isSupportRole = authority.includes(SUPPORT)
+    // Solo el administrador puede reconstruir el índice de negocios
+    // (mantenimiento puntual).
+    const isAdminUser = (authority || []).some(
+        (role) => String(role).toLowerCase() === ADMIN.toLowerCase(),
+    )
+    const [reconstruyendoIndice, setReconstruyendoIndice] = useState(false)
+
+    /**
+     * Reconstruye el índice ligero de negocios. Solo hace falta ejecutarlo
+     * una vez; después una Cloud Function lo mantiene al día.
+     */
+    const handleReconstruirIndice = async () => {
+        if (reconstruyendoIndice) return
+        setReconstruyendoIndice(true)
+        try {
+            const { updated, failed } = await backfillTalleresIndex()
+            clearViewCache('garages')
+            await getData()
+            toast.push(
+                <Notification title="Índice reconstruido">
+                    {`Se indexaron ${updated} negocios${
+                        failed > 0 ? ` (${failed} con error)` : ''
+                    }.`}
+                </Notification>,
+            )
+        } catch (error) {
+            console.error('Error al reconstruir el índice:', error)
+            toast.push(
+                <Notification title="No se pudo reconstruir" type="danger">
+                    Ocurrió un error al reconstruir el índice de negocios.
+                </Notification>,
+            )
+        } finally {
+            setReconstruyendoIndice(false)
+        }
+    }
 
     const isSameDay = (dateA: Date, dateB: Date) => {
         return (
@@ -463,10 +511,63 @@ const Garages = () => {
         )
     }
 
-    const getData = async () => {
-        setIsLoading(true)
-        const q = query(collection(db, 'Usuarios'))
-        const querySnapshot = await getDocs(q)
+    const getData = async (opts?: {
+        preferCache?: boolean
+        silent?: boolean
+    }) => {
+        const cacheKey = `garages|${isCertifier}|${showEliminados}|${statusFilter}`
+
+        // Al ENTRAR a la vista mostramos de inmediato lo último descargado y
+        // revalidamos en segundo plano. Antes cada clic en "Negocios" volvía a
+        // bajar todos los talleres desde cero, por eso tardaba en abrir.
+        if (opts?.preferCache) {
+            const cached = readViewCache<Garage[]>(cacheKey)
+            if (cached) {
+                setDataGarages(cached)
+                setIsLoading(false)
+                void getData({ silent: true })
+                return
+            }
+        }
+
+        if (!opts?.silent) {
+            setIsLoading(true)
+        }
+
+        // Los negocios se leen del índice ligero `TalleresIndex`: una copia
+        // reducida de cada taller con solo los campos que esta tabla muestra,
+        // busca, filtra y exporta. El documento completo de `Usuarios` pesa
+        // unas cinco veces más por campos que aquí no se usan (categorías,
+        // métodos de pago, horarios, fotos, tokens…). Una Cloud Function
+        // mantiene el índice sincronizado.
+        //
+        // Si el índice todavía no se ha construido, o las reglas de Firestore
+        // aún no permiten leerlo, se cae al comportamiento anterior para que
+        // la pantalla nunca quede vacía.
+        let querySnapshot = null
+        try {
+            const indexSnapshot = await getDocs(
+                query(collection(db, TALLERES_INDEX_COLLECTION)),
+            )
+            if (!indexSnapshot.empty) {
+                querySnapshot = indexSnapshot
+            }
+        } catch (error) {
+            console.warn(
+                'No se pudo leer el índice de negocios, se usa la colección completa:',
+                error,
+            )
+        }
+
+        if (!querySnapshot) {
+            querySnapshot = await getDocs(
+                query(
+                    collection(db, 'Usuarios'),
+                    where('typeUser', '==', 'Taller'),
+                ),
+            )
+        }
+
         const talleres: Garage[] = []
         const hoy = new Date()
 
@@ -499,8 +600,11 @@ const Garages = () => {
             }
         })
 
+        writeViewCache(cacheKey, talleres)
         setDataGarages(talleres)
-        setIsLoading(false)
+        if (!opts?.silent) {
+            setIsLoading(false)
+        }
     }
 
     const garagesDisplayed = useMemo(() => {
@@ -535,7 +639,8 @@ const Garages = () => {
     }, [isCertifier, statusFilter])
 
     useEffect(() => {
-        getData()
+        // preferCache: pinta al instante lo último descargado y revalida detrás.
+        getData({ preferCache: true })
     }, [isCertifier, showEliminados, statusFilter])
 
     const handleRefresh = async () => {
@@ -1606,6 +1711,17 @@ const Garages = () => {
                         >
                             <HiOutlineRefresh className="h-5 w-5" />
                         </button>
+                        {isAdminUser ? (
+                            <Button
+                                size="sm"
+                                variant="default"
+                                loading={reconstruyendoIndice}
+                                title="Reconstruye el índice ligero de negocios"
+                                onClick={handleReconstruirIndice}
+                            >
+                                Reconstruir índice
+                            </Button>
+                        ) : null}
                     </div>
 
                     <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">

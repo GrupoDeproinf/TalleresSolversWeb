@@ -505,8 +505,10 @@ const Users = () => {
                                 {/* Icono por defecto */}
                             </div>
                         )}
-                        {getValue() as string}{' '}
-                        {/* Mostrar el nombre de la categoría */}
+                        {/* Req. 003: nombres en mayuscula para unificar la lista */}
+                        <span className="uppercase">
+                            {getValue() as string}
+                        </span>
                     </div>
                 )
             },
@@ -517,7 +519,9 @@ const Users = () => {
         {
             header: 'Descripción',
             accessorKey: 'descripcion',
-            cell: ({ getValue }) => getValue(),
+            cell: ({ getValue }) => (
+                <span className="uppercase">{getValue() as string}</span>
+            ),
             filterFn: 'includesString',
             footer: (props) => props.column.id,
         },
@@ -528,7 +532,7 @@ const Users = () => {
                 const subcategorias = getValue() // Obtiene las subcategorías
                 if (Array.isArray(subcategorias) && subcategorias.length > 0) {
                     return (
-                        <ul className="list-disc pl-5">
+                        <ul className="list-disc pl-5 uppercase">
                             {subcategorias.map((subcategory) => (
                                 <li key={subcategory.uid}>
                                     {subcategory.nombre}

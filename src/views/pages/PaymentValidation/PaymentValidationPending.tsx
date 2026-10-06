@@ -748,8 +748,45 @@ const PaymentValidationPending = ({
             accessorKey: 'correo_taller',
         },
         {
-            header: 'Cantidad de Servicios',
-            accessorKey: 'cantidad_servicios',
+            // Requerimiento 002 punto 6: se retira "Cantidad de Servicios" y se
+            // muestran los datos que hacen falta al validar un pago.
+            header: 'Banco de Origen',
+            accessorKey: 'comprobante_pago.bancoOrigen',
+            cell: ({ row }) => (
+                <span>{row.original.comprobante_pago?.bancoOrigen || '-'}</span>
+            ),
+        },
+        {
+            header: 'Referencia',
+            accessorKey: 'comprobante_pago.numReferencia',
+            cell: ({ row }) => (
+                <span className="font-mono">
+                    {row.original.comprobante_pago?.numReferencia || '-'}
+                </span>
+            ),
+        },
+        {
+            header: 'Comprobante',
+            id: 'comprobanteAdjunto',
+            cell: ({ row }) => {
+                const url =
+                    row.original.comprobante_pago?.comprobante ||
+                    row.original.comprobante_pago?.receiptFile ||
+                    ''
+                if (!url) {
+                    return <span className="text-gray-400">Sin adjuntar</span>
+                }
+                return (
+                    <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-[#000B7E] underline hover:opacity-80"
+                    >
+                        Ver
+                    </a>
+                )
+            },
         },
         {
             header: 'Monto',

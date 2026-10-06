@@ -67,7 +67,7 @@ const RequestAndServices = () => {
         <div>
             <div className="mb-6 flex items-center gap-3">
                 <h1 className="text-4xl font-bold text-[#000B7E]">
-                    Solicitudes y servicios solicitados
+                    Gestión de Solicitudes
                 </h1>
                 <button
                     type="button"
