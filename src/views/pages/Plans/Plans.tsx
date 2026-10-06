@@ -232,6 +232,16 @@ const Plans = () => {
     }
     const handleSaveChanges = async () => {
         if (selectedPerson) {
+            const cantidad = Number(selectedPerson.cantidad_servicios)
+            if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 999) {
+                toast.push(
+                    <Notification title="Revisa la cantidad">
+                        La cantidad de servicios debe ser un número entero
+                        entre 1 y 999.
+                    </Notification>,
+                )
+                return
+            }
             try {
                 const userDoc = doc(db, 'Planes', selectedPerson.uid)
                 // Requerimiento 002 punto 3: el monto no se modifica desde el panel.
@@ -239,7 +249,7 @@ const Plans = () => {
                 await updateDoc(userDoc, {
                     nombre: selectedPerson.nombre,
                     descripcion: selectedPerson.descripcion,
-                    cantidad_servicios: selectedPerson.cantidad_servicios,
+                    cantidad_servicios: cantidad,
                     status: selectedPerson.status,
                     vigencia: selectedPerson.vigencia,
                 })
@@ -590,7 +600,7 @@ const Plans = () => {
                 className="rounded-md shadow" // Añadir estilo al Drawer
             >
                 <div className="grid grid-cols-2">
-                    <h2 className="flex mb-4 text-xl font-bold">Ver Plan</h2>
+                    <h2 className="flex mb-4 text-xl font-bold">Editar Plan</h2>
                     <div className="flex items-center">
                         <Switcher
                             defaultChecked={selectedPerson?.status === 'Activo'} // Determina si el Switcher debe estar activado o no
@@ -642,11 +652,28 @@ const Plans = () => {
                         <span className="font-semibold text-gray-700">
                             Cantidad de Servicios:
                         </span>
+                        {/* Req. 003: la cantidad de servicios por plan se modifica desde el panel. */}
                         <input
-                            type="text"
-                            value={selectedPerson?.cantidad_servicios || ''}
-                            readOnly
-                            className="mt-1 p-3 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed" // Se añade cursor-not-allowed para indicar que no se puede editar
+                            type="number"
+                            min={1}
+                            step={1}
+                            inputMode="numeric"
+                            value={selectedPerson?.cantidad_servicios ?? ''}
+                            onChange={(e) => {
+                                const soloDigitos = e.target.value.replace(/\D/g, '')
+                                setSelectedPerson((prev: any) =>
+                                    prev
+                                        ? {
+                                              ...prev,
+                                              cantidad_servicios:
+                                                  soloDigitos === ''
+                                                      ? ''
+                                                      : parseInt(soloDigitos, 10),
+                                          }
+                                        : prev,
+                                )
+                            }}
+                            className="mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </label>
                     {/* Campo para Monto */}
