@@ -430,7 +430,14 @@ const Garages = () => {
     ])
     const [dialogIsOpen, setIsOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
-    const [statusFilter, setStatusFilter] = useState<string>('') // '' = Todos, 'Aprobado', 'En espera por aprobación', 'Vencidos'
+    // '' = Todos, 'Aprobado', 'En espera por aprobación', 'Vencidos'.
+    // Admite llegar ya filtrado con ?estado=... (alertas del resumen diario).
+    const [statusFilter, setStatusFilter] = useState<string>(() => {
+        const estado = new URLSearchParams(window.location.search).get('estado') || ''
+        return ['Aprobado', 'En espera por aprobación', 'Vencidos'].includes(estado)
+            ? estado
+            : ''
+    })
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
