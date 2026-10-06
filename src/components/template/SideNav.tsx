@@ -89,9 +89,12 @@ const SideNav = () => {
                     <div className="side-nav-header">
                         {sideNavCollapse ? (
                             <>
+                                {/* Ancho fijo: antes dependia de la altura de la
+                                    ventana (vh) y el logo crecia hasta verse
+                                    enorme y pixelado en pantallas altas. */}
                                 <Logo
                                     type="streamline"
-                                    logoWidth={'12vh'}
+                                    logoWidth={80}
                                     className="px-5 py-3"
                                 />
                             </>
@@ -100,7 +103,7 @@ const SideNav = () => {
                                 <div className="flex items-center justify-center">
                                     <Logo
                                         type="full"
-                                        logoWidth={'20vh'}
+                                        logoWidth={170}
                                         className="px-5 py-3"
                                     />
                                 </div>
