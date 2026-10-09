@@ -1,3 +1,3 @@
-import Subscriptions from './Subscriptions'
+import Pagos from './Pagos'
 
-export default Subscriptions
+export default Pagos

@@ -156,8 +156,8 @@ const appsNavigationConfig: NavigationTree[] = [
             {
                 key: 'appsSubscriptions.subscriptions',
                 path: `${APP_PREFIX_PATH}/subscriptions`,
-                title: 'Validación e histórico de suscripciones',
-                translateKey: 'Validación e histórico de suscripciones',
+                title: 'Validación de pagos',
+                translateKey: 'Validación de pagos',
                 icon: 'subscriptions',
                 type: NAV_ITEM_TYPE_COLLAPSE,
                 authority: [ADMIN],
