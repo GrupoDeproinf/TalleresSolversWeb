@@ -141,6 +141,12 @@ const appsRoute: Routes = [
         component: lazy(() => import('@/views/pages/VehicleTypes')),
         authority: [ADMIN, USER],
     },
+    {
+        key: 'appsRegistrosIncompletos.registrosIncompletos',
+        path: `${APP_PREFIX_PATH}/registros-incompletos`,
+        component: lazy(() => import('@/views/pages/RegistrosIncompletos')),
+        authority: [ADMIN, SUPPORT],
+    },
 ]
 
 export default appsRoute
