@@ -174,6 +174,16 @@ const appsNavigationConfig: NavigationTree[] = [
             //     subMenu: [],
             // },
             {
+                key: 'appsRegistrosIncompletos.registrosIncompletos',
+                path: `${APP_PREFIX_PATH}/registros-incompletos`,
+                title: 'Registros incompletos',
+                translateKey: 'Registros incompletos',
+                icon: 'requestList',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN, SUPPORT],
+                subMenu: [],
+            },
+            {
                 key: 'appsVehicleTypes.vehicleTypes',
                 path: `${APP_PREFIX_PATH}/vehicle-types`,
                 title: 'Tipos de vehículo',
