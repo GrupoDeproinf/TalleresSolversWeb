@@ -41,7 +41,7 @@ import { Checkbox, Dialog, Drawer, Switcher } from '@/components/ui'
 import { exportStyledExcel } from '@/utils/excelExport'
 import axios from 'axios'
 
-type Subscriptions = {
+export type Subscriptions = {
     nombre?: string
     taller_uid?: string
     status?: string
@@ -138,7 +138,7 @@ function getUsuarioPushToken(
     return t.length > 0 ? t : null
 }
 
-async function approveSubscriptionAsApproved(
+export async function approveSubscriptionAsApproved(
     sub: Subscriptions,
 ): Promise<void> {
     if (sub.taller_uid) {
