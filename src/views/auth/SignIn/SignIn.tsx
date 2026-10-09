@@ -8,10 +8,15 @@ const SignIn = () => {
                     <img
                         src="/img/logo/logo-login.png"
                         alt=""
-                        className="w-44 h-44"
+                        className="w-40 h-auto lg:hidden"
                     />
                 </div>
-                {/* <h3 className="mb-1">Bienvenido a Solvers!</h3> */}
+                <h3 className="mb-1 mt-2 text-2xl font-bold" style={{ color: '#151D61' }}>
+                    Inicia sesión
+                </h3>
+                <p className="text-sm text-gray-500">
+                    Panel administrativo de Solvers
+                </p>
             </div>
             <SignInForm disableSubmit={false} />
         </>

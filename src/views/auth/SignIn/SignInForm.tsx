@@ -123,6 +123,7 @@ const SignInForm = (props: SignInFormProps) => {
                                 loading={isSubmitting}
                                 variant="solid"
                                 type="submit"
+                                style={{ backgroundColor: '#151D61' }}
                             >
                                 {isSubmitting
                                     ? 'Iniciando sesión...'
