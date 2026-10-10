@@ -75,6 +75,10 @@ type Fila = {
     bancoEmisor: string
     referencia: string
     montoPagado: string
+    /** Cómo queda lo que reportó frente a lo que debía pagar. */
+    diferencia: 'ok' | 'menos' | 'mas' | null
+    notaDiferencia: string
+    duplicado: boolean
     telefonoEmisor: string
     cedulaEmisor: string
     comprobanteUrl: string
@@ -99,6 +103,15 @@ const txt = (v: unknown): string => {
     const t = String(v).trim()
     return t === '0' ? '' : t
 }
+
+/** Métodos que se pagan en dólares; el resto se compara contra el monto en Bs. */
+const esMetodoEnDolares = (metodo: string) => /zelle|paypal|binance|usdt|efectivo|divisa|d[oó]lar/i.test(metodo)
+
+const numeroSuelto = (n: number) =>
+    n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+/** "Plan Bronce" → "Bronce", para no escribir "Plan Plan Bronce". */
+const sinPrefijoPlan = (plan: string) => plan.replace(/^plan\s+/i, '')
 
 const filtroDesdeUrl = (v: string | null): 'todos' | EstatusPago => {
     const k = (v || '').toLowerCase()
@@ -191,6 +204,27 @@ const Pagos = () => {
                 const tasa = tasaGuardada ?? (delDia ? delDia.tasa : null)
                 const m = calcularMontos(precio, tasa)
 
+                // Lo que el taller dijo haber pagado frente a lo que debía.
+                const pagadoNum = aNumero(txt(c.monto).replace(/[^\d.,-]/g, ''))
+                const enDolares = esMetodoEnDolares(txt(c.metodo))
+                const esperado = enDolares ? m.total : m.montoBs
+                let diferencia: Fila['diferencia'] = null
+                let notaDiferencia = ''
+                if (pagadoNum !== null && esperado) {
+                    const delta = pagadoNum - esperado
+                    const esperadoTxt = enDolares ? usd(esperado) : bs(esperado)
+                    if (Math.abs(delta) <= Math.max(esperado * 0.01, 0.01)) {
+                        diferencia = 'ok'
+                        notaDiferencia = `Coincide con lo que debía pagar (${esperadoTxt}).`
+                    } else if (delta < 0) {
+                        diferencia = 'menos'
+                        notaDiferencia = `Reportó menos de lo que debía pagar (${esperadoTxt}). Faltan ${numeroSuelto(-delta)}.`
+                    } else {
+                        diferencia = 'mas'
+                        notaDiferencia = `Reportó más de lo que debía pagar (${esperadoTxt}). Sobran ${numeroSuelto(delta)}.`
+                    }
+                }
+
                 const fila: Fila = {
                     uid: d.id,
                     tallerUid,
@@ -214,7 +248,10 @@ const Pagos = () => {
                     fechaPagoTexto: fechaPago ? fechaCorta(fechaPago) : txt(c.fechaPago),
                     bancoEmisor: txt(c.bancoOrigen) || txt(c.banco),
                     referencia: txt(c.numReferencia),
-                    montoPagado: txt(c.monto),
+                    montoPagado: pagadoNum !== null ? numeroSuelto(pagadoNum) : txt(c.monto),
+                    diferencia,
+                    notaDiferencia,
+                    duplicado: false,
                     telefonoEmisor: txt(c.telefono),
                     cedulaEmisor: txt(c.cedula),
                     comprobanteUrl: txt(c.comprobante) || txt(c.receiptFile),
@@ -238,6 +275,17 @@ const Pagos = () => {
                     .join(' ')
                     .toLowerCase()
                 lista.push(fila)
+            })
+
+            // Mismo negocio, método y referencia más de una vez: se marca para revisarlo.
+            const vistos = new Map<string, Fila[]>()
+            lista.forEach((f) => {
+                if (!f.referencia) return
+                const k = `${f.tallerUid}|${f.metodo}|${f.referencia}`
+                vistos.set(k, [...(vistos.get(k) || []), f])
+            })
+            vistos.forEach((grupo) => {
+                if (grupo.length > 1) grupo.forEach((f) => (f.duplicado = true))
             })
 
             // Primero lo que hay que atender, y dentro de cada grupo lo más reciente.
@@ -697,11 +745,12 @@ const Pagos = () => {
                 </div>
             )}
 
-            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white pb-3 shadow-sm">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className={`${th} sticky left-0 z-10 bg-gray-50`}>Nombre negocio</th>
+                            <th className={`${th} sticky left-0 z-10 bg-gray-50 shadow-[2px_0_0_0_#e5e7eb]`}>Nombre negocio</th>
+                            <th className={th}>Acciones</th>
                             <th className={th}>Estatus</th>
                             <th className={th}>Fecha de registro</th>
                             <th className={th}>Fecha de vencimiento</th>
@@ -719,7 +768,6 @@ const Pagos = () => {
                             <th className={`${th} text-right`}>Monto pagado</th>
                             <th className={th}>Nro. teléfono emisor</th>
                             <th className={th}>Cédula emisor</th>
-                            <th className={`${th} sticky right-0 z-10 bg-gray-50`}>Acciones</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -738,7 +786,7 @@ const Pagos = () => {
                         ) : (
                             enPagina.map((f) => (
                                 <tr key={f.uid} className="group hover:bg-gray-50">
-                                    <td className={`${td} sticky left-0 z-10 max-w-[16rem] truncate bg-white font-medium group-hover:bg-gray-50`}>
+                                    <td className={`${td} sticky left-0 z-10 max-w-[16rem] truncate bg-white font-medium shadow-[2px_0_0_0_#e5e7eb] group-hover:bg-gray-50`}>
                                         {f.tallerUid ? (
                                             <Link
                                                 to={`/profilegarage/${f.tallerUid}`}
@@ -752,30 +800,6 @@ const Pagos = () => {
                                         )}
                                     </td>
                                     <td className={td}>
-                                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${ESTILO_ESTATUS[f.estatus]}`}>
-                                            {f.estatus}
-                                        </span>
-                                    </td>
-                                    <td className={td}>{fechaCorta(f.fechaRegistro)}</td>
-                                    <td className={td}>{fechaCorta(f.fechaVencimiento)}</td>
-                                    <td className={td}>{f.rif || '—'}</td>
-                                    <td className={td}>{f.plan || '—'}</td>
-                                    <td className={tdNum} title={f.tasaFecha ? `Fecha valor ${f.tasaFecha}` : ''}>
-                                        {tasaTexto(f.tasa)}
-                                        {f.tasaManual ? ' *' : ''}
-                                    </td>
-                                    <td className={tdNum}>{usd(f.subtotal)}</td>
-                                    <td className={tdNum}>{usd(f.iva)}</td>
-                                    <td className={`${tdNum} font-semibold`}>{usd(f.total)}</td>
-                                    <td className={`${tdNum} font-semibold`}>{bs(f.montoBs)}</td>
-                                    <td className={td}>{f.metodo || '—'}</td>
-                                    <td className={td}>{f.fechaPagoTexto || '—'}</td>
-                                    <td className={td}>{f.bancoEmisor || '—'}</td>
-                                    <td className={td}>{f.referencia || '—'}</td>
-                                    <td className={tdNum}>{f.montoPagado || '—'}</td>
-                                    <td className={td}>{f.telefonoEmisor || '—'}</td>
-                                    <td className={td}>{f.cedulaEmisor || '—'}</td>
-                                    <td className={`${td} sticky right-0 z-10 bg-white group-hover:bg-gray-50`}>
                                         <div className="flex items-center gap-1">
                                             {f.estatus === 'Pendiente' && (
                                                 <button
@@ -805,6 +829,52 @@ const Pagos = () => {
                                             </button>
                                         </div>
                                     </td>
+                                    <td className={td}>
+                                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${ESTILO_ESTATUS[f.estatus]}`}>
+                                            {f.estatus}
+                                        </span>
+                                        {f.duplicado && (
+                                            <span
+                                                className="ml-2 inline-flex rounded-full bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-800 ring-1 ring-inset ring-orange-600/30"
+                                                title="Este negocio tiene otro registro con el mismo método y la misma referencia. Valida uno solo y elimina el repetido."
+                                            >
+                                                Posible duplicado
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className={td}>{fechaCorta(f.fechaRegistro)}</td>
+                                    <td className={td}>{fechaCorta(f.fechaVencimiento)}</td>
+                                    <td className={td}>{f.rif || '—'}</td>
+                                    <td className={td}>{f.plan || '—'}</td>
+                                    <td className={tdNum} title={f.tasaFecha ? `Fecha valor ${f.tasaFecha}` : ''}>
+                                        {tasaTexto(f.tasa)}
+                                        {f.tasaManual ? ' *' : ''}
+                                    </td>
+                                    <td className={tdNum}>{usd(f.subtotal)}</td>
+                                    <td className={tdNum}>{usd(f.iva)}</td>
+                                    <td className={`${tdNum} font-semibold`}>{usd(f.total)}</td>
+                                    <td className={`${tdNum} font-semibold`}>{bs(f.montoBs)}</td>
+                                    <td className={td}>{f.metodo || '—'}</td>
+                                    <td className={td}>{f.fechaPagoTexto || '—'}</td>
+                                    <td className={td}>{f.bancoEmisor || '—'}</td>
+                                    <td className={td}>{f.referencia || '—'}</td>
+                                    <td
+                                        className={`${tdNum} ${
+                                            f.diferencia === 'menos'
+                                                ? 'font-semibold text-red-700'
+                                                : f.diferencia === 'mas'
+                                                  ? 'font-semibold text-orange-700'
+                                                  : f.diferencia === 'ok'
+                                                    ? 'text-green-700'
+                                                    : ''
+                                        }`}
+                                        title={f.notaDiferencia}
+                                    >
+                                        {f.montoPagado || '—'}
+                                        {f.diferencia === 'menos' ? ' ▼' : f.diferencia === 'mas' ? ' ▲' : ''}
+                                    </td>
+                                    <td className={td}>{f.telefonoEmisor || '—'}</td>
+                                    <td className={td}>{f.cedulaEmisor || '—'}</td>
                                 </tr>
                             ))
                         )}
@@ -812,7 +882,10 @@ const Pagos = () => {
                 </table>
             </div>
             <p className="mt-2 text-xs text-gray-500">
-                * Tasa corregida a mano en ese pago.
+                Monto pagado: en rojo ▼ si el negocio reportó menos de lo que
+                debía, en naranja ▲ si reportó más. Pasa el cursor para ver la
+                diferencia.
+                {filas.some((f) => f.tasaManual) ? ' · * Tasa corregida a mano en ese pago.' : ''}
             </p>
 
             <div className="mt-4">
@@ -840,7 +913,7 @@ const Pagos = () => {
                         <div>
                             <div className="text-lg font-bold text-[#151D61]">{detalle.negocio}</div>
                             <div className="text-sm text-gray-600">
-                                {detalle.rif || 'Sin RIF'} · Plan {detalle.plan || '—'}
+                                {detalle.rif || 'Sin RIF'} · Plan {sinPrefijoPlan(detalle.plan) || '—'}
                             </div>
                             <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${ESTILO_ESTATUS[detalle.estatus]}`}>
                                 {detalle.estatus}
@@ -861,6 +934,25 @@ const Pagos = () => {
                                     <span className="font-semibold tabular-nums text-gray-900">{v}</span>
                                 </div>
                             ))}
+                            {detalle.notaDiferencia && (
+                                <div
+                                    className={`mt-2 rounded-md px-3 py-2 text-xs ${
+                                        detalle.diferencia === 'ok'
+                                            ? 'bg-green-50 text-green-800'
+                                            : detalle.diferencia === 'menos'
+                                              ? 'bg-red-50 text-red-800'
+                                              : 'bg-orange-50 text-orange-800'
+                                    }`}
+                                >
+                                    {detalle.notaDiferencia}
+                                </div>
+                            )}
+                            {detalle.duplicado && (
+                                <div className="mt-2 rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                                    Este negocio tiene otro registro con el mismo método y la misma
+                                    referencia. Valida uno solo y elimina el repetido.
+                                </div>
+                            )}
                         </div>
 
                         <div className="rounded-lg border border-gray-200 p-4 text-sm">
@@ -955,7 +1047,7 @@ const Pagos = () => {
                         <h3 className="text-lg font-bold text-gray-900">Validar pago</h3>
                         <p className="mt-2 text-sm text-gray-700">
                             Vas a dar por recibido el pago de <strong>{aAprobar.negocio}</strong> por el
-                            plan <strong>{aAprobar.plan}</strong>: {usd(aAprobar.total)} con IVA
+                            plan <strong>{sinPrefijoPlan(aAprobar.plan)}</strong>: {usd(aAprobar.total)} con IVA
                             {aAprobar.montoBs !== null ? ` (${bs(aAprobar.montoBs)} a tasa ${tasaTexto(aAprobar.tasa)})` : ''}.
                             El plan se activa desde hoy y se le avisa al negocio.
                         </p>
@@ -982,7 +1074,7 @@ const Pagos = () => {
                         <h3 className="text-lg font-bold text-gray-900">Eliminar pago</h3>
                         <p className="mt-2 text-sm text-gray-700">
                             Se eliminará el registro de <strong>{aEliminar.negocio}</strong> (plan{' '}
-                            {aEliminar.plan}) y el negocio quedará sin plan asignado. Esta acción no se
+                            {sinPrefijoPlan(aEliminar.plan)}) y el negocio quedará sin plan asignado. Esta acción no se
                             puede deshacer.
                         </p>
                         <div className="mt-6 flex justify-end gap-3">
