@@ -1,18 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import Tabs from '@/components/ui/Tabs'
 import Button from '@/components/ui/Button'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import RequestHistory from './RequestHistory'
 import ServiceContactHistory from '@/views/pages/ServiceContact/ServiceContactHistory'
 
-const { TabNav, TabList, TabContent } = Tabs
-
+// Req. 006: una sola vista por página, sin pestañas. Las solicitudes van en
+// "Gestión de Solicitudes"; los contactos de conductores a servicios tienen su
+// propia entrada en el menú ("Contactos a talleres", ?tab=services).
 const TAB_REQUESTS = 'requests'
 const TAB_SERVICES = 'services'
 
 const RequestAndServices = () => {
-    const [searchParams, setSearchParams] = useSearchParams()
+    const [searchParams] = useSearchParams()
     const [refreshRequestsSignal, setRefreshRequestsSignal] = useState(0)
     const [refreshServicesSignal, setRefreshServicesSignal] = useState(0)
     const [exportRequestsSignal, setExportRequestsSignal] = useState(0)
@@ -25,16 +25,6 @@ const RequestAndServices = () => {
             ? TAB_SERVICES
             : TAB_REQUESTS
     }, [searchParams])
-
-    const handleTabChange = (val: string) => {
-        const next = new URLSearchParams(searchParams)
-        if (val === TAB_SERVICES) {
-            next.set('tab', TAB_SERVICES)
-        } else {
-            next.delete('tab')
-        }
-        setSearchParams(next, { replace: true })
-    }
 
     const handleRefresh = () => {
         if (tabValue === TAB_REQUESTS) {
@@ -67,7 +57,9 @@ const RequestAndServices = () => {
         <div>
             <div className="mb-6 flex items-center gap-3">
                 <h1 className="text-4xl font-bold text-[#000B7E]">
-                    Gestión de Solicitudes
+                    {tabValue === TAB_SERVICES
+                        ? 'Contactos a talleres'
+                        : 'Gestión de Solicitudes'}
                 </h1>
                 <button
                     type="button"
@@ -109,28 +101,21 @@ const RequestAndServices = () => {
                     </Button>
                 </div>
             </div>
-            <Tabs value={tabValue} onChange={handleTabChange}>
-                <TabList>
-                    <TabNav value={TAB_REQUESTS}>Histórico de solicitudes</TabNav>
-                    <TabNav value={TAB_SERVICES}>Servicios solicitados</TabNav>
-                </TabList>
-                <div className="mt-4">
-                    <TabContent value={TAB_REQUESTS}>
-                        <RequestHistory
-                            exportSignal={exportRequestsSignal}
-                            refreshSignal={refreshRequestsSignal}
-                            searchTerm={requestSearchTerm}
-                        />
-                    </TabContent>
-                    <TabContent value={TAB_SERVICES}>
-                        <ServiceContactHistory
-                            exportSignal={exportServicesSignal}
-                            refreshSignal={refreshServicesSignal}
-                            searchTerm={serviceSearchTerm}
-                        />
-                    </TabContent>
-                </div>
-            </Tabs>
+            <div className="mt-2">
+                {tabValue === TAB_SERVICES ? (
+                    <ServiceContactHistory
+                        exportSignal={exportServicesSignal}
+                        refreshSignal={refreshServicesSignal}
+                        searchTerm={serviceSearchTerm}
+                    />
+                ) : (
+                    <RequestHistory
+                        exportSignal={exportRequestsSignal}
+                        refreshSignal={refreshRequestsSignal}
+                        searchTerm={requestSearchTerm}
+                    />
+                )}
+            </div>
         </div>
     )
 }

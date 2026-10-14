@@ -13,7 +13,6 @@ import {
     HiOutlineX,
     HiOutlineLocationMarker,
 } from 'react-icons/hi'
-import { FaCamera } from 'react-icons/fa'
 import {
     flexRender,
     getCoreRowModel,
@@ -106,13 +105,14 @@ type Propuesta = {
 const formatFecha = (ts: Timestamp | undefined): string => {
     if (!ts) return '—'
     const d = ts.toDate?.() ?? new Date(ts as unknown as number)
+    // Req. 006: formato corto (10/10/2026 03:14 p. m.).
     return d.toLocaleString('es-VE', {
-        day: 'numeric',
-        month: 'long',
+        day: '2-digit',
+        month: '2-digit',
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    })
+    }).replace(',', '')
 }
 
 function firestoreKeyLabel(key: string): string {
@@ -901,10 +901,15 @@ const RequestList = ({
                         </div>
                     )
                 }
+                // Req. 006: sin foto se muestra el logo de Solvers.
                 return (
                     <div className="flex items-center">
-                        <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                            <FaCamera className="text-gray-400" />
+                        <div className="w-12 h-12 rounded-lg bg-[#1F2344] flex items-center justify-center p-1.5">
+                            <img
+                                src="/img/logo/logo-dark-streamline.png"
+                                alt="Solvers"
+                                className="max-w-full max-h-full object-contain"
+                            />
                         </div>
                     </div>
                 )
@@ -914,11 +919,22 @@ const RequestList = ({
             header: 'Solicitud',
             id: 'nombre_solicitud_col',
             accessorFn: (row) => servicioNombreSolicitud(row),
-            cell: ({ row }) => (
-                <div className="font-medium text-gray-900">
-                    {servicioNombreSolicitud(row.original)}
-                </div>
-            ),
+            // Req. 006: título y descripción en una sola casilla.
+            cell: ({ row }) => {
+                const titulo = servicioNombreSolicitud(row.original)
+                const desc = String(row.original.descripcion || '').trim()
+                const repetida = desc && titulo && desc.toLowerCase().startsWith(titulo.replace(/…$/, '').toLowerCase())
+                return (
+                    <div className="max-w-xs">
+                        {!repetida ? <div className="font-medium text-gray-900">{titulo}</div> : null}
+                        {desc ? (
+                            <div className={`text-sm ${repetida ? 'text-gray-900' : 'text-gray-600'} line-clamp-3`} title={desc}>
+                                {desc}
+                            </div>
+                        ) : null}
+                    </div>
+                )
+            },
         },
         {
             header: 'Categoría',
@@ -1042,15 +1058,6 @@ const RequestList = ({
                         {parts.length ? parts.join(' · ') : '—'}
                     </div>
                 )
-            },
-        },
-        {
-            header: 'Descripción',
-            accessorKey: 'descripcion',
-            cell: ({ row }) => {
-                const desc = row.original.descripcion || ''
-                const truncated = desc.length > 50 ? `${desc.slice(0, 50)}...` : desc
-                return <div className="text-gray-700 max-w-xs">{truncated}</div>
             },
         },
         {
