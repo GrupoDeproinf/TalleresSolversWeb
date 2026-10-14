@@ -194,16 +194,6 @@ const appsNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
-                key: 'appsVehicleTypes.vehicleTypes',
-                path: `${APP_PREFIX_PATH}/vehicle-types`,
-                title: 'Tipos de vehículo',
-                translateKey: 'Tipos de vehículo',
-                icon: 'vehicleTypes',
-                type: NAV_ITEM_TYPE_COLLAPSE,
-                authority: [ADMIN],
-                subMenu: [],
-            },
-            {
                 key: 'appsContact.Puntuacion',
                 path: `${APP_PREFIX_PATH}/Puntuacion`,
                 title: 'Puntuación de Negocios',
