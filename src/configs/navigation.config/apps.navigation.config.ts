@@ -154,6 +154,16 @@ const appsNavigationConfig: NavigationTree[] = [
                 subMenu: [],
             },
             {
+                key: 'appsContact.ServiceContact',
+                path: `${APP_PREFIX_PATH}/requestList?tab=services`,
+                title: 'Contactos a talleres',
+                translateKey: 'Contactos a talleres',
+                icon: 'requestList',
+                type: NAV_ITEM_TYPE_COLLAPSE,
+                authority: [ADMIN],
+                subMenu: [],
+            },
+            {
                 key: 'appsSubscriptions.subscriptions',
                 path: `${APP_PREFIX_PATH}/subscriptions`,
                 title: 'Validación de pagos',
