@@ -135,12 +135,8 @@ const appsRoute: Routes = [
         component: lazy(() => import('@/views/pages/TruckList/truckList')),
         authority: [ADMIN, USER],
     },
-    {
-        key: 'appsVehicleTypes.vehicleTypes',
-        path: `${APP_PREFIX_PATH}/vehicle-types`,
-        component: lazy(() => import('@/views/pages/VehicleTypes')),
-        authority: [ADMIN, USER],
-    },
+    // Req. 006: se quitó "Tipos de vehículo" del panel. Los tipos guardados
+    // (Camión, Automóvil, Moto) siguen en la base y la app los usa igual.
     {
         key: 'appsRegistrosIncompletos.registrosIncompletos',
         path: `${APP_PREFIX_PATH}/registros-incompletos`,

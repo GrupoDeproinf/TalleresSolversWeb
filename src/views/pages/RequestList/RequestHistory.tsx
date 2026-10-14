@@ -498,6 +498,8 @@ const RequestList = ({
     const [propuestas, setPropuestas] = useState<Propuesta[]>([])
     const [loadingPropuestas, setLoadingPropuestas] = useState(false)
 
+    const [fotoPerfilPorUid, setFotoPerfilPorUid] = useState<Record<string, string>>({})
+
     const fetchData = async () => {
         try {
             const [solicitudesSnap, propuestasSnap, categoriasSnap] =
@@ -531,6 +533,27 @@ const RequestList = ({
                     ].filter(Boolean),
                 ),
             ]
+            // Req. 006: la imagen de la fila es la foto de perfil de quien pidió.
+            const usuarioUids = [
+                ...new Set(solicitudes.map((s) => String(s.uid_usuario ?? '').trim()).filter(Boolean)),
+            ]
+            const fotos: Record<string, string> = {}
+            await Promise.all(
+                chunkArray(usuarioUids, 10).map(async (part) => {
+                    const snap = await getDocs(
+                        query(collection(db, 'Usuarios'), where(documentId(), 'in', part)),
+                    )
+                    snap.forEach((d) => {
+                        const u = d.data() as Record<string, unknown>
+                        const foto = [u.image_perfil, u.imagen_perfil, u.logotipoNegocio, u.foto]
+                            .map((v) => (Array.isArray(v) ? v[0] : v))
+                            .find((v) => typeof v === 'string' && /^https?:\/\//.test(v.trim()))
+                        if (typeof foto === 'string') fotos[d.id] = foto.trim()
+                    })
+                }),
+            ).catch((e) => console.error('Fotos de perfil:', e))
+            setFotoPerfilPorUid(fotos)
+
             const tallerUidToEstados = new Map<string, string[]>()
             for (const part of chunkArray(tallerUids, 10)) {
                 const usuariosSnap = await getDocs(
@@ -886,25 +909,26 @@ const RequestList = ({
     const columns: ColumnDef<Solicitud>[] = [
         {
             header: 'Imagen',
-            accessorKey: 'solicitud_images',
+            id: 'foto_perfil_col',
+            enableSorting: false,
+            // Req. 006: foto de perfil de quien pidió; si no tiene, el logo de
+            // Solvers. Las fotos de la solicitud se ven en "Ver Detalles".
             cell: ({ row }) => {
-                const solicitud = row.original
-                const images = solicitud.solicitud_images ?? []
-                if (images.length > 0) {
+                const foto = fotoPerfilPorUid[String(row.original.uid_usuario ?? '').trim()]
+                if (foto) {
                     return (
                         <div className="flex items-center">
                             <img
-                                src={images[0]}
-                                alt={servicioNombreSolicitud(solicitud)}
-                                className="w-12 h-12 object-cover rounded-lg"
+                                src={foto}
+                                alt={row.original.nombre_usuario || 'Usuario'}
+                                className="w-12 h-12 object-cover rounded-full border border-gray-200"
                             />
                         </div>
                     )
                 }
-                // Req. 006: sin foto se muestra el logo de Solvers.
                 return (
                     <div className="flex items-center">
-                        <div className="w-12 h-12 rounded-lg bg-[#1F2344] flex items-center justify-center p-1.5">
+                        <div className="w-12 h-12 rounded-full bg-[#1F2344] flex items-center justify-center p-2">
                             <img
                                 src="/img/logo/logo-dark-streamline.png"
                                 alt="Solvers"
