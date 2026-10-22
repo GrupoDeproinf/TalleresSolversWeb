@@ -61,6 +61,8 @@ type Vehiculo = {
 }
 
 type Solicitud = {
+    codigo_solicitud?: string
+    numero_solicitud?: number
     id: string
     categoriaId?: string
     descripcion: string
@@ -100,6 +102,8 @@ type Propuesta = {
     uid_taller: string
     uid_usuario: string
     urgencia?: string
+    codigo_solicitud?: string
+    numero_solicitud?: number
 }
 
 const formatFecha = (ts: Timestamp | undefined): string => {
@@ -688,6 +692,7 @@ const RequestList = ({
         return solicitudesTrasFiltrosToolbar.filter((s) => {
             const labels = solicitudUbicacionLabels(s, estadosPorSolicitudId)
             const parts = [
+                s.codigo_solicitud,
                 servicioNombreSolicitud(s),
                 categoriaNombre(s, categoriaNombrePorId),
                 s.nombre_usuario,
@@ -843,6 +848,7 @@ const RequestList = ({
 
     const handleExportToExcel = async () => {
         const columns = [
+            { header: 'N.º', key: 'codigo' },
             { header: 'Solicitud / servicio', key: 'servicio' },
             { header: 'Categoría', key: 'categoria' },
             { header: 'Ciudad', key: 'ciudad' },
@@ -866,6 +872,7 @@ const RequestList = ({
                 : '—'
             const agg = propuestaAggBySolicitud.get(r.id)
             return {
+                codigo: r.codigo_solicitud ?? '',
                 servicio: servicioNombreSolicitud(r),
                 categoria: categoriaNombre(r, categoriaNombrePorId),
                 ciudad: (() => {
@@ -907,6 +914,16 @@ const RequestList = ({
     }
 
     const columns: ColumnDef<Solicitud>[] = [
+        {
+            header: 'N.º',
+            id: 'codigo_col',
+            accessorFn: (row) => row.numero_solicitud ?? 0,
+            cell: ({ row }) => (
+                <div className="whitespace-nowrap font-semibold text-[#151D61]">
+                    {row.original.codigo_solicitud || '—'}
+                </div>
+            ),
+        },
         {
             header: 'Imagen',
             id: 'foto_perfil_col',
