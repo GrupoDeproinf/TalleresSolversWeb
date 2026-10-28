@@ -11,6 +11,9 @@ import { db } from '@/configs/firebaseAssets.config'
 import { useNavigate } from 'react-router-dom'
 import SalesByCategories from './components/SalesByCategories'
 import SplineArea from './components/SplineArea'
+import SolversHero from './components/SolversHero'
+import './solversDashboard.css'
+import { useAppSelector } from '@/store'
 import { APP_PREFIX_PATH } from '@/constants/route.constant'
 import Pagination from '@/components/ui/Pagination'
 import {
@@ -501,7 +504,7 @@ const buildDashboardData = (
 }
 
 const DASHBOARD_FILTER_SELECT_CLASS =
-    'peer block w-full min-w-0 h-9 appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-10 text-xs font-medium text-gray-800 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 hover:border-gray-300 hover:bg-gray-50/60 focus:border-[#000B7E] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#000B7E]/18'
+    'peer block w-full min-w-0 h-9 appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-10 text-xs font-medium text-gray-800 shadow-sm transition-[border-color,box-shadow,background-color] duration-150 hover:border-gray-300 hover:bg-gray-50/60 focus:border-[#151D61] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#151D61]/18'
 
 type DashboardFilterSelectFieldProps = {
     label: string
@@ -525,7 +528,7 @@ const DashboardFilterSelectField = ({
                 {children}
             </select>
             <span
-                className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-gray-400 transition-colors peer-focus:text-[#000B7E]"
+                className="pointer-events-none absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-r-lg text-gray-400 transition-colors peer-focus:text-[#151D61]"
                 aria-hidden
             >
                 <HiChevronDown className="h-4 w-4 shrink-0 opacity-70" />
@@ -1452,6 +1455,7 @@ const columns: ColumnDef<{
     }, [destacadoDetalleKind, engagementResumen])
 
     const talleresNuevosEnEspera = talleresStats.espera
+    const nombreUsuario = useAppSelector((state) => state.auth.user.userName)
 
     // Cada alerta del resumen diario lleva a la lista donde se atiende.
     const navigate = useNavigate()
@@ -1483,7 +1487,7 @@ const columns: ColumnDef<{
     const [actividadHasta, setActividadHasta] = useState<Date | null>(null)
 
     const ESTADOS_COLOR_PALETTE = [
-        '#000B7E',
+        '#151D61',
         '#16A34A',
         '#EAB308',
         '#F97316',
@@ -1627,21 +1631,21 @@ const columns: ColumnDef<{
     const DestacadoDetalleIcon = destacadoDetalleMeta.Icon
 
     return (
-        <div className="flex flex-col min-h-[calc(100vh-6rem)] bg-gray-100">
+        <div className="sv-dash flex flex-col min-h-[calc(100vh-6rem)] rounded-[28px] p-3 sm:p-4">
             <Dialog
                 isOpen={isResumenCriticoPopupOpen}
                 onClose={() => setIsResumenCriticoPopupOpen(false)}
                 onRequestClose={() => setIsResumenCriticoPopupOpen(false)}
                 width={560}
             >
-                <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-blue-50 to-sky-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                <div className="rounded-2xl bg-[#151D61] p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#FCC800]">
                         Resumen diario
                     </p>
-                    <h4 className="mt-1 text-2xl font-extrabold text-[#000B7E] leading-tight">
+                    <h4 className="mt-1 text-2xl font-extrabold text-white leading-tight">
                         Buen día, estas son tus alertas clave
                     </h4>
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-sm text-white/70">
                         Estado operativo del panel administrativo para hoy.
                     </p>
                 </div>
@@ -1702,7 +1706,7 @@ const columns: ColumnDef<{
                 <div className="mt-5 flex justify-end border-t border-gray-100 pt-4">
                     <Button
                         variant="solid"
-                        style={{ backgroundColor: '#000B7E' }}
+                        style={{ backgroundColor: '#151D61' }}
                         onClick={() => setIsResumenCriticoPopupOpen(false)}
                     >
                         <span className="text-sm font-semibold">Ver dashboard</span>
@@ -1719,7 +1723,7 @@ const columns: ColumnDef<{
                 contentClassName="!p-0 overflow-hidden"
             >
                 <div className="overflow-hidden">
-                    <div className="bg-[#000B7E] px-4 py-3">
+                    <div className="bg-[#151D61] px-4 py-3">
                         <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex items-start gap-3">
                                 <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
@@ -1762,7 +1766,7 @@ const columns: ColumnDef<{
                                         className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]"
                                     >
                                         <div className="flex items-start gap-2.5">
-                                            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-xs font-bold text-[#000B7E]">
+                                            <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#151D61]/10 text-xs font-bold text-[#151D61]">
                                                 {index + 1}
                                             </span>
                                             <div className="min-w-0 flex-1 space-y-0.5">
@@ -1805,7 +1809,7 @@ const columns: ColumnDef<{
                         <Button
                             size="sm"
                             variant="solid"
-                            style={{ backgroundColor: '#000B7E' }}
+                            style={{ backgroundColor: '#151D61' }}
                             onClick={closeDestacadoDetalle}
                         >
                             Cerrar
@@ -1814,22 +1818,35 @@ const columns: ColumnDef<{
                 </div>
             </Dialog>
 
-            <div className="flex-1 min-h-0 mt-3 bg-gray-100 pb-4">
+            <div className="flex-1 min-h-0 pb-4">
                 {!isDashboardDataReady && (
                     <div
                         role="status"
-                        className="mb-3 flex items-center gap-3 rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-[#000B7E] shadow-sm"
+                        className="mb-3 flex items-center gap-3 rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-[#151D61] shadow-sm"
                     >
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#000B7E] border-t-transparent" />
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#151D61] border-t-transparent" />
                         Cargando los datos del negocio… las cifras aparecerán
                         en unos segundos.
                     </div>
                 )}
+                <SolversHero
+                    nombre={nombreUsuario}
+                    enEspera={talleresNuevosEnEspera}
+                    pagosPorValidar={pagosPendientesValidar}
+                    vencenHoy={talleresVencidosHoy}
+                    irA={irDesdeResumen}
+                    rutas={{
+                        enEspera: `${APP_PREFIX_PATH}/garages?estado=${encodeURIComponent('En espera por aprobación')}`,
+                        pagos: `${APP_PREFIX_PATH}/subscriptions?estado=pendiente`,
+                        vencen: `${APP_PREFIX_PATH}/garages?estado=Vencidos`,
+                    }}
+                />
                 <Tabs
                     defaultValue="operativo"
-                    className="flex flex-col flex-1 min-h-0 bg-gray-100"
+                    variant="pill"
+                    className="sv-tabs flex flex-col flex-1 min-h-0"
                 >
-                    <div className="mb-3 border-b border-gray-200 bg-white rounded-t-xl px-3 pt-2">
+                    <div className="mb-4">
                         <TabList>
                             <TabNav value="operativo">
                                 Visión general
@@ -1839,62 +1856,62 @@ const columns: ColumnDef<{
                             </TabNav>
                         </TabList>
                     </div>
-                    <div className="flex-1 min-h-0 bg-gray-100">
-                        <TabContent value="operativo" className="h-full bg-gray-100 pb-3">
+                    <div className="flex-1 min-h-0">
+                        <TabContent value="operativo" className="h-full pb-3">
                             {/* Fila 1: 3 cards KPI */}
-                            <section className="flex-none grid grid-cols-3 gap-3 mb-3">
+                            <section className="flex-none grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <a
                                     href={`${APP_PREFIX_PATH}/users`}
-                                    className="rounded-xl bg-[#000B7E] p-8 shadow-sm transition-all hover:shadow-md min-h-[132px] flex flex-col justify-between text-white overflow-hidden relative group"
+                                    className="sv-card rounded-3xl bg-white p-6 transition-all hover:-translate-y-0.5 min-h-[132px] flex flex-col justify-between text-[#151D61] overflow-hidden relative group"
                                 >
-                                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" aria-hidden />
+                                    <div className="absolute top-0 right-0 w-28 h-28 rounded-full bg-[#FCC800]/15 -translate-y-1/2 translate-x-1/2" aria-hidden />
                                     <div className="flex items-start justify-between gap-3 relative">
                                         <div className="flex items-center gap-3">
-                                            <span className="flex items-center justify-center w-16 h-16 rounded-xl bg-white/20">
-                                                <HiOutlineUserGroup className="text-6xl" />
+                                            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#151D61] text-[#FCC800]">
+                                                <HiOutlineUserGroup className="text-3xl" />
                                             </span>
                                             <div>
-                                                <p className="text-sm font-medium uppercase tracking-wider text-white/90">
+                                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
                                                     Clientes
                                                 </p>
-                                                <p className="text-3xl font-bold tabular-nums mt-1 leading-none">
+                                                <p className="text-4xl font-extrabold tabular-nums mt-1 leading-none text-[#151D61]">
                                                     {clientesCount}
                                                 </p>
                                             </div>
                                         </div>
-                                        <HiChevronRight className="text-2xl text-white/70 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                                        <HiChevronRight className="text-2xl text-gray-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
                                     </div>
-                                    <p className="text-md text-white/80 mt-2 relative leading-snug">
+                                    <p className="text-md text-gray-500 mt-2 relative leading-snug">
                                         Total de clientes registrados en la plataforma
                                     </p>
                                 </a>
                                 <a
                                     href={`${APP_PREFIX_PATH}/garages`}
-                                    className="rounded-xl bg-blue-800 p-8 shadow-sm transition-all hover:shadow-md min-h-[132px] flex flex-col justify-between text-white overflow-hidden relative group"
+                                    className="sv-card rounded-3xl bg-white p-6 transition-all hover:-translate-y-0.5 min-h-[132px] flex flex-col justify-between text-[#151D61] overflow-hidden relative group"
                                 >
-                                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" aria-hidden />
+                                    <div className="absolute top-0 right-0 w-28 h-28 rounded-full bg-[#FCC800]/15 -translate-y-1/2 translate-x-1/2" aria-hidden />
                                     <div className="flex items-start justify-between gap-3 relative">
                                         <div className="flex items-center gap-3">
-                                            <span className="flex items-center justify-center w-16 h-16 rounded-xl bg-white/20">
-                                                <HiOutlineOfficeBuilding className="text-6xl" />
+                                            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#151D61] text-[#FCC800]">
+                                                <HiOutlineOfficeBuilding className="text-3xl" />
                                             </span>
                                             <div>
                                                 <div className="flex items-center gap-2 flex-wrap">
-                                                    <p className="text-sm font-medium uppercase tracking-wider text-white/90">
+                                                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
                                                         Negocios
                                                     </p>
-                                                    <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
+                                                    <span className="rounded-full bg-[#FFF3C2] px-2 py-0.5 text-xs font-semibold text-[#151D61]">
                                                         {talleresStats.espera} en espera
                                                     </span>
                                                 </div>
-                                                <p className="text-3xl font-bold tabular-nums mt-1 leading-none">
+                                                <p className="text-4xl font-extrabold tabular-nums mt-1 leading-none text-[#151D61]">
                                                     {totalTalleres}
                                                 </p>
                                             </div>
                                         </div>
-                                        <HiChevronRight className="text-2xl text-white/70 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                                        <HiChevronRight className="text-2xl text-gray-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
                                     </div>
-                                    <p className="text-md text-white/80 mt-2 relative leading-snug">
+                                    <p className="text-md text-gray-500 mt-2 relative leading-snug">
                                         Aprobados, rechazados y pendientes de revisión
                                     </p>
                                     <div className="mt-3 grid gap-1.5 relative">
@@ -1902,17 +1919,17 @@ const columns: ColumnDef<{
                                             {
                                                 label: 'Aprobados',
                                                 value: talleresStats.aprobados,
-                                                color: 'bg-emerald-300',
+                                                color: 'bg-emerald-500',
                                             },
                                             {
                                                 label: 'En espera',
                                                 value: talleresStats.espera,
-                                                color: 'bg-sky-300',
+                                                color: 'bg-[#FCC800]',
                                             },
                                             {
                                                 label: 'Rechazados',
                                                 value: talleresStats.rechazados,
-                                                color: 'bg-rose-300',
+                                                color: 'bg-rose-400',
                                             },
                                         ].map((item) => {
                                             const width =
@@ -1921,13 +1938,13 @@ const columns: ColumnDef<{
                                                     : '0%'
                                             return (
                                                 <div key={item.label}>
-                                                    <div className="flex items-center justify-between text-[11px] text-white/90">
+                                                    <div className="flex items-center justify-between text-[11px] text-gray-500">
                                                         <span>{item.label}</span>
                                                         <span className="font-semibold">
                                                             {item.value}
                                                         </span>
                                                     </div>
-                                                    <div className="mt-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                                                    <div className="mt-1 h-1.5 rounded-full bg-[#EEF0F8] overflow-hidden">
                                                         <div
                                                             className={`h-full rounded-full ${item.color}`}
                                                             style={{ width }}
@@ -1940,32 +1957,32 @@ const columns: ColumnDef<{
                                 </a>
                                 <a
                                     href={`${APP_PREFIX_PATH}/subscriptions`}
-                                    className="rounded-xl bg-blue-600 p-8 shadow-sm transition-all hover:shadow-md min-h-[132px] flex flex-col justify-between text-white overflow-hidden relative group"
+                                    className="sv-card rounded-3xl bg-white p-6 transition-all hover:-translate-y-0.5 min-h-[132px] flex flex-col justify-between text-[#151D61] overflow-hidden relative group"
                                 >
-                                    <div className="absolute top-0 right-0 w-24 h-24 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" aria-hidden />
+                                    <div className="absolute top-0 right-0 w-28 h-28 rounded-full bg-[#FCC800]/15 -translate-y-1/2 translate-x-1/2" aria-hidden />
                                     <div className="flex items-start justify-between gap-3 relative">
                                         <div className="flex items-center gap-3">
-                                            <span className="flex items-center justify-center w-16 h-16 rounded-xl bg-white/20">
-                                                <HiOutlineCreditCard className="text-6xl" />
+                                            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#151D61] text-[#FCC800]">
+                                                <HiOutlineCreditCard className="text-3xl" />
                                             </span>
                                             <div>
-                                                <p className="text-sm font-medium uppercase tracking-wider text-white/90">
+                                                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
                                                     Subscripciones
                                                 </p>
-                                                <p className="text-3xl font-bold tabular-nums mt-1 leading-none">
+                                                <p className="text-4xl font-extrabold tabular-nums mt-1 leading-none text-[#151D61]">
                                                     {subscripcionesCount}
                                                 </p>
                                             </div>
                                         </div>
-                                        <HiChevronRight className="text-2xl text-white/70 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+                                        <HiChevronRight className="text-2xl text-gray-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
                                     </div>
-                                    <p className="text-white/85 mt-2 relative leading-tight">
+                                    <p className="text-gray-500 mt-2 relative leading-tight">
                                         <span className="text-lg font-bold tabular-nums">
                                             ${totalMonto.toFixed(0)}
                                         </span>{' '}
                                         <span className="text-md">total recaudado</span>
                                     </p>
-                                    <p className="mt-1 text-xs text-white/80">
+                                    <p className="mt-1 text-xs text-gray-500">
                                         {subscripcionesPagasCount} suscripciones pagas
                                     </p>
                                     <div className="mt-2 grid gap-1.5">
@@ -1973,15 +1990,15 @@ const columns: ColumnDef<{
                                             const percent = (count / maxPlanCount) * 100
                                             return (
                                                 <div key={plan}>
-                                                    <div className="flex items-center justify-between text-[11px] text-white/90">
+                                                    <div className="flex items-center justify-between text-[11px] text-gray-500">
                                                         <span className="truncate">{plan}</span>
                                                         <span className="font-semibold">
                                                             {count}
                                                         </span>
                                                     </div>
-                                                    <div className="mt-1 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                                                    <div className="mt-1 h-1.5 rounded-full bg-[#EEF0F8] overflow-hidden">
                                                         <div
-                                                            className="h-full rounded-full bg-white/80"
+                                                            className="h-full rounded-full bg-[#151D61]"
                                                             style={{ width: `${percent}%` }}
                                                         />
                                                     </div>
@@ -1994,11 +2011,11 @@ const columns: ColumnDef<{
 
                             {/* Fila 2: Gráfico + Resumen del día */}
                             <section className="flex-1 min-h-0 grid grid-cols-3 gap-3 mb-3">
-                                <div className="col-span-2 rounded-xl border border-gray-200 bg-white p-4 shadow-sm overflow-hidden flex flex-col min-h-0">
+                                <div className="col-span-2 sv-card rounded-3xl bg-white p-5 overflow-hidden flex flex-col min-h-0">
                                     <SplineArea />
                                 </div>
-                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0">
-                                    <div className="bg-[#000B7E] px-4 py-2">
+                                <div className="sv-card rounded-3xl bg-white overflow-hidden flex flex-col min-h-0">
+                                    <div className="sv-head px-4 py-2">
                                         <h3 className="text-sm font-semibold text-white">
                                             Resumen del día
                                         </h3>
@@ -2049,8 +2066,8 @@ const columns: ColumnDef<{
 
                             {/* Fila 3: Destacados (30%) + Tabla de calificaciones (70%) */}
                             <section className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,30%)_minmax(0,1fr)] gap-3">
-                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0 min-w-0 max-h-[520px] lg:max-h-none">
-                                    <div className="bg-[#000B7E] px-4 py-3 flex-none shrink-0">
+                                <div className="sv-card rounded-3xl bg-white overflow-hidden flex flex-col min-h-0 min-w-0 max-h-[520px] lg:max-h-none">
+                                    <div className="sv-head px-4 py-3 flex-none shrink-0">
                                         <h2 className="text-sm font-semibold text-white leading-tight">
                                             Destacados
                                         </h2>
@@ -2078,7 +2095,7 @@ const columns: ColumnDef<{
                                         <div className="grid gap-2.5">
                                             <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
                                                 <div className="flex items-start gap-2.5">
-                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-[#000B7E]">
+                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#151D61]/10 text-[#151D61]">
                                                         <HiOutlineEye className="h-5 w-5" />
                                                     </span>
                                                     <div className="min-w-0 flex-1 space-y-1">
@@ -2091,7 +2108,7 @@ const columns: ColumnDef<{
                                                     </div>
                                                     <div className="shrink-0 flex items-start gap-1.5">
                                                         <div className="text-right">
-                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#151D61]">
                                                                 {engagementResumen.topVistaTallerCount}
                                                             </p>
                                                             <p className="text-[10px] font-medium text-gray-400 mt-1">
@@ -2110,7 +2127,7 @@ const columns: ColumnDef<{
                                                                         'vistaTaller',
                                                                     )
                                                                 }
-                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#151D61] hover:bg-[#151D61]/10 disabled:cursor-not-allowed disabled:opacity-40"
                                                             >
                                                                 <HiOutlineEye className="h-7 w-7" />
                                                             </button>
@@ -2120,7 +2137,7 @@ const columns: ColumnDef<{
                                             </div>
                                             <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
                                                 <div className="flex items-start gap-2.5">
-                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-[#000B7E]">
+                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#151D61]/10 text-[#151D61]">
                                                         <HiOutlineClipboardList className="h-5 w-5" />
                                                     </span>
                                                     <div className="min-w-0 flex-1 space-y-1">
@@ -2136,7 +2153,7 @@ const columns: ColumnDef<{
                                                     </div>
                                                     <div className="shrink-0 flex items-start gap-1.5">
                                                         <div className="text-right">
-                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#151D61]">
                                                                 {engagementResumen.topVistaServicioCount}
                                                             </p>
                                                             <p className="text-[10px] font-medium text-gray-400 mt-1">
@@ -2155,7 +2172,7 @@ const columns: ColumnDef<{
                                                                         'vistaServicio',
                                                                     )
                                                                 }
-                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#151D61] hover:bg-[#151D61]/10 disabled:cursor-not-allowed disabled:opacity-40"
                                                             >
                                                                 <HiOutlineEye className="h-7 w-7" />
                                                             </button>
@@ -2165,7 +2182,7 @@ const columns: ColumnDef<{
                                             </div>
                                             <div className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm ring-1 ring-black/[0.03]">
                                                 <div className="flex items-start gap-2.5">
-                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#000B7E]/10 text-[#000B7E]">
+                                                    <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#151D61]/10 text-[#151D61]">
                                                         <HiOutlinePhone className="h-5 w-5" />
                                                     </span>
                                                     <div className="min-w-0 flex-1 space-y-1">
@@ -2181,7 +2198,7 @@ const columns: ColumnDef<{
                                                     </div>
                                                     <div className="shrink-0 flex items-start gap-1.5">
                                                         <div className="text-right">
-                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                            <p className="text-2xl font-bold tabular-nums leading-none text-[#151D61]">
                                                                 {engagementResumen.topContactoCount}
                                                             </p>
                                                             <p className="text-[10px] font-medium text-gray-400 mt-1">
@@ -2200,7 +2217,7 @@ const columns: ColumnDef<{
                                                                         'contacto',
                                                                     )
                                                                 }
-                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#151D61] hover:bg-[#151D61]/10 disabled:cursor-not-allowed disabled:opacity-40"
                                                             >
                                                                 <HiOutlineEye className="h-7 w-7" />
                                                             </button>
@@ -2261,7 +2278,7 @@ const columns: ColumnDef<{
                                                     {engagementResumen.rankingMejor[0] ? (
                                                         <div className="shrink-0 flex items-start gap-1.5">
                                                             <div className="text-right">
-                                                                <p className="text-2xl font-bold tabular-nums leading-none text-[#000B7E]">
+                                                                <p className="text-2xl font-bold tabular-nums leading-none text-[#151D61]">
                                                                     {engagementResumen.rankingMejor[0].promedio.toFixed(
                                                                         1,
                                                                     )}
@@ -2283,7 +2300,7 @@ const columns: ColumnDef<{
                                                                             'calidad',
                                                                         )
                                                                     }
-                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#000B7E] hover:bg-[#000B7E]/10 disabled:cursor-not-allowed disabled:opacity-40"
+                                                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#151D61] hover:bg-[#151D61]/10 disabled:cursor-not-allowed disabled:opacity-40"
                                                                 >
                                                                     <HiOutlineEye className="h-7 w-7" />
                                                                 </button>
@@ -2295,8 +2312,8 @@ const columns: ColumnDef<{
                                         </div>
                                     </div>
                                 </div>
-                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col min-h-0 min-w-0">
-                                    <div className="bg-[#000B7E] px-4 py-2 flex-none">
+                                <div className="sv-card rounded-3xl bg-white overflow-hidden flex flex-col min-h-0 min-w-0">
+                                    <div className="sv-head px-4 py-2 flex-none">
                                         <h2 className="text-sm font-semibold text-white">
                                             Calificaciones de los servicios
                                         </h2>
@@ -2424,8 +2441,8 @@ const columns: ColumnDef<{
 
                         <TabContent value="estadistico" className="h-full bg-gray-100 pb-3">
                             <section className="grid grid-cols-3 gap-3 mb-3">
-                                <div className="col-span-2 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-                                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                                <div className="col-span-2 sv-card rounded-3xl bg-white overflow-hidden flex flex-col">
+                                    <div className="sv-head px-4 py-2 flex items-center justify-between">
                                         <div>
                                             <h3 className="text-sm font-semibold text-gray-800">
                                                 Usuarios y negocios por estado
@@ -2447,7 +2464,7 @@ const columns: ColumnDef<{
                                                 }}
                                                 className={`px-3 py-1 rounded-full transition-colors ${
                                                     vistaEstados === 'usuarios'
-                                                        ? 'bg-[#000B7E] text-white shadow-sm'
+                                                        ? 'bg-[#151D61] text-white shadow-sm'
                                                         : 'text-gray-600'
                                                 }`}
                                             >
@@ -2461,7 +2478,7 @@ const columns: ColumnDef<{
                                                 }}
                                                 className={`px-3 py-1 rounded-full transition-colors ${
                                                     vistaEstados === 'talleres'
-                                                        ? 'bg-[#000B7E] text-white shadow-sm'
+                                                        ? 'bg-[#151D61] text-white shadow-sm'
                                                         : 'text-gray-600'
                                                 }`}
                                             >
@@ -2484,7 +2501,7 @@ const columns: ColumnDef<{
                                                             }
                                                             className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                                                                 estadoNegocioFiltro === 'todos'
-                                                                    ? 'bg-[#000B7E] text-white'
+                                                                    ? 'bg-[#151D61] text-white'
                                                                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                                             }`}
                                                         >
@@ -2499,7 +2516,7 @@ const columns: ColumnDef<{
                                                                 }
                                                                 className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                                                                     estadoNegocioFiltro === estado
-                                                                        ? 'bg-[#000B7E] text-white'
+                                                                        ? 'bg-[#151D61] text-white'
                                                                         : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                                                 }`}
                                                             >
@@ -2515,7 +2532,7 @@ const columns: ColumnDef<{
                                                         </p>
                                                         <button
                                                             type="button"
-                                                            className="text-[11px] font-semibold text-[#000B7E] hover:underline"
+                                                            className="text-[11px] font-semibold text-[#151D61] hover:underline"
                                                             onClick={() => {
                                                                 setActividadNegocioFiltro('todos')
                                                                 setActividadDesde(null)
@@ -2547,7 +2564,7 @@ const columns: ColumnDef<{
                                                                 className={`rounded-full px-2.5 py-1 transition-colors ${
                                                                     actividadNegocioFiltro ===
                                                                     option.key
-                                                                        ? 'bg-[#000B7E] text-white shadow-sm'
+                                                                        ? 'bg-[#151D61] text-white shadow-sm'
                                                                         : 'text-gray-600'
                                                                 }`}
                                                             >
@@ -2599,7 +2616,7 @@ const columns: ColumnDef<{
                                         )}
                                     </div>
                                 </div>
-                                <div className="rounded-xl bg-gradient-to-br from-[#000B7E] via-indigo-700 to-sky-500 p-5 shadow-md flex flex-col gap-5 text-white">
+                                <div className="sv-card rounded-3xl bg-[#151D61] p-6 flex flex-col gap-5 text-white relative overflow-hidden">
                                     <div>
                                         <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
                                             Tasa de respuesta promedio
@@ -2614,7 +2631,7 @@ const columns: ColumnDef<{
                                         </div>
                                         <div className="mt-3 h-1.5 w-full rounded-full bg-white/20 overflow-hidden">
                                             <div
-                                                className="h-full rounded-full bg-emerald-300/90 transition-all"
+                                                className="h-full rounded-full bg-[#FCC800] transition-all"
                                                 style={{ width: responseProgressWidth }}
                                             />
                                         </div>
@@ -2644,8 +2661,8 @@ const columns: ColumnDef<{
                             </section>
 
                             <section className="grid grid-cols-2 gap-3 flex-1 min-h-0">
-                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-                                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-start justify-between gap-3">
+                                <div className="sv-card rounded-3xl bg-white overflow-hidden flex flex-col">
+                                    <div className="sv-head px-4 py-2 flex items-start justify-between gap-3">
                                         <div>
                                             <h3 className="text-sm font-semibold text-gray-800">
                                                 Negocios más activos
@@ -2664,7 +2681,7 @@ const columns: ColumnDef<{
                                                     }
                                                     className={`px-2 py-1 rounded-full transition-colors ${
                                                         talleresPeriodoMeses === meses
-                                                            ? 'bg-[#000B7E] text-white shadow-sm'
+                                                            ? 'bg-[#151D61] text-white shadow-sm'
                                                             : 'text-gray-600'
                                                     }`}
                                                 >
@@ -2719,7 +2736,7 @@ const columns: ColumnDef<{
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <span className="ml-2 text-xs font-semibold text-[#000B7E]">
+                                                                <span className="ml-2 text-xs font-semibold text-[#151D61]">
                                                                     #{(talleresPage - 1) * talleresPerPage + index + 1}
                                                                 </span>
                                                             </li>
@@ -2737,8 +2754,8 @@ const columns: ColumnDef<{
                                         )}
                                     </div>
                                 </div>
-                                <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden flex flex-col">
-                                    <div className="px-4 py-2 border-b border-gray-100 bg-gray-50 flex items-start justify-between gap-3">
+                                <div className="sv-card rounded-3xl bg-white overflow-hidden flex flex-col">
+                                    <div className="sv-head px-4 py-2 flex items-start justify-between gap-3">
                                         <div>
                                             <h3 className="text-sm font-semibold text-gray-800">
                                                 Usuarios más activos
@@ -2757,7 +2774,7 @@ const columns: ColumnDef<{
                                                     }
                                                     className={`px-2 py-1 rounded-full transition-colors ${
                                                         usuariosPeriodoMeses === meses
-                                                            ? 'bg-[#000B7E] text-white shadow-sm'
+                                                            ? 'bg-[#151D61] text-white shadow-sm'
                                                             : 'text-gray-600'
                                                     }`}
                                                 >
@@ -2807,7 +2824,7 @@ const columns: ColumnDef<{
                                                                         </p>
                                                                     </div>
                                                                 </div>
-                                                                <span className="text-xs font-semibold text-[#000B7E]">
+                                                                <span className="text-xs font-semibold text-[#151D61]">
                                                                     #{(usuariosPage - 1) * usuariosPerPage + index + 1}
                                                                 </span>
                                                             </li>
