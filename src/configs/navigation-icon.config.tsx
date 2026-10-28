@@ -25,6 +25,21 @@ import {
     HiOutlineCreditCard,
     HiOutlineTruck,
 } from 'react-icons/hi'
+import {
+    HiOutlineChartBar,
+    HiOutlineLocationMarker,
+    HiOutlineUsers,
+    HiOutlineChartSquareBar,
+    HiOutlineBadgeCheck,
+    HiOutlineOfficeBuilding,
+    HiOutlineClipboardList,
+    HiOutlineViewGrid,
+    HiOutlineCollection,
+    HiOutlineInboxIn,
+    HiOutlinePhone,
+    HiOutlineDocumentSearch,
+    HiOutlineStar,
+} from 'react-icons/hi'
 import CustomIcon from '@/components/icons/subscriptionicon'
 import UserListIcon from '@/components/icons/Userlisticon'
 import GarageIcon from '@/components/icons/garageicon'
@@ -80,6 +95,22 @@ const navigationIcon: NavigationIcons = {
     requestList: <HiOutlineDocumentText />,
     gruas: <HiOutlineTruck />,
     vehicleTypes: <HiOutlineTruck />,
+    // Menú de Solvers: un solo juego de íconos (contorno) para todo el menú.
+    svEstadisticas: <HiOutlineChartBar />,
+    svUbicacion: <HiOutlineLocationMarker />,
+    svUsuarios: <HiOutlineUsers />,
+    svDashboard: <HiOutlineChartSquareBar />,
+    svCertificador: <HiOutlineBadgeCheck />,
+    svPerfil: <HiOutlineUserCircle />,
+    svNegocios: <HiOutlineOfficeBuilding />,
+    svServicios: <HiOutlineClipboardList />,
+    svCategorias: <HiOutlineViewGrid />,
+    svPlanes: <HiOutlineCollection />,
+    svSolicitudes: <HiOutlineInboxIn />,
+    svContactos: <HiOutlinePhone />,
+    svPagos: <HiOutlineCreditCard />,
+    svRegistros: <HiOutlineDocumentSearch />,
+    svPuntuacion: <HiOutlineStar />,
 }
 
 export default navigationIcon

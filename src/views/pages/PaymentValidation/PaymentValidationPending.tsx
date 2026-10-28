@@ -781,7 +781,7 @@ const PaymentValidationPending = ({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-medium text-[#000B7E] underline hover:opacity-80"
+                        className="font-medium text-[#151D61] underline hover:opacity-80"
                     >
                         Ver
                     </a>
@@ -922,7 +922,7 @@ const PaymentValidationPending = ({
                 <div className="flex flex-wrap items-center gap-3">
                     <Button
                         disabled={selectedCount === 0 || bulkApproving}
-                        style={{ backgroundColor: '#000B7E' }}
+                        style={{ backgroundColor: '#151D61' }}
                         className="h-10 shrink-0 whitespace-nowrap px-4 text-sm font-medium text-white shadow-md disabled:cursor-not-allowed disabled:opacity-50"
                         onClick={() => setBulkApproveDialogOpen(true)}
                     >
@@ -1218,7 +1218,7 @@ const PaymentValidationPending = ({
                                         </button>
                                         <button
                                             type="button"
-                                            className="mt-2 inline-block text-sm font-medium text-[#000B7E] hover:underline"
+                                            className="mt-2 inline-block text-sm font-medium text-[#151D61] hover:underline"
                                             onClick={() =>
                                                 openImagePreview(comprobanteUrl)
                                             }
@@ -1233,7 +1233,7 @@ const PaymentValidationPending = ({
                 </div>
                 <div className="text-center mt-6 ">
                     <Button
-                        style={{ backgroundColor: '#000B7E' }}
+                        style={{ backgroundColor: '#151D61' }}
                         className="text-white hover:opacity-80"
                         onClick={handleSaveChanges}
                     >
@@ -1399,7 +1399,7 @@ const PaymentValidationPending = ({
                         <Button
                             disabled={bulkApproving}
                             className="px-4 py-2 text-sm font-medium text-white rounded-md disabled:opacity-50"
-                            style={{ backgroundColor: '#000B7E' }}
+                            style={{ backgroundColor: '#151D61' }}
                             onClick={() => void executeBulkApprove()}
                         >
                             {bulkApproving ? 'Procesando…' : 'Confirmar aprobación'}

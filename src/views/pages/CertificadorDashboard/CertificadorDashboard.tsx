@@ -199,7 +199,7 @@ const CertificadorDashboard = () => {
 
     return (
         <div className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 bg-gray-100 p-1">
-            <section className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <section className="sv-card rounded-3xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
                         <h1 className="text-lg font-semibold text-gray-900">
@@ -244,7 +244,7 @@ const CertificadorDashboard = () => {
             </section>
 
             <section className="grid gap-3 md:grid-cols-3">
-                <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                <article className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                     <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                         Certificador
                     </p>
@@ -269,8 +269,8 @@ const CertificadorDashboard = () => {
             </section>
 
             <section className="grid gap-4 xl:grid-cols-3">
-                <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                    <div className="bg-[#000B7E] px-4 py-2">
+                <article className="overflow-hidden sv-card rounded-3xl border border-gray-200 bg-white shadow-sm">
+                    <div className="sv-head px-4 py-2">
                         <h3 className="text-sm font-semibold text-white">Distribucion de decisiones</h3>
                     </div>
                     <div className="p-3">
@@ -289,8 +289,8 @@ const CertificadorDashboard = () => {
                     </div>
                 </article>
 
-                <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm xl:col-span-2">
-                    <div className="bg-[#000B7E] px-4 py-2">
+                <article className="overflow-hidden sv-card rounded-3xl border border-gray-200 bg-white shadow-sm xl:col-span-2">
+                    <div className="sv-head px-4 py-2">
                         <h3 className="text-sm font-semibold text-white">Resumen rapido</h3>
                     </div>
                     <div className="grid gap-3 p-4 md:grid-cols-3">
@@ -316,8 +316,8 @@ const CertificadorDashboard = () => {
                 </article>
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="bg-[#000B7E] px-4 py-2">
+            <section className="overflow-hidden sv-card rounded-3xl border border-gray-200 bg-white shadow-sm">
+                <div className="sv-head px-4 py-2">
                     <h3 className="text-sm font-semibold text-white">Ultimas decisiones registradas</h3>
                 </div>
                 <div className="p-3">

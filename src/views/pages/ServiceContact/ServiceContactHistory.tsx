@@ -494,7 +494,7 @@ const Services = ({
                             aria-label="Limpiar filtros"
                             onClick={clearFilters}
                             disabled={!hasActiveFilters}
-                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#000B7E]/40 hover:bg-[#000B7E]/5 hover:text-[#000B7E] disabled:cursor-not-allowed disabled:opacity-40"
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#151D61]/40 hover:bg-[#151D61]/5 hover:text-[#151D61] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             <HiOutlineX className="h-5 w-5" />
                         </button>

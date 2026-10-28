@@ -1609,7 +1609,7 @@ const Users = () => {
             <div className="mb-6 flex flex-col gap-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex shrink-0 items-center gap-2">
-                        <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
+                        <h1 className="text-3xl font-bold text-[#151D61] sm:text-4xl">
                             Usuarios
                         </h1>
                         <button
@@ -1617,7 +1617,7 @@ const Users = () => {
                             title="Actualizar datos desde el servidor"
                             aria-label="Actualizar datos desde el servidor"
                             onClick={handleRefresh}
-                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#151D61] shadow-sm transition hover:border-[#151D61]/35 hover:bg-[#151D61]/5 active:scale-[0.98]"
                         >
                             <HiOutlineRefresh className="h-5 w-5" />
                         </button>
@@ -1642,7 +1642,7 @@ const Users = () => {
                         )}
                         <Button
                             className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
-                            style={{ backgroundColor: '#000B7E' }}
+                            style={{ backgroundColor: '#151D61' }}
                             onClick={() => setDrawerCreateIsOpen(true)}
                         >
                             Crear Usuario
@@ -1667,7 +1667,7 @@ const Users = () => {
                             <input
                                 type="text"
                                 placeholder="Nombre, cédula, email…"
-                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-2 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
@@ -1681,7 +1681,7 @@ const Users = () => {
                         <select
                             value={filterCiudad}
                             onChange={(e) => setFilterCiudad(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
                         >
                             <option value="">Todas</option>
                             {estadoOptions.map((opt) => (
@@ -1698,7 +1698,7 @@ const Users = () => {
                         <select
                             value={filterTypeUser}
                             onChange={(e) => setFilterTypeUser(e.target.value)}
-                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                            className="h-10 w-full rounded-lg border border-gray-300 bg-white px-2 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
                         >
                             <option value="">Todos</option>
                             <option value="Cliente">Cliente</option>
@@ -1726,7 +1726,7 @@ const Users = () => {
                         title="Limpiar filtros"
                         aria-label="Limpiar filtros"
                         onClick={clearListFilters}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#000B7E]/40 hover:bg-[#000B7E]/5 hover:text-[#000B7E] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#151D61]/40 hover:bg-[#151D61]/5 hover:text-[#151D61] disabled:cursor-not-allowed disabled:opacity-40"
                         disabled={!hayFiltrosActivos}
                     >
                         <HiOutlineX className="h-5 w-5" />
@@ -1920,7 +1920,7 @@ const Users = () => {
                                                 onClick={() => setSelectedVehicleIndex(idx)}
                                                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                                                     selectedVehicleIndex === idx
-                                                        ? 'bg-[#000B7E] text-white'
+                                                        ? 'bg-[#151D61] text-white'
                                                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                                 }`}
                                             >
@@ -2031,7 +2031,7 @@ const Users = () => {
 
                 <div className="text-right mt-6">
                     <Button
-                        style={{ backgroundColor: '#000B7E' }}
+                        style={{ backgroundColor: '#151D61' }}
                         className="text-white hover:opacity-80"
                         onClick={closeVehicleDialog}
                     >
@@ -2086,7 +2086,7 @@ const Users = () => {
                     </div>
                     <div className="text-right mt-3">
                         <Button
-                            style={{ backgroundColor: '#000B7E' }}
+                            style={{ backgroundColor: '#151D61' }}
                             className="text-white hover:opacity-80"
                             onClick={closeImagePopup}
                         >
@@ -2322,7 +2322,7 @@ const Users = () => {
                     </Button>
                     <Button
                         onClick={handleSaveChanges}
-                        style={{ backgroundColor: '#000B7E' }}
+                        style={{ backgroundColor: '#151D61' }}
                         className="text-white hover:opacity-80"
                     >
                         Guardar Cambios
@@ -2649,7 +2649,7 @@ const Users = () => {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    style={{ backgroundColor: '#000B7E' }}
+                                    style={{ backgroundColor: '#151D61' }}
                                     className="text-white hover:opacity-80"
                                     disabled={isSubmitting}
                                 >

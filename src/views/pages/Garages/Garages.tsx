@@ -1699,7 +1699,7 @@ const Garages = () => {
             <div className="mb-6 flex flex-col gap-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex shrink-0 items-center gap-2">
-                        <h1 className="text-3xl font-bold text-[#000B7E] sm:text-4xl">
+                        <h1 className="text-3xl font-bold text-[#151D61] sm:text-4xl">
                             Negocios
                         </h1>
                         <button
@@ -1707,7 +1707,7 @@ const Garages = () => {
                             title="Actualizar datos desde el servidor"
                             aria-label="Actualizar datos desde el servidor"
                             onClick={handleRefresh}
-                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
+                            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#151D61] shadow-sm transition hover:border-[#151D61]/35 hover:bg-[#151D61]/5 active:scale-[0.98]"
                         >
                             <HiOutlineRefresh className="h-5 w-5" />
                         </button>
@@ -1743,7 +1743,7 @@ const Garages = () => {
                         )}
                         <Button
                             className="h-10 shrink-0 whitespace-nowrap px-3 text-sm text-white hover:opacity-80 sm:px-4"
-                            style={{ backgroundColor: '#000B7E' }}
+                            style={{ backgroundColor: '#151D61' }}
                             onClick={() => setDrawerCreateIsOpen(true)}
                         >
                             Crear Negocio
@@ -1856,7 +1856,7 @@ const Garages = () => {
                             <input
                                 type="text"
                                 placeholder="Nombre, RIF, correo…"
-                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-2 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
@@ -1880,7 +1880,7 @@ const Garages = () => {
                         aria-label="Limpiar filtros"
                         onClick={clearGarageFilters}
                         disabled={!hayFiltrosToolbar}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#000B7E]/40 hover:bg-[#000B7E]/5 hover:text-[#000B7E] disabled:cursor-not-allowed disabled:opacity-40"
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#151D61]/40 hover:bg-[#151D61]/5 hover:text-[#151D61] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                         <HiOutlineX className="h-5 w-5" />
                     </button>
@@ -1996,7 +1996,7 @@ const Garages = () => {
                     Motivo de la eliminación <span className="text-red-600">*</span>
                 </label>
                 <textarea
-                    className="mb-4 w-full min-h-[100px] rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                    className="mb-4 w-full min-h-[100px] rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
                     placeholder="Describe el motivo (mínimo 5 caracteres)…"
                     value={deleteMotivo}
                     onChange={(e) => setDeleteMotivo(e.target.value)}
@@ -2042,7 +2042,7 @@ const Garages = () => {
                     <span className="text-red-600">*</span>
                 </label>
                 <textarea
-                    className="mb-4 w-full min-h-[100px] rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                    className="mb-4 w-full min-h-[100px] rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
                     placeholder="Describe el motivo (mínimo 5 caracteres)…"
                     value={bulkDeleteMotivo}
                     onChange={(e) => setBulkDeleteMotivo(e.target.value)}
@@ -2756,7 +2756,7 @@ const Garages = () => {
                                     <Button
                                         type="submit"
                                         disabled={isCreating}
-                                        style={{ backgroundColor: '#000B7E' }}
+                                        style={{ backgroundColor: '#151D61' }}
                                         className="text-white hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isCreating ? (

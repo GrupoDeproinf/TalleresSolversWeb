@@ -1,0 +1,199 @@
+/* ============================================================================
+   Tema Solvers para todo el panel (campaña "Encuentra a los buenos aquí").
+   Azul marino #151D61, amarillo #FCC800, fondo gris claro, tarjetas blancas
+   muy redondeadas con sombra suave. El azul genérico de la plantilla ya es el
+   azul marino de Solvers (tailwind.config.cjs → colors.blue).
+   ============================================================================ */
+
+:root {
+    --sv-navy: #151d61;
+    --sv-navy-2: #1d1e56;
+    --sv-yellow: #fcc800;
+    --sv-bg: #f1f2f6;
+    --sv-shadow: 0 1px 2px rgba(21, 29, 97, 0.04),
+        0 12px 32px -16px rgba(21, 29, 97, 0.16);
+}
+
+/* ── Fondo del área de trabajo ─────────────────────────────────────────── */
+.app-layout-modern .sv-main {
+    background: var(--sv-bg);
+}
+.app-layout-modern .sv-main > header,
+.app-layout-modern .sv-main > .header {
+    background: #ffffff;
+}
+
+/* ── Menú lateral ─────────────────────────────────────────────────────── */
+.side-nav-light {
+    background: #ffffff;
+    border-right-color: #eceef4;
+}
+.side-nav .menu-item {
+    border-radius: 14px;
+    font-weight: 600;
+    color: #4a5268;
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease;
+}
+.side-nav .menu-item > span:first-child,
+.side-nav .menu-item svg {
+    color: #8a91a8;
+}
+.side-nav .menu-item.menu-item-hoverable:hover {
+    background: #f1f3f9;
+    color: var(--sv-navy);
+}
+.side-nav .menu-item.menu-item-hoverable:hover svg {
+    color: var(--sv-navy);
+}
+.side-nav .menu-item.menu-item-active,
+.side-nav .menu-item.menu-item-active:hover {
+    background: var(--sv-navy) !important;
+    color: #ffffff !important;
+    box-shadow: 0 8px 18px -10px rgba(21, 29, 97, 0.7);
+}
+.side-nav .menu-item.menu-item-active svg,
+.side-nav .menu-item.menu-item-active > span:first-child {
+    color: var(--sv-yellow) !important;
+}
+/* Títulos de grupo del menú ("APPS"). */
+.side-nav .menu-title {
+    color: #a3a9bc;
+    letter-spacing: 0.12em;
+}
+
+/* ── Tarjetas ─────────────────────────────────────────────────────────── */
+.card,
+.sv-card {
+    border-radius: 24px !important;
+    border-color: transparent !important;
+    box-shadow: var(--sv-shadow) !important;
+}
+.card-border {
+    border-color: transparent !important;
+}
+
+/* Cabeceras de tarjeta: claras, título azul con marca amarilla. */
+.sv-head {
+    background: #ffffff !important;
+    border-bottom: 0 !important;
+    padding: 18px 20px 8px !important;
+}
+.sv-head h2,
+.sv-head h3,
+.sv-head h4 {
+    color: var(--sv-navy) !important;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sv-head h2::before,
+.sv-head h3::before,
+.sv-head h4::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    border-radius: 999px;
+    background: var(--sv-yellow);
+    flex: none;
+}
+.sv-head p {
+    color: #6b7280 !important;
+}
+
+/* ── Tablas ───────────────────────────────────────────────────────────── */
+.table-default thead > tr > th {
+    background: #f6f7fb;
+    color: #5b6478;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #eceef4;
+}
+.table-default thead > tr > th:first-child {
+    border-top-left-radius: 14px;
+}
+.table-default thead > tr > th:last-child {
+    border-top-right-radius: 14px;
+}
+.table-default tbody > tr {
+    transition: background-color 0.12s ease;
+}
+.table-default.table-hover tbody > tr:hover,
+.table-default tbody > tr:hover {
+    background: #f8f9fc;
+}
+.table-default tbody > tr > td {
+    border-color: #f0f1f6;
+}
+
+/* ── Botones y campos ─────────────────────────────────────────────────── */
+.button {
+    border-radius: 12px;
+}
+.input,
+.select__control {
+    border-radius: 12px !important;
+}
+.input:focus,
+.input-wrapper:focus-within .input {
+    box-shadow: 0 0 0 3px rgba(21, 29, 97, 0.12);
+}
+
+/* ── Pestañas tipo píldora en todo el panel ───────────────────────────── */
+.tab-nav-pill.tab-nav-active {
+    background: var(--sv-navy) !important;
+    color: var(--sv-yellow) !important;
+}
+
+/* ── Diálogos y cajones ───────────────────────────────────────────────── */
+.dialog-content {
+    border-radius: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .side-nav .menu-item,
+    .table-default tbody > tr {
+        transition: none;
+    }
+}
+
+/* ── Hoja blanca de cada página sobre el fondo gris ───────────────────── */
+.sv-main .page-container {
+    background: #ffffff;
+    border-radius: 28px;
+    margin: 16px;
+    box-shadow: var(--sv-shadow);
+}
+@media (max-width: 640px) {
+    .sv-main .page-container {
+        margin: 8px;
+        border-radius: 20px;
+    }
+}
+/* El dashboard ya trae sus propias tarjetas: sin hoja. */
+.sv-main .page-container:has(.sv-dash) {
+    background: transparent;
+    box-shadow: none;
+    margin: 0;
+}
+
+/* Título de cada página con la raya amarilla de la campaña. */
+.sv-main .page-container h1:not(.sv-sin-raya) {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--sv-navy);
+}
+.sv-main .page-container h1:not(.sv-sin-raya)::after {
+    content: '';
+    display: block;
+    width: 56px;
+    height: 4px;
+    margin-top: 8px;
+    border-radius: 999px;
+    background: var(--sv-yellow);
+}

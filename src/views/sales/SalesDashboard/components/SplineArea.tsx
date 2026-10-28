@@ -193,7 +193,7 @@ const SplineArea = () => {
                             setStartDate('');
                             setEndDate('');
                         }}
-                        className="text-[11px] font-semibold text-[#000B7E] hover:underline"
+                        className="text-[11px] font-semibold text-[#151D61] hover:underline"
                     >
                         Limpiar
                     </button>
@@ -245,7 +245,8 @@ const SplineArea = () => {
                             },
                         },
                     dataLabels: { enabled: false },
-                    colors: COLORS,
+                    // Colores de la marca: azul marino y amarillo Solvers.
+                    colors: ['#151D61', '#FCC800', ...COLORS],
                     stroke: { curve: 'smooth' },
                     xaxis: {
                         type: 'datetime',

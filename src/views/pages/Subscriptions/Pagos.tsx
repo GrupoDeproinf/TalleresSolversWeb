@@ -616,7 +616,7 @@ const Pagos = () => {
                     </p>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <div className="flex shrink-0 items-center gap-4 sv-card rounded-3xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
                     <div>
                         <div className="text-xs font-medium uppercase tracking-wide text-gray-500">
                             Tasa BCV de hoy
@@ -745,7 +745,7 @@ const Pagos = () => {
                 </div>
             )}
 
-            <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white pb-3 shadow-sm">
+            <div className="overflow-x-auto sv-card rounded-3xl border border-gray-200 bg-white pb-3 shadow-sm">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>

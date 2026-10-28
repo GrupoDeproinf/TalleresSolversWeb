@@ -359,7 +359,7 @@ const RequestList = () => {
         <>
             <div className="grid grid-cols-2">
                 <h1 className="mb-6 flex justify-start items-center space-x-4">
-                    <span className="text-[#000B7E]">
+                    <span className="text-[#151D61]">
                         Histórico de Grúas
                     </span>
                     <button
@@ -493,7 +493,7 @@ const RequestList = () => {
                 {selectedGrua && (
                     <div>
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-[#000B7E]">
+                            <h2 className="text-2xl font-bold text-[#151D61]">
                                 Detalles de la Grua
                             </h2>
                             <Button
@@ -524,7 +524,7 @@ const RequestList = () => {
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                 <div className="bg-gray-50 p-4 rounded-lg">
-                                    <h3 className="text-lg font-semibold mb-3 text-[#000B7E]">Información básica</h3>
+                                    <h3 className="text-lg font-semibold mb-3 text-[#151D61]">Información básica</h3>
                                     <div className="space-y-3">
                                         <div>
                                             <span className="font-medium text-gray-700">Nombre de la Grua:</span>
@@ -557,7 +557,7 @@ const RequestList = () => {
                             </div>
 
                             <div className="bg-blue-50 p-4 rounded-lg">
-                                <h3 className="text-lg font-semibold mb-3 text-[#000B7E]">Descripción</h3>
+                                <h3 className="text-lg font-semibold mb-3 text-[#151D61]">Descripción</h3>
                                 <p className="text-gray-700 leading-relaxed">
                                     {selectedGrua.descripcion || '—'}
                                 </p>

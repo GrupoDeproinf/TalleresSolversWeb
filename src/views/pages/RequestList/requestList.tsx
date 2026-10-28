@@ -1081,7 +1081,7 @@ const RequestList = () => {
         <>
             <div className="mb-6 flex min-w-0 items-end justify-between gap-3 pb-1">
                 <div className="flex shrink-0 items-end gap-2 sm:gap-3">
-                    <h1 className="text-2xl font-bold leading-none text-[#000B7E] sm:text-3xl">
+                    <h1 className="text-2xl font-bold leading-none text-[#151D61] sm:text-3xl">
                         Histórico de Solicitudes
                     </h1>
                     <button
@@ -1089,7 +1089,7 @@ const RequestList = () => {
                         title="Actualizar datos desde el servidor"
                         aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#151D61] shadow-sm transition hover:border-[#151D61]/35 hover:bg-[#151D61]/5 active:scale-[0.98]"
                     >
                         <HiOutlineRefresh className="h-5 w-5" />
                     </button>
@@ -1172,7 +1172,7 @@ const RequestList = () => {
                     aria-label="Limpiar filtros"
                     onClick={clearToolbarFilters}
                     disabled={!hayFiltrosToolbar}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#000B7E]/40 hover:bg-[#000B7E]/5 hover:text-[#000B7E] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 shadow-sm transition hover:border-[#151D61]/40 hover:bg-[#151D61]/5 hover:text-[#151D61] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                     <HiOutlineX className="h-5 w-5" />
                 </button>
@@ -1269,7 +1269,7 @@ const RequestList = () => {
                 {selectedSolicitud && (
                     <div>
                         <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-bold text-[#000B7E]">
+                            <h2 className="text-2xl font-bold text-[#151D61]">
                                 Detalles de la Solicitud
                             </h2>
                             <Button
@@ -1287,7 +1287,7 @@ const RequestList = () => {
                                     type="button"
                                     className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                                         activeTab === 'detalle'
-                                            ? 'border-[#000B7E] text-[#000B7E]'
+                                            ? 'border-[#151D61] text-[#151D61]'
                                             : 'border-transparent text-gray-500 hover:text-gray-700'
                                     }`}
                                     onClick={() => setActiveTab('detalle')}
@@ -1298,7 +1298,7 @@ const RequestList = () => {
                                     type="button"
                                     className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
                                         activeTab === 'propuestas'
-                                            ? 'border-[#000B7E] text-[#000B7E]'
+                                            ? 'border-[#151D61] text-[#151D61]'
                                             : 'border-transparent text-gray-500 hover:text-gray-700'
                                     }`}
                                     onClick={() => setActiveTab('propuestas')}
@@ -1335,7 +1335,7 @@ const RequestList = () => {
                                     )}
 
                                 <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
-                                    <h3 className="mb-2 text-sm font-semibold text-[#000B7E]">
+                                    <h3 className="mb-2 text-sm font-semibold text-[#151D61]">
                                         Resumen rápido
                                     </h3>
                                     <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
@@ -1395,7 +1395,7 @@ const RequestList = () => {
                                                 href={`https://www.google.com/maps?q=${selectedSolicitud.latitude},${selectedSolicitud.longitude}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="text-[#000B7E] underline"
+                                                className="text-[#151D61] underline"
                                             >
                                                 Ver coordenadas en mapa
                                             </a>
@@ -1404,7 +1404,7 @@ const RequestList = () => {
                                 </div>
 
                                 <div>
-                                    <h3 className="mb-2 text-lg font-semibold text-[#000B7E]">
+                                    <h3 className="mb-2 text-lg font-semibold text-[#151D61]">
                                         Colección Solicitudes — todos los campos
                                     </h3>
                                     <p className="mb-3 text-xs text-gray-500">
@@ -1419,7 +1419,7 @@ const RequestList = () => {
                                 </div>
 
                                 <div>
-                                    <h3 className="mb-2 text-lg font-semibold text-[#000B7E]">
+                                    <h3 className="mb-2 text-lg font-semibold text-[#151D61]">
                                         Vehículo — todos los campos
                                     </h3>
                                     {vehiculoDetalleEntries(selectedSolicitud.vehiculo)
@@ -1437,7 +1437,7 @@ const RequestList = () => {
                                 </div>
 
                                 <div className="rounded-lg bg-blue-50 p-4">
-                                    <h3 className="mb-3 text-lg font-semibold text-[#000B7E]">
+                                    <h3 className="mb-3 text-lg font-semibold text-[#151D61]">
                                         Descripción
                                     </h3>
                                     <p className="whitespace-pre-wrap text-gray-700 leading-relaxed">
@@ -1486,7 +1486,7 @@ const RequestList = () => {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <h4 className="mb-2 text-sm font-semibold text-[#000B7E]">
+                                                <h4 className="mb-2 text-sm font-semibold text-[#151D61]">
                                                     Colección Propuestas — todos los campos
                                                 </h4>
                                                 <DetalleFilasFirestore
@@ -1583,7 +1583,7 @@ const RequestList = () => {
                     </div>
                     <div className="text-right mt-3">
                         <Button
-                            style={{ backgroundColor: '#000B7E' }}
+                            style={{ backgroundColor: '#151D61' }}
                             className="text-white hover:opacity-80"
                             onClick={closeImagePopup}
                         >

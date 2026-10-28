@@ -443,7 +443,7 @@ const EditPromotionDrawer: React.FC<EditPromotionDrawerProps> = ({
                             </Button>
                             <Button
                                 type="submit"
-                                style={{ backgroundColor: '#000B7E' }}
+                                style={{ backgroundColor: '#151D61' }}
                                 className="text-white hover:opacity-80"
                                 disabled={uploadingImages}
                             >

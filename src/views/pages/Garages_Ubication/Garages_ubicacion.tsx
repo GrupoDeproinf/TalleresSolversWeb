@@ -241,7 +241,7 @@ const UbicationGarages = () => {
     return (
         <div className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <h1 className="text-2xl sm:text-3xl font-bold text-[#000B7E]">
+                <h1 className="text-2xl sm:text-3xl font-bold text-[#151D61]">
                     Ubicación de negocios
                 </h1>
                 <p className="text-sm text-gray-600 sm:max-w-md sm:text-right">
@@ -250,14 +250,14 @@ const UbicationGarages = () => {
                 </p>
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                 {loading ? (
                     <p className="text-sm text-gray-500">Cargando negocios…</p>
                 ) : (
                     <>
                         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-sm text-gray-700">
-                                <span className="font-semibold tabular-nums text-[#000B7E]">
+                                <span className="font-semibold tabular-nums text-[#151D61]">
                                     {filteredMarkers.length}
                                 </span>
                                 <span className="text-gray-500">
@@ -270,7 +270,7 @@ const UbicationGarages = () => {
                                 size="sm"
                                 variant="plain"
                                 disabled={!hasActiveFilters}
-                                className="!text-[#000B7E] disabled:opacity-40"
+                                className="!text-[#151D61] disabled:opacity-40"
                                 onClick={clearFilters}
                             >
                                 Limpiar filtros

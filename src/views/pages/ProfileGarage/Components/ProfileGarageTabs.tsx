@@ -267,7 +267,7 @@ export default function ProfileGarageTabs({
     return (
         <div className="flex-1 min-w-0">
             <Tabs defaultValue="tab1">
-                <TabList className="mb-4 flex w-full flex-wrap gap-2 rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+                <TabList className="mb-4 flex w-full flex-wrap gap-2 sv-card rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
                     <TabNav value="tab1">Planes</TabNav>
                     <TabNav value="tab2">Servicios</TabNav>
                     <TabNav value="tab3">Documentos</TabNav>
@@ -296,7 +296,7 @@ export default function ProfileGarageTabs({
                                         ) : null}
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5 lg:flex-row lg:items-center lg:justify-between">
+                                    <div className="flex flex-col gap-4 sv-card rounded-3xl border border-gray-200 bg-white p-5 lg:flex-row lg:items-center lg:justify-between">
                                         <div className="flex items-center gap-3">
                                             <Avatar
                                                 className="bg-transparent"
@@ -446,7 +446,7 @@ export default function ProfileGarageTabs({
                                 )}
                             </Card>
                             <div>
-                                <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                                <div className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                                     <h6 className="mb-6 flex justify-start mt-4">
                                         Historial de Subscripciones
                                     </h6>
@@ -549,7 +549,7 @@ export default function ProfileGarageTabs({
                             seleccionó en la app (campo `categorias`), junto al
                             botón para crear servicios desde el panel y la lista
                             de servicios creados — todo en una sola sección. */}
-                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-4 mt-2 flex items-center justify-between">
                                 <h6 className="flex justify-start">
                                     Servicios que ofrece
@@ -674,7 +674,7 @@ export default function ProfileGarageTabs({
                     </div>
                 </TabContent>
                 <TabContent value="tab3">
-                    <div className="h-full w-full rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <div className="h-full w-full sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                         <h6 className="mb-6 flex justify-start mt-4">
                             Documentos del Negocio
                         </h6>
@@ -876,7 +876,7 @@ export default function ProfileGarageTabs({
                 </TabContent>
                 <TabContent value="tab4">
                     <div className="w-full h-full">
-                        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <div className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                             <div className="mb-6 flex flex-wrap items-center justify-between gap-4 mt-4">
                                 <h6 className="m-0">
                                     Tablero digital para publicar promociones

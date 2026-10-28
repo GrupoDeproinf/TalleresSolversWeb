@@ -52,14 +52,14 @@ const LocationEditor: React.FC<MapsProfileProps> = ({
 
     if (!mapsReady) {
         return (
-            <div className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-sm text-gray-400 shadow-sm" style={{ height: '400px' }}>
+            <div className="flex w-full items-center justify-center sv-card rounded-3xl border border-gray-200 bg-white p-2 text-sm text-gray-400 shadow-sm" style={{ height: '400px' }}>
                 Cargando mapa…
             </div>
         )
     }
 
     return (
-        <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+        <div className="w-full sv-card rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
             <GoogleMap
                 center={location || { lat: 0, lng: 0 }}
                 zoom={zoom}

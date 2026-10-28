@@ -2758,7 +2758,7 @@ const ProfileGarage = () => {
                             selectedServiceForReviews.latest_reviews.map((review, idx) => (
                                 <div
                                     key={`${selectedServiceForReviews.uid_servicio}-${idx}`}
-                                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                                    className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm"
                                 >
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
