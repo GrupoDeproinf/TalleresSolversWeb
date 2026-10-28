@@ -26,8 +26,8 @@ import {
 } from 'react-icons/fa'
 import {
     collection,
+    collectionGroup,
     getDocs,
-    getCountFromServer,
     query,
     doc,
     deleteDoc,
@@ -599,28 +599,35 @@ const Users = () => {
                 }
             })
 
-            // Conteo de vehículos por usuario, de 10 en 10. Lanzar cientos de
-            // consultas a la vez saturaba la conexión ("Connection failed") y
-            // la columna de vehículos quedaba en 0.
-            const enriched = await enLotes(
-                base,
-                10,
-                async (u) => {
-                    let vehiculosCount = 0
-                    try {
-                        const snap = await getCountFromServer(
-                            collection(db, 'Usuarios', u.id, 'Vehiculos'),
-                        )
-                        vehiculosCount = snap.data().count
-                    } catch (err) {
-                        console.error('Error contando Vehiculos', u.id, err)
-                    }
-                    const createdAtMs = normalizeUserCreatedAtMs(u.createdAt)
-                    return { ...u, createdAtMs, vehiculosCount }
-                },
+            // La lista se muestra de inmediato; los vehículos se cuentan
+            // después con UNA sola consulta a todas las subcolecciones
+            // Vehiculos (antes: una consulta por usuario, lenta y con fallos).
+            setDataUsers(
+                base.map((u) => ({
+                    ...u,
+                    createdAtMs: normalizeUserCreatedAtMs(u.createdAt),
+                    vehiculosCount: 0,
+                })),
             )
-
-            setDataUsers(enriched)
+            setUsersLoading(false)
+            try {
+                const vehiculosSnap = await getDocs(
+                    collectionGroup(db, 'Vehiculos'),
+                )
+                const porUsuario = new Map<string, number>()
+                vehiculosSnap.forEach((d) => {
+                    const uid = d.ref.parent.parent?.id
+                    if (uid) porUsuario.set(uid, (porUsuario.get(uid) || 0) + 1)
+                })
+                setDataUsers((prev) =>
+                    prev.map((u) => ({
+                        ...u,
+                        vehiculosCount: porUsuario.get(u.id) || 0,
+                    })),
+                )
+            } catch (err) {
+                console.error('Error contando Vehiculos', err)
+            }
         } finally {
             setUsersLoading(false)
         }
@@ -899,7 +906,7 @@ const Users = () => {
         // De 10 en 10, igual que el conteo de vehículos (ver enLotes).
         const rowsNested = await enLotes(
             tableRows,
-            10,
+            25,
             async (row) => {
                 const p = row.original
                 const base = {
