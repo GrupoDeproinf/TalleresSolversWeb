@@ -853,7 +853,7 @@ const TallerDashboard = () => {
             hint: isDateFilterEnabled
                 ? `${metrics.sentThisMonth} registradas en el periodo filtrado`
                 : `${metrics.sentThisMonth} registradas en el mes actual`,
-            bgColor: 'bg-[#000B7E]',
+            bgColor: 'bg-[#151D61]',
             icon: HiOutlineChartBar,
         },
         {
@@ -931,8 +931,8 @@ const TallerDashboard = () => {
         : kpiCards.filter((card) => card.title !== 'Precio promedio vs mercado')
 
     const quoteStatusDonutCard = (
-        <article className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="bg-[#000B7E] px-4 py-2">
+        <article className="flex min-h-0 flex-col overflow-hidden sv-card rounded-3xl border border-gray-200 bg-white shadow-sm">
+            <div className="sv-head px-4 py-2">
                 <h3 className="text-sm font-semibold text-white">Mis cotizaciones por estado</h3>
             </div>
             <div className="grid grid-cols-[58%_42%] items-center gap-2 p-3">
@@ -973,8 +973,8 @@ const TallerDashboard = () => {
     )
 
     const weeklyHistoryCard = (
-        <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="bg-[#000B7E] px-4 py-2">
+        <article className="overflow-hidden sv-card rounded-3xl border border-gray-200 bg-white shadow-sm">
+            <div className="sv-head px-4 py-2">
                 <h3 className="text-sm font-semibold text-white">
                     Historial de solicitudes respondidas (ultimas 8 semanas)
                 </h3>
@@ -994,7 +994,7 @@ const TallerDashboard = () => {
                     xAxis={weeklyResponseXAxis}
                     height={250}
                     customOptions={{
-                        colors: ['#000B7E'],
+                        colors: ['#151D61'],
                         stroke: {
                             curve: 'smooth',
                             width: [3],
@@ -1019,11 +1019,11 @@ const TallerDashboard = () => {
 
     const responseTimeCard = (
         <article
-            className={`overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm ${
+            className={`overflow-hidden sv-card rounded-3xl border border-gray-200 bg-white shadow-sm ${
                 isPlanOro ? '' : isPlanBronce ? '' : 'xl:col-span-3'
             }`}
         >
-            <div className="bg-[#000B7E] px-4 py-2">
+            <div className="sv-head px-4 py-2">
                 <h3 className="text-sm font-semibold text-white">Tiempo promedio de respuesta</h3>
             </div>
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
@@ -1039,7 +1039,7 @@ const TallerDashboard = () => {
                     />
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#151D61]">
                         Comparativa plataforma
                     </p>
                     <p className="mt-1 text-sm text-gray-700">
@@ -1066,7 +1066,7 @@ const TallerDashboard = () => {
             className="flex min-h-[calc(100vh-6rem)] flex-col gap-4 bg-gray-100 p-1"
             aria-label="Dashboard del negocio"
         >
-            <section className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            <section className="sv-card rounded-3xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
                 <p className="text-sm text-gray-700">
                     {isLoading
                         ? 'Validando plan del taller...'
@@ -1083,7 +1083,7 @@ const TallerDashboard = () => {
 
             {hasApprovedPlan && (
                 <div className="mt-4 space-y-4">
-                    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <section className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                             <div>
                                 <p className="text-sm font-semibold text-gray-900">
@@ -1218,8 +1218,8 @@ const TallerDashboard = () => {
 
                     <section className="grid flex-1 gap-3 xl:grid-cols-3">
                         {isPlanOro && (
-                            <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm xl:col-span-2">
-                            <div className="bg-[#000B7E] px-4 py-2">
+                            <article className="overflow-hidden sv-card rounded-3xl border border-gray-200 bg-white shadow-sm xl:col-span-2">
+                            <div className="sv-head px-4 py-2">
                                 <h3 className="text-sm font-semibold text-white">
                                     Comparativa de precio propio vs mercado
                                 </h3>
@@ -1243,7 +1243,7 @@ const TallerDashboard = () => {
                                     xAxis={metrics.categoryLabels}
                                     height={260}
                                     customOptions={{
-                                        colors: ['#000B7E', '#60A5FA'],
+                                        colors: ['#151D61', '#60A5FA'],
                                         plotOptions: {
                                             bar: {
                                                 horizontal: false,
@@ -1277,8 +1277,8 @@ const TallerDashboard = () => {
                     <section className="space-y-3">
                     {isPlanPlataOrOro && (
                         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                            <article className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[#151D61]">
                                     Vistas totales del perfil
                                 </p>
                                 <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -1286,8 +1286,8 @@ const TallerDashboard = () => {
                                 </p>
                             </article>
 
-                            <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                            <article className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[#151D61]">
                                     Clics en contactar / WhatsApp / llamadas
                                 </p>
                                 <p className="mt-2 text-3xl font-bold text-gray-900">
@@ -1295,8 +1295,8 @@ const TallerDashboard = () => {
                                 </p>
                             </article>
 
-                            <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                            <article className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[#151D61]">
                                     Servicio mas visto
                                 </p>
                                 <p className="mt-2 text-lg font-semibold text-gray-900">
@@ -1306,8 +1306,8 @@ const TallerDashboard = () => {
 
                             {isPlanOro && (
                                 <>
-                                    <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-3">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                                    <article className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-3">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-[#151D61]">
                                             Comparativa local de reputacion
                                         </p>
                                         <p className="mt-2 text-sm text-gray-700">
@@ -1333,8 +1333,8 @@ const TallerDashboard = () => {
                                         </p>
                                     </article>
 
-                                    <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-1">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                                    <article className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-1">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-[#151D61]">
                                             Ranking en la ciudad
                                         </p>
                                         <p className="mt-2 text-2xl font-bold text-gray-900">
@@ -1344,8 +1344,8 @@ const TallerDashboard = () => {
                                         </p>
                                     </article>
 
-                                    <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-2">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-[#000B7E]">
+                                    <article className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm md:col-span-2 xl:col-span-2">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-[#151D61]">
                                             Historico detallado por estatus y presupuesto
                                         </p>
                                         <div className="mt-3 overflow-x-auto">

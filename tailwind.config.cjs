@@ -60,6 +60,22 @@ module.exports = {
 				'2xl': '1536px',
 			},
 			extend: {
+				// Azul de la plantilla = azul marino de Solvers (#151D61 en 600,
+				// el tono principal de botones, menú y enlaces).
+				colors: {
+					blue: {
+						50: '#EFF1FA',
+						100: '#DDE0F2',
+						200: '#B9BFE3',
+						300: '#8E97CF',
+						400: '#5D69B4',
+						500: '#2F3C8F',
+						600: '#151D61',
+						700: '#111850',
+						800: '#0D1240',
+						900: '#090D2E',
+					},
+				},
 				typography: (theme) => ({
 					DEFAULT: {
 						css: {

@@ -112,7 +112,7 @@ const SolversHero = ({
                         <span className="h-1.5 w-1.5 rounded-full bg-[#FCC800]" />
                         Panel Solvers · {hoy}
                     </span>
-                    <h1 className="mt-4 text-[28px] font-extrabold leading-tight text-white lg:text-[34px]">
+                    <h1 className="sv-sin-raya mt-4 text-[28px] font-extrabold leading-tight text-white lg:text-[34px]">
                         {saludo}
                         {primerNombre ? `, ${primerNombre}` : ''}
                     </h1>

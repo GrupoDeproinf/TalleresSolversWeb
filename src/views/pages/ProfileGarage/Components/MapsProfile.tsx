@@ -23,14 +23,14 @@ const MapsProfile: React.FC<MapsProfileProps> = ({ markers, center }) => {
 
     if (!mapsReady) {
         return (
-            <div className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white p-2 text-sm text-gray-400 shadow-sm" style={{ height: '260px' }}>
+            <div className="flex w-full items-center justify-center sv-card rounded-3xl border border-gray-200 bg-white p-2 text-sm text-gray-400 shadow-sm" style={{ height: '260px' }}>
                 Cargando mapa…
             </div>
         )
     }
 
     return (
-        <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
+        <div className="w-full sv-card rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
             <GoogleMap
                 center={center}
                 zoom={10}

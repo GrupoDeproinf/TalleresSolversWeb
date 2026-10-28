@@ -512,7 +512,7 @@ const Services = () => {
         <>
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-3">
-                    <h1 className="text-4xl font-bold text-[#000B7E]">
+                    <h1 className="text-4xl font-bold text-[#151D61]">
                         Planilla de Servicios
                     </h1>
                     <button
@@ -520,7 +520,7 @@ const Services = () => {
                         title="Actualizar datos desde el servidor"
                         aria-label="Actualizar datos desde el servidor"
                         onClick={handleRefresh}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5 active:scale-[0.98]"
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#151D61] shadow-sm transition hover:border-[#151D61]/35 hover:bg-[#151D61]/5 active:scale-[0.98]"
                     >
                         <HiOutlineRefresh className="h-5 w-5" />
                     </button>
@@ -534,7 +534,7 @@ const Services = () => {
                             <input
                                 type="text"
                                 placeholder="Nombre, descripción, categoría, subcategorías, garantía, precio…"
-                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#000B7E] focus:outline-none focus:ring-2 focus:ring-[#000B7E]/20"
+                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                             />
@@ -542,7 +542,7 @@ const Services = () => {
                         </div>
                     </div>
                     <Button
-                        style={{ backgroundColor: '#000B7E' }}
+                        style={{ backgroundColor: '#151D61' }}
                         className="h-10 w-40 shrink-0 text-sm text-white hover:opacity-80"
                         onClick={() => setDrawerCreateIsOpen(true)}
                     >
@@ -860,7 +860,7 @@ const Services = () => {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    style={{ backgroundColor: '#000B7E' }}
+                                    style={{ backgroundColor: '#151D61' }}
                                     className="text-white hover:opacity-80"
                                     disabled={isSubmitting}
                                 >
@@ -1077,7 +1077,7 @@ const Services = () => {
                                 </Button>
                                 <Button
                                     type="submit"
-                                    style={{ backgroundColor: '#000B7E' }}
+                                    style={{ backgroundColor: '#151D61' }}
                                     className="text-white hover:opacity-80"
                                     disabled={isSubmitting}
                                 >

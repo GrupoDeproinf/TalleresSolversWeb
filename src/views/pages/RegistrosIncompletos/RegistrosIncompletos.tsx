@@ -95,14 +95,14 @@ const RegistrosIncompletos = () => {
     return (
         <div>
             <div className="mb-2 flex items-center gap-3">
-                <h1 className="text-4xl font-bold text-[#000B7E]">
+                <h1 className="text-4xl font-bold text-[#151D61]">
                     Registros incompletos
                 </h1>
                 <button
                     type="button"
                     title="Actualizar"
                     aria-label="Actualizar"
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#000B7E] shadow-sm transition hover:border-[#000B7E]/35 hover:bg-[#000B7E]/5"
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#151D61] shadow-sm transition hover:border-[#151D61]/35 hover:bg-[#151D61]/5"
                     onClick={() => setRecarga((n) => n + 1)}
                 >
                     <HiOutlineRefresh className="h-5 w-5" />
@@ -122,11 +122,11 @@ const RegistrosIncompletos = () => {
             ) : cargando ? (
                 <p className="text-sm text-gray-500">Cargando…</p>
             ) : !ordenados.length ? (
-                <div className="rounded-xl border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-600">
+                <div className="sv-card rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-600">
                     No hay registros incompletos en este momento.
                 </div>
             ) : (
-                <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                <div className="overflow-x-auto sv-card rounded-3xl border border-gray-200 bg-white shadow-sm">
                     <table className="min-w-full text-sm">
                         <thead className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                             <tr>

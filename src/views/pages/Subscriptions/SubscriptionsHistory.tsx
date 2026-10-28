@@ -556,7 +556,7 @@ const SubscriptionsHistory = ({
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-medium text-[#000B7E] underline hover:opacity-80"
+                        className="font-medium text-[#151D61] underline hover:opacity-80"
                     >
                         Ver
                     </a>
