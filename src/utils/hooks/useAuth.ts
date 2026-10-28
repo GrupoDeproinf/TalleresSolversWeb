@@ -35,6 +35,9 @@ import { db } from '@/configs/firebaseAssets.config'
 
 type Status = 'success' | 'failed'
 
+export const MENSAJE_TALLER =
+    'Este panel es solo para el equipo de Solvers. Administra tu taller desde la app Solvers: ahí tienes tu perfil, plan, pagos, servicios y estadísticas.'
+
 function useAuth() {
     const dispatch = useAppDispatch()
 
@@ -137,15 +140,25 @@ function useAuth() {
                 return { status: 'failed', message: 'Usuario no encontrado' }
             }
 
+            // El panel es solo para el personal de Solvers. Los talleres
+            // administran su negocio (plan, pagos, servicios, estadísticas)
+            // desde la app, que pasa por la API y sus controles.
+            if (collectionToCheck === 'Usuarios' && trimmedType === 'Taller') {
+                await auth.signOut().catch(() => {})
+                return {
+                    status: 'failed',
+                    message: MENSAJE_TALLER,
+                }
+            }
             if (
                 collectionToCheck === 'Usuarios' &&
-                !['Taller', 'Certificador', 'Soporte'].includes(trimmedType)
+                !['Certificador', 'Soporte'].includes(trimmedType)
             ) {
                 // p. ej. un 'Cliente' no tiene acceso al panel administrativo
                 await auth.signOut().catch(() => {})
                 return {
                     status: 'failed',
-                    message: 'El usuario no tiene permitido iniciar sesión',
+                    message: 'Este panel es solo para el equipo de Solvers.',
                 }
             }
 

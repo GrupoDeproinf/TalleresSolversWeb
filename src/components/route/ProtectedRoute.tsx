@@ -5,6 +5,8 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import useAuth from '@/utils/hooks/useAuth'
 import Loading from '@/components/shared/Loading'
 import { auth } from '@/configs/firebaseAssets.config'
+import { useAppSelector } from '@/store'
+import { USER } from '@/constants/roles.constant'
 
 const { unAuthenticatedEntryPath } = appConfig
 
@@ -39,6 +41,16 @@ const ProtectedRoute = () => {
         }
     }, [authenticated])
 
+    // Sesiones de talleres abiertas antes de que el panel fuera solo para el
+    // personal: se cierran (el taller usa la app).
+    const authority = useAppSelector((state) => state.auth.user.authority)
+    const esTaller = Array.isArray(authority) && authority.includes(USER)
+    useEffect(() => {
+        if (authenticated && esTaller) {
+            signOut()
+        }
+    }, [authenticated, esTaller])
+
     // El panel cree que hay sesion pero Firebase no la tiene (sesion vieja o
     // vencida): ninguna consulta funcionaria, asi que se pide iniciar sesion.
     useEffect(() => {
@@ -56,7 +68,7 @@ const ProtectedRoute = () => {
         )
     }
 
-    if (firebaseSession !== 'ready') {
+    if (firebaseSession !== 'ready' || esTaller) {
         return <Loading loading={true} />
     }
 
