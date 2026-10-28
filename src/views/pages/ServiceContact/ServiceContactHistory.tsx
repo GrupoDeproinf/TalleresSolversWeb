@@ -18,11 +18,11 @@ import type {
 } from '@tanstack/react-table'
 import {
     collection,
-    doc,
-    getDoc,
+    documentId,
     getDocs,
     query,
     Timestamp,
+    where,
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import toast from '@/components/ui/toast'
@@ -111,46 +111,85 @@ const Services = ({
     const [creationDateRange, setCreationDateRange] =
         useState<DatePickerRangeValue>([null, null])
 
-    const getAllData = async () => {
-        try {
-            const servicesQuery = query(collection(db, 'servicesContact'))
-            const [servicesSnapshot] = await Promise.all([
-                getDocs(servicesQuery),
-            ])
-            const services = await Promise.all(
-                servicesSnapshot.docs.map(async (serviceDoc) => {
-                    const service = {
-                        ...serviceDoc.data(),
-                        uid_servicio: serviceDoc.id,
-                    } as ServicesContact
-
-                    let ciudad_taller = 'Sin ciudad'
-                    if (service.uid_taller) {
-                        const tallerDoc = await getDoc(
-                            doc(db, 'Usuarios', service.uid_taller),
+    // Ciudad de cada taller: se pide UNA vez por taller y en grupos de 30
+    // (antes: una consulta por cada contacto, miles a la vez; la conexión se
+    // saturaba y, si fallaba una, la tabla quedaba vacía).
+    const ciudadesDeTalleres = async (uids: string[]) => {
+        const ciudades = new Map<string, string>()
+        const grupos: string[][] = []
+        for (let i = 0; i < uids.length; i += 30) grupos.push(uids.slice(i, i + 30))
+        for (let i = 0; i < grupos.length; i += 5) {
+            await Promise.all(
+                grupos.slice(i, i + 5).map(async (grupo) => {
+                    try {
+                        const snap = await getDocs(
+                            query(
+                                collection(db, 'Usuarios'),
+                                where(documentId(), 'in', grupo),
+                            ),
                         )
-                        if (tallerDoc.exists()) {
-                            const tallerData = tallerDoc.data()
-                            ciudad_taller =
-                                tallerData.ciudad ||
-                                (Array.isArray(tallerData.estado)
-                                    ? tallerData.estado[0]
-                                    : tallerData.estado) ||
-                                'Sin ciudad'
-                        }
-                    }
-
-                    return {
-                        ...service,
-                        ciudad_taller,
-                        categoria_label: service.nombre_servicio || 'Sin categoría',
+                        snap.forEach((d) => {
+                            const data = d.data()
+                            ciudades.set(
+                                d.id,
+                                data.ciudad ||
+                                    (Array.isArray(data.estado)
+                                        ? data.estado[0]
+                                        : data.estado) ||
+                                    'Sin ciudad',
+                            )
+                        })
+                    } catch (error) {
+                        console.error('Error leyendo talleres:', error)
                     }
                 }),
             )
+        }
+        return ciudades
+    }
 
-            setDataServicesContact(services)
+    const [cargando, setCargando] = useState(true)
+    const [errorCarga, setErrorCarga] = useState('')
+
+    const getAllData = async () => {
+        setCargando(true)
+        setErrorCarga('')
+        try {
+            const servicesSnapshot = await getDocs(
+                query(collection(db, 'servicesContact')),
+            )
+            const servicios = servicesSnapshot.docs.map(
+                (serviceDoc) =>
+                    ({
+                        ...serviceDoc.data(),
+                        uid_servicio: serviceDoc.id,
+                    }) as ServicesContact,
+            )
+            const uids = [
+                ...new Set(
+                    servicios
+                        .map((s) => String(s.uid_taller || '').trim())
+                        .filter(Boolean),
+                ),
+            ]
+            const ciudades = await ciudadesDeTalleres(uids)
+
+            setDataServicesContact(
+                servicios.map((service) => ({
+                    ...service,
+                    ciudad_taller:
+                        ciudades.get(String(service.uid_taller || '').trim()) ||
+                        'Sin ciudad',
+                    categoria_label: service.nombre_servicio || 'Sin categoría',
+                })),
+            )
         } catch (error) {
             console.error('Error obteniendo los datos:', error)
+            setErrorCarga(
+                'No pudimos cargar los contactos. Toca el botón de actualizar para reintentar.',
+            )
+        } finally {
+            setCargando(false)
         }
     }
 
@@ -382,6 +421,16 @@ const Services = ({
     return (
         <>
             <div>
+                {cargando ? (
+                    <p role="status" className="mb-3 text-sm font-medium text-[#151D61]">
+                        Cargando contactos…
+                    </p>
+                ) : null}
+                {errorCarga ? (
+                    <p role="alert" className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                        {errorCarga}
+                    </p>
+                ) : null}
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-1 flex-nowrap items-end justify-end gap-x-2 overflow-x-auto pb-0.5">
                         <div className="flex w-[11.25rem] shrink-0 flex-col gap-0.5 sm:w-[12rem]">
