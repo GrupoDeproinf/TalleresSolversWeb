@@ -1209,9 +1209,15 @@ const ProfileGarage = () => {
             ) => {
                 try {
                     // Extraer el nombre del archivo de la URL
+                    // Sirve con el enlace público antiguo y con el enlace con
+                    // clave (".../o/documents%2F<uid>%2Frif.pdf?alt=media&token=…").
                     const urlParts = url.split('/')
                     const fileNameWithQuery = urlParts[urlParts.length - 1]
-                    const fileName = fileNameWithQuery.split('?')[0]
+                    const fileName = decodeURIComponent(
+                        fileNameWithQuery.split('?')[0],
+                    )
+                        .split('/')
+                        .pop()
                     const oldDocRef = ref(
                         storage,
                         `documents/${path}/${fileName}`,
