@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import React from 'react'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { crearCuentaDeAcceso } from '@/utils/crearCuentaDeAcceso'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import {
@@ -32,12 +32,12 @@ import {
     doc,
     deleteDoc,
     updateDoc,
-    addDoc,
+    setDoc,
     where,
     deleteField,
     Timestamp,
 } from 'firebase/firestore'
-import { db, auth } from '@/configs/firebaseAssets.config'
+import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
@@ -785,21 +785,17 @@ const Users = () => {
                 return
             }
 
-            const userCredential = await createUserWithEmailAndPassword(
-                auth,
-                emailLower,
-                values.password,
-            )
-            const user = userCredential.user
+            // La sesión de quien crea no cambia (ver crearCuentaDeAcceso).
+            const user = await crearCuentaDeAcceso(emailLower, values.password)
 
-            const userRef = collection(db, 'Usuarios')
-
-            const docRef = await addDoc(userRef, {
+            // La ficha usa el uid de la cuenta de acceso como id (así lo
+            // espera la API y las reglas de Firestore). La contraseña solo
+            // vive en Firebase Auth: nunca se guarda en la ficha.
+            await setDoc(doc(db, 'Usuarios', user.uid), {
                 nombre: values.nombre,
                 email: emailLower,
                 cedula: cedulaNormalized,
                 phone: values.phone,
-                Password: values.password,
                 typeUser: values.typeUser || 'Cliente',
                 uid: user.uid,
                 estado:
@@ -810,10 +806,6 @@ const Users = () => {
                             : [values.estado]
                         : values.estado,
                 createdAt: Date.now(),
-            })
-
-            await updateDoc(docRef, {
-                uid: docRef.id,
             })
 
             toast.push(

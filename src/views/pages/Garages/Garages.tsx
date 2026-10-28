@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
-import { createUserWithEmailAndPassword } from 'firebase/auth'
+import { crearCuentaDeAcceso } from '@/utils/crearCuentaDeAcceso'
 import { useNavigate } from 'react-router-dom'
 import {
     flexRender,
@@ -39,7 +39,7 @@ import {
     updateDoc,
     Timestamp,
 } from 'firebase/firestore'
-import { db, auth } from '@/configs/firebaseAssets.config'
+import { db } from '@/configs/firebaseAssets.config'
 import Checkbox from '@/components/ui/Checkbox'
 import type { CheckboxProps } from '@/components/ui/Checkbox'
 import Drawer from '@/components/ui/Drawer' // Asegúrate de que esta ruta sea correcta
@@ -830,8 +830,8 @@ const Garages = () => {
             }
     
             // Crear usuario en Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(auth, emailLower, values.password);
-            const user = userCredential.user;
+            // La sesión de quien crea no cambia (ver crearCuentaDeAcceso).
+            const user = await crearCuentaDeAcceso(emailLower, values.password);
     
             // Crear documento en Firestore
             const docRef = doc(userRef, user.uid);

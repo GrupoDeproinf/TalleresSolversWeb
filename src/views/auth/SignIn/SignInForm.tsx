@@ -13,8 +13,9 @@ import type { CommonProps } from '@/@types/common'
 
 interface SignInFormProps extends CommonProps {
     disableSubmit?: boolean
-    forgotPasswordUrl?: string
+    /** Sin uso: el panel no tiene registro (solo personal de Solvers). */
     signUpUrl?: string
+    forgotPasswordUrl?: string
 }
 
 type SignInFormSchema = {
@@ -34,7 +35,6 @@ const SignInForm = (props: SignInFormProps) => {
         disableSubmit = false,
         className,
         forgotPasswordUrl = '/forgot-password',
-        signUpUrl = '/sign-up',
     } = props
 
     const [message, setMessage] = useTimeOutMessage()
@@ -130,12 +130,6 @@ const SignInForm = (props: SignInFormProps) => {
                                     : 'Iniciar Sesión'}
                             </Button>
                             <div className="mt-4 text-center">
-                                <span>{`¿Aún no tienes una cuenta?`} </span>
-                                <ActionLink to={signUpUrl}>
-                                    Registrate
-                                </ActionLink>
-                            </div>
-                            <div className="text-center">
                                 <ActionLink to={forgotPasswordUrl}>
                                     Recuperar contraseña
                                 </ActionLink>

@@ -1,48 +1,73 @@
 rules_version = '2';
 
 // ============================================================================
-// Solvers — Storage Security Rules
-// Fase 0 (Contención): cierra la fuga de datos sensibles y toda ESCRITURA anónima.
+// Solvers — Reglas de Storage
 //
-// Contexto verificado en auditoría:
-//  - Las imágenes se sirven mediante URLs de descarga con token
-//    (?alt=media&token=...), que NO dependen de estas reglas => seguir con
-//    lectura pública en las carpetas de imágenes NO rompe la app ni el panel.
-//  - La app móvil no usa el SDK de Storage; sus subidas pasan por el backend
-//    (admin), que ignora estas reglas. El panel sube autenticado.
-//  => Bloquear ESCRITURA a solo-autenticados es seguro.
-//  - Las carpetas 'documents/' y 'paymentcommitment/' contienen datos sensibles
-//    (documentos de identidad, comprobantes de pago). El panel los muestra vía
-//    URL con token (bypass de reglas), por lo que restringir su lectura a
-//    autenticados cierra la fuga SIN romper la vista de administración.
+//  - La app móvil no usa el SDK de Storage: sus subidas pasan por la API
+//    (firebase-admin), que ignora estas reglas.
+//  - El panel sube y consulta archivos, y desde ahora solo lo usa el personal
+//    de Solvers (ver firestore.rules).
+//  - Las imágenes se muestran con URLs públicas o de descarga con token, que
+//    no dependen de estas reglas.
 //
-// No hay catch-all público: cualquier ruta no listada queda DENEGADA por
-// defecto. Las carpetas listadas cubren el bucket actual completo.
-// La restricción por propietario/rol se afinará en la iteración role-based.
+// Antes cualquier sesión (cualquier conductor o taller de la app) podía leer
+// documentos de identidad y comprobantes de pago, y subir o reemplazar
+// cualquier archivo. Ahora:
+//  - Documentos y comprobantes: solo el personal lee y escribe.
+//  - Imágenes: lectura pública como hasta ahora; solo el personal escribe.
+//  - Cualquier carpeta no listada queda cerrada.
+//
+// El personal se reconoce igual que en firestore.rules (consulta a Firestore
+// desde Storage; al publicar, Firebase pide permitir esa consulta una vez).
 // ============================================================================
 
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // --- Datos sensibles: solo sesión autenticada (lectura y escritura) ---
-    match /documents/{allPaths=**} {
-      allow read, write: if request.auth != null;
-    }
-    match /paymentcommitment/{allPaths=**} {
-      allow read, write: if request.auth != null;
+    function activo(datos) {
+      return datos.get('status', '') != 'Eliminado';
     }
 
-    // --- Imágenes y activos mostrados en la app/panel ---
-    // Lectura pública TEMPORAL (se sirven por URL con token igualmente);
-    // escritura solo autenticada.
-    match /profileImages/{allPaths=**}    { allow read: if true; allow write: if request.auth != null; }
-    match /businessImages/{allPaths=**}   { allow read: if true; allow write: if request.auth != null; }
-    match /categoriesImages/{allPaths=**} { allow read: if true; allow write: if request.auth != null; }
-    match /service_images/{allPaths=**}   { allow read: if true; allow write: if request.auth != null; }
-    match /vehicles/{allPaths=**}         { allow read: if true; allow write: if request.auth != null; }
-    match /usuarios/{allPaths=**}         { allow read: if true; allow write: if request.auth != null; }
-    match /Solicitudes/{allPaths=**}      { allow read: if true; allow write: if request.auth != null; }
-    match /data/{allPaths=**}             { allow read: if true; allow write: if request.auth != null; }
+    function esAdmin() {
+      let ruta = /databases/(default)/documents/Admins/$(request.auth.uid);
+      return firestore.exists(ruta) && activo(firestore.get(ruta).data);
+    }
+
+    function esCertificadorOSoporte() {
+      let ruta = /databases/(default)/documents/Usuarios/$(request.auth.uid);
+      return firestore.exists(ruta)
+        && firestore.get(ruta).data.get('typeUser', '') in ['Certificador', 'Soporte']
+        && activo(firestore.get(ruta).data);
+    }
+
+    function enListaDePersonal() {
+      let ruta = /databases/(default)/documents/Personal/$(request.auth.uid);
+      return firestore.exists(ruta) && firestore.get(ruta).data.get('activo', false) == true;
+    }
+
+    function esPersonal() {
+      return request.auth != null
+        && (esAdmin() || esCertificadorOSoporte() || enListaDePersonal());
+    }
+
+    // --- Datos sensibles: solo el personal ---
+    match /documents/{allPaths=**} {
+      allow read, write: if esPersonal();
+    }
+    match /paymentcommitment/{allPaths=**} {
+      allow read, write: if esPersonal();
+    }
+
+    // --- Imágenes que se muestran en la app y el panel ---
+    match /profileImages/{allPaths=**}    { allow read: if true; allow write: if esPersonal(); }
+    match /businessImages/{allPaths=**}   { allow read: if true; allow write: if esPersonal(); }
+    match /categoriesImages/{allPaths=**} { allow read: if true; allow write: if esPersonal(); }
+    match /service_images/{allPaths=**}   { allow read: if true; allow write: if esPersonal(); }
+    match /promotion_images/{allPaths=**} { allow read: if true; allow write: if esPersonal(); }
+    match /vehicles/{allPaths=**}         { allow read: if true; allow write: if esPersonal(); }
+    match /usuarios/{allPaths=**}         { allow read: if true; allow write: if esPersonal(); }
+    match /Solicitudes/{allPaths=**}      { allow read: if true; allow write: if esPersonal(); }
+    match /data/{allPaths=**}             { allow read: if true; allow write: if esPersonal(); }
 
   }
 }

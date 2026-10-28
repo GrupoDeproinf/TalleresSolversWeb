@@ -8,12 +8,8 @@ const authRoute: Routes = [
         component: lazy(() => import('@/views/auth/SignIn')),
         authority: [],
     },
-    {
-        key: 'signUp',
-        path: `/sign-up`,
-        component: lazy(() => import('@/views/auth/SignUp')),
-        authority: [],
-    },
+    // Sin registro en el panel: es solo para el personal de Solvers. Los
+    // talleres y conductores se registran en la app.
     {
         key: 'forgotPassword',
         path: `/forgot-password/`,
