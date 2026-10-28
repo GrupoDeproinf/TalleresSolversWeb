@@ -428,6 +428,19 @@ function CertificadorEstadosMultiValue(
     return <selectComponents.MultiValue {...props} />
 }
 
+/** Ejecuta `fn` sobre la lista de `tamano` en `tamano`, en orden. */
+async function enLotes<T, R>(
+    lista: T[],
+    tamano: number,
+    fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+    const salida: R[] = []
+    for (let i = 0; i < lista.length; i += tamano) {
+        salida.push(...(await Promise.all(lista.slice(i, i + tamano).map(fn))))
+    }
+    return salida
+}
+
 /** Documento de la subcolección Vehiculos (Usuarios/{uid}/Vehiculos). */
 type VehicleData = {
     id: string
@@ -586,8 +599,13 @@ const Users = () => {
                 }
             })
 
-            const enriched = await Promise.all(
-                base.map(async (u) => {
+            // Conteo de vehículos por usuario, de 10 en 10. Lanzar cientos de
+            // consultas a la vez saturaba la conexión ("Connection failed") y
+            // la columna de vehículos quedaba en 0.
+            const enriched = await enLotes(
+                base,
+                10,
+                async (u) => {
                     let vehiculosCount = 0
                     try {
                         const snap = await getCountFromServer(
@@ -599,7 +617,7 @@ const Users = () => {
                     }
                     const createdAtMs = normalizeUserCreatedAtMs(u.createdAt)
                     return { ...u, createdAtMs, vehiculosCount }
-                }),
+                },
             )
 
             setDataUsers(enriched)
@@ -878,8 +896,11 @@ const Users = () => {
             VehKm: '',
         }
 
-        const rowsNested = await Promise.all(
-            tableRows.map(async (row) => {
+        // De 10 en 10, igual que el conteo de vehículos (ver enLotes).
+        const rowsNested = await enLotes(
+            tableRows,
+            10,
+            async (row) => {
                 const p = row.original
                 const base = {
                     Nombre: p.nombre ?? '',
@@ -916,7 +937,7 @@ const Users = () => {
                     console.error('Error leyendo Vehiculos para export', p.id, err)
                     return [{ ...base, ...emptyVeh }]
                 }
-            }),
+            },
         )
         const rows = rowsNested.flat()
 
