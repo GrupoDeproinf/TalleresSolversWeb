@@ -565,24 +565,103 @@ export default function ProfileGarageTabs({
                                     </Button>
                                 ) : null}
                             </div>
-                            {Array.isArray(data?.categorias) &&
-                            data.categorias.length > 0 ? (
-                                <div className="flex flex-wrap gap-2">
-                                    {data.categorias.map(
-                                        (cat: any, idx: number) => (
-                                            <span
-                                                key={cat?.uid || idx}
-                                                className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
-                                            >
-                                                {cat?.nombre ||
-                                                    cat?.uid_categoria ||
-                                                    cat?.uid ||
-                                                    'Categoría'}
-                                            </span>
+                            {/* Servicios que el taller eligió en el registro de la
+                                app (especialidades). No se crean solos: el taller
+                                los completa con precio y foto desde la app. Aquí
+                                se marca cuáles ya creó y cuáles faltan. */}
+                            {(() => {
+                                const normal = (v: unknown) =>
+                                    String(v || '')
+                                        .normalize('NFD')
+                                        .replace(/[\u0300-\u036f]/g, '')
+                                        .toLowerCase()
+                                        .replace(/\s+/g, ' ')
+                                        .trim()
+                                const creados = new Set(
+                                    table
+                                        .getCoreRowModel()
+                                        .rows.map((r) =>
+                                            normal(
+                                                (r.original as { nombre_servicio?: string })
+                                                    ?.nombre_servicio,
+                                            ),
                                         ),
-                                    )}
+                                )
+                                const elegidos: { servicio: string; creado: boolean }[] = (
+                                    Array.isArray(data?.especialidades) ? data?.especialidades ?? [] : []
+                                )
+                                    .map((e: { servicio?: string }) => String(e?.servicio || '').trim())
+                                    .filter(Boolean)
+                                    .map((servicio: string) => ({
+                                        servicio,
+                                        creado: creados.has(normal(servicio)),
+                                    }))
+                                if (!elegidos.length) return null
+                                const faltan = elegidos.filter((e) => !e.creado).length
+                                return (
+                                    <div className="mb-4">
+                                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                            Elegidos en el registro
+                                            {faltan > 0 ? (
+                                                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 normal-case tracking-normal text-amber-800">
+                                                    {faltan} por completar
+                                                </span>
+                                            ) : null}
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {elegidos.map((e, idx) => (
+                                                <span
+                                                    key={`${e.servicio}-${idx}`}
+                                                    title={
+                                                        e.creado
+                                                            ? 'Ya creado como servicio'
+                                                            : 'Falta que el taller le ponga precio y foto en la app'
+                                                    }
+                                                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium ${
+                                                        e.creado
+                                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                                                            : 'border-amber-200 bg-amber-50 text-amber-900'
+                                                    }`}
+                                                >
+                                                    {e.creado ? '✓ ' : ''}
+                                                    {e.servicio}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        {faltan > 0 ? (
+                                            <p className="mt-2 text-xs text-gray-500">
+                                                Los que están en amarillo aún no son servicios
+                                                publicados: el taller los completa desde la app
+                                                (precio, descripción y foto).
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                )
+                            })()}
+                            {Array.isArray(data?.categorias) &&
+                            (data?.categorias?.length ?? 0) > 0 ? (
+                                <div>
+                                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        Categorías
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(data?.categorias ?? []).map(
+                                            (cat: any, idx: number) => (
+                                                <span
+                                                    key={cat?.uid || idx}
+                                                    className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700"
+                                                >
+                                                    {cat?.nombre ||
+                                                        cat?.uid_categoria ||
+                                                        cat?.uid ||
+                                                        'Categoría'}
+                                                </span>
+                                            ),
+                                        )}
+                                    </div>
                                 </div>
-                            ) : (
+                            ) : Array.isArray(data?.especialidades) &&
+                              (data?.especialidades?.length ?? 0) > 0 ? null : (
                                 <p className="text-sm text-gray-400">
                                     Sin servicios seleccionados
                                 </p>
