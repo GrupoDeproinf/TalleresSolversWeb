@@ -1,1 +1,0 @@
-import{j as t,o as e}from"./index-fcoWJlL5.js";import{N as r}from"./vendor-react-MwC4dbdt.js";import"./vendor-firebase-L-1iie5S.js";const o=()=>t.jsx(r,{replace:!0,to:`${e}/requestList?tab=services`}),c=o;export{c as default};
