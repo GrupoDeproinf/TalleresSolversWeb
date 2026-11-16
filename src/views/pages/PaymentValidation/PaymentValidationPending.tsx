@@ -40,6 +40,7 @@ import type { MouseEvent } from 'react'
 import { Checkbox, Dialog, Drawer, Switcher } from '@/components/ui'
 import { exportStyledExcel } from '@/utils/excelExport'
 import axios from 'axios'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 export type Subscriptions = {
     nombre?: string
@@ -528,8 +529,8 @@ const PaymentValidationPending = ({
         setSubscriptionToDelete(null)
     }
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('PaymentValidation/PaymentValidationPending:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('PaymentValidation/PaymentValidationPending:filas', 10)
 
     const onPaginationChange = (page: number) => {
         setCurrentPage(page)

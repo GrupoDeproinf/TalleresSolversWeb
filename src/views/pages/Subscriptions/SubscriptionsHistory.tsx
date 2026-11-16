@@ -32,6 +32,7 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import { Dialog, Drawer } from '@/components/ui'
 import { exportStyledExcel } from '@/utils/excelExport'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Subscriptions = {
     nombre?: string
@@ -345,8 +346,8 @@ const SubscriptionsHistory = ({
         setSelectedPerson(null)
     }
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('Subscriptions/SubscriptionsHistory:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Subscriptions/SubscriptionsHistory:filas', 10)
 
     const onPaginationChange = (page: number) => {
         setCurrentPage(page)

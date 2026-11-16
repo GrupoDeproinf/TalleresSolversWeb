@@ -36,6 +36,7 @@ import { Drawer } from '@/components/ui'
 import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type ServiceTemplate = {
     nombre_servicio?: string
@@ -488,8 +489,8 @@ const Services = () => {
 
     // console.log('Datos de servicios antes de renderizar:', dataServicesTemplate) // Verifica el estado de los datos
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('Services/Services:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Services/Services:filas', 10)
 
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando

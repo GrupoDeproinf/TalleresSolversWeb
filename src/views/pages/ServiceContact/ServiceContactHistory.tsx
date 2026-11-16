@@ -29,6 +29,7 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import { exportStyledExcel } from '@/utils/excelExport'
 import { HiOutlineX } from 'react-icons/hi'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type ServicesContact = {
     nombre_servicio?: string
@@ -344,8 +345,8 @@ const Services = ({
 
     // console.log('Datos de servicios antes de renderizar:', dataServicesContact) // Verifica el estado de los datos
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('ServiceContact/ServiceContactHistory:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('ServiceContact/ServiceContactHistory:filas', 10)
 
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando

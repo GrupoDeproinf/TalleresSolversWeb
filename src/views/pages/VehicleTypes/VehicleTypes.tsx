@@ -32,6 +32,7 @@ import { Drawer } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch, HiOutlinePlus } from 'react-icons/hi'
 import { ErrorMessage, Field, Form, Formik } from 'formik'
 import * as Yup from 'yup'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type TipoVehiculo = {
     id: string
@@ -241,8 +242,8 @@ const VehicleTypes = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('VehicleTypes/VehicleTypes:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('VehicleTypes/VehicleTypes:filas', 10)
     const rows = table.getRowModel().rows
     const totalRows = rows.length
     const startIndex = (currentPage - 1) * rowsPerPage

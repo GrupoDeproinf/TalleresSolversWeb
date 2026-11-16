@@ -85,6 +85,7 @@ import {
     getPrefixedDocumentNumber,
     getPrefixedDocumentPrefix,
 } from '@/utils/prefixedDocumentId'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -425,15 +426,19 @@ const Garages = () => {
         null,
     )
     const [dataGarages, setDataGarages] = useState<Garage[]>([])
-    const [sorting, setSorting] = useState<ColumnSort[]>([
+    const [sorting, setSorting] = useEstadoRecordado<ColumnSort[]>('Garages:orden', [
         { id: 'createdAt', desc: true } // Ordenar por fecha de creación descendente (más recientes primero)
     ])
     const [dialogIsOpen, setIsOpen] = useState(false)
-    const [searchTerm, setSearchTerm] = useState('')
+    const [searchTerm, setSearchTerm] = useEstadoRecordado('Garages:busqueda', '')
     // '' = Todos, 'Aprobado', 'En espera por aprobación', 'Vencidos'.
     // Admite llegar ya filtrado con ?estado=... (alertas del resumen diario).
-    const [statusFilter, setStatusFilter] = useState<string>(() => {
-        const estado = new URLSearchParams(window.location.search).get('estado') || ''
+    const estadoEnUrl = new URLSearchParams(window.location.search).get('estado') || ''
+    const [statusFilter, setStatusFilter] = useEstadoRecordado<string>(
+        // Si llega con ?estado=... (alertas del resumen) manda la URL.
+        estadoEnUrl ? `Garages:estado:${estadoEnUrl}` : 'Garages:estado',
+        () => {
+        const estado = estadoEnUrl
         return ['Aprobado', 'En espera por aprobación', 'Vencidos'].includes(estado)
             ? estado
             : ''
@@ -443,10 +448,10 @@ const Garages = () => {
     const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
     const [exportDialogIsOpen, setExportDialogIsOpen] = useState(false) // Estado para el modal de exportación
     const [showEliminados, setShowEliminados] = useState(false) // Estado para mostrar/ocultar talleres eliminados
-    const [filterCiudad, setFilterCiudad] = useState('')
-    const [filterPlanActividad, setFilterPlanActividad] = useState<
+    const [filterCiudad, setFilterCiudad] = useEstadoRecordado('Garages:ciudad', '')
+    const [filterPlanActividad, setFilterPlanActividad] = useEstadoRecordado<
         '' | 'activo' | 'suspendido'
-    >('')
+    >('Garages:plan', '')
     const [deleteMotivo, setDeleteMotivo] = useState('')
     const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
     const [bulkDeleteMotivo, setBulkDeleteMotivo] = useState('')
@@ -1562,8 +1567,8 @@ const Garages = () => {
         }
     }
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('Garages/Garages:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Garages/Garages:filas', 10)
 
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
@@ -1578,7 +1583,14 @@ const Garages = () => {
         setCurrentPage(1)
     }
 
+    // Al abrir la lista no se vuelve a la página 1 (se conserva la recordada);
+    // solo cuando el usuario cambia un filtro.
+    const filtrosIniciales = useRef(true)
     useEffect(() => {
+        if (filtrosIniciales.current) {
+            filtrosIniciales.current = false
+            return
+        }
         setCurrentPage(1)
     }, [filterCiudad, filterPlanActividad])
 

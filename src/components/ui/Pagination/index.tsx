@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 
 const DEFAULT_ROWS_PER_PAGE_OPTIONS = [10, 20, 30, 40, 50];
@@ -21,6 +21,12 @@ const Pagination: React.FC<PaginationProps> = ({
     onRowsPerPageChange,
 }) => {
     const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+    // Si la página recordada ya no existe (por ejemplo, el negocio aprobado
+    // salió de la lista), se pasa a la última que sí tiene filas.
+    useEffect(() => {
+        if (totalPages > 0 && currentPage > totalPages) onChange(totalPages);
+    }, [totalPages, currentPage]); // eslint-disable-line react-hooks/exhaustive-deps
     const maxVisiblePages = 20; // Número máximo de páginas visibles
 
     const handlePageChange = (page: number) => {
