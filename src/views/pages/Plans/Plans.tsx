@@ -35,6 +35,7 @@ import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { sortPlansByDisplayOrder } from '@/utils/sortPlansByDisplayOrder'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Plans = {
     nombre?: string
@@ -470,8 +471,8 @@ const Plans = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('Plans/Plans:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Plans/Plans:filas', 10)
 
     const [showPassword, setShowPassword] = useState(false)
     // Suponiendo que tienes un array de datos

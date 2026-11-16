@@ -48,6 +48,7 @@ import {
     type EstatusPago,
     type TasaBcv,
 } from '@/utils/pagos'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 const API = 'https://apisolvers.solversapp.com/api'
 
@@ -130,8 +131,8 @@ const Pagos = () => {
     const [busqueda, setBusqueda] = useState('')
     const [desde, setDesde] = useState('')
     const [hasta, setHasta] = useState('')
-    const [pagina, setPagina] = useState(1)
-    const [porPagina, setPorPagina] = useState(10)
+    const [pagina, setPagina] = useEstadoRecordado('Subscriptions/Pagos:pagina', 1)
+    const [porPagina, setPorPagina] = useEstadoRecordado('Subscriptions/Pagos:filas', 10)
     const [detalle, setDetalle] = useState<Fila | null>(null)
     const [tasaPago, setTasaPago] = useState('')
     const [aEliminar, setAEliminar] = useState<Fila | null>(null)

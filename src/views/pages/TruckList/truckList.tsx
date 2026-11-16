@@ -30,6 +30,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
 import * as XLSX from 'xlsx'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Grua = {
     id: string
@@ -50,8 +51,8 @@ const RequestList = () => {
     const [statusFilter, setStatusFilter] = useState<string>('todos')
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('TruckList/truckList:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('TruckList/truckList:filas', 10)
     const [selectedGrua, setSelectedGrua] = useState<Grua | null>(null)
     const [modalIsOpen, setModalIsOpen] = useState(false)
 

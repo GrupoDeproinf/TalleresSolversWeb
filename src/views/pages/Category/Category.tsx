@@ -53,6 +53,7 @@ import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Category = {
     nombre?: string
@@ -750,8 +751,8 @@ const Users = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('Category/Category:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Category/Category:filas', 10)
 
     const [showPassword, setShowPassword] = useState(false)
     // Suponiendo que tienes un array de datos

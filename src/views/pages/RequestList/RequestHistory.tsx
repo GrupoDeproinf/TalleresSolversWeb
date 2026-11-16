@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import Pagination from '@/components/ui/Pagination'
 import Table from '@/components/ui/Table'
 import Button from '@/components/ui/Button'
@@ -35,6 +35,7 @@ import dayjs from 'dayjs'
 import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 import Tooltip from '@/components/ui/Tooltip'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Vehiculo = {
     KM?: number
@@ -490,8 +491,8 @@ const RequestList = ({
     const [sorting, setSorting] = useState<ColumnSort[]>([
         { id: 'fecha_solicitud', desc: true },
     ])
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('RequestList/RequestHistory:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('RequestList/RequestHistory:filas', 10)
     const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
     const [modalIsOpen, setModalIsOpen] = useState(false)
     const [imagePopupOpen, setImagePopupOpen] = useState(false)
@@ -1159,7 +1160,14 @@ const RequestList = ({
         Boolean(creationDateRange[0]) ||
         Boolean(creationDateRange[1])
 
+    // Al abrir la lista no se vuelve a la página 1 (se conserva la recordada);
+    // solo cuando el usuario cambia un filtro.
+    const filtrosIniciales = useRef(true)
     useEffect(() => {
+        if (filtrosIniciales.current) {
+            filtrosIniciales.current = false
+            return
+        }
         setCurrentPage(1)
     }, [filterCiudad, filterCategoriaId, urgenciaFilter, creationDateRange])
 

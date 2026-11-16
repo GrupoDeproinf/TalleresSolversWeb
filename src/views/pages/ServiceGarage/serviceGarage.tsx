@@ -52,6 +52,7 @@ import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
 import { useAppSelector } from '@/store'
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/configs/firebaseAssets.config';
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Garage = {
     nombre?: string
@@ -615,8 +616,8 @@ const ServiceGarages = () => {
     // console.log('Datos de servicios antes de renderizar:', dataServicesTemplate) // Verifica el estado de los datos
 
     // Paginación tabla Servicios Template
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('ServiceGarage/serviceGarage:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('ServiceGarage/serviceGarage:filas', 10)
 
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando

@@ -75,6 +75,7 @@ import {
     getPrefixedDocumentNumber,
     getPrefixedDocumentPrefix,
 } from '@/utils/prefixedDocumentId'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Person = {
     nombre?: string
@@ -1496,8 +1497,8 @@ const Users = () => {
         }
     }
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('Users/Users:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Users/Users:filas', 10)
 
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -1513,7 +1514,14 @@ const Users = () => {
         setCurrentPage(1)
     }
 
+    // Al abrir la lista no se vuelve a la página 1 (se conserva la recordada);
+    // solo cuando el usuario cambia un filtro.
+    const filtrosIniciales = useRef(true)
     useEffect(() => {
+        if (filtrosIniciales.current) {
+            filtrosIniciales.current = false
+            return
+        }
         setCurrentPage(1)
     }, [filterCiudad, filterTypeUser, creationDateRange])
 

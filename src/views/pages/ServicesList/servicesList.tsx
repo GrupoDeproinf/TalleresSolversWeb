@@ -51,6 +51,7 @@ import { useAppSelector } from '@/store'
 import { backfillServiceRatings } from '@/utils/serviceRatings'
 import { clearViewCache } from '@/utils/viewDataCache'
 import { ADMIN } from '@/constants/roles.constant'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Service = {
     nombre_servicio?: string
@@ -201,8 +202,8 @@ const ServicesList = () => {
     const [categoryFilter, setCategoryFilter] = useState<string>('todos')
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('ServicesList/servicesList:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('ServicesList/servicesList:filas', 10)
     const [selectedService, setSelectedService] = useState<Service | null>(null)
     const [modalIsOpen, setModalIsOpen] = useState(false)
     const [reviewsModalIsOpen, setReviewsModalIsOpen] = useState(false)

@@ -28,6 +28,7 @@ import Notification from '@/components/ui/Notification'
 import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { exportStyledExcel } from '@/utils/excelExport'
 import { FaRegStar, FaStar } from 'react-icons/fa'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
 type Calificacion = {
     nombre_taller?: string
@@ -273,8 +274,8 @@ const Puntuacion = () => {
 
     // console.log('Datos de servicios antes de renderizar:', dataPuntuacion) // Verifica el estado de los datos
 
-    const [currentPage, setCurrentPage] = useState(1)
-    const [rowsPerPage, setRowsPerPage] = useState(10)
+    const [currentPage, setCurrentPage] = useEstadoRecordado('Puntuacion/Puntuacion:pagina', 1)
+    const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Puntuacion/Puntuacion:filas', 10)
 
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
