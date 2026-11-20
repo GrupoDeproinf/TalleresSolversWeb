@@ -269,13 +269,21 @@ async function recomputeServiceRating(servicioId: string): Promise<{
 
   const promedio = count > 0 ? sum / count : 0
 
-  await serviceRef.set(
-    {
+  // update() y no set(merge): si el servicio ya se borró (por ejemplo al
+  // eliminar un taller con sus calificaciones), no se vuelve a crear un
+  // servicio vacío sin dueño.
+  try {
+    await serviceRef.update({
       puntuacion_promedio: promedio,
       reviews_count: count,
-    },
-    {merge: true},
-  )
+    })
+  } catch (error: unknown) {
+    const code = (error as {code?: unknown})?.code
+    if (code === 5 || code === "5" || code === "not-found") {
+      return {promedio, count}
+    }
+    throw error
+  }
 
   return {promedio, count}
 }
