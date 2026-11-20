@@ -320,6 +320,8 @@ const isSubscriptionPaid = (data: Record<string, unknown>) => {
     )
 }
 
+const PLANES_DEL_PANEL = ['GRATIS', 'Plan Bronce', 'Plan Plata', 'Plan Oro'] as const
+
 // Calcula las cifras a partir de las dos colecciones ya descargadas.
 const buildDashboardData = (
     usersSnapshot: QuerySnapshot<DocumentData>,
@@ -484,7 +486,38 @@ const buildDashboardData = (
         }
     })
 
+    // Suscripciones actuales: un negocio = una suscripción, según su plan de
+    // hoy (subscripcion_actual). Es la misma regla de la tabla Planes, para que
+    // las dos pantallas den las mismas cifras. El historial de Subscripciones
+    // (renovaciones del plan gratis, pagos viejos) solo se usa para el dinero.
+    const planKey = (nombre?: unknown) =>
+        String(nombre || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase()
+    const nombrePorClave: Record<string, string> = {}
+    PLANES_DEL_PANEL.forEach((plan) => {
+        nombrePorClave[planKey(plan)] = plan
+    })
+    let suscripcionesActualesCount = 0
+    const suscripcionesActualesPorPlan: Record<string, number> = {}
+    usersSnapshot.forEach((doc) => {
+        const data = doc.data() as Record<string, unknown>
+        if (data.typeUser !== 'Taller' || data.status === 'Eliminado') return
+        const actual = data.subscripcion_actual as { nombre?: unknown } | undefined
+        // Solo los cuatro planes del panel, así el total es igual a la suma
+        // de las barras y a la tabla Planes.
+        const plan = nombrePorClave[planKey(actual?.nombre)]
+        if (!plan) return
+        suscripcionesActualesPorPlan[plan] =
+            (suscripcionesActualesPorPlan[plan] || 0) + 1
+        suscripcionesActualesCount += 1
+    })
+
     return {
+        suscripcionesActualesCount,
+        suscripcionesActualesPorPlan,
         clientesCount,
         tallerCount,
         talleresStats,
@@ -552,6 +585,8 @@ const SalesDashboard = () => {
         totalMonto: 0,
         subscripcionesPagasCount: 0,
         subscripcionesPorPlan: {} as Record<string, number>,
+        suscripcionesActualesCount: 0,
+        suscripcionesActualesPorPlan: {} as Record<string, number>,
         subscripcionesPagasPorPlan: {} as Record<string, number>,
         usuariosPorEstado: {} as Record<string, number>,
         talleresPorEstado: {} as Record<string, number>,
@@ -622,11 +657,8 @@ const SalesDashboard = () => {
         }
     }, [])
 
-    useEffect(() => {
-        if (isDashboardDataReady) {
-            setIsResumenCriticoPopupOpen(true)
-        }
-    }, [isDashboardDataReady])
+    // El «Resumen diario» ya no se abre solo al entrar (lo pidió Solvers el
+    // 20 nov 2026): las mismas cifras están en la tarjeta de la cabecera.
 
     const [dataPuntuacion, setDataPuntuacion] = useState<
         {
@@ -1089,10 +1121,10 @@ const columns: ColumnDef<{
     const {
         clientesCount,
         talleresStats,
-        subscripcionesCount,
         totalMonto,
         subscripcionesPagasCount,
-        subscripcionesPorPlan,
+        suscripcionesActualesCount,
+        suscripcionesActualesPorPlan,
         usuariosPorEstado,
         talleresActividadPorCiudad,
         talleresMetaByUid,
@@ -1467,10 +1499,9 @@ const columns: ColumnDef<{
     const totalTalleres =
         talleresStats.aprobados + talleresStats.rechazados + talleresStats.espera
 
-    const PLANES_FIJOS = ['GRATIS', 'Plan Bronce', 'Plan Plata', 'Plan Oro'] as const
-    const planesFijosConConteo = PLANES_FIJOS.map((plan) => [
+    const planesFijosConConteo = PLANES_DEL_PANEL.map((plan) => [
         plan,
-        subscripcionesPorPlan[plan] || 0,
+        suscripcionesActualesPorPlan[plan] || 0,
     ] as const)
     const maxPlanCount =
         Math.max(...planesFijosConConteo.map(([, count]) => count), 0) || 1
@@ -1970,7 +2001,7 @@ const columns: ColumnDef<{
                                                     Subscripciones
                                                 </p>
                                                 <p className="text-4xl font-extrabold tabular-nums mt-1 leading-none text-[#151D61]">
-                                                    {subscripcionesCount}
+                                                    {suscripcionesActualesCount}
                                                 </p>
                                             </div>
                                         </div>
