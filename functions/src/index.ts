@@ -3,8 +3,9 @@
  * Funcion para envio de correos al aprobar/rechazar negocios.
  */
 
-import {onCall, HttpsError} from "firebase-functions/v2/https"
+import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https"
 import {onDocumentWritten} from "firebase-functions/v2/firestore"
+import {defineSecret} from "firebase-functions/params"
 import * as logger from "firebase-functions/logger"
 import {initializeApp} from "firebase-admin/app"
 import {getAuth} from "firebase-admin/auth"
@@ -19,14 +20,98 @@ try {
 
 type WorkshopDecision = "Aprobado" | "Rechazado"
 
-// Configuracion del transportador de correo
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: "solverstalleres@gmail.com",
-    pass: "dxsr rchx hjnf ucfn",
-  },
-})
+// Configuracion del transportador de correo.
+// La contrasena de aplicacion de Gmail vive en Secret Manager (nunca en el
+// codigo: este repositorio es publico). Se carga con:
+//   firebase functions:secrets:set GMAIL_APP_PASSWORD
+const GMAIL_USER = "solverstalleres@gmail.com"
+const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD")
+
+let transporter: nodemailer.Transporter | null = null
+const getTransporter = () => {
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: GMAIL_USER,
+        pass: GMAIL_APP_PASSWORD.value(),
+      },
+    })
+  }
+  return transporter
+}
+
+/* ------------------------------------------------------------------ *
+ * Solo personal de Solvers
+ *
+ * Las funciones que llama el panel (borrar cuentas, enviar correos de
+ * decision, reconstruir indices) antes solo pedian "tener sesion", y
+ * cualquier conductor o taller de la app tiene sesion de Firebase.
+ * Ahora se exige ser personal, con el mismo criterio que firestore.rules
+ * (esPersonal): Admins/{uid}, Usuarios/{uid} con typeUser Certificador o
+ * Soporte, o Personal/{uid} activo.
+ * ------------------------------------------------------------------ */
+
+const estaActivo = (datos: Record<string, unknown> | undefined) =>
+  !!datos && datos.status !== "Eliminado"
+
+type RolPersonal = "Admin" | "Certificador" | "Soporte" | "Personal"
+
+/**
+ * Devuelve el rol de personal del uid, o null si no es personal.
+ * @param {string} uid Usuario de Firebase Auth.
+ * @return {Promise<RolPersonal | null>} Rol de personal o null.
+ */
+async function rolDePersonal(uid: string): Promise<RolPersonal | null> {
+  const db = getFirestore()
+  const [admin, usuario, personal] = await Promise.all([
+    db.collection("Admins").doc(uid).get(),
+    db.collection("Usuarios").doc(uid).get(),
+    db.collection("Personal").doc(uid).get(),
+  ])
+
+  if (admin.exists && estaActivo(admin.data())) return "Admin"
+
+  const datosUsuario = usuario.data()
+  const tipo = datosUsuario?.typeUser
+  if (
+    usuario.exists &&
+    (tipo === "Certificador" || tipo === "Soporte") &&
+    estaActivo(datosUsuario)
+  ) {
+    return tipo
+  }
+
+  if (personal.exists && personal.data()?.activo === true) return "Personal"
+
+  return null
+}
+
+/**
+ * Corta la llamada si no viene de personal de Solvers.
+ * @param {CallableRequest} request Llamada recibida.
+ * @return {Promise<{uid: string, rol: RolPersonal}>} Quien llama y su rol.
+ */
+async function exigirPersonal(
+  request: CallableRequest,
+): Promise<{uid: string; rol: RolPersonal}> {
+  const uid = request.auth?.uid
+  if (!uid) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Debe iniciar sesión para ejecutar esta acción.",
+    )
+  }
+  const rol = await rolDePersonal(uid)
+  if (!rol) {
+    logger.warn("Llamada rechazada: no es personal de Solvers", {uid})
+    throw new HttpsError(
+      "permission-denied",
+      "Solo el personal de Solvers puede ejecutar esta acción.",
+    )
+  }
+  return {uid, rol}
+}
 
 const SOLVERS_LOGO_URL = "https://talleres-solvers-app.web.app/img/logo/logo-light-streamline.png"
 const SOLVERS_PRIMARY = "#000B7E"
@@ -41,13 +126,13 @@ const sendEmail = async (to: string, subject: string, html: string) => {
     }
 
     const mailOptions = {
-      from: "solverstalleres@gmail.com",
+      from: GMAIL_USER,
       to,
       subject,
       html,
     }
 
-    const info = await transporter.sendMail(mailOptions)
+    const info = await getTransporter().sendMail(mailOptions)
     logger.info("Correo enviado correctamente", info.messageId)
     return {success: true, messageId: info.messageId}
   } catch (error: unknown) {
@@ -119,81 +204,80 @@ const getEmailTemplate = (
 }
 
 // Firebase Function callable para enviar correo por decision del negocio
-export const sendWorkshopDecisionEmail = onCall(async (request) => {
-  try {
-    const {to, workshopName, decision, reason} = request.data ?? {}
+export const sendWorkshopDecisionEmail = onCall(
+  {secrets: [GMAIL_APP_PASSWORD]},
+  async (request) => {
+    await exigirPersonal(request)
+    try {
+      const {to, workshopName, decision, reason} = request.data ?? {}
 
-    logger.info("Datos recibidos en sendWorkshopDecisionEmail", {
-      to,
-      workshopName,
-      decision,
-    })
+      logger.info("Datos recibidos en sendWorkshopDecisionEmail", {
+        to,
+        workshopName,
+        decision,
+      })
 
-    if (!to || !workshopName || !decision) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Faltan campos requeridos: to, workshopName, decision",
-      )
-    }
-
-    if (decision !== "Aprobado" && decision !== "Rechazado") {
-      throw new HttpsError(
-        "invalid-argument",
-        "Decision invalida. Debe ser 'Aprobado' o 'Rechazado'",
-      )
-    }
-
-    const safeDecision = decision as WorkshopDecision
-    const safeReason = String(reason || "").trim()
-
-    if (safeDecision === "Rechazado" && !safeReason) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Para rechazo, el motivo es obligatorio",
-      )
-    }
-
-    const template = getEmailTemplate(
-      safeDecision,
-      String(workshopName),
-      safeReason,
-    )
-
-    const emailResult = await sendEmail(String(to), template.subject, template.html)
-
-    if (emailResult.success) {
-      logger.info("Correo de decision enviado correctamente")
-      return {
-        success: true,
-        message: "Correo enviado correctamente",
-        decision: safeDecision,
-        messageId: emailResult.messageId,
+      if (!to || !workshopName || !decision) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Faltan campos requeridos: to, workshopName, decision",
+        )
       }
-    }
 
-    logger.error("Error al enviar correo de decision", emailResult.error)
-    return {
-      success: false,
-      error: "Error al enviar correo de decision",
-      details: emailResult.error,
+      if (decision !== "Aprobado" && decision !== "Rechazado") {
+        throw new HttpsError(
+          "invalid-argument",
+          "Decision invalida. Debe ser 'Aprobado' o 'Rechazado'",
+        )
+      }
+
+      const safeDecision = decision as WorkshopDecision
+      const safeReason = String(reason || "").trim()
+
+      if (safeDecision === "Rechazado" && !safeReason) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Para rechazo, el motivo es obligatorio",
+        )
+      }
+
+      const template = getEmailTemplate(
+        safeDecision,
+        String(workshopName),
+        safeReason,
+      )
+
+      const emailResult = await sendEmail(String(to), template.subject, template.html)
+
+      if (emailResult.success) {
+        logger.info("Correo de decision enviado correctamente")
+        return {
+          success: true,
+          message: "Correo enviado correctamente",
+          decision: safeDecision,
+          messageId: emailResult.messageId,
+        }
+      }
+
+      logger.error("Error al enviar correo de decision", emailResult.error)
+      return {
+        success: false,
+        error: "Error al enviar correo de decision",
+        details: emailResult.error,
+      }
+    } catch (error) {
+      logger.error("Error en sendWorkshopDecisionEmail", error)
+      if (error instanceof HttpsError) {
+        throw error
+      }
+      throw new HttpsError("internal", "Error interno del servidor")
     }
-  } catch (error) {
-    logger.error("Error en sendWorkshopDecisionEmail", error)
-    if (error instanceof HttpsError) {
-      throw error
-    }
-    throw new HttpsError("internal", "Error interno del servidor")
-  }
-})
+  },
+)
 
 /** Elimina cuentas de Firebase Auth (uids). */
 export const deleteAuthUsers = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Debe iniciar sesión para eliminar usuarios.",
-    )
-  }
+  const llamante = await exigirPersonal(request)
 
   const {uids} = request.data ?? {}
   if (!Array.isArray(uids) || uids.length === 0) {
@@ -209,6 +293,25 @@ export const deleteAuthUsers = onCall(async (request) => {
   for (const rawUid of uids) {
     const uid = String(rawUid ?? "").trim()
     if (!uid) continue
+
+    // Nadie borra su propia cuenta desde aqui, y solo un Admin puede
+    // borrar la cuenta de otra persona del personal.
+    if (uid === llamante.uid) {
+      results.push({uid, success: false, error: "No puede eliminar su propia cuenta."})
+      continue
+    }
+    if (llamante.rol !== "Admin" && (await rolDePersonal(uid))) {
+      logger.warn("Intento de borrar personal sin ser Admin", {
+        llamante: llamante.uid,
+        uid,
+      })
+      results.push({
+        uid,
+        success: false,
+        error: "Solo un administrador puede eliminar cuentas del personal.",
+      })
+      continue
+    }
 
     try {
       await auth.deleteUser(uid)
@@ -315,12 +418,7 @@ export const onCalificacionWritten = onDocumentWritten(
  * Se ejecuta una sola vez para rellenar los datos existentes.
  */
 export const backfillServiceRatings = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Debe iniciar sesión para ejecutar esta acción.",
-    )
-  }
+  await exigirPersonal(request)
 
   const db = getFirestore()
   const servicios = await db.collection("Servicios").get()
@@ -469,12 +567,7 @@ export const onUsuarioWritten = onDocumentWritten(
  * disparador lo mantiene al dia.
  */
 export const backfillTalleresIndex = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError(
-      "unauthenticated",
-      "Debe iniciar sesión para ejecutar esta acción.",
-    )
-  }
+  await exigirPersonal(request)
 
   const db = getFirestore()
   const snapshot = await db
