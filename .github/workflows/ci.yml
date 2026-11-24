@@ -66,8 +66,12 @@ jobs:
           distribution: temurin
           java-version: 21
       - name: Prueba en emuladores
-        working-directory: reglas-pruebas
+        # Se copia fuera del proyecto: reglas-pruebas no tiene package.json y,
+        # si no, npm usaría el del panel (otra versión de firebase).
         run: |
-          npm i --no-save --no-audit --no-fund @firebase/rules-unit-testing firebase
-          cp ../firestore.rules ../storage.rules .
+          cp -R reglas-pruebas "$RUNNER_TEMP/reglas"
+          cp firestore.rules storage.rules "$RUNNER_TEMP/reglas/"
+          cd "$RUNNER_TEMP/reglas"
+          npm init -y >/dev/null
+          npm i --no-audit --no-fund @firebase/rules-unit-testing firebase
           npx -y firebase-tools@14 emulators:exec --only firestore,storage --project demo-solvers "node probar.mjs ."
