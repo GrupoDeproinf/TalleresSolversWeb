@@ -1,0 +1,73 @@
+# Comprobaciones automáticas del panel en cada push y pull request.
+# Las pruebas usan los emuladores de Firebase: nunca tocan la base real.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  panel:
+    name: Panel (compila)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Compilar
+        run: npx vite build
+      - name: Tipos (informativo; hay errores heredados de la plantilla)
+        run: npx tsc --noEmit -p . || echo "::warning::tsc encontró errores de tipos (heredados); no bloquea todavía"
+
+  funciones:
+    name: Cloud Functions (solo personal)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - working-directory: functions
+        run: npm ci --no-audit --no-fund && npm run build
+      - name: Lint
+        working-directory: functions
+        run: npx eslint src/index.ts || echo "::warning::lint con avisos heredados"
+      - name: Prueba en emuladores
+        working-directory: functions/pruebas
+        run: |
+          printf 'GMAIL_APP_PASSWORD=falso-solo-emulador\n' > ../.secret.local
+          npx -y firebase-tools@14 emulators:exec --only auth,firestore,functions --project demo-solvers "node probar-solo-personal.mjs"
+
+  reglas:
+    name: Reglas de Firestore y Storage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Prueba en emuladores
+        working-directory: reglas-pruebas
+        run: |
+          npm i --no-save --no-audit --no-fund @firebase/rules-unit-testing firebase
+          cp ../firestore.rules ../storage.rules .
+          npx -y firebase-tools@14 emulators:exec --only firestore,storage --project demo-solvers "node probar.mjs ."
