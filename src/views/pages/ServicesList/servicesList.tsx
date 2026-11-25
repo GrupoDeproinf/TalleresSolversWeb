@@ -52,6 +52,7 @@ import { backfillServiceRatings } from '@/utils/serviceRatings'
 import { clearViewCache } from '@/utils/viewDataCache'
 import { ADMIN } from '@/constants/roles.constant'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
+import { cargarTalleresActivos, esDeTallerActivo } from '@/utils/talleresActivos'
 
 type Service = {
     nombre_servicio?: string
@@ -245,7 +246,16 @@ const ServicesList = () => {
                       )
                     : query(collection(db, 'Servicios'))
 
-            const servicesSnapshot = await getDocs(servicesQuery)
+            const [servicesSnapshotCompleto, activos] = await Promise.all([
+                getDocs(servicesQuery),
+                isTallerUser ? Promise.resolve(null) : cargarTalleresActivos(),
+            ])
+            // Fuera los servicios de negocios borrados o dados de baja.
+            const servicesSnapshot = {
+                docs: servicesSnapshotCompleto.docs.filter(
+                    (d) => !activos || esDeTallerActivo(d.data(), activos),
+                ),
+            }
 
             // 1) Mostrar los servicios de INMEDIATO, con calificaciones vacías.
             //    Antes se esperaba a leer las calificaciones de CADA servicio

@@ -29,6 +29,7 @@ import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { exportStyledExcel } from '@/utils/excelExport'
 import { FaRegStar, FaStar } from 'react-icons/fa'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
+import { cargarTalleresActivos, esDeTallerActivo } from '@/utils/talleresActivos'
 
 type Calificacion = {
     nombre_taller?: string
@@ -99,12 +100,17 @@ const Puntuacion = () => {
     const getAllData = async () => {
         try {
             // Obtén todos los servicios
-            const serviciosSnapshot = await getDocs(collection(db, 'Servicios'));
+            const [serviciosSnapshot, activos] = await Promise.all([
+                getDocs(collection(db, 'Servicios')),
+                cargarTalleresActivos(),
+            ]);
             const serviciosConCalificaciones: ServicioConCalificaciones[] = [];
     
             // Itera por cada servicio y carga las calificaciones
             await Promise.all(
-                serviciosSnapshot.docs.map(async (doc) => {
+                serviciosSnapshot.docs
+                    .filter((d) => esDeTallerActivo(d.data(), activos))
+                    .map(async (doc) => {
                     const servicioData = doc.data();
                     const uid_servicio = doc.id;
     

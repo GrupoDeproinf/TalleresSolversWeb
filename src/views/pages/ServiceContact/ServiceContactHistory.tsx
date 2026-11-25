@@ -30,6 +30,7 @@ import Notification from '@/components/ui/Notification'
 import { exportStyledExcel } from '@/utils/excelExport'
 import { HiOutlineX } from 'react-icons/hi'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
+import { cargarTalleresActivos, esDeTallerActivo } from '@/utils/talleresActivos'
 
 type ServicesContact = {
     nombre_servicio?: string
@@ -156,10 +157,13 @@ const Services = ({
         setCargando(true)
         setErrorCarga('')
         try {
-            const servicesSnapshot = await getDocs(
-                query(collection(db, 'servicesContact')),
-            )
-            const servicios = servicesSnapshot.docs.map(
+            const [servicesSnapshot, activos] = await Promise.all([
+                getDocs(query(collection(db, 'servicesContact'))),
+                cargarTalleresActivos(),
+            ])
+            const servicios = servicesSnapshot.docs
+                .filter((d) => esDeTallerActivo(d.data(), activos))
+                .map(
                 (serviceDoc) =>
                     ({
                         ...serviceDoc.data(),

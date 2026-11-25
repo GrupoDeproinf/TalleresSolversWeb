@@ -36,6 +36,7 @@ import DatePicker from '@/components/ui/DatePicker'
 import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePickerRange'
 import Tooltip from '@/components/ui/Tooltip'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
+import { cargarTalleresActivos, esDeTallerActivo } from '@/utils/talleresActivos'
 
 type Vehiculo = {
     KM?: number
@@ -507,11 +508,12 @@ const RequestList = ({
 
     const fetchData = async () => {
         try {
-            const [solicitudesSnap, propuestasSnap, categoriasSnap] =
+            const [solicitudesSnap, propuestasSnap, categoriasSnap, activos] =
                 await Promise.all([
                     getDocs(query(collection(db, 'Solicitudes'))),
                     getDocs(query(collection(db, 'Propuestas'))),
                     getDocs(query(collection(db, 'Categorias'))),
+                    cargarTalleresActivos(),
                 ])
             const catMap: Record<string, string> = {}
             categoriasSnap.forEach((d) => {
@@ -519,12 +521,19 @@ const RequestList = ({
                 catMap[d.id] =
                     (data.nombre && String(data.nombre).trim()) || d.id
             })
-            const solicitudes = solicitudesSnap.docs.map(
-                (docSnap) => ({ ...docSnap.data(), id: docSnap.id }) as Solicitud,
-            )
-            const propuestas = propuestasSnap.docs.map(
-                (docSnap) => ({ ...docSnap.data(), id: docSnap.id }) as Propuesta,
-            )
+            // Fuera lo de negocios borrados o dados de baja (depuración).
+            const solicitudes = solicitudesSnap.docs
+                .filter((d) => esDeTallerActivo(d.data(), activos))
+                .map(
+                    (docSnap) =>
+                        ({ ...docSnap.data(), id: docSnap.id }) as Solicitud,
+                )
+            const propuestas = propuestasSnap.docs
+                .filter((d) => esDeTallerActivo(d.data(), activos))
+                .map(
+                    (docSnap) =>
+                        ({ ...docSnap.data(), id: docSnap.id }) as Propuesta,
+                )
 
             const tallerUids = [
                 ...new Set(
@@ -771,8 +780,13 @@ const RequestList = ({
                 collection(db, 'Propuestas'),
                 where('uid_solicitud', '==', solicitudId),
             )
-            const snapshot = await getDocs(propuestasQuery)
-            const data = snapshot.docs.map(
+            const [snapshot, activos] = await Promise.all([
+                getDocs(propuestasQuery),
+                cargarTalleresActivos(),
+            ])
+            const data = snapshot.docs
+                .filter((d) => esDeTallerActivo(d.data(), activos))
+                .map(
                 (docSnap) => ({ ...docSnap.data(), id: docSnap.id }) as Propuesta,
             )
             setPropuestas(data)
