@@ -1,6 +1,6 @@
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs } from 'firebase/firestore'
 import { db } from '@/configs/firebaseAssets.config'
-import { isTallerUsuarioEliminado } from '@/utils/activeTallerSubscriptionGuards'
+import { collectActiveTallerDocIdsFromUsersSnapshot } from '@/utils/activeTallerSubscriptionGuards'
 
 /**
  * Negocios que se muestran en el panel: los talleres que existen en
@@ -10,19 +10,20 @@ import { isTallerUsuarioEliminado } from '@/utils/activeTallerSubscriptionGuards
  * nada.
  */
 export async function cargarTalleresActivos(): Promise<Set<string>> {
-    const snap = await getDocs(
-        query(collection(db, 'Usuarios'), where('typeUser', '==', 'Taller')),
-    )
-    const ids = new Set<string>()
-    snap.forEach((d) => {
-        if (!isTallerUsuarioEliminado(d.data().status)) ids.add(d.id)
-    })
-    return ids
+    // Se leen todos los Usuarios (como Inicio y Pagos) para normalizar
+    // typeUser igual que ellos ("Taller", "taller", con espacios...).
+    const snap = await getDocs(collection(db, 'Usuarios'))
+    return collectActiveTallerDocIdsFromUsersSnapshot(snap)
 }
 
 export function tallerDeRegistro(registro: unknown): string {
     const r = (registro ?? {}) as Record<string, unknown>
-    return String(r.uid_taller ?? r.taller_uid ?? '').trim()
+    // El primero que no esté vacío (uid_taller puede venir como "").
+    for (const v of [r.uid_taller, r.taller_uid]) {
+        const uid = String(v ?? '').trim()
+        if (uid) return uid
+    }
+    return ''
 }
 
 /** Sin negocio asociado (p. ej. una solicitud sin asignar) se muestra igual. */
