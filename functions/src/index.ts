@@ -10,7 +10,7 @@ import * as logger from "firebase-functions/logger"
 import {initializeApp} from "firebase-admin/app"
 import {getAuth} from "firebase-admin/auth"
 import {getFirestore} from "firebase-admin/firestore"
-import nodemailer from "nodemailer"
+import nodemailer, {type Transporter} from "nodemailer"
 
 try {
   initializeApp()
@@ -27,7 +27,7 @@ type WorkshopDecision = "Aprobado" | "Rechazado"
 const GMAIL_USER = "solverstalleres@gmail.com"
 const GMAIL_APP_PASSWORD = defineSecret("GMAIL_APP_PASSWORD")
 
-let transporter: nodemailer.Transporter | null = null
+let transporter: Transporter | null = null
 const getTransporter = () => {
   if (!transporter) {
     transporter = nodemailer.createTransport({
