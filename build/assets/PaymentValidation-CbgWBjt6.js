@@ -1,0 +1,1 @@
+import{j as t,A as a}from"./index-Czh5KnkU.js";import{N as o}from"./vendor-react-MflWRT5l.js";import"./vendor-firebase-y-MyOqID.js";const i=()=>t.jsx(o,{replace:!0,to:`${a}/subscriptions`});export{i as default};
