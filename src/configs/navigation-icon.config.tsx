@@ -85,7 +85,6 @@ const navigationIcon: NavigationIcons = {
     cars: <GarageIcon></GarageIcon>,
     tools: <ServicesTemplatesIcon />,
     category: <CategoryIcon />,
-    serviceGarage: <ServecesxGarage />,
     plans: <PlansIcon />,
     subscriptions: <CustomIcon></CustomIcon>,
     ServiceContact: <IoIosContacts ></IoIosContacts>,

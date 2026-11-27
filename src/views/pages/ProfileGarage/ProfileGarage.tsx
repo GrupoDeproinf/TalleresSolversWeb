@@ -40,11 +40,13 @@ import {
     FaUndo,
     FaArrowsAltH,
     FaArrowsAltV,
+    FaChevronLeft,
+    FaChevronRight,
 } from 'react-icons/fa'
 import { HiPencilAlt } from 'react-icons/hi'
 import { app, db, storage, auth } from '@/configs/firebaseAssets.config'
 import { onAuthStateChanged } from 'firebase/auth'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Tag from '@/components/ui/Tag'
 import { HiFire } from 'react-icons/hi'
 import Table from '@/components/ui/Table'
@@ -68,7 +70,6 @@ import { MdOutlinePhoneAndroid } from 'react-icons/md'
 import Checkbox from '@/components/ui/Checkbox'
 import { SiZelle } from 'react-icons/si'
 import PaymentDrawer from './Components/PaymentForm'
-import { BsWhatsapp } from 'react-icons/bs'
 import { useAppSelector } from '@/store'
 import { ADMIN, SUPPORT } from '@/constants/roles.constant'
 import {
@@ -81,7 +82,6 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import MapsEdit from './Components/MapsEdit'
 import EditServiceDrawer from './Components/EditServiceDrawer'
-import EditPromotionDrawer from './Components/EditPromotionDrawer'
 import CreateServiceDrawer from './Components/CreateServiceDrawer'
 import ProfileGarageTabs, {
     type ClienteHistorico,
@@ -98,6 +98,8 @@ import {
     getPrefixedDocumentNumber,
     getPrefixedDocumentPrefix,
 } from '@/utils/prefixedDocumentId'
+import { posicionEnCola } from '@/utils/colaNegocios'
+import { whatsappUrl } from '@/utils/whatsapp'
 
 type Service = {
     nombre_servicio: string
@@ -125,56 +127,6 @@ type Service = {
         usuario_nombre: string
     }[]
 }
-
-type Promotion = {
-    uid_promocion: string
-    nombre_servicio: string
-    descripcion: string
-    precio: string
-    taller: string
-    uid_taller: string
-    estatus: boolean
-    uid_categoria: string
-    nombre_categoria: string
-    subcategoria: any[]
-    garantia: string
-    typeService: string
-    service_image: string[]
-}
-
-// Data estática para promociones (de momento sin BD)
-const MOCK_PROMOCIONES: Promotion[] = [
-    {
-        uid_promocion: 'promo-1',
-        nombre_servicio: 'Cambio de aceite + filtro',
-        descripcion: 'Promoción cambio de aceite con filtro incluido.',
-        precio: '25.00',
-        taller: '',
-        uid_taller: '',
-        estatus: true,
-        uid_categoria: '',
-        nombre_categoria: '',
-        subcategoria: [],
-        garantia: '30 días',
-        typeService: 'local',
-        service_image: [],
-    },
-    {
-        uid_promocion: 'promo-2',
-        nombre_servicio: 'Alineación y balanceo',
-        descripcion: 'Combo alineación y balanceo a precio especial.',
-        precio: '45.00',
-        taller: '',
-        uid_taller: '',
-        estatus: false,
-        uid_categoria: '',
-        nombre_categoria: '',
-        subcategoria: [],
-        garantia: '30 días',
-        typeService: 'local',
-        service_image: [],
-    },
-]
 
 type Planes = {
     uid: string
@@ -251,8 +203,6 @@ const ProfileGarage = () => {
     const [isSuscrito, setIsSuscrito] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<Planes | null>(null)
     const [services, setServices] = useState<Service[]>([])
-    const [promociones, setPromociones] =
-        useState<Promotion[]>(MOCK_PROMOCIONES)
 
     const [planes, setPlanes] = useState<Planes[]>([])
     const [loading, setLoading] = useState(true)
@@ -263,6 +213,11 @@ const ProfileGarage = () => {
     const [reviewAction, setReviewAction] = useState<'Aprobado' | 'Rechazado' | ''>('')
     const [reviewReason, setReviewReason] = useState('')
     const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+    // Tras aprobar o rechazar, si hay otro negocio en la cola, el modal ofrece
+    // «Ir al siguiente» en lugar de cerrarse.
+    const [revisionTerminada, setRevisionTerminada] = useState<
+        'Aprobado' | 'Rechazado' | null
+    >(null)
     const [dataOrigin, setdataOrigin] = useState<DocumentData | null>(null)
     const [diasRestantes, setDiasRestantes] = useState<number | null>(null)
     const [subscription, setSubscription] = useState({
@@ -356,6 +311,7 @@ const ProfileGarage = () => {
         location.pathname.lastIndexOf('/') + 1,
     )
     const navigate = useNavigate()
+    const ubicacion = useLocation()
     const userAuthority = useAppSelector((state) => state.auth.user.authority)
     const isSupportRole = userAuthority?.includes(SUPPORT)
     const isAdminRole = userAuthority?.includes(ADMIN)
@@ -364,6 +320,23 @@ const ProfileGarage = () => {
         userAuthority?.includes('Admin') || userAuthority?.includes('Certificador')
     const canReviewWorkshop =
         userAuthority?.includes('Admin') || userAuthority?.includes('Certificador')
+
+    // Cola que deja la lista de Negocios al abrir un perfil.
+    // Solo vale si se llegó desde esa lista (no desde el mapa, un enlace, etc.).
+    const vieneDeLaLista = Boolean(
+        (ubicacion.state as { desdeCola?: boolean } | null)?.desdeCola,
+    )
+    const cola = useMemo(
+        () => (vieneDeLaLista ? posicionEnCola(path) : null),
+        [path, vieneDeLaLista],
+    )
+    const irANegocio = (id: string | null) => {
+        if (!id) return
+        // Conserva la pestaña (?tab=...) para revisar varios seguidos.
+        navigate(`/profilegarage/${id}${window.location.search}`, {
+            state: { desdeCola: true },
+        })
+    }
 
     const normalizeStatusValue = (value?: string) =>
         String(value || '')
@@ -374,6 +347,8 @@ const ProfileGarage = () => {
 
     const isPendingApprovalStatus =
         normalizeStatusValue(data?.status) === 'en espera por aprobacion'
+    const isApprovedStatus = normalizeStatusValue(data?.status) === 'aprobado'
+    const isDeletedStatus = normalizeStatusValue(data?.status) === 'eliminado'
 
     const hasUsedFreePlan = useMemo(() => {
         const hadFreeInHistory = subscripcionestable.some((subscription) =>
@@ -692,12 +667,6 @@ const ProfileGarage = () => {
                         return [item]
                     })
 
-            // Promociones: de momento con data estática (MOCK_PROMOCIONES en estado inicial)
-            // Cuando se conecte la BD: descomentar fetch y setPromociones(promociones)
-            // const promocionesQuery = query(collection(db, 'Promociones'), where('uid_taller', '==', path))
-            // const promocionesSnapshot = await getDocs(promocionesQuery)
-            // const promociones = ...
-
             // Obtener todos los planes desde la colección 'Planes'
             const planesSnapshot = await getDocs(collection(db, 'Planes'))
             const planes = sortPlansByDisplayOrder(
@@ -714,7 +683,6 @@ const ProfileGarage = () => {
 
             setData(dataFinal)
             setServices(services)
-            // setPromociones(promociones) // descomentar cuando se use BD
             setPlanes(planes)
             setSubscription(subscripcionActual)
             setSubscriptionHistory(subscripciones)
@@ -727,7 +695,6 @@ const ProfileGarage = () => {
 
             if (endDate) {
                 const daysRemaining = calculateDaysRemaining(endDate)
-                console.log('aqui la vigencia w', daysRemaining)
                 setDiasRestantes(daysRemaining)
             }
 
@@ -770,7 +737,7 @@ const ProfileGarage = () => {
             console.error('Error al obtener los datos del cliente:', error)
             toast.push(
                 <Notification title="Error">
-                    Ocurrio un error al cargar los datos del cliente.
+                    Ocurrió un error al cargar los datos del cliente.
                 </Notification>,
             )
         } finally {
@@ -940,14 +907,11 @@ const ProfileGarage = () => {
             await getData()
 
             onDialogClosesub()
-            console.log(
-                'Subscripción actualizada y guardada en Subscripciones.',
-            )
             toast.push(
                 <Notification title="Éxito" type="success">
                     {isFreePlan
-                        ? 'Se ha subscrito correctamente al plan gratuito. Tu plan está activo.'
-                        : 'Se ha subscrito correctamente a este plan. Espera la aprobación del pago.'}
+                        ? 'Suscrito correctamente al plan gratuito. Tu plan está activo.'
+                        : 'Suscrito correctamente a este plan. Espera la aprobación del pago.'}
                 </Notification>,
             )
         } catch (error) {
@@ -1074,16 +1038,7 @@ const ProfileGarage = () => {
         if (!formData.Direccion || formData.Direccion.trim() === '') {
             toast.push(
                 <Notification title="Error">
-                    La Direccion no puede estar vacía.
-                </Notification>,
-            )
-            return
-        }
-
-        if (!formData.status) {
-            toast.push(
-                <Notification title="Error">
-                    Debes seleccionar un estatus.
+                    La dirección no puede estar vacía.
                 </Notification>,
             )
             return
@@ -1175,7 +1130,6 @@ const ProfileGarage = () => {
                 const lastNumber = match ? parseInt(match[1], 10) : 0
                 const newImageName = `${baseName}${lastNumber + 1}.jpg`
 
-                //console.log(lastImageName, lastNumber, newImageName)
 
                 // Referencia a la imagen anterior
                 const oldImageRef = ref(
@@ -1223,7 +1177,6 @@ const ProfileGarage = () => {
                         `documents/${path}/${fileName}`,
                     )
                     await deleteObject(oldDocRef)
-                    console.log(`Documento ${fieldName} eliminado del storage`)
                 } catch (error) {
                     console.error(
                         `Error eliminando documento ${fieldName} del storage:`,
@@ -1379,6 +1332,9 @@ const ProfileGarage = () => {
                 ...documentUpdates,
             }
             delete updatedData.newLogoFile // Elimina cualquier campo no deseado antes de actualizar
+            // El estatus solo cambia desde «Revisar taller», que además activa
+            // los servicios y el plan al aprobar. Editar no lo toca.
+            delete (updatedData as { status?: string }).status
             delete updatedData.rifIdFiscal_file
             delete updatedData.permisoOperacion_file
             delete updatedData.logotipoNegocio_file
@@ -1388,33 +1344,13 @@ const ProfileGarage = () => {
             await updateDoc(docRef, updatedData)
 
             // Actualiza el estado local
-            setData({ ...formData, image_perfil: newImageUrl })
+            setData((prev) => ({
+                ...formData,
+                status: prev?.status ?? dataOrigin?.status ?? '',
+                image_perfil: newImageUrl,
+            }))
             setEditModalOpen(false)
             getData()
-
-            console.log('Datos actualizados correctamente', formData)
-            console.log('Datos originales', dataOrigin)
-
-            if (formData?.status !== dataOrigin?.status) {
-                console.log('Cambio de estado kelfsklflksflks')
-
-                try {
-                    await axios.post(
-                        'https://apisolvers.solversapp.com/api/usuarios/sendNotification',
-                        {
-                            token: dataOrigin?.token,
-                            title: 'Cambio de estatus',
-                            body:
-                                'Hola, su usuario ha cambiado de estado ' +
-                                formData?.status +
-                                '. Cierre sesión y vuelva a ingresar por favor.',
-                            secretCode: 'Cambio de estado',
-                        },
-                    )
-                } catch (error) {
-                    console.error('Error al enviar notificación:', error)
-                }
-            }
 
             // Notifica éxito
             toast.push(
@@ -1495,6 +1431,7 @@ const ProfileGarage = () => {
     const openWorkshopReviewModal = () => {
         setReviewAction('')
         setReviewReason('')
+        setRevisionTerminada(null)
         setReviewDecisionModalOpen(true)
     }
 
@@ -1503,6 +1440,7 @@ const ProfileGarage = () => {
         setReviewDecisionModalOpen(false)
         setReviewAction('')
         setReviewReason('')
+        setRevisionTerminada(null)
     }
 
     const handleWorkshopReviewSubmit = async () => {
@@ -1584,30 +1522,34 @@ const ProfileGarage = () => {
                             },
                         )
                     } catch (error) {
-                        console.error('Error al enviar notificacion de aprobacion:', error)
+                        console.error('Error al enviar notificación de aprobación:', error)
                     }
                 }
 
                 toast.push(
-                    <Notification title="Exito" type="success">
+                    <Notification title="Éxito" type="success">
                         Taller aprobado correctamente.
                     </Notification>,
                 )
             } else {
                 toast.push(
-                    <Notification title="Exito" type="success">
+                    <Notification title="Éxito" type="success">
                         Taller rechazado y motivo guardado correctamente.
                     </Notification>,
                 )
             }
 
-            closeWorkshopReviewModal()
+            if (cola?.siguiente) {
+                setRevisionTerminada(reviewAction)
+            } else {
+                closeWorkshopReviewModal()
+            }
             getData()
         } catch (error) {
             console.error('Error al revisar taller:', error)
             toast.push(
                 <Notification title="Error">
-                    Ocurrio un error al procesar la revision del taller.
+                    Ocurrió un error al procesar la revisión del taller.
                 </Notification>,
             )
         } finally {
@@ -1752,9 +1694,6 @@ const ProfileGarage = () => {
         }
     }
 
-    const [isPromoDrawerOpen, setIsPromoDrawerOpen] = useState(false)
-    const [selectedPromotion, setSelectedPromotion] =
-        useState<Promotion | null>(null)
     const [isReviewsDialogOpen, setIsReviewsDialogOpen] = useState(false)
     const [selectedServiceForReviews, setSelectedServiceForReviews] =
         useState<Service | null>(null)
@@ -1939,7 +1878,6 @@ const ProfileGarage = () => {
                                       }
                                     : prev,
                             )
-                            console.log('Estado del servicio actualizado')
                         } catch (error) {
                             console.error(
                                 'Error al actualizar el estado del servicio:',
@@ -2022,7 +1960,7 @@ const ProfileGarage = () => {
             },
         },
         {
-            header: 'Descripcion',
+            header: 'Descripción',
             accessorKey: 'descripcion',
         },
         {
@@ -2066,76 +2004,6 @@ const ProfileGarage = () => {
         },
     ]
 
-    const handleEditPromotion = (promotion: Promotion) => {
-        setSelectedPromotion(promotion)
-        setIsPromoDrawerOpen(true)
-    }
-
-    const columnsPromo: ColumnDef<Promotion>[] = useMemo(
-        () => [
-            {
-                header: 'Nombre de la promoción',
-                accessorKey: 'nombre_servicio',
-            },
-            {
-                header: 'Precio',
-                accessorKey: 'precio',
-                cell: ({ row }) => {
-                    const precio = parseFloat(row.original.precio)
-                    return `$${precio.toFixed(2)}`
-                },
-            },
-            {
-                header: 'Estatus',
-                accessorKey: 'estatus',
-                cell: ({ row }) => {
-                    const [estatus, setEstatus] = useState<boolean>(
-                        row.original.estatus ?? false,
-                    )
-                    const handleStatusChange = (val: boolean) => {
-                        setEstatus(val)
-                        const updated = promociones.map((p) =>
-                            p.uid_promocion === row.original.uid_promocion
-                                ? { ...p, estatus: val }
-                                : p,
-                        )
-                        setPromociones(updated)
-                        // Con data estática solo actualizamos estado; cuando haya BD descomentar:
-                        // try {
-                        //     const docRef = doc(db, 'Promociones', row.original.uid_promocion)
-                        //     await updateDoc(docRef, { estatus: val })
-                        // } catch (error) { ... }
-                    }
-                    return (
-                        <div>
-                            <Switcher
-                                checked={estatus}
-                                onChange={() => handleStatusChange(!estatus)}
-                            />
-                        </div>
-                    )
-                },
-            },
-            {
-                header: 'Acciones',
-                id: 'actions',
-                cell: ({ row }) => (
-                    <div className="">
-                        <Button
-                            size="sm"
-                            variant="solid"
-                            onClick={() => handleEditPromotion(row.original)}
-                            className="text-blue-900 hover:bg-blue-700"
-                        >
-                            <FaEdit />
-                        </Button>
-                    </div>
-                ),
-            },
-        ],
-        [promociones],
-    )
-
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
     const table = useReactTable({
@@ -2178,28 +2046,11 @@ const ProfileGarage = () => {
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
     })
-    const table4 = useReactTable({
-        data: promociones,
-        columns: columnsPromo,
-        state: {
-            sorting,
-            columnFilters: filtering,
-        },
-        onSortingChange: setSorting,
-        onColumnFiltersChange: setFiltering,
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-    })
     const [currentPage, setCurrentPage] = useState(1)
-    const [currentPagePromo, setCurrentPagePromo] = useState(1)
     const [rowsPerPage, setRowsPerPage] = useState(10)
-    const [rowsPerPagePromo, setRowsPerPagePromo] = useState(10)
 
     const dataservice = table.getRowModel().rows
     const totalRows = dataservice.length
-    const dataPromo = table4.getRowModel().rows
-    const totalRowsPromo = dataPromo.length
 
     const onPaginationChange = (page: number) => {
         setCurrentPage(page)
@@ -2210,31 +2061,7 @@ const ProfileGarage = () => {
         setCurrentPage(1)
     }
 
-    const onPaginationChangePromo = (page: number) => setCurrentPagePromo(page)
-    const onRowsPerPageChangePromo = (newRowsPerPage: number) => {
-        setRowsPerPagePromo(newRowsPerPage)
-        setCurrentPagePromo(1)
-    }
 
-    const handleClosePromoDrawer = () => {
-        setIsPromoDrawerOpen(false)
-        setSelectedPromotion(null)
-    }
-
-    const handleOpenCreatePromotion = () => {
-        setSelectedPromotion(null)
-        setIsPromoDrawerOpen(true)
-    }
-
-    const handlePromotionCreated = (newPromotion: Promotion) => {
-        setPromociones((prev) => [...prev, newPromotion])
-    }
-
-    const handlePromotionUpdated = () => {
-        getData()
-    }
-
-    //console.log('data del taller', formData)
 
     const [isMapOpen, setIsMapOpen] = useState(false) // Estado para controlar el modal del mapa
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false) // Estado para controlar el drawer de edición
@@ -2385,15 +2212,44 @@ const ProfileGarage = () => {
 
     return (
         <Container className="min-h-screen bg-slate-50/50 pb-8 pt-2">
-            {canGoBack && (
-                <div className="flex items-center">
-                    <button
-                        onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
-                        className="mb-4 ml-1 flex items-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-900 shadow-sm transition duration-200 hover:bg-blue-50"
-                    >
-                        <FaArrowLeft className="mr-2" />
-                        <span>Volver</span>
-                    </button>
+            {(canGoBack || cola) && (
+                <div className="mb-4 ml-1 flex flex-wrap items-center gap-2">
+                    {canGoBack && (
+                        <button
+                            type="button"
+                            onClick={() => navigate(`${APP_PREFIX_PATH}/garages`)}
+                            className="flex items-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-900 shadow-sm transition duration-200 hover:bg-blue-50"
+                        >
+                            <FaArrowLeft className="mr-2" />
+                            <span>Volver</span>
+                        </button>
+                    )}
+                    {cola && (
+                        <>
+                            <button
+                                type="button"
+                                disabled={!cola.anterior}
+                                onClick={() => irANegocio(cola.anterior)}
+                                className="flex items-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-900 shadow-sm transition duration-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <FaChevronLeft className="mr-2" />
+                                <span>Anterior</span>
+                            </button>
+                            <button
+                                type="button"
+                                data-tour="perfil-siguiente"
+                                disabled={!cola.siguiente}
+                                onClick={() => irANegocio(cola.siguiente)}
+                                className="flex items-center rounded-lg border border-blue-200 bg-white px-4 py-2 text-sm font-medium text-blue-900 shadow-sm transition duration-200 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <span>Siguiente</span>
+                                <FaChevronRight className="ml-2" />
+                            </button>
+                            <span className="text-xs text-gray-500">
+                                {cola.posicion} de {cola.total}
+                            </span>
+                        </>
+                    )}
                 </div>
             )}
             {/* Aqui empieza el card del taller */}
@@ -2401,15 +2257,20 @@ const ProfileGarage = () => {
                 <Card bordered className="rounded-2xl border-gray-200 shadow-sm xl:max-w-[380px]">
                     {/* Botón Editar */}
                     <div className="mt-2 flex justify-end gap-2">
-                        {canReviewWorkshop &&
-                            isPendingApprovalStatus && (
-                                <button
-                                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
-                                    onClick={openWorkshopReviewModal}
-                                >
-                                    Aprobar taller
-                                </button>
-                            )}
+                        {canReviewWorkshop && data && !isDeletedStatus && !isApprovedStatus && (
+                            <button
+                                type="button"
+                                data-tour="perfil-revisar"
+                                className={
+                                    isPendingApprovalStatus
+                                        ? 'rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700'
+                                        : 'rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50'
+                                }
+                                onClick={openWorkshopReviewModal}
+                            >
+                                Revisar taller
+                            </button>
+                        )}
                         <button
                             className="rounded-lg bg-[#1d1e56] px-4 py-2 text-sm font-medium text-white hover:bg-[#1E3a8a]"
                             onClick={onEdit}
@@ -2435,12 +2296,12 @@ const ProfileGarage = () => {
 
                         <div className="mt-8 grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-2 xl:grid-cols-1">
                             <CustomerInfoField
-                                title="Correo electronico"
+                                title="Correo electrónico"
                                 value={data?.email || 'Correo no disponible'}
                             />
                             <CustomerInfoField
-                                title="Numero de telefono"
-                                value={data?.phone || 'Telefono no disponible'}
+                                title="Número de teléfono"
+                                value={data?.phone || 'Teléfono no disponible'}
                             />
                             <CustomerInfoField
                                 title="Rif"
@@ -2455,9 +2316,9 @@ const ProfileGarage = () => {
                                 value={data?.status || 'Estatus no disponible'}
                             />
                             <CustomerInfoField
-                                title="Direccion"
+                                title="Dirección"
                                 value={
-                                    data?.Direccion || 'Direccion no disponible'
+                                    data?.Direccion || 'Dirección no disponible'
                                 }
                             />
 
@@ -2543,13 +2404,12 @@ const ProfileGarage = () => {
                                                     />
                                                 </a>
                                             )}
-                                            {data.whatsapp && (
+                                            {whatsappUrl(data.whatsapp) && (
                                                 <a
-                                                    href={`https://wa.me/${
-                                                        data.whatsapp
-                                                    }?text=${encodeURIComponent(
+                                                    href={whatsappUrl(
+                                                        data.whatsapp,
                                                         'Hola, quiero más información sobre el servicio',
-                                                    )}`}
+                                                    )}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     title={data.whatsapp}
@@ -2585,25 +2445,11 @@ const ProfileGarage = () => {
                             typeof ProfileGarageTabs
                         >[0]['table3']
                     }
-                    tablePromociones={
-                        table4 as Parameters<
-                            typeof ProfileGarageTabs
-                        >[0]['tablePromociones']
-                    }
                     currentPage={currentPage}
                     rowsPerPage={rowsPerPage}
                     totalRows={totalRows}
                     onPaginationChange={onPaginationChange}
                     onRowsPerPageChange={onRowsPerPageChange}
-                    currentPagePromo={currentPagePromo}
-                    rowsPerPagePromo={rowsPerPagePromo}
-                    totalRowsPromo={totalRowsPromo}
-                    onPaginationChangePromo={onPaginationChangePromo}
-                    onRowsPerPageChangePromo={onRowsPerPageChangePromo}
-                    onEditPromotion={
-                        handleEditPromotion as (p: unknown) => void
-                    }
-                    onOpenCreatePromotion={handleOpenCreatePromotion}
                     subscription={subscription}
                     isSuscrito={isSuscrito}
                     onOpenPlansDialog={() => setDialogOpensub(true)}
@@ -2631,7 +2477,7 @@ const ProfileGarage = () => {
                 onClose={onDialogClosesub}
             >
                 <div>
-                    <h2 className="mb-4">Planes de Subscripción</h2>
+                    <h2 className="mb-4">Planes de suscripción</h2>
                     <div className="p-2 rounded-lg shadow">
                         <Table className="w-full rounded-lg">
                             <THead>
@@ -2801,9 +2647,42 @@ const ProfileGarage = () => {
                 onRequestClose={closeWorkshopReviewModal}
                 width={560}
             >
+                {revisionTerminada ? (
+                    <>
+                        <div className="p-6">
+                            <h5 className="text-lg font-semibold text-gray-900">
+                                {revisionTerminada === 'Aprobado'
+                                    ? 'Taller aprobado'
+                                    : 'Taller rechazado'}
+                            </h5>
+                            <p className="mt-1 text-sm text-gray-600">
+                                {revisionTerminada === 'Aprobado'
+                                    ? 'Se activaron sus servicios y su plan, y se le avisó por correo.'
+                                    : 'Se guardó el motivo y se le avisó por correo.'}{' '}
+                                ¿Pasas al siguiente negocio de la lista?
+                            </p>
+                        </div>
+                        <div className="flex justify-end gap-2 rounded-b-lg border-t bg-gray-50 px-6 py-3">
+                            <Button size="sm" onClick={closeWorkshopReviewModal}>
+                                Quedarme aquí
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="solid"
+                                onClick={() => {
+                                    closeWorkshopReviewModal()
+                                    irANegocio(cola?.siguiente ?? null)
+                                }}
+                            >
+                                Ir al siguiente
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                <>
                 <div className="p-6">
                     <h5 className="text-lg font-semibold text-gray-900">
-                        Revision del taller
+                        Revisión del taller
                     </h5>
                     <p className="mt-1 text-sm text-gray-600">
                         Selecciona si deseas aprobar o rechazar este taller.
@@ -2816,7 +2695,13 @@ const ProfileGarage = () => {
                                 reviewAction === 'Aprobado'
                                     ? 'border-emerald-600 bg-emerald-50 text-emerald-700'
                                     : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                            }`}
+                            } disabled:cursor-not-allowed disabled:opacity-40`}
+                            disabled={isApprovedStatus}
+                            title={
+                                isApprovedStatus
+                                    ? 'Este taller ya está aprobado'
+                                    : undefined
+                            }
                             onClick={() => setReviewAction('Aprobado')}
                         >
                             Aprobar
@@ -2841,7 +2726,7 @@ const ProfileGarage = () => {
                             </label>
                             <textarea
                                 className="mt-2 min-h-[120px] w-full rounded-lg border border-gray-300 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                                placeholder="Explica por que se rechaza el taller..."
+                                placeholder="Explica por qué se rechaza el taller..."
                                 value={reviewReason}
                                 onChange={(e) => setReviewReason(e.target.value)}
                             />
@@ -2863,9 +2748,11 @@ const ProfileGarage = () => {
                         loading={isSubmittingReview}
                         onClick={handleWorkshopReviewSubmit}
                     >
-                        Guardar decision
+                        Guardar decisión
                     </Button>
                 </div>
+                </>
+                )}
             </Dialog>
 
             {editModalOpen && (
@@ -3156,7 +3043,7 @@ const ProfileGarage = () => {
                             </label>
                             <label className="block md:col-span-2">
                                 <span className="text-gray-700 font-semibold">
-                                    Direccion
+                                    Dirección
                                 </span>
                                 <input
                                     className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
@@ -3219,23 +3106,18 @@ const ProfileGarage = () => {
                                     </div>
                                 </div>
                             )}
-                            <label className="block">
+                            <div className="block">
                                 <span className="text-gray-700 font-semibold">
                                     Estatus
                                 </span>
-                                <select
-                                    className="w-full mt-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring focus:ring-blue-200"
-                                    name="status"
-                                    value={formData.status}
-                                    onChange={handleEditChange}
-                                >
-                                    <option value="Aprobado">Aprobado</option>
-                                    <option value="Rechazado">Rechazado</option>
-                                    <option value="En espera por aprobación">
-                                        En espera por aprobación
-                                    </option>
-                                </select>
-                            </label>
+                                <p className="w-full mt-1 p-3 border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
+                                    {dataOrigin?.status || 'Sin estatus'}
+                                </p>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Para aprobar o rechazar usa «Revisar
+                                    taller».
+                                </p>
+                            </div>
                             {/* URL de Facebook */}
                             <label className="block">
                                 <span className="text-gray-700 font-semibold">
@@ -3808,17 +3690,6 @@ const ProfileGarage = () => {
                 onServiceCreated={handleServiceCreated}
             />
 
-            {/* Drawer para editar promoción */}
-            <EditPromotionDrawer
-                isOpen={isPromoDrawerOpen}
-                onClose={handleClosePromoDrawer}
-                promotion={selectedPromotion}
-                onPromotionUpdated={handlePromotionUpdated}
-                tallerUid={path}
-                tallerName={(data as any)?.nombre ?? ''}
-                onPromotionCreated={handlePromotionCreated}
-            />
-
             {/* Modal para visualizar documentos */}
             {documentModalOpen && selectedDocument && (
                 <div
@@ -4013,4 +3884,11 @@ const ProfileGarage = () => {
     )
 }
 
-export default ProfileGarage
+// Al pasar de un negocio a otro («Anterior» / «Siguiente») la ruta es la
+// misma; la clave por id vuelve a montar el perfil y recarga sus datos.
+const ProfileGaragePorId = () => {
+    const { id } = useParams()
+    return <ProfileGarage key={id} />
+}
+
+export default ProfileGaragePorId

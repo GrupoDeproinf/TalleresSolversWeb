@@ -29,8 +29,16 @@ import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
 import { exportStyledExcel } from '@/utils/excelExport'
 import { HiOutlineX } from 'react-icons/hi'
+import { Link, useSearchParams } from 'react-router-dom'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 import { cargarTalleresActivos, esDeTallerActivo } from '@/utils/talleresActivos'
+
+/** Fecha guardada en el navegador, o null si no es válida. */
+const fechaValida = (v: unknown): Date | null => {
+    if (!v) return null
+    const d = new Date(v as string)
+    return Number.isNaN(d.getTime()) ? null : d
+}
 
 type ServicesContact = {
     nombre_servicio?: string
@@ -108,10 +116,40 @@ const Services = ({
     const [dataServicesContact, setDataServicesContact] = useState<
         ServicesContact[]
     >([])
-    const [filterCity, setFilterCity] = useState('')
-    const [filterCategory, setFilterCategory] = useState('')
-    const [creationDateRange, setCreationDateRange] =
-        useState<DatePickerRangeValue>([null, null])
+    const [filterCity, setFilterCity] = useEstadoRecordado(
+        'ServiceContact/ServiceContactHistory:ciudad',
+        '',
+    )
+    // Filtra por el servicio contactado (nombre_servicio).
+    const [filterCategory, setFilterCategory] = useEstadoRecordado(
+        'ServiceContact/ServiceContactHistory:servicio',
+        '',
+    )
+    // Se guarda como texto ISO para poder recordarlo entre pantallas.
+    const [rangoGuardado, setRangoGuardado] = useEstadoRecordado<
+        [string | null, string | null]
+    >('ServiceContact/ServiceContactHistory:fechas', [null, null])
+    const creationDateRange = useMemo<DatePickerRangeValue>(
+        () => [
+            fechaValida(rangoGuardado[0]),
+            fechaValida(rangoGuardado[1]),
+        ],
+        [rangoGuardado],
+    )
+    const setCreationDateRange = (v: DatePickerRangeValue) =>
+        setRangoGuardado([
+            v[0] ? new Date(v[0]).toISOString() : null,
+            v[1] ? new Date(v[1]).toISOString() : null,
+        ])
+
+    // ?taller=<uid> (desde el perfil de un taller): solo los contactos de ese taller.
+    const [searchParams, setSearchParams] = useSearchParams()
+    const tallerUrl = (searchParams.get('taller') || '').trim()
+    const quitarFiltroTaller = () => {
+        const next = new URLSearchParams(searchParams)
+        next.delete('taller')
+        setSearchParams(next, { replace: true })
+    }
 
     // Ciudad de cada taller: se pide UNA vez por taller y en grupos de 30
     // (antes: una consulta por cada contacto, miles a la vez; la conexión se
@@ -185,7 +223,7 @@ const Services = ({
                     ciudad_taller:
                         ciudades.get(String(service.uid_taller || '').trim()) ||
                         'Sin ciudad',
-                    categoria_label: service.nombre_servicio || 'Sin categoría',
+                    categoria_label: service.nombre_servicio || 'Sin servicio',
                 })),
             )
         } catch (error) {
@@ -256,6 +294,8 @@ const Services = ({
         if (to) to.setHours(23, 59, 59, 999)
 
         return dataServicesContact.filter((s) => {
+            if (tallerUrl && String(s.uid_taller || '').trim() !== tallerUrl)
+                return false
             if (filterCity && s.ciudad_taller !== filterCity) return false
             if (filterCategory && s.categoria_label !== filterCategory)
                 return false
@@ -270,12 +310,26 @@ const Services = ({
             }
             return true
         })
-    }, [dataServicesContact, filterCity, filterCategory, creationDateRange])
+    }, [
+        dataServicesContact,
+        filterCity,
+        filterCategory,
+        creationDateRange,
+        tallerUrl,
+    ])
+
+    const nombreTallerUrl = useMemo(() => {
+        if (!tallerUrl) return ''
+        const c = dataServicesContact.find(
+            (s) => String(s.uid_taller || '').trim() === tallerUrl,
+        )
+        return c?.taller || ''
+    }, [dataServicesContact, tallerUrl])
 
     const clearFilters = () => {
         setFilterCity('')
         setFilterCategory('')
-        setCreationDateRange([null, null])
+        setRangoGuardado([null, null])
     }
 
     const hasActiveFilters =
@@ -292,6 +346,20 @@ const Services = ({
         {
             header: 'Negocio',
             accessorKey: 'taller',
+            cell: ({ row }) => {
+                const nombre = row.original.taller || 'Sin nombre'
+                const uid = String(row.original.uid_taller || '').trim()
+                if (!uid) return nombre
+                return (
+                    <Link
+                        to={`/profilegarage/${uid}`}
+                        className="font-medium text-[#151D61] hover:underline"
+                        title="Ver el perfil del negocio"
+                    >
+                        {nombre}
+                    </Link>
+                )
+            },
         },
         {
             header: 'Precio',
@@ -347,14 +415,18 @@ const Services = ({
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    // console.log('Datos de servicios antes de renderizar:', dataServicesContact) // Verifica el estado de los datos
-
     const [currentPage, setCurrentPage] = useEstadoRecordado('ServiceContact/ServiceContactHistory:pagina', 1)
     const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('ServiceContact/ServiceContactHistory:filas', 10)
 
     // Suponiendo que tienes un array de datos
     const data = table.getRowModel().rows // O la fuente de datos que estés utilizando
     const totalRows = data.length
+
+    // Si un filtro deja menos filas, no quedarse en una página vacía.
+    useEffect(() => {
+        const ultima = Math.max(1, Math.ceil(totalRows / rowsPerPage))
+        if (!cargando && currentPage > ultima) setCurrentPage(1)
+    }, [cargando, currentPage, rowsPerPage, setCurrentPage, totalRows])
 
     const onPaginationChange = (page: number) => {
         setCurrentPage(page)
@@ -373,7 +445,6 @@ const Services = ({
                 nombreServicio: service.nombre_servicio || 'N/A',
                 negocio: service.taller || 'N/A',
                 ciudad: service.ciudad_taller || 'N/A',
-                categoria: service.categoria_label || 'N/A',
                 precio: String(service.precio ?? 'N/A'),
                 fechaCreacion: service.fecha_creacion
                     ? service.fecha_creacion.toDate().toLocaleString()
@@ -398,7 +469,6 @@ const Services = ({
                 { header: 'Nombre del Servicio', key: 'nombreServicio' },
                 { header: 'Negocio', key: 'negocio' },
                 { header: 'Ciudad', key: 'ciudad' },
-                { header: 'Categoría', key: 'categoria' },
                 { header: 'Precio', key: 'precio' },
                 { header: 'Fecha de Creación', key: 'fechaCreacion' },
                 { header: 'Nombre del Usuario', key: 'nombreUsuario' },
@@ -437,10 +507,27 @@ const Services = ({
                     </p>
                 ) : null}
                 <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    {tallerUrl ? (
+                        <div className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[#151D61]/10 px-3 py-1.5 text-sm text-[#151D61]">
+                            <span>
+                                Solo los contactos de{' '}
+                                <strong>{nombreTallerUrl || 'este negocio'}</strong>
+                            </span>
+                            <button
+                                type="button"
+                                title="Ver los contactos de todos los negocios"
+                                aria-label="Quitar el filtro por negocio"
+                                className="rounded-full p-0.5 hover:bg-[#151D61]/15"
+                                onClick={quitarFiltroTaller}
+                            >
+                                <HiOutlineX className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ) : null}
                     <div className="flex min-w-0 flex-1 flex-nowrap items-end justify-end gap-x-2 overflow-x-auto pb-0.5">
                         <div className="flex w-[11.25rem] shrink-0 flex-col gap-0.5 sm:w-[12rem]">
                             <span className="text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
-                                Categoría
+                                Servicio
                             </span>
                             <Select<SimpleSelectOpt, false>
                                 size="sm"

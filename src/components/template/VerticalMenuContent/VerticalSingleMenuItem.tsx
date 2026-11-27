@@ -8,6 +8,8 @@ import type { CommonProps } from '@/@types/common'
 import type { Direction } from '@/@types/theme'
 import type { NavigationTree } from '@/@types/navigation'
 import { useAppSelector } from '@/store'
+import usePendientesAdmin from '@/utils/hooks/usePendientesAdmin'
+import { ADMIN } from '@/constants/roles.constant'
 
 const { MenuItem } = Menu
 
@@ -49,10 +51,14 @@ const DefaultItem = (props: DefaultItemProps) => {
     const { nav, onLinkClick, sideCollapsed, userAuthority } = props
 
     const userid = useAppSelector((state) => state.auth.user.key);
+    const esAdmin = userAuthority.includes(ADMIN)
+    // Solo se abre la escucha de pendientes si la entrada lleva contador.
+    const pendientes = usePendientesAdmin(esAdmin && !!nav.badge)
+    const contador = nav.badge ? pendientes[nav.badge] : 0
 
     const dynamicPath = nav.path 
     ? nav.path.includes(':id') 
-        ? nav.path.replace(':id', userid) 
+        ? nav.path.replace(':id', userid || '') 
         : nav.path 
     : '';
 
@@ -72,14 +78,27 @@ const DefaultItem = (props: DefaultItemProps) => {
                         })
                     }
                     target={nav.isExternalLink ? '_blank' : ''}
+                    data-tour={`nav-${nav.key}`}
                 >
                     <VerticalMenuIcon icon={nav.icon} />
                     {!sideCollapsed && (
-                        <span>
+                        <span className="flex-1">
                             <Trans
                                 i18nKey={nav.translateKey}
                                 defaults={nav.title}
                             />
+                        </span>
+                    )}
+                    {contador > 0 && (
+                        <span
+                            className={`rounded-full bg-[#FCC800] text-[11px] font-bold leading-none text-[#151D61] tabular-nums ${
+                                sideCollapsed
+                                    ? 'absolute right-1 top-1 h-2.5 w-2.5'
+                                    : 'ml-2 px-2 py-1'
+                            }`}
+                            aria-label={`${contador} pendientes`}
+                        >
+                            {sideCollapsed ? null : contador > 99 ? '99+' : contador}
                         </span>
                     )}
                 </Link>

@@ -8,6 +8,7 @@ import MobileNav from '@/components/template/MobileNav'
 import Search from '@/components/template/Search'
 import SideNav from '@/components/template/SideNav'
 import View from '@/views'
+import RecorridoGuiado from '@/components/shared/RecorridoGuiado'
 
 const HeaderActionsStart = () => {
     return (
@@ -42,6 +43,7 @@ const ModernLayout = () => {
                         headerStart={<HeaderActionsStart />}
                     />
                     <View />
+                    <RecorridoGuiado />
                 </div>
             </div>
         </div>

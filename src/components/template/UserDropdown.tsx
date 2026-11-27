@@ -1,46 +1,27 @@
-import Avatar from '@/components/ui/Avatar'
 import Dropdown from '@/components/ui/Dropdown'
 import withHeaderItem from '@/utils/hoc/withHeaderItem'
 import useAuth from '@/utils/hooks/useAuth'
 import { useAppSelector } from '@/store'
-import { Link } from 'react-router-dom'
+import { ADMIN } from '@/constants/roles.constant'
+import { EVENTO_VER_RECORRIDO } from '@/components/shared/RecorridoGuiado'
 import classNames from 'classnames'
-import { HiOutlineUser, HiOutlineCog, HiOutlineLogout } from 'react-icons/hi'
-import { FiActivity } from 'react-icons/fi'
+import { HiOutlineLogout, HiOutlineLightBulb } from 'react-icons/hi'
 import type { CommonProps } from '@/@types/common'
 import { FaUserCircle } from 'react-icons/fa'
 
-type DropdownList = {
-    label: string
-    path: string
-    icon: JSX.Element
-}
-
-const dropdownItemList: DropdownList[] = [
-    {
-        label: 'Profile',
-        path: '/app/account/settings/profile',
-        icon: <HiOutlineUser />,
-    },
-    {
-        label: 'Account Setting',
-        path: '/app/account/settings/profile',
-        icon: <HiOutlineCog />,
-    },
-    {
-        label: 'Activity Log',
-        path: '/app/account/activity-log',
-        icon: <FiActivity />,
-    },
-]
-
 const _UserDropdown = ({ className }: CommonProps) => {
-    const { userName, email } = useAppSelector((state) => state.auth.user)
+    const { userName, email, authority } = useAppSelector(
+        (state) => state.auth.user,
+    )
+    const esAdmin = (authority || []).includes(ADMIN)
 
     const { signOut } = useAuth()
 
     const UserAvatar = (
-        <div className={classNames(className, 'flex items-center gap-2')}>
+        <div
+            data-tour="menu-usuario"
+            className={classNames(className, 'flex items-center gap-2')}
+        >
             <FaUserCircle className="w-10 h-10" />
             <div className="hidden md:block">
                 <div className="font-bold">{userName}</div>
@@ -65,27 +46,21 @@ const _UserDropdown = ({ className }: CommonProps) => {
                         </div>
                     </div>
                 </Dropdown.Item>
-                {/* <Dropdown.Item variant="divider" />
-                {dropdownItemList.map((item) => (
-                    <Dropdown.Item
-                        key={item.label}
-                        eventKey={item.label}
-                        className="mb-1 px-0"
-                    >
-                        <Link 
-                            className="flex h-full w-full px-2" 
-                            to={item.path}
-                        >
-                            <span className="flex gap-2 items-center w-full">
-                                <span className="text-xl opacity-50">
-                                    {item.icon}
-                                </span>
-                                <span>{item.label}</span>
-                            </span>
-                        </Link>
-                    </Dropdown.Item>
-                ))} */}
                 <Dropdown.Item variant="divider" />
+                {esAdmin && (
+                    <Dropdown.Item
+                        eventKey="Ver recorrido"
+                        className="gap-2"
+                        onClick={() =>
+                            window.dispatchEvent(new Event(EVENTO_VER_RECORRIDO))
+                        }
+                    >
+                        <span className="text-xl opacity-50">
+                            <HiOutlineLightBulb />
+                        </span>
+                        <span>Ver recorrido</span>
+                    </Dropdown.Item>
+                )}
                 <Dropdown.Item
                     eventKey="Sign Out"
                     className="gap-2"

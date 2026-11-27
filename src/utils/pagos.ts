@@ -2,6 +2,18 @@
 // El precio del plan es sin IVA; el taller paga el total con IVA, en bolívares
 // a la tasa oficial del BCV del día del pago.
 
+import {
+    deleteField,
+    doc,
+    getDoc,
+    runTransaction,
+    Timestamp,
+    updateDoc,
+} from 'firebase/firestore'
+import axios from 'axios'
+import { db } from '@/configs/firebaseAssets.config'
+import { maybeActivateServicesOnSubscription } from '@/utils/subscriptionServiceActivation'
+
 export const IVA_RATE = 0.16
 
 export type TasaBcv = { fecha: string; tasa: number; manual?: boolean; fuente?: string }
@@ -118,3 +130,173 @@ export const bs = (n: number | null): string =>
 
 export const tasaTexto = (n: number | null): string =>
     n === null ? '—' : n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+
+// --- Validación de un pago (escrituras en Firestore + aviso al taller) ---
+
+export type Subscriptions = {
+    nombre?: string
+    taller_uid?: string
+    status?: string
+    cantidad_servicios?: string
+    fecha_inicio: Timestamp
+    fecha_fin: Timestamp
+    vigencia: string
+    monto?: string
+    uid: string
+    id: string
+    nombre_taller: string
+    correo_taller?: string
+    comprobante_pago: {
+        monto?: number
+        metodo?: string
+        banco?: string
+        comprobante?: string
+        cedula?: string | number
+        receiptFile?: string
+        numReferencia?: string
+        telefono?: number
+        fechaPago?: Timestamp
+        correo?: string
+        bancoOrigen?: string
+        bancoDestino?: string
+    }
+}
+
+/** FCM / push guardado en `Usuarios.token` (dispositivo del taller). */
+function getUsuarioPushToken(
+    userData: Record<string, unknown> | undefined,
+): string | null {
+    const raw = userData?.token
+    if (typeof raw !== 'string') return null
+    const t = raw.trim()
+    return t.length > 0 ? t : null
+}
+
+/** Lanzado cuando el pago ya no está «Por aprobar» (otro admin lo procesó). */
+export const PAGO_YA_PROCESADO = 'PAGO_YA_PROCESADO'
+/** Lanzado cuando otra persona lo está validando en este momento. */
+export const PAGO_EN_CURSO = 'PAGO_EN_CURSO'
+
+const estaPorAprobar = (status: unknown) =>
+    String(status ?? '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, '') === 'poraprobar'
+
+/**
+ * Aprueba un pago y activa el plan del negocio.
+ *
+ * 1. En una transacción comprueba que siga «Por aprobar», guarda los montos
+ *    (`extra`) y lo reserva: dos administradores no pueden validarlo a la vez.
+ * 2. Activa los servicios y copia la suscripción en el negocio.
+ * 3. Marca el pago «Aprobado» y quita la reserva. Si el paso 2 falla, el pago
+ *    sigue pendiente y se puede volver a validar. Repetir el paso 2 no
+ *    duplica nada: enciende los mismos servicios y reescribe la misma copia.
+ * 4. Solo al final avisa al teléfono del negocio.
+ */
+export async function approveSubscriptionAsApproved(
+    sub: Subscriptions,
+    extra: Record<string, unknown> = {},
+): Promise<void> {
+    const fechaInicio = new Date()
+    const vigenciaDias = parseInt(sub.vigencia, 10)
+    if (isNaN(vigenciaDias)) {
+        throw new Error('INVALID_VIGENCIA')
+    }
+    const fechaFin = new Date(fechaInicio)
+    fechaFin.setDate(fechaInicio.getDate() + vigenciaDias)
+
+    const updateData = {
+        nombre: sub.nombre,
+        vigencia: sub.vigencia,
+        fecha_inicio: Timestamp.fromDate(fechaInicio),
+        fecha_fin: Timestamp.fromDate(fechaFin),
+        status: 'Aprobado',
+        cantidad_servicios: sub.cantidad_servicios,
+        monto: sub.monto,
+    }
+
+    const ref = doc(db, 'Subscripciones', sub.uid)
+    // Paso 1: reservar el pago. Mientras dura la validación queda marcado con
+    // `validacion_en_curso`; otro administrador no puede validarlo a la vez.
+    // Si algo falla después, el pago sigue «Por aprobar» y se puede volver a
+    // validar (la reserva caduca a los 10 minutos). La reserva lleva un token
+    // propio: solo quien la tiene puede cerrar la aprobación.
+    const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    await runTransaction(db, async (tx) => {
+        const actual = await tx.get(ref)
+        const d = actual.exists() ? (actual.data() as Record<string, unknown>) : null
+        if (!d || !estaPorAprobar(d.status)) {
+            throw new Error(PAGO_YA_PROCESADO)
+        }
+        const reserva = d.validacion_en_curso
+        const desde =
+            reserva instanceof Timestamp ? reserva.toMillis() : Number.NaN
+        if (Number.isFinite(desde) && Date.now() - desde < 10 * 60 * 1000) {
+            throw new Error(PAGO_EN_CURSO)
+        }
+        tx.update(ref, {
+            ...extra,
+            validacion_en_curso: Timestamp.now(),
+            validacion_token: token,
+        })
+    })
+
+    if (sub.taller_uid) {
+        const activation = await maybeActivateServicesOnSubscription({
+            tallerUid: sub.taller_uid,
+            subscriptionDocId: sub.uid,
+            newPlanCantidadServiciosRaw: sub.cantidad_servicios,
+            newPlanMontoRaw: sub.monto,
+        })
+        const usuarioSubscripcion =
+            activation.usuarioCantidadServicios !== undefined
+                ? {
+                      ...updateData,
+                      cantidad_servicios: activation.usuarioCantidadServicios,
+                  }
+                : updateData
+        await updateDoc(doc(db, 'Usuarios', sub.taller_uid), {
+            subscripcion_actual: usuarioSubscripcion,
+        })
+    }
+    // Paso 3: el pago queda aprobado solo cuando todo lo anterior se guardó.
+    await runTransaction(db, async (tx) => {
+        const actual = await tx.get(ref)
+        const d = actual.exists() ? (actual.data() as Record<string, unknown>) : null
+        if (!d || d.validacion_token !== token || !estaPorAprobar(d.status)) {
+            // Otra persona tomó la reserva vencida y la cierra ella.
+            throw new Error(PAGO_YA_PROCESADO)
+        }
+        tx.update(ref, {
+            ...updateData,
+            validacion_en_curso: deleteField(),
+            validacion_token: deleteField(),
+        })
+    })
+
+    if (sub.taller_uid) {
+        // El aviso sale solo cuando todo quedó guardado.
+        try {
+            const userDoc = await getDoc(doc(db, 'Usuarios', sub.taller_uid))
+            const pushToken = userDoc.exists()
+                ? getUsuarioPushToken(userDoc.data() as Record<string, unknown>)
+                : null
+            if (pushToken) {
+                await axios.post(
+                    'https://apisolvers.solversapp.com/api/usuarios/sendNotification',
+                    {
+                        token: pushToken,
+                        title: 'Pago validado',
+                        body: 'Hola, se ha validado su pago exitosamente',
+                        secretCode: 'Validar codigo',
+                    },
+                )
+            }
+        } catch (error) {
+            console.error('Error al enviar notificación:', error)
+        }
+    }
+}

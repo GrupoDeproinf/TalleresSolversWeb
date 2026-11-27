@@ -13,7 +13,7 @@ import type {
     ColumnSort,
     ColumnFiltersState,
 } from '@tanstack/react-table'
-import { FaRegEye, FaCheckCircle, FaTimesCircle } from 'react-icons/fa'
+import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa'
 import { z } from 'zod'
 import {
     collection,
@@ -21,7 +21,6 @@ import {
     query,
     where,
     doc,
-    deleteDoc,
     updateDoc,
     addDoc,
 } from 'firebase/firestore'
@@ -29,11 +28,11 @@ import { db } from '@/configs/firebaseAssets.config'
 import Button from '@/components/ui/Button'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
-import type { MouseEvent } from 'react'
 import { Drawer, Switcher } from '@/components/ui'
 import * as Yup from 'yup'
 import { Formik, Field, Form, ErrorMessage, FormikHelpers } from 'formik'
-import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import { HiOutlinePencil, HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import Tooltip from '@/components/ui/Tooltip'
 import { sortPlansByDisplayOrder } from '@/utils/sortPlansByDisplayOrder'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 
@@ -80,7 +79,6 @@ const Plans = () => {
     const [dataPlans, setDataPlans] = useState<Plans[]>([])
     const [sorting, setSorting] = useState<ColumnSort[]>([])
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
-    const [dialogIsOpen, setIsOpen] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedPerson, setSelectedPerson] = useState<Plans | null>(null)
     const [drawerIsOpen, setDrawerIsOpen] = useState(false)
@@ -153,10 +151,6 @@ const Plans = () => {
         id: '', // También puedes asignar un valor vacío si no quieres undefined
     })
 
-    const openDialog = (person: Plans) => {
-        setSelectedPerson(person)
-        setIsOpen(true)
-    }
     const openDrawer = (person: Plans) => {
         setSelectedPerson(person)
         setDrawerIsOpen(true) // Abre el Drawer
@@ -376,12 +370,16 @@ const Plans = () => {
                 const person = row.original
                 return (
                     <div className="gap-2">
-                        <button
-                            onClick={() => openDrawer(person)} // Cambiar aquí
-                            className="text-blue-900"
-                        >
-                            <FaRegEye />
-                        </button>
+                        <Tooltip title="Editar">
+                            <button
+                                type="button"
+                                aria-label={`Editar el plan ${person.nombre || ''}`.trim()}
+                                className="rounded p-1 text-blue-900 hover:bg-blue-50"
+                                onClick={() => openDrawer(person)}
+                            >
+                                <HiOutlinePencil className="h-5 w-5" />
+                            </button>
+                        </Tooltip>
                     </div>
                 )
             },
@@ -390,14 +388,7 @@ const Plans = () => {
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    const onDialogClose = (e: MouseEvent) => {
-        console.log('onDialogClose', e)
-        setIsOpen(false)
-        setSelectedPerson(null) // Limpiar selección
-    }
-
-    const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
+    const handleDrawerClose = () => {
         setDrawerIsOpen(false)
         setDrawerCreateIsOpen(false)
         setSelectedPerson(null) // Limpiar la selección
@@ -410,41 +401,6 @@ const Plans = () => {
             id: '',
             uid: '',
         }) // Limpiar inputs
-    }
-
-    const handleDelete = async () => {
-        if (selectedPerson) {
-            console.log('Eliminando a:', selectedPerson)
-
-            try {
-                // Usa el id del documento en lugar de uid
-                const userDoc = doc(db, 'Usuarios', selectedPerson.id)
-                await deleteDoc(userDoc)
-
-                // Usar toast para mostrar el mensaje de éxito
-                const toastNotification = (
-                    <Notification title="Éxito">
-                        Usuario {selectedPerson.nombre} eliminado con éxito.
-                    </Notification>
-                )
-                toast.push(toastNotification)
-
-                getData() // Refrescar datos después de eliminar
-            } catch (error) {
-                console.error('Error eliminando el usuario:', error)
-
-                // Usar toast para mostrar el mensaje de error
-                const errorNotification = (
-                    <Notification title="Error">
-                        Hubo un error eliminando el usuario.
-                    </Notification>
-                )
-                toast.push(errorNotification)
-            } finally {
-                setIsOpen(false) // Cerrar diálogo después de la operación
-                setSelectedPerson(null) // Limpiar selección
-            }
-        }
     }
 
     const table = useReactTable({

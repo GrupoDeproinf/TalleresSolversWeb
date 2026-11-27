@@ -29,10 +29,16 @@ import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
 import { exportStyledExcel } from '@/utils/excelExport'
 import { FaRegStar, FaStar } from 'react-icons/fa'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
-import { cargarTalleresActivos, esDeTallerActivo } from '@/utils/talleresActivos'
+import {
+    cargarTalleresActivos,
+    esDeTallerActivo,
+    tallerDeRegistro,
+} from '@/utils/talleresActivos'
+import { Link } from 'react-router-dom'
 
 type Calificacion = {
     nombre_taller?: string
+    uid_taller?: string
     nombre_servicio?: string
     comentario?: string
     puntuacion?: number
@@ -81,6 +87,7 @@ function calificacionSearchableText(r: Calificacion): string {
 type ServicioConCalificaciones = {
     nombre_servicio: string;
     uid_servicio: string; // ID del servicio
+    uid_taller: string;
     calificaciones: Calificacion[]; // Subcolección de calificaciones
 };
 
@@ -127,6 +134,7 @@ const Puntuacion = () => {
                     serviciosConCalificaciones.push({
                         nombre_servicio: servicioData.nombre_servicio,
                         uid_servicio,
+                        uid_taller: tallerDeRegistro(servicioData),
                         calificaciones,
                     });
                 })
@@ -137,6 +145,7 @@ const Puntuacion = () => {
                 servicio.calificaciones.map((calificacion) => ({
                     ...calificacion,
                     nombre_servicio: servicio.nombre_servicio, // Incluye el nombre del servicio en cada calificación
+                    uid_taller: servicio.uid_taller,
                 }))
             );
     
@@ -194,6 +203,20 @@ const Puntuacion = () => {
         {
             header: 'Negocio',
             accessorKey: 'nombre_taller',
+            cell: ({ row }) => {
+                const nombre = row.original.nombre_taller || 'Sin nombre'
+                const uid = row.original.uid_taller
+                if (!uid) return nombre
+                return (
+                    <Link
+                        to={`/profilegarage/${uid}`}
+                        className="font-medium text-blue-900 hover:underline"
+                        title="Ver perfil del negocio"
+                    >
+                        {nombre}
+                    </Link>
+                )
+            },
         },
         {
             header: 'Servicio',
@@ -278,7 +301,6 @@ const Puntuacion = () => {
         getFilteredRowModel: getFilteredRowModel(),
     })
 
-    // console.log('Datos de servicios antes de renderizar:', dataPuntuacion) // Verifica el estado de los datos
 
     const [currentPage, setCurrentPage] = useEstadoRecordado('Puntuacion/Puntuacion:pagina', 1)
     const [rowsPerPage, setRowsPerPage] = useEstadoRecordado('Puntuacion/Puntuacion:filas', 10)
@@ -301,33 +323,23 @@ const Puntuacion = () => {
     const endIndex = startIndex + rowsPerPage
 
     const handleExportToExcel = async () => {
-        if (!startDate || !endDate) {
-            toast.push(
-                <Notification title="Fechas incompletas">
-                    Por favor, selecciona ambas fechas para continuar.
-                </Notification>,
-            );
-            return;
-        }
-    
-        // Ajustar fecha de inicio y fin al inicio y fin del día en UTC
-        const adjustedStartDate = new Date(startDate);
-        adjustedStartDate.setUTCHours(0, 0, 0, 0); // Ajustar al inicio del día UTC
-    
-        const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setUTCHours(23, 59, 59, 999); // Ajustar al final del día UTC
-    
-        console.log({
-            startDate: adjustedStartDate,
-            endDate: adjustedEndDate,
-        });
-    
-        // Filtrar los datos
-        const formattedData = dataPuntuacion
+        // Exporta lo que se ve en la tabla (búsqueda y estrellas). Las fechas
+        // son opcionales: sin fechas no se recorta por fecha.
+        const desde = startDate ? new Date(startDate) : null
+        desde?.setUTCHours(0, 0, 0, 0)
+        const hasta = endDate ? new Date(endDate) : null
+        hasta?.setUTCHours(23, 59, 59, 999)
+
+        const formattedData = table
+            .getRowModel()
+            .rows.map((row) => row.original)
             .filter((puntuacion) => {
-                const creationDate = puntuacion.fecha_creacion?.toDate();
-                console.log("Creation date aquí", creationDate);
-                return creationDate && creationDate >= adjustedStartDate && creationDate <= adjustedEndDate;
+                if (!desde && !hasta) return true
+                const creationDate = puntuacion.fecha_creacion?.toDate?.()
+                if (!creationDate) return false
+                if (desde && creationDate < desde) return false
+                if (hasta && creationDate > hasta) return false
+                return true
             })
             .map((puntuacion) => ({
                 nombreNegocio: puntuacion.nombre_taller || 'N/A',
@@ -342,7 +354,7 @@ const Puntuacion = () => {
         if (formattedData.length === 0) {
             toast.push(
                 <Notification title="Sin datos para exportar">
-                    No hay datos disponibles en el rango de fechas seleccionado.
+                    No hay calificaciones con los filtros y fechas elegidos.
                 </Notification>,
             );
             return;
@@ -361,8 +373,8 @@ const Puntuacion = () => {
                     linkType: 'email',
                 },
             ],
-            sheetName: 'Servicios',
-            fileName: 'ServiciosSolicitados.xlsx',
+            sheetName: 'Puntuaciones',
+            fileName: 'Puntuaciones.xlsx',
         });
     
         toast.push(
@@ -372,7 +384,6 @@ const Puntuacion = () => {
         );
     
         handleCloseDialog();
-        console.log('Start date aquí: ', adjustedStartDate, 'End date aquí', adjustedEndDate);
     };
     
     
@@ -542,11 +553,16 @@ const Puntuacion = () => {
                 </div>
                 <Dialog isOpen={dialogIsOpen} onClose={handleCloseDialog}>
                 <div className="p-4">
-                    <h3 className="text-lg font-bold">Seleccionar Rango de Fechas</h3>
+                    <h3 className="text-lg font-bold">Exportar a Excel</h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                        Se exportan las calificaciones que ves en la tabla.
+                        Las fechas son opcionales: déjalas vacías para
+                        exportarlo todo.
+                    </p>
                     <div className="mt-4 space-y-4">
                         <div>
                             <label htmlFor="startDate" className="block text-sm">
-                                Fecha de Inicio:
+                                Desde (opcional):
                             </label>
                             <input
                                 id="startDate"
@@ -558,7 +574,7 @@ const Puntuacion = () => {
                         </div>
                         <div>
                             <label htmlFor="endDate" className="block text-sm">
-                                Fecha de Fin:
+                                Hasta (opcional):
                             </label>
                             <input
                                 id="endDate"

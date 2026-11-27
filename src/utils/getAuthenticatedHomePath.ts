@@ -4,7 +4,7 @@ import {
     CERTIFIER_DASHBOARD_PATH,
     TALLER_DASHBOARD_PATH,
 } from '@/constants/route.constant'
-import { CERTIFIER, SUPPORT, USER } from '@/constants/roles.constant'
+import { ADMIN, CERTIFIER, SUPPORT, USER } from '@/constants/roles.constant'
 
 /**
  * Ruta por defecto tras autenticación: el taller a su dashboard; admin/certificador al dashboard de ventas.
@@ -51,6 +51,11 @@ export function resolvePostSignInPath(
     }
 
     if (path === '/' || path === '') {
+        return homePath
+    }
+
+    // La portada del administrador no es para los demás roles.
+    if (!authority.includes(ADMIN) && path.startsWith(appConfig.authenticatedEntryPath)) {
         return homePath
     }
 

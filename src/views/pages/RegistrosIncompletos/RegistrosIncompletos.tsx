@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
-import { HiOutlineRefresh } from 'react-icons/hi'
 import { FaWhatsapp } from 'react-icons/fa'
 import { db } from '@/configs/firebaseAssets.config'
+import { whatsappUrlDe } from '@/utils/whatsapp'
 
 // Req. 005: talleres que empezaron el registro en la app y no lo terminaron.
 // La app informa el avance al servidor (colección RegistrosIncompletos); aquí
@@ -44,7 +44,6 @@ const haceCuanto = (d: Date | null): string => {
 
 /** Enlace de WhatsApp con un mensaje que dice exactamente qué falta. */
 const enlaceWhatsApp = (r: Registro): string => {
-    const numero = String(r.whatsapp || r.phone || '').replace(/\D/g, '')
     const nombre = String(r.responsable || '').trim().split(' ')[0]
     const faltan = (r.faltantes || []).slice(0, 6)
     const texto =
@@ -54,14 +53,13 @@ const enlaceWhatsApp = (r: Registro): string => {
             ? `Solo te falta: ${faltan.join(', ')}. `
             : 'Te falta muy poco para terminar. ') +
         '¿Te ayudamos a completarlo?'
-    return `https://wa.me/${numero}?text=${encodeURIComponent(texto)}`
+    return whatsappUrlDe([r.whatsapp, r.phone], texto)
 }
 
 const RegistrosIncompletos = () => {
     const [registros, setRegistros] = useState<Registro[]>([])
     const [cargando, setCargando] = useState(true)
     const [error, setError] = useState('')
-    const [recarga, setRecarga] = useState(0)
 
     useEffect(() => {
         setCargando(true)
@@ -80,7 +78,7 @@ const RegistrosIncompletos = () => {
             },
         )
         return cancelar
-    }, [recarga])
+    }, [])
 
     const ordenados = useMemo(
         () =>
@@ -94,19 +92,11 @@ const RegistrosIncompletos = () => {
 
     return (
         <div>
+            {/* La lista se actualiza sola (onSnapshot): no hace falta botón. */}
             <div className="mb-2 flex items-center gap-3">
                 <h1 className="text-4xl font-bold text-[#151D61]">
                     Registros incompletos
                 </h1>
-                <button
-                    type="button"
-                    title="Actualizar"
-                    aria-label="Actualizar"
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#151D61] shadow-sm transition hover:border-[#151D61]/35 hover:bg-[#151D61]/5"
-                    onClick={() => setRecarga((n) => n + 1)}
-                >
-                    <HiOutlineRefresh className="h-5 w-5" />
-                </button>
             </div>
             <p className="mb-6 max-w-3xl text-sm text-gray-600">
                 Talleres que empezaron el registro en la app y no lo
@@ -143,6 +133,7 @@ const RegistrosIncompletos = () => {
                                 const numero = String(
                                     r.whatsapp || r.phone || '',
                                 )
+                                const enlace = enlaceWhatsApp(r)
                                 return (
                                     <tr key={r.id} className="align-top">
                                         <td className="px-4 py-3">
@@ -173,9 +164,9 @@ const RegistrosIncompletos = () => {
                                             <div className="mb-1 text-gray-800">
                                                 {numero || '—'}
                                             </div>
-                                            {numero ? (
+                                            {enlace ? (
                                                 <a
-                                                    href={enlaceWhatsApp(r)}
+                                                    href={enlace}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                     className="inline-flex items-center gap-1.5 rounded-lg bg-[#128C4B] px-3 py-1.5 text-xs font-semibold text-white hover:brightness-95"

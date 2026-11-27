@@ -1,120 +1,50 @@
-import { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import Button from '@/components/ui/Button'
-import { HiOutlineRefresh, HiOutlineSearch } from 'react-icons/hi'
+import { useState } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
+import { APP_PREFIX_PATH } from '@/constants/route.constant'
+import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
+import EncabezadoLista from '@/views/pages/ServiceContact/EncabezadoLista'
 import RequestHistory from './RequestHistory'
-import ServiceContactHistory from '@/views/pages/ServiceContact/ServiceContactHistory'
 
-// Req. 006: una sola vista por página, sin pestañas. Las solicitudes van en
-// "Gestión de Solicitudes"; los contactos de conductores a servicios tienen su
-// propia entrada en el menú ("Contactos a talleres", ?tab=services).
-const TAB_REQUESTS = 'requests'
-const TAB_SERVICES = 'services'
-
+// Req. 006: una sola vista por página. Aquí van las solicitudes; los contactos
+// a talleres tienen su propia página (/app/ServiceContact). Los enlaces viejos
+// a ?tab=services se mandan allá, conservando los demás parámetros.
 const RequestAndServices = () => {
-    const [searchParams] = useSearchParams()
-    const [refreshRequestsSignal, setRefreshRequestsSignal] = useState(0)
-    const [refreshServicesSignal, setRefreshServicesSignal] = useState(0)
-    const [exportRequestsSignal, setExportRequestsSignal] = useState(0)
-    const [exportServicesSignal, setExportServicesSignal] = useState(0)
-    const [requestSearchTerm, setRequestSearchTerm] = useState('')
-    const [serviceSearchTerm, setServiceSearchTerm] = useState('')
+    const location = useLocation()
+    const params = new URLSearchParams(location.search)
+    const [refreshSignal, setRefreshSignal] = useState(0)
+    const [exportSignal, setExportSignal] = useState(0)
+    const [busqueda, setBusqueda] = useEstadoRecordado(
+        'RequestList/RequestAndServices:busqueda',
+        '',
+    )
 
-    const tabValue = useMemo(() => {
-        return searchParams.get('tab') === TAB_SERVICES
-            ? TAB_SERVICES
-            : TAB_REQUESTS
-    }, [searchParams])
-
-    const handleRefresh = () => {
-        if (tabValue === TAB_REQUESTS) {
-            setRefreshRequestsSignal((prev) => prev + 1)
-            return
-        }
-        setRefreshServicesSignal((prev) => prev + 1)
-    }
-
-    const handleExport = () => {
-        if (tabValue === TAB_REQUESTS) {
-            setExportRequestsSignal((prev) => prev + 1)
-            return
-        }
-        setExportServicesSignal((prev) => prev + 1)
-    }
-
-    const activeSearchTerm =
-        tabValue === TAB_REQUESTS ? requestSearchTerm : serviceSearchTerm
-
-    const handleSearchChange = (value: string) => {
-        if (tabValue === TAB_REQUESTS) {
-            setRequestSearchTerm(value)
-            return
-        }
-        setServiceSearchTerm(value)
+    if (params.get('tab') === 'services') {
+        params.delete('tab')
+        const resto = params.toString()
+        return (
+            <Navigate
+                replace
+                to={`${APP_PREFIX_PATH}/ServiceContact${resto ? `?${resto}` : ''}`}
+            />
+        )
     }
 
     return (
         <div>
-            <div className="mb-6 flex items-center gap-3">
-                <h1 className="text-4xl font-bold text-[#151D61]">
-                    {tabValue === TAB_SERVICES
-                        ? 'Contactos a talleres'
-                        : 'Gestión de Solicitudes'}
-                </h1>
-                <button
-                    type="button"
-                    title="Actualizar datos desde el servidor"
-                    aria-label="Actualizar datos desde el servidor"
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-gray-200 bg-white text-[#151D61] shadow-sm transition hover:border-[#151D61]/35 hover:bg-[#151D61]/5 active:scale-[0.98]"
-                    onClick={handleRefresh}
-                >
-                    <HiOutlineRefresh className="h-5 w-5" />
-                </button>
-                <div className="ml-auto flex items-end gap-3">
-                    <div className="w-[20rem] shrink-0">
-                        <span className="mb-1 block text-xs font-medium text-gray-600">
-                            Buscar en la tabla
-                        </span>
-                        <div className="relative">
-                            <input
-                                type="text"
-                                placeholder={
-                                    tabValue === TAB_REQUESTS
-                                        ? 'Solicitud, usuario, categoría, ciudad, urgencia…'
-                                        : 'Servicio, negocio, precio, usuario, correo, ids…'
-                                }
-                                className="h-10 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-3 text-sm shadow-sm focus:border-[#151D61] focus:outline-none focus:ring-2 focus:ring-[#151D61]/20"
-                                value={activeSearchTerm}
-                                onChange={(e) =>
-                                    handleSearchChange(e.target.value)
-                                }
-                            />
-                            <HiOutlineSearch className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
-                        </div>
-                    </div>
-                    <Button
-                        style={{ backgroundColor: '#10B981' }}
-                        className="h-10 shrink-0 whitespace-nowrap rounded-md px-4 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90"
-                        onClick={handleExport}
-                    >
-                        Exportar a Excel
-                    </Button>
-                </div>
-            </div>
+            <EncabezadoLista
+                titulo="Solicitudes"
+                busqueda={busqueda}
+                placeholder="Solicitud, usuario, categoría, ciudad, urgencia…"
+                onBusqueda={setBusqueda}
+                onActualizar={() => setRefreshSignal((n) => n + 1)}
+                onExportar={() => setExportSignal((n) => n + 1)}
+            />
             <div className="mt-2">
-                {tabValue === TAB_SERVICES ? (
-                    <ServiceContactHistory
-                        exportSignal={exportServicesSignal}
-                        refreshSignal={refreshServicesSignal}
-                        searchTerm={serviceSearchTerm}
-                    />
-                ) : (
-                    <RequestHistory
-                        exportSignal={exportRequestsSignal}
-                        refreshSignal={refreshRequestsSignal}
-                        searchTerm={requestSearchTerm}
-                    />
-                )}
+                <RequestHistory
+                    exportSignal={exportSignal}
+                    refreshSignal={refreshSignal}
+                    searchTerm={busqueda}
+                />
             </div>
         </div>
     )

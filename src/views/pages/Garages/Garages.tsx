@@ -27,6 +27,7 @@ import {
     FaFilePdf,
     FaImage,
     FaTimes,
+    FaWhatsapp,
 } from 'react-icons/fa'
 import {
     collection,
@@ -48,7 +49,7 @@ import Select from '@/components/ui/Select'
 import Dialog from '@/components/ui/Dialog'
 import toast from '@/components/ui/toast'
 import Notification from '@/components/ui/Notification'
-import type { MouseEvent, ChangeEvent } from 'react'
+import type { ChangeEvent } from 'react'
 import { Avatar, Switcher } from '@/components/ui'
 import { HiOutlineRefresh, HiOutlineSearch, HiOutlineX } from 'react-icons/hi'
 import { GiMechanicGarage } from 'react-icons/gi'
@@ -86,6 +87,8 @@ import {
     getPrefixedDocumentPrefix,
 } from '@/utils/prefixedDocumentId'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
+import { guardarColaNegocios } from '@/utils/colaNegocios'
+import { whatsappUrlDe } from '@/utils/whatsapp'
 
 interface SelectedPlace {
     latiLng: { lat: number; lng: number }
@@ -445,8 +448,6 @@ const Garages = () => {
     })
     const [filtering, setFiltering] = useState<ColumnFiltersState>([])
     const [selectedPerson, setSelectedPerson] = useState<Garage | null>(null)
-    const [drawerIsOpen, setDrawerIsOpen] = useState(false) // Estado para el Drawer
-    const [exportDialogIsOpen, setExportDialogIsOpen] = useState(false) // Estado para el modal de exportación
     const [showEliminados, setShowEliminados] = useState(false) // Estado para mostrar/ocultar talleres eliminados
     const [filterCiudad, setFilterCiudad] = useEstadoRecordado('Garages:ciudad', '')
     const [filterPlanActividad, setFilterPlanActividad] = useEstadoRecordado<
@@ -711,15 +712,6 @@ const Garages = () => {
                 registros.
             </Notification>,
         )
-        setExportDialogIsOpen(false)
-    }
-
-    const handleOpenExportDialog = () => {
-        setExportDialogIsOpen(true)
-    }
-
-    const handleCloseExportDialog = () => {
-        setExportDialogIsOpen(false)
     }
 
     const [drawerCreateIsOpen, setDrawerCreateIsOpen] = useState(false)
@@ -745,11 +737,6 @@ const Garages = () => {
         setSelectedPerson(person)
         setDeleteMotivo('')
         setIsOpen(true)
-    }
-
-    const openDrawer = (person: Garage) => {
-        setSelectedPerson(person)
-        setDrawerIsOpen(true) // Abre el Drawer
     }
 
     const validationSchema = Yup.object().shape({
@@ -965,7 +952,6 @@ const Garages = () => {
                     // Actualizar Firestore con las URLs de los documentos (solo si existen)
                     if (Object.keys(documentUpdates).length > 0) {
                         await updateDoc(docRef, documentUpdates);
-                        console.log('Documentos actualizados en Firestore:', documentUpdates);
                         // Refrescar lista después de subir documentos
                         getData();
                     }
@@ -1029,8 +1015,7 @@ const Garages = () => {
         setFiltering(buildColumnFilters({ dateFrom: from, dateTo: to }))
     }
 
-    const handleDrawerClose = (e: MouseEvent) => {
-        console.log('Drawer cerrado', e)
+    const handleDrawerClose = () => {
         setDrawerCreateIsOpen(false)
         setSelectedPlace(null) // Cierra el Drawer
         setNewGarage({
@@ -1063,13 +1048,18 @@ const Garages = () => {
             .join('')
     }
 
-    function getRandomColor() {
-        const letters = '0123456789ABCDEF'
-        let color = '#'
-        for (let i = 0; i < 6; i++) {
-            color += letters[Math.floor(Math.random() * 16)]
-        }
-        return color
+    // Abre el perfil y deja en la cola (para «Anterior» / «Siguiente») los
+    // negocios que se ven en la tabla, con sus filtros y su orden.
+    const abrirPerfil = (person: Garage) => {
+        if (!person.uid || person.status === 'Eliminado') return
+        guardarColaNegocios(
+            table
+                .getPrePaginationRowModel()
+                .rows.map((r) => r.original)
+                .filter((g) => g.status !== 'Eliminado')
+                .map((g) => g.uid as string),
+        )
+        navigate(`/profilegarage/${person.uid}`, { state: { desdeCola: true } })
     }
 
     const columns: ColumnDef<Garage>[] = [
@@ -1085,7 +1075,10 @@ const Garages = () => {
                           />
                       ),
                       cell: ({ row }) => (
-                          <div className="px-1">
+                          <div
+                              className="px-1"
+                              onClick={(e) => e.stopPropagation()}
+                          >
                               <IndeterminateCheckbox
                                   checked={row.getIsSelected()}
                                   disabled={!row.getCanSelect()}
@@ -1320,18 +1313,35 @@ const Garages = () => {
             cell: ({ row }) => {
                 const person = row.original
                 const isEliminado = person.status === 'Eliminado'
+                const enlaceWhatsapp = isEliminado
+                    ? ''
+                    : whatsappUrlDe([person.whatsapp, person.phone])
                 return (
-                    <div className="flex gap-2">
+                    <div
+                        className="flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <button
-                            onClick={() =>
-                                navigate(`/profilegarage/${person.uid}`)
-                            }
+                            type="button"
+                            onClick={() => abrirPerfil(person)}
                             className={`${isEliminado ? 'text-gray-400 cursor-not-allowed' : 'text-blue-900'}`}
                             disabled={isEliminado}
                             title={isEliminado ? 'Negocio eliminado' : 'Ver perfil'}
                         >
                             <FaRegEye />
                         </button>
+                        {enlaceWhatsapp && (
+                            <a
+                                href={enlaceWhatsapp}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#25d366]"
+                                title="Escribir por WhatsApp"
+                                aria-label="Escribir por WhatsApp"
+                            >
+                                <FaWhatsapp />
+                            </a>
+                        )}
                         {!isCertifier && !isSupportRole && !isEliminado && (
                             <button
                                 onClick={() => openDialog(person)}
@@ -1349,8 +1359,7 @@ const Garages = () => {
 
     const { Tr, Th, Td, THead, TBody, Sorter } = Table
 
-    const onDialogClose = (e: MouseEvent) => {
-        console.log('onDialogClose', e)
+    const onDialogClose = () => {
         setIsOpen(false)
         setDeleteMotivo('')
         setSelectedPerson(null)
@@ -1764,14 +1773,18 @@ const Garages = () => {
                             type="button"
                             style={{ backgroundColor: '#10B981' }}
                             className="h-10 shrink-0 whitespace-nowrap rounded-md px-3 text-sm font-medium text-white shadow-md transition duration-200 hover:opacity-90 sm:px-4"
-                            onClick={handleOpenExportDialog}
+                            title="Exporta los negocios que ves en la tabla, con los filtros actuales"
+                            onClick={handleExportToExcel}
                         >
                             Exportar Excel
                         </button>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-end gap-2">
+                <div
+                    className="flex flex-wrap items-end gap-2"
+                    data-tour="negocios-filtros"
+                >
                     <div className="w-[13.5rem] shrink-0 sm:w-[15rem]">
                         <span className="mb-0.5 block text-[10px] font-medium uppercase tracking-wide text-gray-500 sm:text-xs sm:normal-case sm:tracking-normal">
                             Creación
@@ -1898,7 +1911,10 @@ const Garages = () => {
                     </button>
                 </div>
             </div>
-            <div className="relative p-3 rounded-lg shadow min-h-[200px]">
+            <div
+                className="relative p-3 rounded-lg shadow min-h-[200px]"
+                data-tour="negocios-tabla"
+            >
                 {isLoading && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/70 z-10">
                         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-3" />
@@ -1952,9 +1968,19 @@ const Garages = () => {
                                     : ''
 
                                 return (
-                                    <Tr 
+                                    <Tr
                                         key={row.id}
-                                        className={rowClassName}
+                                        className={`${rowClassName} ${
+                                            isEliminado
+                                                ? ''
+                                                : 'cursor-pointer hover:bg-gray-50'
+                                        }`}
+                                        title={
+                                            isEliminado
+                                                ? undefined
+                                                : 'Abrir perfil'
+                                        }
+                                        onClick={() => abrirPerfil(row.original)}
                                     >
                                         {row.getVisibleCells().map((cell) => {
                                             const cellClassName = isEliminado
@@ -2079,34 +2105,6 @@ const Garages = () => {
                     </Button>
                 </div>
             </Dialog>
-            <Dialog
-                isOpen={exportDialogIsOpen}
-                onClose={handleCloseExportDialog}
-                onRequestClose={handleCloseExportDialog}
-            >
-                <h5 className="mb-4">Confirmar exportación</h5>
-                <p>
-                    Se exportarán los negocios que ves en la tabla con los filtros
-                    actuales (incluye columnas de la vista y datos internos del
-                    documento).
-                </p>
-                <div className="text-right mt-6">
-                    <Button
-                        className="ltr:mr-2 rtl:ml-2"
-                        variant="plain"
-                        onClick={handleCloseExportDialog}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        style={{ backgroundColor: '#10B981' }}
-                        className="text-white hover:opacity-80"
-                        onClick={handleExportToExcel}
-                    >
-                        Exportar
-                    </Button>
-                </div>
-            </Dialog>
             <Drawer
                 isOpen={drawerCreateIsOpen}
                 onClose={handleDrawerClose}
@@ -2135,8 +2133,6 @@ const Garages = () => {
                     onSubmit={(values, { setSubmitting }) => {
                         handleCreateGarage(values, selectedPlace)
                         setSubmitting(false)
-                        console.log(selectedPlace)
-                        console.log(newGarage)
                     }}
                 >
                     {({ values, setFieldValue, isSubmitting }) => (

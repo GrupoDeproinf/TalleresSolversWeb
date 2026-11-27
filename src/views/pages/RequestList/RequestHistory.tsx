@@ -37,6 +37,14 @@ import type { DatePickerRangeValue } from '@/components/ui/DatePicker/DatePicker
 import Tooltip from '@/components/ui/Tooltip'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
 import { cargarTalleresActivos, esDeTallerActivo } from '@/utils/talleresActivos'
+import { Link } from 'react-router-dom'
+
+/** Fecha guardada en el navegador, o null si no es válida. */
+const fechaValida = (v: unknown): Date | null => {
+    if (!v) return null
+    const d = new Date(v as string)
+    return Number.isNaN(d.getTime()) ? null : d
+}
 
 type Vehiculo = {
     KM?: number
@@ -484,11 +492,34 @@ const RequestList = ({
     const [propuestaAggBySolicitud, setPropuestaAggBySolicitud] = useState<
         Map<string, PropuestaAgg>
     >(() => new Map())
-    const [urgenciaFilter, setUrgenciaFilter] = useState<string>('todos')
-    const [filterCiudad, setFilterCiudad] = useState('')
-    const [filterCategoriaId, setFilterCategoriaId] = useState('')
-    const [creationDateRange, setCreationDateRange] =
-        useState<DatePickerRangeValue>([null, null])
+    const [urgenciaFilter, setUrgenciaFilter] = useEstadoRecordado<string>(
+        'RequestList/RequestHistory:urgencia',
+        'todos',
+    )
+    const [filterCiudad, setFilterCiudad] = useEstadoRecordado(
+        'RequestList/RequestHistory:ciudad',
+        '',
+    )
+    const [filterCategoriaId, setFilterCategoriaId] = useEstadoRecordado(
+        'RequestList/RequestHistory:categoria',
+        '',
+    )
+    // Se guarda como texto ISO para poder recordarlo entre pantallas.
+    const [rangoGuardado, setRangoGuardado] = useEstadoRecordado<
+        [string | null, string | null]
+    >('RequestList/RequestHistory:fechas', [null, null])
+    const creationDateRange = useMemo<DatePickerRangeValue>(
+        () => [
+            fechaValida(rangoGuardado[0]),
+            fechaValida(rangoGuardado[1]),
+        ],
+        [rangoGuardado],
+    )
+    const setCreationDateRange = (v: DatePickerRangeValue) =>
+        setRangoGuardado([
+            v[0] ? new Date(v[0]).toISOString() : null,
+            v[1] ? new Date(v[1]).toISOString() : null,
+        ])
     const [sorting, setSorting] = useState<ColumnSort[]>([
         { id: 'fecha_solicitud', desc: true },
     ])
@@ -503,6 +534,9 @@ const RequestList = ({
     const [activeTab, setActiveTab] = useState<'detalle' | 'propuestas'>('detalle')
     const [propuestas, setPropuestas] = useState<Propuesta[]>([])
     const [loadingPropuestas, setLoadingPropuestas] = useState(false)
+    /** Todas las propuestas ya cargadas con la lista; null mientras no han llegado. */
+    const [todasPropuestas, setTodasPropuestas] = useState<Propuesta[] | null>(null)
+    const [datosTecnicos, setDatosTecnicos] = useState<Record<string, boolean>>({})
 
     const [fotoPerfilPorUid, setFotoPerfilPorUid] = useState<Record<string, string>>({})
 
@@ -611,6 +645,7 @@ const RequestList = ({
             setCategoriaNombrePorId(catMap)
             setDataSolicitudes(solicitudes)
             setPropuestaAggBySolicitud(buildPropuestaAggMap(propuestas))
+            setTodasPropuestas(propuestas)
         } catch (error) {
             console.error('Error al cargar solicitudes:', error)
         }
@@ -801,8 +836,18 @@ const RequestList = ({
         setSelectedSolicitud(solicitud)
         setModalIsOpen(true)
         setActiveTab('detalle')
-        setPropuestas([])
-        void fetchPropuestasBySolicitud(solicitud.id)
+        setDatosTecnicos({})
+        // Las propuestas ya vienen con la lista; solo se piden si aún no llegaron.
+        if (todasPropuestas) {
+            setPropuestas(
+                todasPropuestas.filter(
+                    (p) => String(p.uid_solicitud ?? '') === solicitud.id,
+                ),
+            )
+        } else {
+            setPropuestas([])
+            void fetchPropuestasBySolicitud(solicitud.id)
+        }
     }
 
     const handleModalClose = () => {
@@ -1164,7 +1209,7 @@ const RequestList = ({
         setFilterCiudad('')
         setFilterCategoriaId('')
         setUrgenciaFilter('todos')
-        setCreationDateRange([null, null])
+        setRangoGuardado([null, null])
     }
 
     const hayFiltrosToolbar =
@@ -1565,7 +1610,17 @@ const RequestList = ({
                                                             Negocio
                                                         </p>
                                                         <p className="text-lg font-semibold text-gray-900">
-                                                            {p.nombre_taller || '—'}
+                                                            {String(p.uid_taller ?? '').trim() ? (
+                                                                <Link
+                                                                    to={`/profilegarage/${String(p.uid_taller).trim()}`}
+                                                                    className="text-[#151D61] hover:underline"
+                                                                    title="Ver el perfil del negocio"
+                                                                >
+                                                                    {p.nombre_taller || 'Negocio'}
+                                                                </Link>
+                                                            ) : (
+                                                                p.nombre_taller || '—'
+                                                            )}
                                                         </p>
                                                     </div>
                                                     <div className="md:text-right">
@@ -1579,17 +1634,47 @@ const RequestList = ({
                                                         </span>
                                                     </div>
                                                 </div>
-                                                <h4 className="mb-2 text-sm font-semibold text-[#151D61]">
-                                                    Colección Propuestas — todos los campos
-                                                </h4>
-                                                <DetalleFilasFirestore
-                                                    entries={entriesSorted(
-                                                        p as unknown as Record<
-                                                            string,
-                                                            unknown
-                                                        >,
-                                                    )}
-                                                />
+                                                <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                                                    {[
+                                                        ['Precio estimado', p.precio_estimado],
+                                                        ['Tiempo estimado', p.tiempo_estimado],
+                                                        ['Fecha de la propuesta', formatFecha(p.fecha_propuesta)],
+                                                    ].map(([k, v]) => (
+                                                        <div key={k}>
+                                                            <dt className="text-xs text-gray-500">{k}</dt>
+                                                            <dd className="font-medium text-gray-900">
+                                                                {v && String(v).trim() ? v : '—'}
+                                                            </dd>
+                                                        </div>
+                                                    ))}
+                                                </dl>
+                                                <button
+                                                    type="button"
+                                                    className="mt-3 text-xs font-medium text-[#151D61] hover:underline"
+                                                    aria-expanded={Boolean(datosTecnicos[p.id])}
+                                                    onClick={() =>
+                                                        setDatosTecnicos((prev) => ({
+                                                            ...prev,
+                                                            [p.id]: !prev[p.id],
+                                                        }))
+                                                    }
+                                                >
+                                                    {datosTecnicos[p.id]
+                                                        ? 'Ocultar datos técnicos'
+                                                        : 'Ver datos técnicos'}
+                                                </button>
+                                                {datosTecnicos[p.id] && (
+                                                    <div className="mt-2">
+                                                        <DetalleFilasFirestore
+                                                            entries={entriesSorted(
+                                                                p as unknown as Record<
+                                                                    string,
+                                                                    unknown
+                                                                >,
+                                                            )}
+                                                        />
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>

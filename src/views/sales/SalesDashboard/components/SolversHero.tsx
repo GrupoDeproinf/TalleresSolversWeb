@@ -6,6 +6,7 @@ import {
     HiOutlineClock,
     HiOutlineCreditCard,
     HiOutlineExclamation,
+    HiOutlineUserAdd,
     HiChevronRight,
 } from 'react-icons/hi'
 
@@ -77,8 +78,10 @@ type Props = {
     enEspera: number
     pagosPorValidar: number
     vencenHoy: number
+    /** Opcional: registros que se quedaron a medias (solo en la portada «Hoy»). */
+    registrosIncompletos?: number
     irA: (ruta: string) => void
-    rutas: { enEspera: string; pagos: string; vencen: string }
+    rutas: { enEspera: string; pagos: string; vencen: string; registros?: string }
 }
 
 const SolversHero = ({
@@ -86,6 +89,7 @@ const SolversHero = ({
     enEspera,
     pagosPorValidar,
     vencenHoy,
+    registrosIncompletos,
     irA,
     rutas,
 }: Props) => {
@@ -98,7 +102,8 @@ const SolversHero = ({
     const saludo =
         hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
     const primerNombre = String(nombre || '').trim().split(/\s+/)[0]
-    const totalPendientes = enEspera + pagosPorValidar + vencenHoy
+    const totalPendientes =
+        enEspera + pagosPorValidar + vencenHoy + (registrosIncompletos ?? 0)
 
     return (
         <section className="relative mb-4 overflow-hidden rounded-[28px] bg-[#151D61] p-6 text-white shadow-[0_18px_40px_-20px_rgba(21,29,97,0.6)] lg:p-8">
@@ -133,7 +138,10 @@ const SolversHero = ({
                     </p>
                 </div>
 
-                <div className="rounded-[22px] bg-white/[0.06] p-4 ring-1 ring-white/10 backdrop-blur-sm">
+                <div
+                    data-tour="hoy-pendientes"
+                    className="rounded-[22px] bg-white/[0.06] p-4 ring-1 ring-white/10 backdrop-blur-sm"
+                >
                     <div className="mb-3 flex items-center justify-between px-1">
                         <div>
                             <p className="text-sm font-semibold text-white">
@@ -167,6 +175,15 @@ const SolversHero = ({
                             Icono={HiOutlineExclamation}
                             onClick={() => irA(rutas.vencen)}
                         />
+                        {registrosIncompletos !== undefined && rutas.registros ? (
+                            <Mosaico
+                                etiqueta="Registros incompletos"
+                                detalle="Personas que no terminaron de registrarse"
+                                valor={registrosIncompletos}
+                                Icono={HiOutlineUserAdd}
+                                onClick={() => irA(rutas.registros as string)}
+                            />
+                        ) : null}
                     </div>
                 </div>
             </div>

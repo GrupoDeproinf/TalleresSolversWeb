@@ -21,8 +21,22 @@ import type { DocumentData } from 'firebase/firestore'
 import type { ReactNode } from 'react'
 import { useAppSelector } from '@/store'
 import { SUPPORT } from '@/constants/roles.constant'
+import { APP_PREFIX_PATH } from '@/constants/route.constant'
+import { Link, useSearchParams } from 'react-router-dom'
 
 const { TabNav, TabList, TabContent } = Tabs
+
+// Enlace directo a una pestaña: /profilegarage/<id>?tab=documentos
+const TAB_POR_SLUG: Record<string, string> = {
+    planes: 'tab1',
+    servicios: 'tab2',
+    documentos: 'tab3',
+    clientes: 'tab5',
+    pagos: 'tab6',
+}
+const SLUG_POR_TAB: Record<string, string> = Object.fromEntries(
+    Object.entries(TAB_POR_SLUG).map(([slug, tab]) => [tab, slug]),
+)
 
 // Req. 003: resultado de comparar el documento RIF con el RIF declarado.
 // Lo calcula el servidor al registrarse el taller o al subir el documento.
@@ -129,19 +143,11 @@ export type PaymentMethodOption = {
 export interface ProfileGarageTabsProps {
     table: ReactTable<unknown>
     table3: ReactTable<unknown>
-    tablePromociones: ReactTable<unknown>
     currentPage: number
     rowsPerPage: number
     totalRows: number
     onPaginationChange: (page: number) => void
     onRowsPerPageChange: (rowsPerPage: number) => void
-    currentPagePromo?: number
-    rowsPerPagePromo?: number
-    totalRowsPromo?: number
-    onPaginationChangePromo?: (page: number) => void
-    onRowsPerPageChangePromo?: (rowsPerPage: number) => void
-    onEditPromotion?: (promotion: unknown) => void
-    onOpenCreatePromotion?: () => void
     onOpenCreateService?: () => void
     subscription: SubscriptionTab | null
     isSuscrito: boolean
@@ -167,19 +173,11 @@ export interface ProfileGarageTabsProps {
 export default function ProfileGarageTabs({
     table,
     table3,
-    tablePromociones,
     currentPage,
     rowsPerPage,
     totalRows,
     onPaginationChange,
     onRowsPerPageChange,
-    currentPagePromo = 1,
-    rowsPerPagePromo = 10,
-    totalRowsPromo = 0,
-    onPaginationChangePromo,
-    onRowsPerPageChangePromo,
-    onEditPromotion,
-    onOpenCreatePromotion,
     onOpenCreateService,
     subscription,
     isSuscrito,
@@ -209,6 +207,14 @@ export default function ProfileGarageTabs({
     const [historicoDesde, setHistoricoDesde] = useState('')
     const [historicoHasta, setHistoricoHasta] = useState('')
     const [historicoPage, setHistoricoPage] = useState(1)
+    const [searchParams, setSearchParams] = useSearchParams()
+    const tabActual = TAB_POR_SLUG[searchParams.get('tab') || ''] || 'tab1'
+    const cambiarTab = (tab: string | number) => {
+        const siguiente = new URLSearchParams(searchParams)
+        siguiente.set('tab', SLUG_POR_TAB[String(tab)] || 'planes')
+        setSearchParams(siguiente, { replace: true })
+    }
+    const busquedaPagos = String(data?.rif || data?.nombre || '').trim()
 
     const clientesHistoricoFiltrados = useMemo(() => {
         let list =
@@ -266,19 +272,42 @@ export default function ProfileGarageTabs({
 
     return (
         <div className="flex-1 min-w-0">
-            <Tabs defaultValue="tab1">
+            <Tabs value={tabActual} onChange={cambiarTab}>
                 <TabList className="mb-4 flex w-full flex-wrap gap-2 sv-card rounded-3xl border border-gray-200 bg-white p-2 shadow-sm">
                     <TabNav value="tab1">Planes</TabNav>
                     <TabNav value="tab2">Servicios</TabNav>
                     <TabNav value="tab3">Documentos</TabNav>
-                    {/* <TabNav value="tab4">Promociones</TabNav> */}
                     <TabNav value="tab5">Histórico de clientes</TabNav>
                     <TabNav value="tab6">Métodos de pago</TabNav>
                 </TabList>
                 <div className="w-full">
                     <TabContent value="tab1">
                         <div className="mb-8 mt-2 space-y-5">
-                            <h6 className="text-gray-900">Subscripción</h6>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <h6 className="text-gray-900">Suscripción</h6>
+                                <div className="flex flex-wrap gap-2 text-sm">
+                                    {busquedaPagos ? (
+                                        <Link
+                                            to={`${APP_PREFIX_PATH}/subscriptions?q=${encodeURIComponent(
+                                                busquedaPagos,
+                                            )}`}
+                                            className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 font-medium text-blue-900 hover:bg-blue-50"
+                                        >
+                                            Ver sus pagos
+                                        </Link>
+                                    ) : null}
+                                    {tallerUid ? (
+                                        <Link
+                                            to={`${APP_PREFIX_PATH}/ServiceContact?taller=${encodeURIComponent(
+                                                tallerUid,
+                                            )}`}
+                                            className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 font-medium text-blue-900 hover:bg-blue-50"
+                                        >
+                                            Ver contactos
+                                        </Link>
+                                    ) : null}
+                                </div>
+                            </div>
                             <Card bordered className="mb-4 rounded-xl border-gray-200 shadow-sm">
                                 {!isSuscrito ? (
                                     <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -448,7 +477,7 @@ export default function ProfileGarageTabs({
                             <div>
                                 <div className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
                                     <h6 className="mb-6 flex justify-start mt-4">
-                                        Historial de Subscripciones
+                                        Historial de suscripciones
                                     </h6>
                                     <Table className="w-full rounded-lg">
                                         <THead>
@@ -951,102 +980,6 @@ export default function ProfileGarageTabs({
                                     </p>
                                 </div>
                             )}
-                    </div>
-                </TabContent>
-                <TabContent value="tab4">
-                    <div className="w-full h-full">
-                        <div className="sv-card rounded-3xl border border-gray-200 bg-white p-4 shadow-sm">
-                            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 mt-4">
-                                <h6 className="m-0">
-                                    Tablero digital para publicar promociones
-                                </h6>
-                                {onOpenCreatePromotion && (
-                                    <Button
-                                        size="sm"
-                                        variant="solid"
-                                        onClick={onOpenCreatePromotion}
-                                        className="text-white bg-blue-900 hover:bg-blue-700"
-                                    >
-                                        Crear promoción
-                                    </Button>
-                                )}
-                            </div>
-                            <Table className="w-full rounded-lg">
-                                <THead>
-                                    {tablePromociones
-                                        .getHeaderGroups()
-                                        .map((headerGroup) => (
-                                            <Tr key={headerGroup.id}>
-                                                {headerGroup.headers.map(
-                                                    (header) => (
-                                                        <Th
-                                                            key={header.id}
-                                                            colSpan={
-                                                                header.colSpan
-                                                            }
-                                                        >
-                                                            {header.isPlaceholder ? null : (
-                                                                <div
-                                                                    {...{
-                                                                        className:
-                                                                            header.column.getCanSort()
-                                                                                ? 'cursor-pointer select-none'
-                                                                                : '',
-                                                                        onClick:
-                                                                            header.column.getToggleSortingHandler(),
-                                                                    }}
-                                                                >
-                                                                    {flexRender(
-                                                                        header
-                                                                            .column
-                                                                            .columnDef
-                                                                            .header,
-                                                                        header.getContext(),
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </Th>
-                                                    ),
-                                                )}
-                                            </Tr>
-                                        ))}
-                                </THead>
-                                <TBody>
-                                    {tablePromociones
-                                        .getRowModel()
-                                        .rows.slice(
-                                            (currentPagePromo - 1) *
-                                                rowsPerPagePromo,
-                                            currentPagePromo * rowsPerPagePromo,
-                                        )
-                                        .map((row) => (
-                                            <Tr key={row.id}>
-                                                {row
-                                                    .getVisibleCells()
-                                                    .map((cell) => (
-                                                        <Td key={cell.id}>
-                                                            {flexRender(
-                                                                cell.column
-                                                                    .columnDef
-                                                                    .cell,
-                                                                cell.getContext(),
-                                                            )}
-                                                        </Td>
-                                                    ))}
-                                            </Tr>
-                                        ))}
-                                </TBody>
-                            </Table>
-                            <Pagination
-                                onChange={onPaginationChangePromo ?? (() => {})}
-                                currentPage={currentPagePromo}
-                                totalRows={totalRowsPromo}
-                                rowsPerPage={rowsPerPagePromo}
-                                onRowsPerPageChange={
-                                    onRowsPerPageChangePromo ?? (() => {})
-                                }
-                            />
-                        </div>
                     </div>
                 </TabContent>
                 <TabContent value="tab5">

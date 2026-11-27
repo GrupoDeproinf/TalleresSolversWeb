@@ -30,11 +30,10 @@ import {
     getSubscriptionTallerUid,
 } from '@/utils/activeTallerSubscriptionGuards'
 import {
-    approveSubscriptionAsApproved,
-    type Subscriptions,
-} from '@/views/pages/PaymentValidation/PaymentValidationPending'
-import {
     aFecha,
+    approveSubscriptionAsApproved,
+    PAGO_YA_PROCESADO,
+    PAGO_EN_CURSO,
     aNumero,
     bs,
     calcularMontos,
@@ -46,6 +45,7 @@ import {
     tasaTexto,
     usd,
     type EstatusPago,
+    type Subscriptions,
     type TasaBcv,
 } from '@/utils/pagos'
 import useEstadoRecordado from '@/utils/hooks/useEstadoRecordado'
@@ -114,9 +114,10 @@ const numeroSuelto = (n: number) =>
 /** "Plan Bronce" → "Bronce", para no escribir "Plan Plan Bronce". */
 const sinPrefijoPlan = (plan: string) => plan.replace(/^plan\s+/i, '')
 
+/** Sin ?estado= se abre en «Pendientes», que es lo que hay que atender. */
 const filtroDesdeUrl = (v: string | null): 'todos' | EstatusPago => {
-    const k = (v || '').toLowerCase()
-    if (k.startsWith('pend')) return 'Pendiente'
+    const k = (v || '').trim().toLowerCase()
+    if (!k || k.startsWith('pend')) return 'Pendiente'
     if (k.startsWith('pag')) return 'Pagado'
     if (k.startsWith('venc')) return 'Vencido'
     return 'todos'
@@ -128,15 +129,17 @@ const Pagos = () => {
     const [tasas, setTasas] = useState<TasaBcv[]>([])
     const [cargando, setCargando] = useState(true)
     const [error, setError] = useState('')
-    const [busqueda, setBusqueda] = useState('')
-    const [desde, setDesde] = useState('')
-    const [hasta, setHasta] = useState('')
+    const [busqueda, setBusqueda] = useEstadoRecordado('Subscriptions/Pagos:busqueda', '')
+    const [desde, setDesde] = useEstadoRecordado('Subscriptions/Pagos:desde', '')
+    const [hasta, setHasta] = useEstadoRecordado('Subscriptions/Pagos:hasta', '')
     const [pagina, setPagina] = useEstadoRecordado('Subscriptions/Pagos:pagina', 1)
     const [porPagina, setPorPagina] = useEstadoRecordado('Subscriptions/Pagos:filas', 10)
     const [detalle, setDetalle] = useState<Fila | null>(null)
     const [tasaPago, setTasaPago] = useState('')
     const [aEliminar, setAEliminar] = useState<Fila | null>(null)
     const [aAprobar, setAAprobar] = useState<Fila | null>(null)
+    const [seleccion, setSeleccion] = useState<Set<string>>(() => new Set())
+    const [confirmarLote, setConfirmarLote] = useState(false)
     const [ocupado, setOcupado] = useState(false)
     const [dialogoTasa, setDialogoTasa] = useState(false)
     const [tasaFecha, setTasaFecha] = useState(diaVE())
@@ -146,13 +149,22 @@ const Pagos = () => {
     const cambiarFiltro = (clave: 'todos' | EstatusPago) => {
         const next = new URLSearchParams(searchParams)
         next.delete('tab')
-        if (clave === 'todos') next.delete('estado')
+        if (clave === 'Pendiente') next.delete('estado')
         else next.set('estado', clave.toLowerCase())
         setSearchParams(next, { replace: true })
         setPagina(1)
     }
 
-    const cargar = useCallback(async (avisar = false) => {
+    // ?q=texto (por ejemplo, desde el perfil de un taller) rellena el buscador.
+    const qUrl = searchParams.get('q')
+    useEffect(() => {
+        if (qUrl !== null) {
+            setBusqueda(qUrl)
+            setPagina(1)
+        }
+    }, [qUrl, setBusqueda, setPagina])
+
+    const cargar = useCallback(async (avisar = false): Promise<Fila[] | null> => {
         setCargando(true)
         setError('')
         try {
@@ -297,6 +309,13 @@ const Pagos = () => {
                     (b.fechaRegistro?.getTime() || 0) - (a.fechaRegistro?.getTime() || 0),
             )
             setFilas(lista)
+            // Solo quedan seleccionados los que siguen pendientes.
+            setSeleccion((prev) => {
+                const pendientes = new Set(
+                    lista.filter((f) => f.estatus === 'Pendiente').map((f) => f.uid),
+                )
+                return new Set([...prev].filter((uid) => pendientes.has(uid)))
+            })
             if (avisar) {
                 toast.push(
                     <Notification title="Datos actualizados">
@@ -304,9 +323,11 @@ const Pagos = () => {
                     </Notification>,
                 )
             }
+            return lista
         } catch (e) {
             console.error('Pagos: error cargando', e)
             setError('No pudimos cargar los pagos. Intenta de nuevo.')
+            return null
         } finally {
             setCargando(false)
         }
@@ -354,20 +375,23 @@ const Pagos = () => {
     )
 
     const enPagina = visibles.slice((pagina - 1) * porPagina, pagina * porPagina)
+    const pendientesEnPagina = enPagina.filter((f) => f.estatus === 'Pendiente')
+    const todosMarcados =
+        pendientesEnPagina.length > 0 && pendientesEnPagina.every((f) => seleccion.has(f.uid))
 
     const abrirDetalle = (f: Fila) => {
         setDetalle(f)
         setTasaPago(f.tasa ? String(f.tasa) : '')
     }
 
-    const notificar = async (tallerUid: string, body: string) => {
+    const notificar = async (tallerUid: string, title: string, body: string) => {
         try {
             const u = await getDoc(doc(db, 'Usuarios', tallerUid))
             const token = u.exists() ? String((u.data() as Record<string, unknown>).token || '').trim() : ''
             if (!token) return
             await axios.post(`${API}/usuarios/sendNotification`, {
                 token,
-                title: 'Codigo Validado',
+                title,
                 body,
                 secretCode: 'Validar codigo',
             })
@@ -376,21 +400,26 @@ const Pagos = () => {
         }
     }
 
+    /** Lo que hace validar un pago: deja la tasa y los montos, activa el plan y avisa al negocio. */
+    // Montos y aprobación en la misma transacción: si el pago ya no está
+    // pendiente no se escribe nada.
+    const validarFila = async (f: Fila) => {
+        await approveSubscriptionAsApproved(f.crudo, {
+            subtotal: f.subtotal,
+            iva: f.iva,
+            total: f.total,
+            iva_porcentaje: 16,
+            tasa_bcv: f.tasa,
+            tasa_fecha: f.tasaFecha || null,
+            monto_bs: f.montoBs,
+        })
+    }
+
     const aprobar = async () => {
         if (!aAprobar) return
         setOcupado(true)
         try {
-            // Deja escrita la tasa y los montos con los que se validó.
-            await updateDoc(doc(db, 'Subscripciones', aAprobar.uid), {
-                subtotal: aAprobar.subtotal,
-                iva: aAprobar.iva,
-                total: aAprobar.total,
-                iva_porcentaje: 16,
-                tasa_bcv: aAprobar.tasa,
-                tasa_fecha: aAprobar.tasaFecha || null,
-                monto_bs: aAprobar.montoBs,
-            })
-            await approveSubscriptionAsApproved(aAprobar.crudo)
+            await validarFila(aAprobar)
             toast.push(
                 <Notification title="Pago validado">
                     El plan de {aAprobar.negocio} quedó activo.
@@ -405,17 +434,91 @@ const Pagos = () => {
                 <Notification title="Error">
                     {e instanceof Error && e.message === 'INVALID_VIGENCIA'
                         ? 'El plan de este pago no tiene una vigencia válida.'
-                        : 'No se pudo validar el pago.'}
+                        : e instanceof Error && e.message === PAGO_YA_PROCESADO
+                          ? 'Este pago ya fue procesado por otra persona. Actualizamos la lista.'
+                          : e instanceof Error && e.message === PAGO_EN_CURSO
+                            ? 'Otra persona está validando este pago. Inténtalo en unos minutos.'
+                            : 'No se pudo validar el pago. Sigue pendiente: puedes intentarlo de nuevo.'}
                 </Notification>,
             )
+            if (e instanceof Error && e.message === PAGO_YA_PROCESADO) {
+                setAAprobar(null)
+                setDetalle(null)
+                await cargar()
+            }
         } finally {
             setOcupado(false)
         }
     }
 
+    const seleccionados = useMemo(
+        () => filas.filter((f) => f.estatus === 'Pendiente' && seleccion.has(f.uid)),
+        [filas, seleccion],
+    )
+    const duplicadosSeleccionados = seleccionados.filter((f) => f.duplicado).length
+
+    const alternarSeleccion = (uid: string) => {
+        setSeleccion((prev) => {
+            const next = new Set(prev)
+            if (next.has(uid)) next.delete(uid)
+            else next.add(uid)
+            return next
+        })
+    }
+
+    const aprobarLote = async () => {
+        const lote = seleccionados
+        if (!lote.length) return
+        setOcupado(true)
+        let validados = 0
+        let omitidos = 0
+        const fallidos: string[] = []
+        // Uno tras otro, igual que si se validaran a mano.
+        for (const f of lote) {
+            if (f.duplicado) {
+                omitidos += 1
+                continue
+            }
+            try {
+                await validarFila(f)
+                validados += 1
+            } catch (e) {
+                if (
+                    e instanceof Error &&
+                    (e.message === PAGO_YA_PROCESADO || e.message === PAGO_EN_CURSO)
+                ) {
+                    // Otro administrador ya lo validó: no es un error.
+                    omitidos += 1
+                    continue
+                }
+                console.error('Pagos: error aprobando en lote', f.uid, e)
+                fallidos.push(f.negocio)
+            }
+        }
+        setOcupado(false)
+        setConfirmarLote(false)
+        setSeleccion(new Set())
+        toast.push(
+            <Notification
+                title={fallidos.length ? 'Validación con errores' : 'Pagos validados'}
+                type={fallidos.length ? 'warning' : 'success'}
+            >
+                {validados} pago{validados === 1 ? '' : 's'} validado
+                {validados === 1 ? '' : 's'}.
+                {omitidos
+                    ? ` ${omitidos} omitido${omitidos === 1 ? '' : 's'} (posible duplicado o ya procesado).`
+                    : ''}
+                {fallidos.length
+                    ? ` No se pudo${fallidos.length === 1 ? '' : 'ieron'} validar: ${fallidos.join(', ')}.`
+                    : ''}
+            </Notification>,
+        )
+        await cargar()
+    }
+
     const avisarRechazo = async (f: Fila) => {
         setOcupado(true)
-        await notificar(f.tallerUid, 'Hola, se ha rechazado su pago')
+        await notificar(f.tallerUid, 'Pago rechazado', 'Hola, se ha rechazado su pago')
         setOcupado(false)
         toast.push(
             <Notification title="Aviso enviado">
@@ -481,8 +584,10 @@ const Pagos = () => {
                     Este pago quedó calculado a {tasaTexto(t)} Bs por dólar.
                 </Notification>,
             )
-            setDetalle(null)
-            await cargar()
+            // El detalle sigue abierto, con los montos nuevos, para poder validar enseguida.
+            const lista = await cargar()
+            const actualizado = lista?.find((f) => f.uid === detalle.uid)
+            if (actualizado) abrirDetalle(actualizado)
         } catch (e) {
             console.error('Pagos: error guardando tasa del pago', e)
             toast.push(
@@ -646,7 +751,7 @@ const Pagos = () => {
             </div>
 
             <div className="mb-4 flex flex-wrap items-end gap-3">
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2" data-tour="pagos-filtros">
                     {FILTROS.map((f) => {
                         const activo = filtro === f.clave
                         return (
@@ -668,6 +773,23 @@ const Pagos = () => {
                         )
                     })}
                 </div>
+
+                {conteo.Pendiente > 0 && (
+                    <Button
+                        data-tour="pagos-validar-lote"
+                        disabled={ocupado || !seleccionados.length}
+                        className="h-10 whitespace-nowrap text-white hover:opacity-90 disabled:opacity-50"
+                        style={{ backgroundColor: '#16A34A' }}
+                        title={
+                            seleccionados.length
+                                ? 'Validar todos los pagos marcados'
+                                : 'Marca los pagos pendientes que quieras validar'
+                        }
+                        onClick={() => setConfirmarLote(true)}
+                    >
+                        Validar seleccionados ({seleccionados.length})
+                    </Button>
+                )}
 
                 <div className="ml-auto flex flex-wrap items-end gap-3">
                     <label className="text-xs font-medium text-gray-600">
@@ -750,7 +872,27 @@ const Pagos = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className={`${th} sticky left-0 z-10 bg-gray-50 shadow-[2px_0_0_0_#e5e7eb]`}>Nombre negocio</th>
+                            <th className={`${th} sticky left-0 z-10 w-10 bg-gray-50`}>
+                                {pendientesEnPagina.length > 0 && (
+                                    <input
+                                        type="checkbox"
+                                        className="h-4 w-4 cursor-pointer accent-[#151D61]"
+                                        title="Marcar los pendientes de esta página"
+                                        aria-label="Marcar los pendientes de esta página"
+                                        checked={todosMarcados}
+                                        onChange={() => {
+                                            setSeleccion((prev) => {
+                                                const next = new Set(prev)
+                                                pendientesEnPagina.forEach((f) =>
+                                                    todosMarcados ? next.delete(f.uid) : next.add(f.uid),
+                                                )
+                                                return next
+                                            })
+                                        }}
+                                    />
+                                )}
+                            </th>
+                            <th className={`${th} sticky left-10 z-10 bg-gray-50 shadow-[2px_0_0_0_#e5e7eb]`}>Nombre negocio</th>
                             <th className={th}>Acciones</th>
                             <th className={th}>Estatus</th>
                             <th className={th}>Fecha de registro</th>
@@ -774,20 +916,31 @@ const Pagos = () => {
                     <tbody className="divide-y divide-gray-100">
                         {cargando && !filas.length ? (
                             <tr>
-                                <td colSpan={19} className="px-4 py-10 text-center text-sm text-gray-500">
+                                <td colSpan={20} className="px-4 py-10 text-center text-sm text-gray-500">
                                     Cargando pagos…
                                 </td>
                             </tr>
                         ) : !enPagina.length ? (
                             <tr>
-                                <td colSpan={19} className="px-4 py-10 text-center text-sm text-gray-500">
+                                <td colSpan={20} className="px-4 py-10 text-center text-sm text-gray-500">
                                     No hay pagos con estos filtros.
                                 </td>
                             </tr>
                         ) : (
                             enPagina.map((f) => (
                                 <tr key={f.uid} className="group hover:bg-gray-50">
-                                    <td className={`${td} sticky left-0 z-10 max-w-[16rem] truncate bg-white font-medium shadow-[2px_0_0_0_#e5e7eb] group-hover:bg-gray-50`}>
+                                    <td className={`${td} sticky left-0 z-10 w-10 bg-white group-hover:bg-gray-50`}>
+                                        {f.estatus === 'Pendiente' && (
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4 cursor-pointer accent-[#151D61]"
+                                                aria-label={`Marcar el pago de ${f.negocio}`}
+                                                checked={seleccion.has(f.uid)}
+                                                onChange={() => alternarSeleccion(f.uid)}
+                                            />
+                                        )}
+                                    </td>
+                                    <td className={`${td} sticky left-10 z-10 max-w-[16rem] truncate bg-white font-medium shadow-[2px_0_0_0_#e5e7eb] group-hover:bg-gray-50`}>
                                         {f.tallerUid ? (
                                             <Link
                                                 to={`/profilegarage/${f.tallerUid}`}
@@ -820,14 +973,17 @@ const Pagos = () => {
                                             >
                                                 <FaRegEye />
                                             </button>
-                                            <button
-                                                type="button"
-                                                title="Eliminar"
-                                                className="rounded p-2 text-red-600 hover:bg-red-50"
-                                                onClick={() => setAEliminar(f)}
-                                            >
-                                                <FaTrash />
-                                            </button>
+                                            {/* Un pago ya validado no se elimina aquí: dejaría al negocio sin plan. */}
+                                            {f.estatus !== 'Pagado' && (
+                                                <button
+                                                    type="button"
+                                                    title="Eliminar"
+                                                    className="rounded p-2 text-red-600 hover:bg-red-50"
+                                                    onClick={() => setAEliminar(f)}
+                                                >
+                                                    <FaTrash />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                     <td className={td}>
@@ -1067,6 +1223,57 @@ const Pagos = () => {
                         </div>
                     </div>
                 )}
+            </Dialog>
+
+            <Dialog isOpen={confirmarLote} onClose={() => !ocupado && setConfirmarLote(false)}>
+                <div className="p-2">
+                    <h3 className="text-lg font-bold text-gray-900">Validar pagos seleccionados</h3>
+                    <p className="mt-2 text-sm text-gray-700">
+                        Vas a dar por recibidos <strong>{seleccionados.length - duplicadosSeleccionados}</strong> pago
+                        {seleccionados.length - duplicadosSeleccionados === 1 ? '' : 's'}
+                        {(() => {
+                            const totalBs = seleccionados
+                                .filter((f) => !f.duplicado)
+                                .reduce((acc, f) => acc + (f.montoBs || 0), 0)
+                            return totalBs > 0 ? ` por un total de ${bs(redondear(totalBs))}` : ''
+                        })()}
+                        . Cada plan se activa desde hoy y se le avisa a cada negocio, igual que al
+                        validarlos uno por uno.
+                    </p>
+                    {duplicadosSeleccionados > 0 && (
+                        <p className="mt-2 rounded-md bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                            {duplicadosSeleccionados} de los marcados{' '}
+                            {duplicadosSeleccionados === 1 ? 'es un posible duplicado y se omitirá' : 'son posibles duplicados y se omitirán'}
+                            . Revísalos y valídalos uno por uno.
+                        </p>
+                    )}
+                    <ul className="mt-3 max-h-48 overflow-y-auto rounded-md border border-gray-200 text-sm">
+                        {seleccionados.map((f) => (
+                            <li
+                                key={f.uid}
+                                className={`flex justify-between gap-3 border-b border-gray-100 px-3 py-1.5 last:border-0 ${
+                                    f.duplicado ? 'text-gray-400 line-through' : 'text-gray-800'
+                                }`}
+                            >
+                                <span className="truncate">{f.negocio}</span>
+                                <span className="shrink-0 tabular-nums">{bs(f.montoBs)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <Button disabled={ocupado} onClick={() => setConfirmarLote(false)}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            disabled={ocupado || seleccionados.length === duplicadosSeleccionados}
+                            className="text-white hover:opacity-90"
+                            style={{ backgroundColor: '#16A34A' }}
+                            onClick={() => void aprobarLote()}
+                        >
+                            {ocupado ? 'Validando…' : 'Validar pagos'}
+                        </Button>
+                    </div>
+                </div>
             </Dialog>
 
             <Dialog isOpen={Boolean(aEliminar)} onClose={() => !ocupado && setAEliminar(null)}>

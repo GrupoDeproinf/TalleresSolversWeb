@@ -7,5 +7,7 @@ export interface NavigationTree {
     icon: string
     type: 'title' | 'collapse' | 'item'
     authority: string[]
+    /** Contador de pendientes que se muestra junto a la entrada (solo Admin). */
+    badge?: 'enEspera' | 'pagosPorValidar' | 'registrosIncompletos'
     subMenu: NavigationTree[]
 }

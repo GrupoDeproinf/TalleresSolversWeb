@@ -1,0 +1,43 @@
+/* Recorrido guiado con los colores de Solvers (azul marino y amarillo). */
+.driver-popover.sv-recorrido {
+    border-radius: 18px;
+    padding: 20px 20px 16px;
+    max-width: 340px;
+    box-shadow: 0 18px 40px -16px rgba(21, 29, 97, 0.45);
+}
+.driver-popover.sv-recorrido .driver-popover-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #151d61;
+}
+.driver-popover.sv-recorrido .driver-popover-description {
+    margin-top: 6px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #4b5563;
+}
+.driver-popover.sv-recorrido .driver-popover-progress-text {
+    font-size: 12px;
+    color: #6b7280;
+}
+.driver-popover.sv-recorrido .driver-popover-footer button {
+    border-radius: 10px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    text-shadow: none;
+    border: 1px solid #e5e7eb;
+    color: #151d61;
+    background: #fff;
+}
+.driver-popover.sv-recorrido .driver-popover-footer .driver-popover-next-btn {
+    background: #151d61;
+    border-color: #151d61;
+    color: #fff;
+}
+.driver-popover.sv-recorrido .driver-popover-footer .driver-popover-next-btn:hover {
+    background: #1e2a8a;
+}
+.driver-popover.sv-recorrido .driver-popover-close-btn {
+    color: #9ca3af;
+}

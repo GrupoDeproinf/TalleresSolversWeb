@@ -9,6 +9,12 @@ import type { Routes } from '@/@types/routes'
 
 const appsRoute: Routes = [
     {
+        key: 'appsHoy.hoy',
+        path: `${APP_PREFIX_PATH}/hoy`,
+        component: lazy(() => import('@/views/pages/Hoy')),
+        authority: [ADMIN],
+    },
+    {
         key: 'appsTaller.dashboard',
         path: TALLER_DASHBOARD_PATH,
         component: lazy(() => import('@/views/pages/TallerDashboard')),
@@ -30,16 +36,10 @@ const appsRoute: Routes = [
         authority: [ADMIN],
     },
     {
-        key: 'appsProject.dashboard',
-        path: `${APP_PREFIX_PATH}/project/dashboard`,
-        component: lazy(() => import('@/views/project/ProjectDashboard')),
-        authority: [ADMIN, USER],
-    },
-    {
         key: 'appsUsers.users',
         path: `${APP_PREFIX_PATH}/users`,
         component: lazy(() => import('@/views/pages/Users')),
-        authority: [ADMIN, SUPPORT, USER],
+        authority: [ADMIN, SUPPORT],
     },
     {
         key: 'appsGarages.garages',
@@ -48,52 +48,40 @@ const appsRoute: Routes = [
         authority: [ADMIN, USER, CERTIFIER, SUPPORT],
     },
     {
-        key: 'appsServices.services',
-        path: `${APP_PREFIX_PATH}/services`,
-        component: lazy(() => import('@/views/pages/Services')),
-        authority: [ADMIN, USER],
-    },
-    {
         key: 'appsCategory.category',
         path: `${APP_PREFIX_PATH}/category`,
         component: lazy(() => import('@/views/pages/Category')),
-        authority: [ADMIN, USER],
-    },
-    {
-        key: 'appsServicegarage.servicegarage',
-        path: `${APP_PREFIX_PATH}/servicegarage`,
-        component: lazy(() => import('@/views/pages/ServiceGarage')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsPlans.plans',
         path: `${APP_PREFIX_PATH}/plans`,
         component: lazy(() => import('@/views/pages/Plans')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsgarages_ubication.garages_ubication',
         path: `${APP_PREFIX_PATH}/garages_ubication`,
         component: lazy(() => import('@/views/pages/Garages_Ubication')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsSubscriptions.subscriptions',
         path: `${APP_PREFIX_PATH}/subscriptions`,
         component: lazy(() => import('@/views/pages/Subscriptions')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsContact.ServiceContact',
         path: `${APP_PREFIX_PATH}/ServiceContact`,
         component: lazy(() => import('@/views/pages/ServiceContact')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsContact.Puntuacion',
         path: `${APP_PREFIX_PATH}/Puntuacion`,
         component: lazy(() => import('@/views/pages/Puntuacion')),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsServicesList.servicesList',
@@ -119,7 +107,7 @@ const appsRoute: Routes = [
         component: lazy(
             () => import('@/views/pages/PaymentValidation/PaymentValidation'),
         ),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
     {
         key: 'appsRequestList.requestList',
@@ -127,16 +115,8 @@ const appsRoute: Routes = [
         component: lazy(
             () => import('@/views/pages/RequestList/RequestAndServices'),
         ),
-        authority: [ADMIN, USER],
+        authority: [ADMIN],
     },
-    {
-        key: 'appsGruas.gruas',
-        path: `${APP_PREFIX_PATH}/gruas`,
-        component: lazy(() => import('@/views/pages/TruckList/truckList')),
-        authority: [ADMIN, USER],
-    },
-    // Req. 006: se quitó "Tipos de vehículo" del panel. Los tipos guardados
-    // (Camión, Automóvil, Moto) siguen en la base y la app los usa igual.
     {
         key: 'appsRegistrosIncompletos.registrosIncompletos',
         path: `${APP_PREFIX_PATH}/registros-incompletos`,
